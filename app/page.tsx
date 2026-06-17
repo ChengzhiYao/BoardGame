@@ -1,7 +1,7 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ensureSession } from '@/lib/auth';
+import { ensureSession, signInWithGoogle, signOut } from '@/lib/auth';
 
 export default function Home() {
   const router = useRouter();
@@ -49,6 +49,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center gap-7 px-6 text-center">
+      <AccountBadge />
       <h1 className="text-4xl md:text-5xl font-serif tracking-wide text-parchment">克苏鲁调查团</h1>
       <p className="max-w-md text-parchment/70 leading-relaxed">
         两名调查员，一条邀请链接，一位永不迷路、真相绝不更改的 AI 守秘人。
@@ -119,5 +120,31 @@ export default function Home() {
       {err && <p className="text-blood text-sm">{err}</p>}
       <a href="/upgrade" className="text-parchment/40 hover:text-parchment text-sm underline">开房说明 · 我的局数 →</a>
     </main>
+  );
+}
+
+function AccountBadge() {
+  const [s, setS] = useState<any>(null);
+  async function load() {
+    try { const r = await fetch('/api/billing/status'); setS(await r.json()); }
+    catch { setS({ loggedIn: false }); }
+  }
+  useEffect(() => { load(); }, []);
+  if (!s) return null;
+  return (
+    <div className="fixed top-3 right-3 z-20 text-xs">
+      {s.loggedIn ? (
+        <div className="flex items-center gap-2 rounded-full bg-fog/80 border border-eldritch/30 px-3 py-1.5 text-parchment/80 backdrop-blur">
+          <span className="truncate max-w-[150px]" title={s.email}>{s.email}</span>
+          <span className="text-eldritch shrink-0">{s.whitelisted ? '永久免费' : `${s.credits} 局`}</span>
+          <button onClick={async () => { await signOut(); load(); }} className="text-parchment/40 hover:text-parchment underline shrink-0">退出</button>
+        </div>
+      ) : (
+        <button onClick={() => signInWithGoogle('/').catch(() => {})}
+          className="rounded-full bg-fog/80 border border-eldritch/30 px-3 py-1.5 text-parchment/70 hover:text-parchment backdrop-blur">
+          Google 登录
+        </button>
+      )}
+    </div>
   );
 }

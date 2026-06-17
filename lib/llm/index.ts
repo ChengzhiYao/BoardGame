@@ -11,7 +11,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 
-export type Provider = 'anthropic' | 'openai';
+export type Provider = 'anthropic' | 'openai' | 'deepseek';
 export type Tier = 'main' | 'aux';
 
 export interface LLMMessage {
@@ -47,6 +47,7 @@ function resolveModel(provider: Provider, tier: Tier): string {
   if (tier === 'aux' && aux) return aux;
   if (tier === 'main' && main) return main;
   // 兜底默认（请在 .env 里按官网最新型号覆盖）
+  if (provider === 'deepseek') return 'deepseek-chat'; // 文本：DeepSeek V4（可用 LLM_MAIN_MODEL/LLM_AUX_MODEL 覆盖为 deepseek-v4-pro/flash）
   return provider === 'anthropic'
     ? (tier === 'aux' ? 'claude-haiku' : 'claude-sonnet')
     : (tier === 'aux' ? 'gpt-4o-mini' : 'gpt-4o');
@@ -61,6 +62,19 @@ function anthropic() {
 function openai() {
   if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   return _openai;
+}
+// DeepSeek 与 OpenAI 接口兼容：同一个 SDK，换 baseURL + key 即可。
+let _deepseek: OpenAI | null = null;
+function deepseek() {
+  if (!_deepseek) _deepseek = new OpenAI({
+    apiKey: process.env.DEEPSEEK_API_KEY,
+    baseURL: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com',
+  });
+  return _deepseek;
+}
+// 走 chat.completions 接口的两家（OpenAI / DeepSeek）按 provider 选客户端。
+function chatClient(provider: Provider) {
+  return provider === 'deepseek' ? deepseek() : openai();
 }
 
 // ---- 通用文本调用 ----
@@ -91,7 +105,7 @@ export async function callLLM(req: LLMRequest): Promise<LLMResult> {
       latencyMs: Date.now() - t0,
     };
   } else {
-    const res = await openai().chat.completions.create({
+    const res = await chatClient(provider).chat.completions.create({
       model,
       temperature,
       max_tokens: maxTokens,
@@ -136,7 +150,7 @@ export async function callLLMJson<T = any>(req: LLMRequest): Promise<{ data: T; 
     promptTokens = res.usage?.input_tokens ?? 0;
     completionTokens = res.usage?.output_tokens ?? 0;
   } else {
-    const res = await openai().chat.completions.create({
+    const res = await chatClient(provider).chat.completions.create({
       model,
       temperature,
       max_tokens: maxTokens,

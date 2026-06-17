@@ -122,9 +122,11 @@ function FlowView({ state, props }: { state: string; props: ShellProps }) {
 }
 
 function inviteUrlOf(props: ShellProps) {
-  return props.siteUrl
-    ? `${props.siteUrl}/join/${props.inviteToken}`
-    : `${typeof window !== 'undefined' ? window.location.origin : ''}/join/${props.inviteToken}`;
+  // 优先用浏览器当前域名，保证邀请链接始终指向玩家正在访问的站点（本地/线上都对）
+  const origin = typeof window !== 'undefined' && window.location?.origin
+    ? window.location.origin
+    : (props.siteUrl || '');
+  return `${origin}/join/${props.inviteToken}`;
 }
 
 function Lobby(props: ShellProps) {
@@ -229,8 +231,4 @@ function Centered({
       {spinner && (
         <div className="w-8 h-8 border-2 border-eldritch/30 border-t-eldritch rounded-full animate-spin" />
       )}
-      <h1 className="text-2xl font-serif text-parchment">{title}</h1>
-      <p className="text-parchment/60 leading-relaxed">{desc}</p>
-    </div>
-  );
-}
+      <h1 className="text

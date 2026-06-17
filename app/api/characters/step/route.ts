@@ -61,11 +61,14 @@ export async function POST(req: Request) {
       .from('characters').select('inventory, resources').eq('id', ch!.id).maybeSingle();
     const inv: string[] = Array.isArray(full?.inventory) ? full!.inventory : [];
     if (!full?.resources || Object.keys(full.resources).length === 0) {
+      const { data: rm } = await admin.from('rooms').select('language').eq('id', roomId).maybeSingle();
+      const en = (rm?.language || 'zh') === 'en';
+      const K = en ? { ammo: 'Ammo', light: 'Light', lamp: 'Lamp oil' } : { ammo: '弹药', light: '手电电量', lamp: '灯油' };
       const res: any = {};
-      if (inv.some((i: string) => /手枪|手槍|左轮|左輪/.test(i))) res['弹药'] = 6;
-      else if (inv.some((i: string) => /猎枪|獵槍|霰弹|步枪|步槍/.test(i))) res['弹药'] = 4;
-      if (inv.some((i: string) => /手电|手電|電筒/.test(i))) res['手电电量'] = 5;
-      if (inv.some((i: string) => /油灯|油燈|煤油|提灯|提燈/.test(i))) res['灯油'] = 4;
+      if (inv.some((i: string) => /手枪|手槍|左轮|左輪|pistol|revolver/i.test(i))) res[K.ammo] = 6;
+      else if (inv.some((i: string) => /猎枪|獵槍|霰弹|步枪|步槍|shotgun|rifle/i.test(i))) res[K.ammo] = 4;
+      if (inv.some((i: string) => /手电|手電|電筒|flashlight|torch/i.test(i))) res[K.light] = 5;
+      if (inv.some((i: string) => /油灯|油燈|煤油|提灯|提燈|oil lamp|lantern/i.test(i))) res[K.lamp] = 4;
       patch.resources = res;
     }
   } else {

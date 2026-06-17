@@ -26,7 +26,7 @@ export async function POST(req: Request) {
         price_data: {
           currency: CURRENCY,
           unit_amount: pack.price,
-          product_data: { name: `克苏鲁调查团 · ${pack.label}`, description: `开房局数 +${pack.games}（任意模式通用）` },
+          product_data: { name: `Call of the Deep · ${pack.label.en}`, description: `+${pack.games} hosting credits (all modes)` },
         },
       }],
       success_url: `${site}/upgrade?paid=1`,

@@ -4,7 +4,7 @@ import type { ShellProps } from './RoomShell';
 import { rollAttributes, derive } from '@/lib/coc/create';
 import { SKILLS, baseFor, skillPointPool, SKILL_CAP } from '@/lib/coc/skills';
 import { randomInvestigator } from '@/lib/coc/randomChar';
-import { ITEMS, MAX_ITEMS } from '@/lib/coc/items';
+import { itemsFor, MAX_ITEMS } from '@/lib/coc/items';
 import { RULE_BRIEFING, RULE_BRIEFING_EN } from '@/lib/kp/briefing';
 
 const EN = (l?: string) => l === 'en';
@@ -72,6 +72,7 @@ const FIELD = 'px-3 py-2 rounded bg-fog border border-eldritch/30 text-parchment
 
 function InfoForm(props: ShellProps) {
   const en = EN(props.room.language);
+  const items = itemsFor(props.room.language);
   const [f, setF] = useState<any>({ name: '', gender: '', age: '', occupation: '', personality: '', background: '', personal_goal: '', fear: '', appearance: '', inventory: [] });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
@@ -95,7 +96,7 @@ function InfoForm(props: ShellProps) {
   return (
     <Wrap title={en ? `Create investigator (${props.mySeat})` : `创建调查员（${props.mySeat}）`} desc={en ? 'Tap “Random” to fill everything in and tweak, or write it all yourself.' : '可以点「随机生成」一键填好，再按需修改；也可以全部自己写。'}>
       <div className="flex justify-center">
-        <button type="button" onClick={() => setF(randomInvestigator())}
+        <button type="button" onClick={() => setF(randomInvestigator(props.room.language))}
           className="px-5 py-2 rounded bg-eldritch/40 hover:bg-eldritch/70 text-parchment text-sm border border-eldritch/50">
           🎲 {en ? 'Random investigator' : '随机生成一个调查员'}
         </button>
@@ -121,7 +122,7 @@ function InfoForm(props: ShellProps) {
       <div>
         <div className="text-sm text-parchment/70 mb-2">{en ? `Carried items (max ${MAX_ITEMS}; in-game you can only use what you bring): ${f.inventory?.length || 0}/${MAX_ITEMS}` : `随身道具（最多 ${MAX_ITEMS} 件，开局后只能使用你带的东西）：已选 ${f.inventory?.length || 0}/${MAX_ITEMS}`}</div>
         <div className="flex flex-wrap gap-2">
-          {ITEMS.map((item) => {
+          {items.map((item) => {
             const on = (f.inventory || []).includes(item);
             return (
               <button key={item} type="button" onClick={() => toggleItem(item)}

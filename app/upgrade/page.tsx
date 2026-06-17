@@ -106,11 +106,11 @@ export default function Upgrade() {
 
       <div className="grid sm:grid-cols-3 gap-4 w-full max-w-3xl">
         {PACKS.map((pk) => (
-          <div key={pk.id} className={`relative rounded-xl border p-5 flex flex-col items-center gap-3 bg-fog ${pk.tag === '最划算' ? 'border-blood/60' : 'border-eldritch/30'}`}>
-            {pk.tag && <span className="absolute -top-2 right-3 text-[10px] px-2 py-0.5 rounded-full bg-blood/80 text-parchment">{pk.tag}</span>}
-            <div className="font-serif text-parchment text-lg">{pk.label}</div>
+          <div key={pk.id} className={`relative rounded-xl border p-5 flex flex-col items-center gap-3 bg-fog ${pk.best ? 'border-blood/60' : 'border-eldritch/30'}`}>
+            {pk.tag && <span className="absolute -top-2 right-3 text-[10px] px-2 py-0.5 rounded-full bg-blood/80 text-parchment">{pk.tag[lang === 'en' ? 'en' : 'zh']}</span>}
+            <div className="font-serif text-parchment text-lg">{pk.label[lang === 'en' ? 'en' : 'zh']}</div>
             <div className="text-3xl font-serif text-parchment">{CURRENCY_SYMBOL}{(pk.price / 100).toFixed(2).replace(/\.00$/, '')}</div>
-            <div className="text-parchment/45 text-xs">{pk.perGame}</div>
+            <div className="text-parchment/45 text-xs">{pk.perGame[lang === 'en' ? 'en' : 'zh']}</div>
             <button
               onClick={() => (status?.loggedIn ? buy(pk.id) : signInWithGoogle('/upgrade').catch((e) => setErr(e.message)))}
               disabled={busy === pk.id || (status?.loggedIn && status?.whitelisted)}

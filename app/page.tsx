@@ -24,7 +24,11 @@ export default function Home() {
         body: JSON.stringify({ name: `${name.trim()} 的${gameMode === 'soup' ? '海龟汤' : gameMode === 'td' ? '真心话大冒险' : '调查'}`, displayName: name.trim(), mode: gameMode }),
       });
       const data = await res.json();
-      if (res.status === 402) { router.push('/upgrade'); return; }
+      if (res.status === 402) {
+        try { localStorage.setItem('pendingGame', JSON.stringify({ mode: gameMode, name: name.trim() })); } catch {}
+        router.push('/upgrade');
+        return;
+      }
       if (!res.ok) throw new Error(data.error || '创建失败');
       router.push(`/room/${data.roomId}`);
     } catch (e: any) {

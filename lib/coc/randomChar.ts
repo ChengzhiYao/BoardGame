@@ -31,9 +31,19 @@ const APPEARANCE_FEMALE = [
 
 function pick<T>(a: T[]): T { return a[Math.floor(Math.random() * a.length)]; }
 
+import { ITEMS } from './items';
+
 export interface RandomInvestigator {
   name: string; gender: 'male' | 'female'; age: string; occupation: string;
   personality: string; background: string; personal_goal: string; fear: string; appearance: string;
+  inventory: string[];
+}
+
+function pickSome<T>(a: T[], n: number): T[] {
+  const pool = [...a];
+  const out: T[] = [];
+  for (let i = 0; i < n && pool.length; i++) out.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+  return out;
 }
 
 export function randomInvestigator(): RandomInvestigator {
@@ -42,12 +52,4 @@ export function randomInvestigator(): RandomInvestigator {
   return {
     name: pick(SURNAMES) + given,
     gender,
-    age: String(22 + Math.floor(Math.random() * 34)),
-    occupation: pick(OCCUPATIONS),
-    personality: pick(PERSONALITIES),
-    background: pick(BACKGROUNDS),
-    personal_goal: pick(GOALS),
-    fear: pick(FEARS),
-    appearance: gender === 'male' ? pick(APPEARANCE_MALE) : pick(APPEARANCE_FEMALE),
-  };
-}
+    age: String(22 + Math.f

@@ -78,6 +78,8 @@ export default function Dashboard(props: ShellProps) {
   const myReady = props.mySeat === 'A' ? room.player_a_ready : room.player_b_ready;
   const resolving = room.resolution_status === 'resolving';
   const myPending = room.pending_actions?.[props.mySeat as string]?.content;
+  const myChar = charOfSeat(props.mySeat as string);
+  const myOut = !!myChar && ((myChar.status_flags?.dead || myChar.status_flags?.retired) || (myChar.hp_current ?? 1) <= 0 || (myChar.san_current ?? 1) <= 0);
 
   // 对话：不进入回合结算，直接公共发言（NPC/世界会在结算时看到上下文）
   async function sendChat() {
@@ -93,7 +95,7 @@ export default function Dashboard(props: ShellProps) {
   // 提交正式行动：进入本回合，等双方都提交后统一结算
   async function submitAction(content: string, act: string = action) {
     const c = (content || '').trim();
-    if (!c || !props.myPlayerId || myReady || resolving || ended) return;
+    if (!c || !props.myPlayerId || myReady || resolving || ended || myOut) return;
     setText(''); setThinking(true);
     try {
       const res = await fetch('/api/round/submit', {
@@ -179,7 +181,7 @@ export default function Dashboard(props: ShellProps) {
             ))}
             {(thinking || resolving) && <div className="text-center text-parchment/40 italic text-sm">守秘人正在结算本回合……</div>}
             {!ended && guidance && (
-              <GuidanceBlock g={guidance} mySeat={props.mySeat} disabled={!props.myPlayerId || myReady || resolving} onPick={(opt) => submitAction(opt, 'investigate')} />
+              <GuidanceBlock g={guidance} mySeat={props.mySeat} disabled={!props.myPlayerId || myReady || resolving || myOut} onPick={(opt) => submitAction(opt, 'investigate')} />
             )}
             {!ended && !guidance && !resolving && (
               <div className="mx-auto max-w-2xl text-center text-sm text-parchment/45 italic border border-eldritch/20 rounded-lg px-4 py-3">
@@ -193,7 +195,11 @@ export default function Dashboard(props: ShellProps) {
           <div className="border-t border-eldritch/20 px-4 py-3 space-y-2">
             <RoundStatus room={room} nameA={charNameOrUser('A')} nameB={charNameOrUser('B')} />
 
-            {myReady && !ended ? (
+            {myOut && !ended ? (
+              <div className="text-center text-sm text-blood py-1">
+                你的调查员已退场（死亡或永久疯狂），无法再行动。{ '　' }由同伴继续，或等待结局。
+              </div>
+            ) : myReady && !ended ? (
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-eldritch shrink-0">已提交行动：</span>
                 <span className="flex-1 text-parchment/80 truncate">{myPending}</span>
@@ -203,19 +209,23 @@ export default function Dashboard(props: ShellProps) {
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-2">
-                <span className={`text-xs px-2 py-1 rounded ${props.mySeat === 'A' ? 'bg-eldritch/30' : 'bg-blood/30'} text-parchment shrink-0`}>你 · {props.mySeat}</span>
-                <select value={action} onChange={(e) => setAction(e.target.value)} disabled={ended}
-                  className="px-2 py-2 rounded bg-fog border border-eldritch/30 text-parchment text-sm disabled:opacity-40">
-                  {Object.entries(ACTIONS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                </select>
-                <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submitFromInput()}
-                  placeholder={ended ? '调查已结束' : '描述行动 / 说话…'} disabled={!props.myPlayerId || ended}
-                  className="flex-1 px-4 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch disabled:opacity-50" />
-                <button onClick={sendChat} disabled={!props.myPlayerId || ended} title="角色说话，不进入回合结算"
-                  className="px-3 py-2 rounded bg-fog border border-eldritch/40 text-parchment text-sm hover:bg-eldritch/20 disabled:opacity-50 shrink-0">对话</button>
-                <button onClick={submitFromInput} disabled={!props.myPlayerId || thinking || resolving || ended} title="提交正式行动，进入本回合结算"
-                  className="px-4 py-2 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-50 shrink-0">提交行动</button>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs px-2 py-1 rounded ${props.mySeat === 'A' ? 'bg-eldritch/30' : 'bg-blood/30'} text-parchment shrink-0`}>你 · {props.mySeat}</span>
+                  <select value={action} onChange={(e) => setAction(e.target.value)} disabled={ended}
+                    className="px-2 py-2 rounded bg-fog border border-eldritch/30 text-parchment text-sm disabled:opacity-40 shrink-0">
+                    {Object.entries(ACTIONS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  </select>
+                  <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submitFromInput()}
+                    placeholder={ended ? '调查已结束' : '描述行动 / 说话…'} disabled={!props.myPlayerId || ended}
+                    className="flex-1 min-w-0 px-4 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch disabled:opacity-50" />
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={sendChat} disabled={!props.myPlayerId || ended} title="角色说话，不进入回合结算"
+                    className="flex-1 px-3 py-2 rounded bg-fog border border-eldritch/40 text-parchment text-sm hover:bg-eldritch/20 disabled:opacity-50">对话</button>
+                  <button onClick={submitFromInput} disabled={!props.myPlayerId || thinking || resolving || ended} title="提交正式行动，进入本回合结算"
+                    className="flex-1 px-4 py-2 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-50">提交行动</button>
+                </div>
               </div>
             )}
           </div>
@@ -336,6 +346,9 @@ function CharacterCard({ seat, char, name, online }: { seat: string; char: any; 
           <Bar label="HP" value={char.hp_current} max={char.hp_max} color="bg-blood" />
           <Bar label="SAN" value={char.san_current} max={char.san_max} color="bg-eldritch" />
           <div>幸运 {char.luck} ｜ 状态：<span className={status === '正常' ? '' : 'text-blood'}>{status}</span></div>
+          {Array.isArray(char.inventory) && char.inventory.length > 0 && (
+            <div className="text-parchment/50">道具：{char.inventory.join('、')}</div>
+          )}
         </div>
       ) : <div className="text-xs text-parchment/40">尚未创建角色卡</div>}
     </div>
@@ -498,24 +511,4 @@ function EndedBanner({ roomId }: { roomId: string }) {
               <div><span className="text-eldritch">幕后黑手：</span>{recap.mastermind?.identity} —— {recap.mastermind?.motive}</div>
               {recap.supernatural?.nature && <div><span className="text-eldritch">超自然：</span>{recap.supernatural.nature}</div>}
               {Array.isArray(recap.npcs) && recap.npcs.length > 0 && (
-                <div><span className="text-eldritch">NPC 秘密：</span>
-                  <ul className="list-disc pl-5 mt-1 space-y-1">
-                    {recap.npcs.map((n: any, i: number) => <li key={i}>{n.name}：{n.secret}{n.lie ? `（谎言：${n.lie}）` : ''}</li>)}
-                  </ul>
-                </div>
-              )}
-              {Array.isArray(recap.key_clues) && (
-                <div><span className="text-eldritch">关键线索：</span>
-                  <ul className="list-disc pl-5 mt-1 space-y-1">
-                    {recap.key_clues.map((c: any, i: number) => <li key={i}>{c.clue} → {c.reveals}</li>)}
-                  </ul>
-                </div>
-              )}
-            </>
-          )}
-          {!recap && !err && <p className="text-parchment/50">正在揭开封存的真相……</p>}
-        </div>
-      )}
-    </div>
-  );
-}
+                <div><span className="te

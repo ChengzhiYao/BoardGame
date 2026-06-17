@@ -32,6 +32,7 @@ alter table characters add column if not exists avatar_url text;
 alter table characters add column if not exists appearance text;
 alter table characters add column if not exists gender text;
 alter table characters add column if not exists current_location text;
+alter table characters add column if not exists inventory jsonb not null default '[]'::jsonb;
 
 -- ---------- 4. 音乐状态机 ----------
 alter table rooms add column if not exists scene_state text default 'menu';
@@ -99,6 +100,4 @@ create table if not exists module_library (
 alter table module_library add column if not exists genre text; -- 恐怖题材
 alter table module_library enable row level security;
 -- 不创建任何 anon/authenticated 策略：含真相，仅服务端 service_role 可读写。
-create index if not exists module_library_passed_idx on module_library(passed, created_at);
-
--- 完成。刷新网页即可。
+create index if not exists module

@@ -4,6 +4,7 @@ import type { ShellProps } from './RoomShell';
 import { rollAttributes, derive } from '@/lib/coc/create';
 import { SKILLS, baseFor, skillPointPool, SKILL_CAP } from '@/lib/coc/skills';
 import { randomInvestigator } from '@/lib/coc/randomChar';
+import { ITEMS, MAX_ITEMS } from '@/lib/coc/items';
 import { RULE_BRIEFING } from '@/lib/kp/briefing';
 
 async function postStep(roomId: string, step: string, data?: any) {
@@ -68,10 +69,16 @@ function WaitingReady({ players }: { players: any[] }) {
 const FIELD = 'px-3 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch w-full';
 
 function InfoForm(props: ShellProps) {
-  const [f, setF] = useState<any>({ name: '', gender: '', age: '', occupation: '', personality: '', background: '', personal_goal: '', fear: '', appearance: '' });
+  const [f, setF] = useState<any>({ name: '', gender: '', age: '', occupation: '', personality: '', background: '', personal_goal: '', fear: '', appearance: '', inventory: [] });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
-  const set = (k: string, v: string) => setF({ ...f, [k]: v });
+  const set = (k: string, v: any) => setF((prev: any) => ({ ...prev, [k]: v }));
+  const toggleItem = (item: string) => setF((prev: any) => {
+    const inv: string[] = prev.inventory || [];
+    if (inv.includes(item)) return { ...prev, inventory: inv.filter((x) => x !== item) };
+    if (inv.length >= MAX_ITEMS) return prev;
+    return { ...prev, inventory: [...inv, item] };
+  });
 
   async function submit() {
     for (const k of ['name', 'age', 'occupation', 'personality', 'background', 'personal_goal', 'fear'])
@@ -107,6 +114,22 @@ function InfoForm(props: ShellProps) {
       <textarea className={FIELD} placeholder="背景故事" value={f.background} onChange={(e) => set('background', e.target.value)} />
       <input className={FIELD} placeholder="个人目标（你为何而来）" value={f.personal_goal} onChange={(e) => set('personal_goal', e.target.value)} />
       <input className={FIELD} placeholder="恐惧（你最怕什么）" value={f.fear} onChange={(e) => set('fear', e.target.value)} />
+
+      <div>
+        <div className="text-sm text-parchment/70 mb-2">随身道具（最多 {MAX_ITEMS} 件，开局后只能使用你带的东西）：已选 {f.inventory?.length || 0}/{MAX_ITEMS}</div>
+        <div className="flex flex-wrap gap-2">
+          {ITEMS.map((item) => {
+            const on = (f.inventory || []).includes(item);
+            return (
+              <button key={item} type="button" onClick={() => toggleItem(item)}
+                className={`px-2.5 py-1 rounded text-xs border ${on ? 'bg-blood/40 border-blood text-parchment' : 'bg-fog border-eldritch/30 text-parchment/60 hover:border-eldritch/60'}`}>
+                {item}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {err && <p className="text-blood text-sm">{err}</p>}
       <button onClick={submit} disabled={busy} className="self-center px-6 py-2.5 rounded bg-blood/80 hover:bg-blood text-parchment disabled:opacity-50">
         {busy ? '提交中…' : '提交资料'}
@@ -296,31 +319,4 @@ function Avatar({ url, loading, seat }: { url?: string; loading?: boolean; seat:
     <div className={`w-14 h-14 rounded-full overflow-hidden border-2 ${ring} bg-ink flex items-center justify-center shrink-0`}>
       {url ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={url} alt="" className="w-full h-full object-cover" />
-      ) : loading ? (
-        <div className="w-5 h-5 border-2 border-eldritch/30 border-t-eldritch rounded-full animate-spin" />
-      ) : (
-        <span className="text-parchment/30 text-xs">{seat}</span>
-      )}
-    </div>
-  );
-}
-
-function BriefingView(props: ShellProps) {
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState('');
-  async function ack() {
-    setBusy(true); setErr('');
-    try { await postStep(props.room.id, 'briefing_ack'); }
-    catch (e: any) { setErr(e.message); setBusy(false); }
-  }
-  return (
-    <Wrap title="守秘人的提醒">
-      <div className="p-5 rounded-lg bg-eldritch/10 border border-eldritch/30 text-parchment/85 leading-relaxed whitespace-pre-line">
-        {RULE_BRIEFING}
-      </div>
-      {err && <p className="text-blood text-sm text-center">{err}</p>}
-      <button onClick={ack} disabled={busy} className="self-center px-6 py-2.5 rounded bg-blood/80 hover:bg-blood text-parchment disabled:opacity-50">{busy ? '请稍候…' : '准备好了，开始调查'}</button>
-    </Wrap>
-  );
-}
+        <im

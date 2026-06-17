@@ -182,4 +182,30 @@ do $$ begin
   alter publication supabase_realtime add table clues;
 exception when duplicate_object then null; end $$;
 
+-- ---------- 16. 账号 / 局数额度 / 白名单（开房收费）----------
+-- 访客（被邀请加入）始终免费、可匿名；只有"自己开房当主持"才需要登录并有额度。
+create table if not exists profiles (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  email text,
+  credits int not null default 0,                 -- 剩余可开房局数
+  is_whitelisted boolean not null default false,  -- 永久免费（不消耗额度）
+  stripe_customer_id text,
+  created_at timestamptz not null default now()
+);
+alter table profiles enable row level security;
+drop policy if exists profiles_self_read on profiles;
+create policy profiles_self_read on profiles for select using (auth.uid() = user_id or is_admin());
+-- 不开放 insert/update 策略：仅服务端 service_role 写（购买充值 / 开房扣额度）。
+
+-- 永久免费白名单（按邮箱）。把下面换成你 Google 登录用的邮箱：
+create table if not exists whitelist_emails (email text primary key);
+insert into whitelist_emails(email) values ('yxhzdm@gmail.com') on conflict do nothing;
+
+-- Stripe webhook 去重：同一事件只充值一次。
+create table if not exists billing_events (
+  id text primary key,
+  created_at timestamptz not null default now()
+);
+alter table billing_events enable row level security;
+alter table profiles enable row level security;
 -- 完成。刷新网页即可。

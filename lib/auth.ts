@@ -21,3 +21,16 @@ export async function ensureSession(displayName?: string) {
   }
   return user;
 }
+
+// Google 登录（用于"开房当主持"，可记住身份与付费状态）。
+export async function signInWithGoogle(next = '/upgrade') {
+  const supabase = createClient();
+  const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
+  const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } });
+  if (error) throw new Error('登录失败：' + error.message);
+}
+
+export async function signOut() {
+  const supabase = createClient();
+  await supabase.auth.signOut();
+}

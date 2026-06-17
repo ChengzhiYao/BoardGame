@@ -24,6 +24,7 @@ export default function Home() {
         body: JSON.stringify({ name: `${name.trim()} 的${gameMode === 'soup' ? '海龟汤' : gameMode === 'td' ? '真心话大冒险' : '调查'}`, displayName: name.trim(), mode: gameMode }),
       });
       const data = await res.json();
+      if (res.status === 402) { router.push('/upgrade'); return; }
       if (!res.ok) throw new Error(data.error || '创建失败');
       router.push(`/room/${data.roomId}`);
     } catch (e: any) {
@@ -116,6 +117,7 @@ export default function Home() {
       )}
 
       {err && <p className="text-blood text-sm">{err}</p>}
+      <a href="/upgrade" className="text-parchment/40 hover:text-parchment text-sm underline">开房说明 · 我的局数 →</a>
     </main>
   );
 }

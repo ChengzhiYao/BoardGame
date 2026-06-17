@@ -146,7 +146,7 @@ export default function Dashboard(props: ShellProps) {
 
   return (
     <main className="h-[100svh] flex flex-col overflow-hidden">
-      <Stepper current={props.room.game_state} />
+      <Stepper current={props.room.game_state} lang={props.room.language} />
 
       {ended && <EndedBanner roomId={props.room.id} />}
 

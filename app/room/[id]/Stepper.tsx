@@ -1,32 +1,30 @@
 'use client';
 
-const STEPS: { key: string; label: string }[] = [
-  { key: 'lobby', label: '等待加入' },
-  { key: 'module_selection', label: '选择模组' },
-  { key: 'case_locking', label: '锁定真相' },
-  { key: 'character_creation', label: '创建角色' },
-  { key: 'attribute_allocation', label: '分配属性' },
-  { key: 'skill_allocation', label: '分配技能' },
-  { key: 'character_confirmation', label: '确认角色' },
-  { key: 'rule_briefing', label: '规则说明' },
-  { key: 'playing', label: '正式跑团' },
-  { key: 'ended', label: '结局' },
+const STEPS: { key: string; zh: string; en: string }[] = [
+  { key: 'lobby', zh: '等待加入', en: 'Lobby' },
+  { key: 'module_selection', zh: '选择模组', en: 'Choose Module' },
+  { key: 'case_locking', zh: '锁定真相', en: 'Locking Truth' },
+  { key: 'character_creation', zh: '创建角色', en: 'Create Character' },
+  { key: 'attribute_allocation', zh: '分配属性', en: 'Stats' },
+  { key: 'skill_allocation', zh: '分配技能', en: 'Skills' },
+  { key: 'character_confirmation', zh: '确认角色', en: 'Confirm' },
+  { key: 'rule_briefing', zh: '规则说明', en: 'Rules' },
+  { key: 'playing', zh: '正式跑团', en: 'Investigating' },
+  { key: 'ended', zh: '结局', en: 'Ending' },
 ];
 
-export default function Stepper({ current }: { current: string }) {
+export default function Stepper({ current, lang = 'zh' }: { current: string; lang?: string }) {
   const idx = STEPS.findIndex((s) => s.key === current);
+  const lbl = (s: { zh: string; en: string }) => (lang === 'en' ? s.en : s.zh);
 
   return (
     <div className="w-full border-b border-eldritch/20 bg-fog/40">
-      {/* 手机/中屏：只显示当前步骤 */}
       <div className="lg:hidden px-4 py-2 flex items-center gap-2 text-xs">
         <span className="px-2 py-0.5 rounded-full bg-blood/30 border border-blood text-parchment">
           {idx + 1}/{STEPS.length}
         </span>
-        <span className="text-parchment/90">{STEPS[idx]?.label || current}</span>
+        <span className="text-parchment/90">{STEPS[idx] ? lbl(STEPS[idx]) : current}</span>
       </div>
-
-      {/* 桌面端（宽屏）：完整步骤条 */}
       <div className="hidden lg:block overflow-x-auto">
         <div className="flex items-center gap-1 px-4 py-3 min-w-max">
           {STEPS.map((s, i) => {
@@ -50,7 +48,7 @@ export default function Stepper({ current }: { current: string }) {
                   >
                     {done ? '✓' : i + 1}
                   </span>
-                  {s.label}
+                  {lbl(s)}
                 </div>
                 {i < STEPS.length - 1 && <span className="text-parchment/20">—</span>}
               </div>

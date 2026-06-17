@@ -22,11 +22,15 @@ export async function POST(req: Request) {
     environment: (settings?.environment || '').slice(0, 100),
   };
 
+  const { data: rm } = await admin.from('rooms').select('language').eq('id', roomId).maybeSingle();
+  const en = (rm?.language || 'zh') === 'en';
   await admin.from('rooms').update({ td_settings: clean, game_state: 'playing' }).eq('id', roomId);
-  const typeLabel = clean.types.map((t) => (t === 'truth' ? '真心话' : '大冒险')).join(' / ');
+  const typeLabel = clean.types.map((t) => (en ? (t === 'truth' ? 'Truth' : 'Dare') : (t === 'truth' ? '真心话' : '大冒险'))).join(' / ');
   await admin.from('messages').insert({
     room_id: roomId, sender_type: 'system', turn_no: 0,
-    content: `游戏开始！模式：${typeLabel}；尺度：${clean.intensity}${clean.environment ? `；环境：${clean.environment}` : ''}${clean.forbidden ? `；避开：${clean.forbidden}` : ''}。轮到谁就点按钮抽一题吧。`,
+    content: en
+      ? `Game on! Modes: ${typeLabel}; intensity: ${clean.intensity}${clean.environment ? `; setting: ${clean.environment}` : ''}${clean.forbidden ? `; avoid: ${clean.forbidden}` : ''}. Whoever's turn it is, tap a button to draw.`
+      : `游戏开始！模式：${typeLabel}；尺度：${clean.intensity}${clean.environment ? `；环境：${clean.environment}` : ''}${clean.forbidden ? `；避开：${clean.forbidden}` : ''}。轮到谁就点按钮抽一题吧。`,
     payload: { type: 'td_info' },
   });
 

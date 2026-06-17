@@ -4,16 +4,19 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { ShellProps } from './RoomShell';
 
+const EN = (l?: string) => l === 'en';
+
 export default function TDRoom(props: ShellProps) {
   const router = useRouter();
   const supabase = useRef(createClient()).current;
+  const lang = props.room.language || 'zh';
+  const en = EN(lang);
   const [messages, setMessages] = useState<any[]>(props.initialMessages);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [aiMode, setAiMode] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // 设置表单
   const [types, setTypes] = useState({ truth: true, dare: true });
   const [intensity, setIntensity] = useState('medium');
   const [environment, setEnvironment] = useState('');
@@ -26,7 +29,7 @@ export default function TDRoom(props: ShellProps) {
   const inviteUrl = `${typeof window !== 'undefined' ? window.location.origin : props.siteUrl}/join/${props.inviteToken}`;
   const nameOf = (pid?: string | null) => {
     const p = props.initialPlayers.find((x) => x.id === pid);
-    return props.initialUsers.find((u) => u.id === p?.user_id)?.display_name || '玩家';
+    return props.initialUsers.find((u) => u.id === p?.user_id)?.display_name || (en ? 'Player' : '玩家');
   };
 
   useEffect(() => {
@@ -48,68 +51,66 @@ export default function TDRoom(props: ShellProps) {
     try {
       const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const d = await res.json();
-      if (!res.ok) alert(d.error || '出错了');
-    } catch (e: any) { alert('失败：' + e.message); }
+      if (!res.ok) alert(d.error || (en ? 'Something went wrong' : '出错了'));
+    } catch (e: any) { alert((en ? 'Failed: ' : '失败：') + e.message); }
     finally { setBusy(false); }
   }
 
   async function startGame() {
     const t = Object.entries(types).filter(([, v]) => v).map(([k]) => k);
-    if (!t.length) return alert('至少选一种：真心话或大冒险');
+    if (!t.length) return alert(en ? 'Pick at least one: Truth or Dare' : '至少选一种：真心话或大冒险');
     await call('/api/td/start', { roomId: props.room.id, settings: { types: t, intensity, environment, forbidden } });
   }
   async function draw(kind: 'truth' | 'dare') { await call('/api/td/draw', { roomId: props.room.id, kind, ai: aiMode }); }
 
-  // 设置阶段
   if (!playing) {
     const FIELD = 'w-full px-3 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch';
     return (
       <main className="min-h-[100svh] flex flex-col items-center justify-center gap-5 px-6 py-8">
-        <h1 className="text-2xl font-serif text-parchment">真心话大冒险 · {props.room.name}</h1>
+        <h1 className="text-2xl font-serif text-parchment">{en ? 'Truth or Dare' : '真心话大冒险'} · {props.room.name}</h1>
         <div className="w-full max-w-md space-y-4">
           <div>
-            <div className="text-sm text-parchment/70 mb-2">玩什么？</div>
+            <div className="text-sm text-parchment/70 mb-2">{en ? 'What to play?' : '玩什么？'}</div>
             <div className="flex gap-2">
-              {([['truth', '真心话'], ['dare', '大冒险']] as const).map(([k, label]) => (
+              {(['truth', 'dare'] as const).map((k) => (
                 <button key={k} onClick={() => setTypes((p) => ({ ...p, [k]: !p[k] }))}
-                  className={`flex-1 px-4 py-2 rounded text-sm border ${(types as any)[k] ? 'bg-blood/30 border-blood text-parchment' : 'bg-fog border-eldritch/30 text-parchment/60'}`}>{label}</button>
+                  className={`flex-1 px-4 py-2 rounded text-sm border ${(types as any)[k] ? 'bg-blood/30 border-blood text-parchment' : 'bg-fog border-eldritch/30 text-parchment/60'}`}>{en ? (k === 'truth' ? 'Truth' : 'Dare') : (k === 'truth' ? '真心话' : '大冒险')}</button>
               ))}
             </div>
           </div>
-          <label className="block text-sm text-parchment/70">尺度
+          <label className="block text-sm text-parchment/70">{en ? 'Intensity' : '尺度'}
             <select value={intensity} onChange={(e) => setIntensity(e.target.value)} className={FIELD + ' mt-1'}>
-              <option value="mild">轻松（mild）</option>
-              <option value="medium">适中（medium）</option>
-              <option value="bold">大胆（bold，仍健康）</option>
+              <option value="mild">{en ? 'Mild' : '轻松（mild）'}</option>
+              <option value="medium">{en ? 'Medium' : '适中（medium）'}</option>
+              <option value="bold">{en ? 'Bold (still wholesome)' : '大胆（bold，仍健康）'}</option>
             </select>
           </label>
-          <label className="block text-sm text-parchment/70">所处环境（影响大冒险能做什么）
-            <input value={environment} onChange={(e) => setEnvironment(e.target.value)} placeholder="如：在家里 / 酒吧 / 线上语音 / 公园" className={FIELD + ' mt-1'} />
+          <label className="block text-sm text-parchment/70">{en ? 'Setting (affects what dares are possible)' : '所处环境（影响大冒险能做什么）'}
+            <input value={environment} onChange={(e) => setEnvironment(e.target.value)} placeholder={en ? 'e.g. at home / bar / online voice / park' : '如：在家里 / 酒吧 / 线上语音 / 公园'} className={FIELD + ' mt-1'} />
           </label>
-          <label className="block text-sm text-parchment/70">不想出现的内容（禁止项）
-            <input value={forbidden} onChange={(e) => setForbidden(e.target.value)} placeholder="如：不要太社死、不要涉及前任" className={FIELD + ' mt-1'} />
+          <label className="block text-sm text-parchment/70">{en ? 'Off-limits (forbidden)' : '不想出现的内容（禁止项）'}
+            <input value={forbidden} onChange={(e) => setForbidden(e.target.value)} placeholder={en ? 'e.g. nothing too embarrassing, no exes' : '如：不要太社死、不要涉及前任'} className={FIELD + ' mt-1'} />
           </label>
 
           <div className="pt-1 space-y-2 text-center">
-            <div className="text-xs text-parchment/50">多人一起玩？把链接发给同伴：</div>
+            <div className="text-xs text-parchment/50">{en ? 'Playing with others? Send the link:' : '多人一起玩？把链接发给同伴：'}</div>
             <code className="block text-xs px-3 py-2 rounded bg-fog border border-eldritch/30 text-eldritch break-all">{inviteUrl}</code>
             <button onClick={() => { navigator.clipboard.writeText(inviteUrl); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
-              className="px-4 py-1.5 rounded bg-eldritch/40 hover:bg-eldritch text-parchment text-xs">{copied ? '已复制' : '复制邀请链接'}</button>
+              className="px-4 py-1.5 rounded bg-eldritch/40 hover:bg-eldritch text-parchment text-xs">{copied ? (en ? 'Copied' : '已复制') : (en ? 'Copy invite link' : '复制邀请链接')}</button>
           </div>
 
           <button onClick={startGame} disabled={busy}
-            className="w-full px-6 py-3 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-50">{busy ? '开始中…' : '开始游戏'}</button>
+            className="w-full px-6 py-3 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-50">{busy ? (en ? 'Starting…' : '开始中…') : (en ? 'Start' : '开始游戏')}</button>
         </div>
       </main>
     );
   }
 
-  // 游戏中
   return (
     <main className="h-[100svh] flex flex-col overflow-hidden">
       <header className="px-4 py-3 border-b border-eldritch/20 flex items-center justify-between">
-        <span className="font-serif text-parchment">真心话大冒险 · {props.room.name}</span>
-        <span className="text-xs text-parchment/50">尺度 {settings.intensity}{settings.environment ? ` · ${settings.environment}` : ''}</span>
+        <span className="font-serif text-parchment">{en ? 'Truth or Dare' : '真心话大冒险'} · {props.room.name}</span>
+        <span className="text-xs text-parchment/50">{en ? 'Intensity' : '尺度'} {settings.intensity}{settings.environment ? ` · ${settings.environment}` : ''}</span>
       </header>
 
       <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-3 max-w-2xl w-full mx-auto">
@@ -119,21 +120,21 @@ export default function TDRoom(props: ShellProps) {
           if (m.sender_type === 'system') return <div key={m.id} className="text-center text-sm text-parchment/50">{m.content}</div>;
           return <div key={m.id} className="text-center text-sm text-parchment/70">{nameOf(m.sender_player_id)}：{m.content}</div>;
         })}
-        {busy && <div className="text-center text-parchment/40 italic text-sm">抽题中……</div>}
+        {busy && <div className="text-center text-parchment/40 italic text-sm">{en ? 'Drawing…' : '抽题中……'}</div>}
         <div ref={bottomRef} />
       </div>
 
       <div className="border-t border-eldritch/20 px-4 py-3 space-y-2 max-w-2xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
         <label className="flex items-center justify-center gap-2 text-xs text-parchment/60">
           <input type="checkbox" checked={aiMode} onChange={(e) => setAiMode(e.target.checked)} />
-          ✨ 让 AI 按本局设置现编一题（会存进题库，下次免费复用）
+          {en ? '✨ Let AI write a fresh one for this game’s settings (saved to the pool, free to reuse)' : '✨ 让 AI 按本局设置现编一题（会存进题库，下次免费复用）'}
         </label>
         <div className="flex gap-2">
           {allowed.includes('truth') && (
-            <button onClick={() => draw('truth')} disabled={busy} className="flex-1 px-4 py-3 rounded bg-eldritch/60 hover:bg-eldritch text-parchment disabled:opacity-50">抽真心话</button>
+            <button onClick={() => draw('truth')} disabled={busy} className="flex-1 px-4 py-3 rounded bg-eldritch/60 hover:bg-eldritch text-parchment disabled:opacity-50">{en ? 'Draw Truth' : '抽真心话'}</button>
           )}
           {allowed.includes('dare') && (
-            <button onClick={() => draw('dare')} disabled={busy} className="flex-1 px-4 py-3 rounded bg-blood/70 hover:bg-blood text-parchment disabled:opacity-50">抽大冒险</button>
+            <button onClick={() => draw('dare')} disabled={busy} className="flex-1 px-4 py-3 rounded bg-blood/70 hover:bg-blood text-parchment disabled:opacity-50">{en ? 'Draw Dare' : '抽大冒险'}</button>
           )}
         </div>
       </div>

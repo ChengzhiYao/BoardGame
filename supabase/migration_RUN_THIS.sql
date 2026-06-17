@@ -72,7 +72,8 @@ alter table images add column if not exists image_type text not null default 'sc
 -- ---------- 9. 视图：给前端的安全线索视图（含 thread，裁掉真相元标记）----------
 -- security_invoker=true：视图以"查询者"身份执行，从而对底层 clues 表施加该用户的 RLS，
 -- 保证私人线索（visible_to=A/B）不会泄露给另一名玩家。
-create or replace view clues_player with (security_invoker = true) as
+drop view if exists clues_player;
+create view clues_player with (security_invoker = true) as
   select id, room_id, title, description, source, visible_to, discovered_turn, created_at, thread
   from clues;
 
@@ -167,9 +168,11 @@ alter table characters add column if not exists resources jsonb not null default
 alter table clues add column if not exists kind text not null default 'clue'; -- clue | deduction
 
 -- 重建前端线索视图：补上 kind，仍然裁掉 is_key/is_red_herring 等真相元标记。
-create or replace view clues_player with (security_invoker = true) as
+drop view if exists clues_player;
+create view clues_player with (security_invoker = true) as
   select id, room_id, title, description, source, visible_to, discovered_turn, created_at, thread, kind
   from clues;
+grant select on clues_player to anon, authenticated;
 
 -- 让 NPC 与线索变化也走实时（关系/态度更新能即时反映）。
 do $$ begin

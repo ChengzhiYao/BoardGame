@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background: #0c0d10;
+  color: #d8c7a8;
+  font-family: Georgia, 'Noto Serif SC', serif;
+}
+
+/* 主题化滚动条（细、暗青色），替换系统默认样式 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(47, 93, 84, 0.45) transparent;
+}
+*::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(47, 93, 84, 0.4);
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(47, 93, 84, 0.75);
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}

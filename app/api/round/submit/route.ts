@@ -6,6 +6,7 @@ import { buildKpTurnSystem } from '@/lib/kp/prompt';
 import { buildResolverSystem } from '@/lib/kp/resolver';
 import { buildSummarizerSystem, SUMMARIZE_EVERY } from '@/lib/kp/memory';
 import { skillCheck, OUTCOME_LABEL } from '@/lib/coc/dice';
+import { skillValueFor } from '@/lib/coc/skills';
 import { SFX_KEYS } from '@/lib/audio/sfx';
 
 export const maxDuration = 60; // 线上给 AI 结算更长超时（秒）
@@ -137,7 +138,8 @@ async function resolveRound(admin: any, roomId: string) {
 
     const c = charBySeat(seat);
     for (const d of plan.checks || []) {
-      const sv = Number(d.skill_value) || 0;
+      // 技能值只从角色卡读真实固定值，不用 AI 猜的数
+      const sv = skillValueFor(c, d.skill);
       const rr = skillCheck(sv);
       await admin.from('dice_rolls').insert({ room_id: roomId, character_id: c?.id || null, dice_type: 'd100', skill_name: d.skill, skill_value: sv, target_value: sv, result: rr.result, outcome: rr.outcome, context: d.reason, turn_no: round });
       const line = `${seat} · ${d.skill}（${sv}）→ ${rr.result} · ${OUTCOME_LABEL[rr.outcome]}`;
@@ -263,4 +265,4 @@ narration 必须分段输出：
       const text = (toSum || []).map((m: any) => `${m.sender_type === 'kp' ? 'KP' : m.sender_type === 'system' ? '系统' : '玩家'}：${m.content}`).join('\n');
       const { data: sd, usage: u2 } = await callLLMJson<any>({
         system: buildSummarizerSystem(),
-        messages: [{ role: 'user', content: `此前摘要：\n${memory.summary || '（无）'}\n\n已知关键事实：\n${(memory.key_facts || []).join('；') || '（无）'}\n\n�
+        messages: [{ role: 'user', content: `此前摘要�

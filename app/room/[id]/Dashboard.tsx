@@ -139,7 +139,7 @@ export default function Dashboard(props: ShellProps) {
   const doneImages = props.initialImages.filter((i) => i.status === 'done');
 
   return (
-    <main className="h-screen flex flex-col overflow-hidden">
+    <main className="h-[100svh] flex flex-col overflow-hidden">
       <Stepper current={props.room.game_state} />
 
       {ended && <EndedBanner roomId={props.room.id} />}
@@ -174,7 +174,7 @@ export default function Dashboard(props: ShellProps) {
 
         {/* 中：剧情流 */}
         <section className={`flex-col overflow-hidden min-h-0 lg:flex ${mobileTab === 'story' ? 'flex flex-1' : 'hidden'}`}>
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+          <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-3">
             {messages.map((m) => (
               <MessageRow key={m.id} m={m} mine={m.sender_player_id === props.myPlayerId}
                 seat={playerById(m.sender_player_id)?.seat} who={nameOfUser(playerById(m.sender_player_id)?.user_id)} />
@@ -192,7 +192,7 @@ export default function Dashboard(props: ShellProps) {
           </div>
 
           {/* 回合制：对话 / 提交行动 / 等待 / 撤回 */}
-          <div className="border-t border-eldritch/20 px-4 py-3 space-y-2">
+          <div className="border-t border-eldritch/20 px-4 py-3 space-y-2 shrink-0" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
             <RoundStatus room={room} nameA={charNameOrUser('A')} nameB={charNameOrUser('B')} />
 
             {myOut && !ended ? (
@@ -510,5 +510,4 @@ function EndedBanner({ roomId }: { roomId: string }) {
               <div><span className="text-eldritch">真相：</span>{recap.truth}</div>
               <div><span className="text-eldritch">幕后黑手：</span>{recap.mastermind?.identity} —— {recap.mastermind?.motive}</div>
               {recap.supernatural?.nature && <div><span className="text-eldritch">超自然：</span>{recap.supernatural.nature}</div>}
-              {Array.isArray(recap.npcs) && recap.npcs.length > 0 && (
-                <div><span className="te
+              {Array.

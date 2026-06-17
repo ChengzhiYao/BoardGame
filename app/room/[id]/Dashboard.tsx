@@ -312,7 +312,7 @@ function MessageRow({ m, mine, seat, who }: { m: any; mine: boolean; seat?: stri
         </div>
       );
     }
-    const color = type === 'dice' ? 'text-eldritch' : type === 'san' ? 'text-blood' : 'text-parchment/50';
+    const color = type === 'dice' ? 'text-eldritch' : type === 'san' ? 'text-blood' : type === 'combat' ? 'text-red-400' : 'text-parchment/50';
     return <div className={`text-center text-sm ${color}`}>{m.content}</div>;
   }
   if (m.sender_type === 'kp') {

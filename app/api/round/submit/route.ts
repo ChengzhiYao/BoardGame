@@ -179,6 +179,31 @@ async function resolveRound(admin: any, roomId: string) {
       seatLines[seat].push(sline);
       await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: round, content: `🧠 ${sline}`, payload: { type: 'san' } });
     }
+    // 敌意回击：玩家挑衅/攻击/送上门 → 敌人真的还手扣 HP（机制化，不靠叙述层良心）
+    for (const ia of plan.incoming_attacks || []) {
+      const tseat = ['A', 'B'].includes(ia.target) ? ia.target : seat;
+      const tc = charBySeat(tseat); if (!tc) continue;
+      const isTOut = (() => { const f = tc.status_flags || {}; return !!(f.dead || f.retired) || (tc.hp_current ?? 1) <= 0; })();
+      if (isTOut) continue;
+      const atkSkill = Math.max(5, Math.min(95, Number(ia.skill) || 40));
+      const roll = Math.floor(Math.random() * 100) + 1;
+      if (roll <= atkSkill) {
+        const dmg = Math.max(1, rollLoss(ia.damage || '1d4'));
+        const before2 = tc.hp_current ?? 0;
+        const after2 = Math.max(0, before2 - dmg);
+        const tflags = { ...(tc.status_flags || {}) };
+        if (after2 <= 0) tflags.dead = true; else if (after2 <= 2) tflags.dying = true;
+        await admin.from('characters').update({ hp_current: after2, status_flags: tflags }).eq('id', tc.id);
+        tc.hp_current = after2; tc.status_flags = tflags;
+        const cline = `${ia.attacker || '敌人'} 攻击 ${tseat}（${ia.means || '攻击'}）命中 → -${dmg} HP（${before2}→${after2}）${after2 <= 0 ? ' · 倒下' : ''}`;
+        seatLines[seat].push(cline);
+        await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: round, content: `⚔️ ${cline}`, payload: { type: 'combat' } });
+      } else {
+        const cline = `${ia.attacker || '敌人'} 扑向 ${tseat}（${ia.means || '攻击'}）未命中，包围更紧了`;
+        seatLines[seat].push(cline);
+        await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: round, content: `⚔️ ${cline}`, payload: { type: 'combat' } });
+      }
+    }
   }
 
   // 判定后：构造叙述上下文（含世界时钟 / NPC 记忆与态度 / 疯狂 / 资源）

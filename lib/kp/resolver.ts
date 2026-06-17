@@ -36,12 +36,18 @@ ${chars}${resLine}
 
 【资源限制】开枪还需要弹药>0：若该角色"可耗尽资源"里弹药为 0 或没有弹药，就不能开枪（按 needs_clarification 或不可行处理，让叙述层用"扳机空响"戳破），改走近战检定。具体扣弹由叙述层处理，你只负责：弹药足够才安排手枪/步枪/霰弹的射击检定。
 
+【敌意回击 · incoming_attacks】危险不是摆设。只要玩家做了下面任一件事，敌人就会**还手**，必须把他们的攻击列进 incoming_attacks，绝不允许"被包围却毫发无伤"或"挑衅/攻击了敌人却没有任何后果"：
+- 攻击、挑衅、辱骂、威胁敌对的人或生物；冲进敌对人群；主动送上门、不抵抗地被敌对人群抓住（=被制服并挨打，照样列攻击）；激怒危险者或怪物；
+- 上一拍已经"被包围/被追/在战斗中"，而这次行动没有有效脱离、安抚或反制。
+每个攻击写：{"attacker":"村民们","target":"A","means":"棍棒/拳脚/抓捕/啃咬","skill":40,"damage":"1d6"}。target 是挨打的座位（A/B）。群体/普通人 skill 35~50、damage 1d4~1d6；持械或怪物 skill 50~70、damage 1d8+。多个敌人可列多条。这是机制，不是叙事修辞——你列了，系统才会真的扣 HP。
+
 只输出 JSON：
 {
   "intent": {"type":"暴力","target":"病人","risk":"extreme"},
   "needs_clarification": false,
   "clarify_question": "",
   "checks": [{"character":"A","skill":"格斗","skill_value":25,"difficulty":"normal","reason":"试图制服病人"}],
-  "san_checks": [{"character":"B","trigger":"目睹流血","loss_success":"0","loss_fail":"1d4"}]
+  "san_checks": [{"character":"B","trigger":"目睹流血","loss_success":"0","loss_fail":"1d4"}],
+  "incoming_attacks": [{"attacker":"村民们","target":"A","means":"棍棒与拳脚","skill":40,"damage":"1d6"}]
 }`;
 }

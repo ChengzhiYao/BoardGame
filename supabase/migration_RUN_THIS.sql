@@ -208,4 +208,8 @@ create table if not exists billing_events (
 );
 alter table billing_events enable row level security;
 alter table profiles enable row level security;
+
+-- ---------- 17. 多语言：每个房间一种语言（中文 / 英文），AI 内容按此生成 ----------
+alter table rooms add column if not exists language text not null default 'zh'; -- zh | en
+
 -- 完成。刷新网页即可。

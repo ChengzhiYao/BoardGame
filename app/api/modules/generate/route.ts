@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { callLLMJson } from '@/lib/llm';
 import { buildModuleGenPrompt, type CustomDirection } from '@/lib/kp/modules';
+import { langDirective } from '@/lib/i18n';
 
 export const maxDuration = 60;
 
@@ -25,12 +26,15 @@ export async function POST(req: Request) {
     .maybeSingle();
   if (!me) return NextResponse.json({ error: '你不在这个房间' }, { status: 403 });
 
+  const { data: room } = await admin.from('rooms').select('language').eq('id', roomId).maybeSingle();
+  const lang = room?.language || 'zh';
+
   // 防并发：标记生成中
   await admin.from('rooms').update({ modules_generating: true }).eq('id', roomId);
 
   try {
     const { data, usage } = await callLLMJson<{ modules: any[] }>({
-      system: buildModuleGenPrompt(customDirection as CustomDirection),
+      system: buildModuleGenPrompt(customDirection as CustomDirection) + langDirective(lang),
       messages: [{ role: 'user', content: '请生成 3 个模组选项。' }],
       tier: 'main',
       temperature: 1.0,
@@ -42,7 +46,8 @@ export async function POST(req: Request) {
     // 从模组库取一个达标的现成案件混进选项（被选中则跳过生成+审查，省 token）。
     // 自定义方向时不混入库存，尊重玩家的定制。
     let libOption: any = null;
-    if (!customDirection || !Object.values(customDirection).some(Boolean)) {
+    // 仅中文局复用库存案件（库存基本是中文）；英文局全部现场生成，保证全英文
+    if (lang === 'zh' && (!customDirection || !Object.values(customDirection).some(Boolean))) {
       const { data: libs } = await admin
         .from('module_library')
         .select('id, title, hook, tagline, genre, era, place, difficulty, duration, quality')

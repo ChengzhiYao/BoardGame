@@ -3,6 +3,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { callLLMJson } from '@/lib/llm';
+import { langDirective } from '@/lib/i18n';
 
 export const maxDuration = 30;
 const MAX_DEDUCTIONS = 40; // 每局推理次数上限（控成本）
@@ -21,7 +22,7 @@ export async function POST(req: Request) {
   const { data: me } = await admin.from('players').select('id, seat').eq('room_id', roomId).eq('user_id', user.id).maybeSingle();
   if (!me) return NextResponse.json({ error: '你不在这个房间' }, { status: 403 });
 
-  const { data: room } = await admin.from('rooms').select('campaign_id, game_state, deduction_count').eq('id', roomId).maybeSingle();
+  const { data: room } = await admin.from('rooms').select('campaign_id, game_state, deduction_count, language').eq('id', roomId).maybeSingle();
   if (!room) return NextResponse.json({ error: '房间不存在' }, { status: 404 });
   if (room.game_state !== 'playing') return NextResponse.json({ error: '现在不能推理。' }, { status: 409 });
   if ((room.deduction_count || 0) >= MAX_DEDUCTIONS) {
@@ -60,7 +61,7 @@ export async function POST(req: Request) {
   let out: any = { combines: false, reason: '一时看不出联系。' };
   try {
     const r = await callLLMJson<any>({
-      system,
+      system: system + langDirective(room.language),
       messages: [{ role: 'user', content: `玩家拼合的线索：\n${cluesText}\n\n它们能推出什么？` }],
       tier: 'aux', temperature: 0.3, maxTokens: 500,
     });

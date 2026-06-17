@@ -38,6 +38,7 @@ export async function POST(req: Request) {
       host_user_id: user.id,
       status: 'waiting',
       mode: ['soup', 'td'].includes(body.mode) ? body.mode : 'coc',
+      language: ['zh', 'en'].includes(body.language) ? body.language : 'zh',
       invite_token: token,
       invite_expires_at: new Date(Date.now() + 7 * 86400000).toISOString(),
     })

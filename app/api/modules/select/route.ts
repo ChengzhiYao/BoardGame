@@ -5,6 +5,7 @@ import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { callLLMJson } from '@/lib/llm';
 import { buildCaseLockPrompt } from '@/lib/kp/modules';
 import { buildReviewSystem, composeQuality, QUALITY_PASS } from '@/lib/kp/review';
+import { langDirective } from '@/lib/i18n';
 
 export const maxDuration = 60;
 
@@ -61,7 +62,7 @@ export async function POST(req: Request) {
       // 只生成一次（关掉"不达标重生成"以省 token）；审查照常打分并归档
       for (let attempt = 0; attempt < 1; attempt++) {
         const { data: cd, usage } = await callLLMJson<any>({
-          system: buildCaseLockPrompt(chosen, room.custom_direction, theme),
+          system: buildCaseLockPrompt(chosen, room.custom_direction, theme) + langDirective(room.language),
           messages: [{ role: 'user', content: '请生成隐藏案件档案。' }],
           tier: 'main', temperature: 0.7, maxTokens: 2600,
         });

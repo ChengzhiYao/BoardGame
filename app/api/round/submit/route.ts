@@ -8,6 +8,7 @@ import { buildSummarizerSystem, SUMMARIZE_EVERY } from '@/lib/kp/memory';
 import { skillCheck, OUTCOME_LABEL } from '@/lib/coc/dice';
 import { skillValueFor } from '@/lib/coc/skills';
 import { SFX_KEYS } from '@/lib/audio/sfx';
+import { langDirective } from '@/lib/i18n';
 
 export const maxDuration = 60; // 线上给 AI 结算更长超时（秒）
 
@@ -146,7 +147,7 @@ async function resolveRound(admin: any, roomId: string) {
     // 解析（副模型）
     let plan: any = { checks: [], san_checks: [] };
     try {
-      const r = await callLLMJson<any>({ system: buildResolverSystem(baseCtx), messages: [...baseMessages, { role: 'user', content: `${nameOfSeat(seat)}（${seat}）的行动：${pa.content}` }], tier: 'aux', temperature: 0.3, maxTokens: 600 });
+      const r = await callLLMJson<any>({ system: buildResolverSystem(baseCtx) + langDirective(room.language), messages: [...baseMessages, { role: 'user', content: `${nameOfSeat(seat)}（${seat}）的行动：${pa.content}` }], tier: 'aux', temperature: 0.3, maxTokens: 600 });
       plan = r.data;
       await admin.from('api_usage').insert({ room_id: roomId, kind: 'llm_aux', model: r.usage.model, prompt_tokens: r.usage.promptTokens, completion_tokens: r.usage.completionTokens, latency_ms: r.usage.latencyMs });
     } catch {}
@@ -232,7 +233,7 @@ narration 必须分段输出：
 【世界状态变化】…（嫌疑值/NPC态度/SAN/HP 概述）
 下一步可行动作放进 guidance.options。骰子已判定，不要再请求。${round >= 25 ? `\n（本局已进行 ${round} 回合。若案件已接近真相或收尾，请果断给出结局：progress.ending_triggered=true 并写好 ending_text 与结局类型。）` : ''}`;
 
-  const { data: out, usage } = await callLLMJson<any>({ system: buildKpTurnSystem(narratorCtx), messages: [...baseMessages, { role: 'user', content: note }], tier: 'main', temperature: 0.7, maxTokens: 1700 });
+  const { data: out, usage } = await callLLMJson<any>({ system: buildKpTurnSystem(narratorCtx) + langDirective(room.language), messages: [...baseMessages, { role: 'user', content: note }], tier: 'main', temperature: 0.7, maxTokens: 1700 });
   await admin.from('api_usage').insert({ room_id: roomId, kind: 'llm_main', model: usage.model, prompt_tokens: usage.promptTokens, completion_tokens: usage.completionTokens, latency_ms: usage.latencyMs });
 
   // KP 旁白
@@ -374,7 +375,7 @@ narration 必须分段输出：
         .order('created_at', { ascending: true }).limit(300);
       const text = (toSum || []).map((m: any) => `${m.sender_type === 'kp' ? 'KP' : m.sender_type === 'system' ? '系统' : '玩家'}：${m.content}`).join('\n');
       const { data: sd, usage: u2 } = await callLLMJson<any>({
-        system: buildSummarizerSystem(),
+        system: buildSummarizerSystem() + langDirective(room.language),
         messages: [{ role: 'user', content: `此前摘要：\n${memory.summary || '（无）'}\n\n已知关键事实：\n${(memory.key_facts || []).join('；') || '（无）'}\n\n最近发生：\n${text}\n\n请输出更新后的 summary 与 key_facts。` }],
         tier: 'aux', temperature: 0.2, maxTokens: 800,
       });

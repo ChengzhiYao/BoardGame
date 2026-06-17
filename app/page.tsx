@@ -2,18 +2,31 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ensureSession, signInWithGoogle, signOut } from '@/lib/auth';
+import { tr, getClientLang, setClientLang, type Lang } from '@/lib/i18n';
 
 export default function Home() {
   const router = useRouter();
+  const [lang, setLang] = useState<Lang>('zh');
   const [name, setName] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [mode, setMode] = useState<'idle' | 'join'>('idle');
   const [gameMode, setGameMode] = useState<'coc' | 'soup' | 'td'>('coc');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  useEffect(() => { setLang(getClientLang()); }, []);
+  const t = tr(lang);
+
+  function switchLang(l: Lang) { setLang(l); setClientLang(l); }
+
+  function roomName() {
+    const suffix = lang === 'en'
+      ? (gameMode === 'soup' ? '’s Lateral Mystery' : gameMode === 'td' ? '’s Truth or Dare' : '’s Investigation')
+      : (gameMode === 'soup' ? ' 的海龟汤' : gameMode === 'td' ? ' 的真心话大冒险' : ' 的调查');
+    return `${name.trim()}${suffix}`;
+  }
 
   async function createRoom() {
-    if (!name.trim()) return setErr('先填一个调查员代号');
+    if (!name.trim()) return setErr(t('err_name'));
     setBusy(true);
     setErr('');
     try {
@@ -21,11 +34,11 @@ export default function Home() {
       const res = await fetch('/api/rooms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: `${name.trim()} 的${gameMode === 'soup' ? '海龟汤' : gameMode === 'td' ? '真心话大冒险' : '调查'}`, displayName: name.trim(), mode: gameMode }),
+        body: JSON.stringify({ name: roomName(), displayName: name.trim(), mode: gameMode, language: lang }),
       });
       const data = await res.json();
       if (res.status === 402) {
-        try { localStorage.setItem('pendingGame', JSON.stringify({ mode: gameMode, name: name.trim() })); } catch {}
+        try { localStorage.setItem('pendingGame', JSON.stringify({ mode: gameMode, name: name.trim(), language: lang })); } catch {}
         router.push('/upgrade');
         return;
       }
@@ -38,8 +51,8 @@ export default function Home() {
   }
 
   async function joinRoom() {
-    if (!name.trim()) return setErr('先填一个调查员代号');
-    if (!joinCode.trim()) return setErr('粘贴邀请码');
+    if (!name.trim()) return setErr(t('err_name'));
+    if (!joinCode.trim()) return setErr(t('err_code'));
     setBusy(true);
     setErr('');
     try {
@@ -53,26 +66,24 @@ export default function Home() {
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center gap-7 px-6 text-center">
-      <AccountBadge />
-      <h1 className="text-4xl md:text-5xl font-serif tracking-wide text-parchment">克苏鲁调查团</h1>
-      <p className="max-w-md text-parchment/70 leading-relaxed">
-        两名调查员，一条邀请链接，一位永不迷路、真相绝不更改的 AI 守秘人。
-        你们将拼凑彼此手中的线索，直面不可名状之物。
-      </p>
+      <LangToggle lang={lang} onChange={switchLang} />
+      <AccountBadge t={t} />
+      <h1 className="text-4xl md:text-5xl font-serif tracking-wide text-parchment">{t('home_title')}</h1>
+      <p className="max-w-md text-parchment/70 leading-relaxed">{t('home_tagline')}</p>
 
       <input
         value={name}
         onChange={(e) => setName(e.target.value)}
-        placeholder="你的调查员代号"
+        placeholder={t('home_name_ph')}
         className="w-72 px-4 py-3 rounded bg-fog border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch"
       />
 
       {mode === 'idle' && (
         <div className="flex gap-2 flex-wrap justify-center">
-          {([['coc', '调查跑团（CoC）'], ['soup', '海龟汤'], ['td', '真心话大冒险']] as const).map(([k, label]) => (
+          {(['coc', 'soup', 'td'] as const).map((k) => (
             <button key={k} onClick={() => setGameMode(k)}
               className={`px-4 py-2 rounded text-sm border ${gameMode === k ? 'bg-blood/30 border-blood text-parchment' : 'bg-fog border-eldritch/30 text-parchment/60'}`}>
-              {label}
+              {t(`mode_${k}`)}
             </button>
           ))}
         </div>
@@ -80,54 +91,51 @@ export default function Home() {
 
       {mode === 'idle' ? (
         <div className="flex gap-4">
-          <button
-            onClick={createRoom}
-            disabled={busy}
-            className="px-6 py-3 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-50"
-          >
-            {busy ? '正在开启…' : (gameMode === 'soup' ? '创建海龟汤' : gameMode === 'td' ? '创建真心话大冒险' : '创建调查')}
+          <button onClick={createRoom} disabled={busy}
+            className="px-6 py-3 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-50">
+            {busy ? t('starting') : t(`create_${gameMode}`)}
           </button>
-          <button
-            onClick={() => setMode('join')}
-            disabled={busy}
-            className="px-6 py-3 rounded bg-fog hover:bg-eldritch/40 text-parchment border border-eldritch/50"
-          >
-            输入邀请码加入
+          <button onClick={() => setMode('join')} disabled={busy}
+            className="px-6 py-3 rounded bg-fog hover:bg-eldritch/40 text-parchment border border-eldritch/50">
+            {t('join_btn')}
           </button>
         </div>
       ) : (
         <div className="flex flex-col items-center gap-3">
-          <input
-            value={joinCode}
-            onChange={(e) => setJoinCode(e.target.value)}
-            placeholder="粘贴邀请码"
-            className="w-72 px-4 py-3 rounded bg-fog border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch"
-          />
+          <input value={joinCode} onChange={(e) => setJoinCode(e.target.value)} placeholder={t('join_code_ph')}
+            className="w-72 px-4 py-3 rounded bg-fog border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch" />
           <div className="flex gap-4">
-            <button
-              onClick={joinRoom}
-              disabled={busy}
-              className="px-6 py-3 rounded bg-eldritch/70 hover:bg-eldritch text-parchment border border-eldritch disabled:opacity-50"
-            >
-              {busy ? '正在加入…' : '加入'}
+            <button onClick={joinRoom} disabled={busy}
+              className="px-6 py-3 rounded bg-eldritch/70 hover:bg-eldritch text-parchment border border-eldritch disabled:opacity-50">
+              {busy ? t('joining') : t('join_do')}
             </button>
-            <button
-              onClick={() => setMode('idle')}
-              className="px-6 py-3 rounded bg-fog text-parchment/70 border border-parchment/20"
-            >
-              返回
+            <button onClick={() => setMode('idle')} className="px-6 py-3 rounded bg-fog text-parchment/70 border border-parchment/20">
+              {t('back')}
             </button>
           </div>
         </div>
       )}
 
       {err && <p className="text-blood text-sm">{err}</p>}
-      <a href="/upgrade" className="text-parchment/40 hover:text-parchment text-sm underline">开房说明 · 我的局数 →</a>
+      <a href="/upgrade" className="text-parchment/40 hover:text-parchment text-sm underline">{t('home_upgrade_link')}</a>
     </main>
   );
 }
 
-function AccountBadge() {
+function LangToggle({ lang, onChange }: { lang: Lang; onChange: (l: Lang) => void }) {
+  return (
+    <div className="fixed top-3 left-3 z-20 flex rounded-full overflow-hidden border border-eldritch/30 text-xs">
+      {(['zh', 'en'] as const).map((l) => (
+        <button key={l} onClick={() => onChange(l)}
+          className={`px-3 py-1.5 ${lang === l ? 'bg-eldritch/50 text-parchment' : 'bg-fog/70 text-parchment/50 hover:text-parchment'}`}>
+          {l === 'zh' ? '中' : 'EN'}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function AccountBadge({ t }: { t: (k: string, v?: any) => string }) {
   const [s, setS] = useState<any>(null);
   async function load() {
     try { const r = await fetch('/api/billing/status'); setS(await r.json()); }
@@ -140,13 +148,13 @@ function AccountBadge() {
       {s.loggedIn ? (
         <div className="flex items-center gap-2 rounded-full bg-fog/80 border border-eldritch/30 px-3 py-1.5 text-parchment/80 backdrop-blur">
           <span className="truncate max-w-[150px]" title={s.email}>{s.email}</span>
-          <span className="text-eldritch shrink-0">{s.whitelisted ? '永久免费' : `${s.credits} 局`}</span>
-          <button onClick={async () => { await signOut(); load(); }} className="text-parchment/40 hover:text-parchment underline shrink-0">退出</button>
+          <span className="text-eldritch shrink-0">{s.whitelisted ? t('free_forever') : `${s.credits} ${t('credits_left')}`}</span>
+          <button onClick={async () => { await signOut(); load(); }} className="text-parchment/40 hover:text-parchment underline shrink-0">{t('logout')}</button>
         </div>
       ) : (
         <button onClick={() => signInWithGoogle('/').catch(() => {})}
           className="rounded-full bg-fog/80 border border-eldritch/30 px-3 py-1.5 text-parchment/70 hover:text-parchment backdrop-blur">
-          Google 登录
+          {t('login_google')}
         </button>
       )}
     </div>

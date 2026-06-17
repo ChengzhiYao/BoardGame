@@ -6,6 +6,8 @@ import Stepper from './Stepper';
 import ModuleSelection from './ModuleSelection';
 import CharacterFlow from './CharacterFlow';
 import Dashboard from './Dashboard';
+import SoupRoom from './SoupRoom';
+import TDRoom from './TDRoom';
 import AudioManager from './AudioManager';
 
 // 根据游戏阶段解析音乐情绪状态
@@ -34,6 +36,7 @@ export type ShellProps = {
   inviteToken: string;
   siteUrl: string;
   caseQuality?: any;
+  soupSurface?: string;
 };
 
 export default function RoomShell(props: ShellProps) {
@@ -67,6 +70,14 @@ export default function RoomShell(props: ShellProps) {
       supabase.removeChannel(ch);
     };
   }, [props.room.id, supabase, router]);
+
+  // 海龟汤 / 真心话大冒险：独立流程，不走 CoC 的十状态机
+  if (props.room.mode === 'soup') {
+    return <SoupRoom {...props} />;
+  }
+  if (props.room.mode === 'td') {
+    return <TDRoom {...props} />;
+  }
 
   const state = props.room.game_state || 'lobby';
   const audioState = audioStateFor(props.room);
@@ -222,13 +233,4 @@ function Centered({
   desc,
   spinner,
 }: {
-  title: string;
-  desc: string;
-  spinner?: boolean;
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-4 text-center max-w-lg">
-      {spinner && (
-        <div className="w-8 h-8 border-2 border-eldritch/30 border-t-eldritch rounded-full animate-spin" />
-      )}
-      <h1 className="text
+  ti

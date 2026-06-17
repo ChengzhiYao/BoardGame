@@ -507,7 +507,8 @@ function EndedBanner({ roomId }: { roomId: string }) {
           {err && <p className="text-blood">{err}</p>}
           {recap && (
             <>
-              <div><span className="text-eldritch">真相：</span>{recap.truth}</div>
-              <div><span className="text-eldritch">幕后黑手：</span>{recap.mastermind?.identity} —— {recap.mastermind?.motive}</div>
-              {recap.supernatural?.nature && <div><span className="text-eldritch">超自然：</span>{recap.supernatural.nature}</div>}
-              {Array.
+              {Array.isArray(recap.survivors) && recap.survivors.length > 0 && (
+                <div className="flex flex-wrap gap-3 pb-2 border-b border-blood/20">
+                  {recap.survivors.map((s: any, i: number) => (
+                    <span key={i} className={`text-xs ${s.alive ? 'text-green-400' : 'text-blood'}`}>
+                      {s.seat}·{s.name}：{s.status}�

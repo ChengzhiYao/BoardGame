@@ -46,13 +46,10 @@ export async function POST(req: Request) {
     await admin.from('users').update({ display_name: body.displayName }).eq('id', user.id);
   }
 
-  // 满员后进入模组选择阶段（强制流程，不允许跳步）
-  if ((players?.length || 0) + 1 >= 2) {
+  // 满员后进入模组选择阶段（仅 CoC 模式；海龟汤由房主手动开始，不跳步）
+  if (room.mode !== 'soup' && (players?.length || 0) + 1 >= 2) {
     await admin
       .from('rooms')
       .update({ status: 'character_creation', game_state: 'module_selection' })
       .eq('id', room.id);
   }
-
-  return NextResponse.json({ roomId: room.id });
-}

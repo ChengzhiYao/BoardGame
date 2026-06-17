@@ -70,25 +70,21 @@ export default async function RoomPage({ params }: { params: { id: string } }) {
     : { data: null };
   const caseQuality = (campaign?.setting as any)?.quality || null;
 
+  const { data: soup } = room.mode === 'soup'
+    ? await supabase.from('soup_puzzles').select('surface').eq('room_id', params.id).maybeSingle()
+    : { data: null };
+
   const me = (players || []).find((p) => p.user_id === user.id);
   const site = process.env.NEXT_PUBLIC_SITE_URL || '';
 
   return (
     <RoomShell
       caseQuality={caseQuality}
+      soupSurface={(soup as any)?.surface || ''}
       room={room}
       initialPlayers={players || []}
       initialUsers={(users as any[]) || []}
       initialMessages={messages || []}
       initialCharacters={characters || []}
       initialClues={clues || []}
-      initialNpcs={npcs || []}
-      initialImages={images || []}
-      myPlayerId={me?.id || null}
-      mySeat={me?.seat || null}
-      userId={user.id}
-      inviteToken={room.invite_token}
-      siteUrl={site}
-    />
-  );
-}
+      initi

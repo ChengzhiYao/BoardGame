@@ -23,14 +23,7 @@ export async function POST(req: Request) {
   const { data: campaign } = await admin.from('campaigns').select('title').eq('id', room.campaign_id).maybeSingle();
   const { data: truth } = await admin.from('hidden_case_files').select('*').eq('campaign_id', room.campaign_id).maybeSingle();
 
-  return NextResponse.json({
-    title: campaign?.title,
-    truth: truth?.truth,
-    mastermind: truth?.mastermind,
-    supernatural: truth?.supernatural,
-    npcs: truth?.npc_secrets,
-    timeline: truth?.timeline_true,
-    key_clues: truth?.key_clues,
-    red_herrings: truth?.red_herrings,
-  });
-}
+  // 调查员存活/精神状态小结
+  const { data: players } = await admin.from('players').select('id, seat, user_id').eq('room_id', roomId);
+  const { data: chars } = await admin.from('characters').select('*').eq('room_id', roomId);
+  const { data: users } = await admin.from('users').select('id,

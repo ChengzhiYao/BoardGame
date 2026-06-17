@@ -26,6 +26,7 @@ export async function POST(req: Request) {
       name: body.name?.trim() || '未命名调查',
       host_user_id: user.id,
       status: 'waiting',
+      mode: ['soup', 'td'].includes(body.mode) ? body.mode : 'coc',
       invite_token: token,
       invite_expires_at: new Date(Date.now() + 7 * 86400000).toISOString(),
     })
@@ -42,5 +43,4 @@ export async function POST(req: Request) {
     await admin.from('users').update({ display_name: body.displayName }).eq('id', user.id);
   }
 
-  return NextResponse.json({ roomId: room.id, inviteToken: token });
-}
+  r

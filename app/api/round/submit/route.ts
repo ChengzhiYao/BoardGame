@@ -9,7 +9,7 @@ import { skillCheck, OUTCOME_LABEL } from '@/lib/coc/dice';
 import { skillValueFor } from '@/lib/coc/skills';
 import { SFX_KEYS } from '@/lib/audio/sfx';
 
-export const maxDuration = 60; // 线上给 AI 结算更长超时（秒）
+export const maxDuration = 60;
 
 const ACTION_LABEL: Record<string, string> = { investigate: '调查', talk: '交谈', combat: '战斗', move: '移动', free: '', chat: '对话' };
 function rollLoss(s: string): number {
@@ -36,7 +36,6 @@ export async function POST(req: Request) {
   if (room.game_state !== 'playing') return NextResponse.json({ error: '现在还不是跑团阶段。' }, { status: 409 });
   if (room.resolution_status === 'resolving') return NextResponse.json({ error: '本回合正在结算，请稍候。' }, { status: 409 });
 
-  // 退场判断：死亡/永久疯狂的调查员不能再行动
   const { data: players0 } = await admin.from('players').select('id, seat, user_id').eq('room_id', roomId);
   const { data: chars0 } = await admin.from('characters').select('player_id, status_flags, hp_current, san_current').eq('room_id', roomId);
   const isOut = (c: any) => { const f = c?.status_flags || {}; return !!(f.dead || f.retired) || (c?.hp_current ?? 1) <= 0 || (c?.san_current ?? 1) <= 0; };
@@ -45,17 +44,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: '你的调查员已退场（死亡或永久疯狂），无法再行动。' }, { status: 409 });
   }
 
-  // 写入我的待结算行动
   const pending = { ...(room.pending_actions || {}) };
   pending[me.seat] = { content: content.trim(), action_type: action_type || 'free', player_id: me.id };
   const readyPatch: any = { pending_actions: pending };
   if (me.seat === 'A') readyPatch.player_a_ready = true; else readyPatch.player_b_ready = true;
   await admin.from('rooms').update(readyPatch).eq('id', roomId);
 
-  // 关键：写完后重新读取最新状态，避免两人几乎同时提交时各读到对方的旧值而双双卡住
   const { data: fresh } = await admin
     .from('rooms').select('player_a_ready, player_b_ready').eq('id', roomId).maybeSingle();
-  // 已退场的座位视为"自动就绪"，让在场的另一名玩家可以独自推进
   const aReady = !!fresh?.player_a_ready || isOut(charOfSeat0('A'));
   const bReady = !!fresh?.player_b_ready || isOut(charOfSeat0('B'));
 
@@ -65,7 +61,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, status: 'waiting', waiting_for });
   }
 
-  // 两人都就绪：抢占结算（防止双方同时触发重复结算）
   const { data: claim } = await admin
     .from('rooms').update({ resolution_status: 'resolving', waiting_for: null })
     .eq('id', roomId).eq('resolution_status', 'collecting').select('id');
@@ -78,7 +73,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, status: 'resolved' });
   } catch (e: any) {
     await admin.from('error_logs').insert({ room_id: roomId, scope: 'llm', message: '结算:' + e.message });
-    // 回退到收集态，并清空双方就绪标记，让玩家可以重新提交（否则会卡在"都已提交却不结算"）
     await admin.from('rooms').update({
       resolution_status: 'collecting', waiting_for: 'both',
       player_a_ready: false, player_b_ready: false, pending_actions: {},
@@ -111,7 +105,6 @@ async function resolveRound(admin: any, roomId: string) {
   const memory = room.memory || { summary: '', key_facts: [], up_to_round: 0 };
   const baseCtx = { truth, campaign, characters: ctxChars, clues: clues || [], imageRemaining, intensity: 'medium', suspicion: room.suspicion || 0, memory, theme: campaign?.setting?.theme };
 
-  // 历史
   const { data: history } = await admin.from('messages').select('sender_type, sender_player_id, action_type, content, visibility').eq('room_id', roomId).order('created_at', { ascending: true }).limit(400);
   const nameOfPlayer = (pid: string | null) => { const p = players?.find((x: any) => x.id === pid); return `${users?.find((u: any) => u.id === p?.user_id)?.display_name || '调查员'}（${p?.seat || '?'}）`; };
   const baseMessages: LLMMessage[] = (history || []).slice(-16).map((m: any) => {
@@ -121,14 +114,12 @@ async function resolveRound(admin: any, roomId: string) {
     return { role: 'user', content: `${who} ${act}${m.content}` } as LLMMessage;
   });
 
-  // 落库两名玩家的行动 + 逐个解析掷骰
   const seatLines: Record<string, string[]> = { A: [], B: [] };
   for (const seat of ['A', 'B'] as const) {
     const pa = pending[seat];
     if (!pa?.content) continue;
     await admin.from('messages').insert({ room_id: roomId, sender_type: 'player', sender_player_id: pa.player_id || playerIdOfSeat(seat), action_type: pa.action_type || 'free', content: pa.content, turn_no: round, visibility: 'public' });
 
-    // 解析（副模型）
     let plan: any = { checks: [], san_checks: [] };
     try {
       const r = await callLLMJson<any>({ system: buildResolverSystem(baseCtx), messages: [...baseMessages, { role: 'user', content: `${nameOfSeat(seat)}（${seat}）的行动：${pa.content}` }], tier: 'aux', temperature: 0.3, maxTokens: 600 });
@@ -138,7 +129,6 @@ async function resolveRound(admin: any, roomId: string) {
 
     const c = charBySeat(seat);
     for (const d of plan.checks || []) {
-      // 技能值只从角色卡读真实固定值，不用 AI 猜的数
       const sv = skillValueFor(c, d.skill);
       const rr = skillCheck(sv);
       await admin.from('dice_rolls').insert({ room_id: roomId, character_id: c?.id || null, dice_type: 'd100', skill_name: d.skill, skill_value: sv, target_value: sv, result: rr.result, outcome: rr.outcome, context: d.reason, turn_no: round });
@@ -164,7 +154,6 @@ async function resolveRound(admin: any, roomId: string) {
     }
   }
 
-  // 统一叙述（主模型）
   const note = `【本回合双人行动与判定结果，请统一结算】
 玩家A（${nameOfSeat('A')}）：${pending.A?.content || '（未行动）'}
 A 判定：${seatLines.A.length ? seatLines.A.join('；') : '无需骰子'}
@@ -180,19 +169,16 @@ narration 必须分段输出：
   const { data: out, usage } = await callLLMJson<any>({ system: buildKpTurnSystem(baseCtx), messages: [...baseMessages, { role: 'user', content: note }], tier: 'main', temperature: 0.7, maxTokens: 1600 });
   await admin.from('api_usage').insert({ room_id: roomId, kind: 'llm_main', model: usage.model, prompt_tokens: usage.promptTokens, completion_tokens: usage.completionTokens, latency_ms: usage.latencyMs });
 
-  // KP 旁白
   const validSfx = Array.isArray(out.sfx) ? out.sfx.filter((k: string) => SFX_KEYS.includes(k)) : [];
   if (out.narration) {
-    await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', content: out.narration, turn_no: round, payload: { image_suggestion: out.image_suggestion?.should ? out.image_suggestion : undefined, sfx: validSfx.length ? validSfx : undefined, guidance: out.guidance && (out.guidance.location || out.guidance.options?.length) ? out.guidance : undefined } });
+    await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', content: out.narration, turn_no: round, payload: { image_suggestion: out.image_suggestion?.should ? out.image_suggestion : undefined, sfx: validSfx.length ? validSfx : undefined, guidance: out.guidance && (out.guidance.location || out.guidance.options?.length || out.guidance.a || out.guidance.b) ? out.guidance : undefined } });
   }
 
-  // 私人事件 / SAN 幻觉
   for (const pn of out.private_notes || []) {
     if (!pn?.text || !['A', 'B'].includes(pn.to)) continue;
     await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: round, content: pn.text, visibility: pn.to === 'A' ? 'player_a' : 'player_b', payload: { type: 'private' } });
   }
 
-  // 各玩家当前所在地点（从各自的 guidance 块取，双人可分头行动）
   const g = out.guidance || {};
   const locOf = (seat: 'A' | 'B') => (seat === 'A' ? g.a?.location : g.b?.location) || g.location;
   for (const seat of ['A', 'B'] as const) {
@@ -200,7 +186,6 @@ narration 必须分段输出：
     if (loc) { const c = charBySeat(seat); if (c) await admin.from('characters').update({ current_location: loc }).eq('id', c.id); }
   }
 
-  // 状态变化（含死亡 / 永久疯狂的退场标记）
   for (const sc of out.state_changes || []) {
     const c = charBySeat(sc.character); if (!c) continue;
     const patch: any = {};
@@ -218,7 +203,6 @@ narration 必须分段输出：
     if (Object.keys(patch).length) { patch.status_flags = flags; await admin.from('characters').update(patch).eq('id', c.id); }
   }
 
-  // 世界反应：嫌疑值
   const susDelta = Number(out.suspicion_delta) || 0;
   const newSuspicion = Math.max(0, (room.suspicion || 0) + susDelta);
   if (susDelta !== 0 || out.world_reaction) {
@@ -228,7 +212,6 @@ narration 必须分段输出：
     await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: round, content: '【世界反应】' + parts.join(' · '), payload: { type: 'world' } });
   }
 
-  // 线索 / NPC / 地点 / 时间线
   for (const cl of out.clue_updates || []) {
     if (!cl.title) continue;
     await admin.from('clues').insert({ room_id: roomId, title: cl.title, description: cl.description, source: cl.source, is_key: !!cl.is_key, is_red_herring: !!cl.is_red_herring, thread: ['A', 'B', 'C', 'D', 'E'].includes(cl.thread) ? cl.thread : null, visible_to: ['all', 'A', 'B'].includes(cl.visible_to) ? cl.visible_to : 'all', discovered_turn: round });
@@ -239,7 +222,6 @@ narration 必须分段输出：
   for (const l of out.location_updates || []) { if (!l.name || existingLocs.has(l.name)) continue; await admin.from('locations').insert({ room_id: roomId, name: l.name, description: l.description, first_seen_turn: round }); }
   for (const tl of out.timeline_updates || []) { if (!tl.description) continue; await admin.from('timeline_events').insert({ room_id: roomId, event_time: tl.event_time, description: tl.description, visible_to: ['all', 'A', 'B'].includes(tl.visible_to) ? tl.visible_to : 'all', revealed_turn: round }); }
 
-  // 配图建议（分类型，存具体画面）
   if (out.image_suggestion?.should && imageRemaining > 0) {
     const is = out.image_suggestion;
     const validType = ['scene_image', 'npc_portrait', 'clue_evidence', 'monster_image', 'event_illustration'].includes(is.type) ? is.type : 'scene_image';
@@ -248,13 +230,11 @@ narration 必须分段输出：
     }
   }
 
-  // 音乐情绪 + 怪物去重
   let scene = String(out.scene_state || '').toUpperCase();
   const flags = { ...(room.audio_flags || {}) };
   if (scene === 'MONSTER_REVEAL') { const seen: string[] = flags.monsters || []; const id = (out.monster_id || '').trim(); if (id && seen.includes(id)) scene = 'COMBAT'; else if (id) flags.monsters = [...seen, id]; }
   const validScenes = new Set(['MENU','CHARACTER_CREATION','EXPLORATION_SAFE','EXPLORATION_DANGEROUS','HIDDEN_CLUE','PARANORMAL_EVENT','MONSTER_REVEAL','CHASE_SEQUENCE','COMBAT','INVESTIGATION_BREAKTHROUGH','RITUAL_DISCOVERY','FINAL_CONFRONTATION','COSMIC_HORROR','GOOD_ENDING','BITTERSWEET_ENDING','BAD_ENDING','TRUTH_REVEAL']);
 
-  // 战役记忆：每 SUMMARIZE_EVERY 回合压缩一次历史，控制 token 不随时长爆炸
   let newMemory = memory;
   if (round - (memory.up_to_round || 0) >= SUMMARIZE_EVERY) {
     try {
@@ -262,4 +242,40 @@ narration 必须分段输出：
         .select('sender_type, content, turn_no')
         .eq('room_id', roomId).gt('turn_no', memory.up_to_round || 0).lte('turn_no', round)
         .order('created_at', { ascending: true }).limit(300);
-      const text = (toSum || []).map((m: any) => `${m.sender_type === 'kp' ? 'KP' : m.sender_type === 'system' ? '系统' : '玩
+      const text = (toSum || []).map((m: any) => `${m.sender_type === 'kp' ? 'KP' : m.sender_type === 'system' ? '系统' : '玩家'}：${m.content}`).join('\n');
+      const { data: sd, usage: u2 } = await callLLMJson<any>({
+        system: buildSummarizerSystem(),
+        messages: [{ role: 'user', content: `此前摘要：\n${memory.summary || '（无）'}\n\n已知关键事实：\n${(memory.key_facts || []).join('；') || '（无）'}\n\n最近发生：\n${text}\n\n请输出更新后的 summary 与 key_facts。` }],
+        tier: 'aux', temperature: 0.2, maxTokens: 800,
+      });
+      newMemory = { summary: sd.summary || memory.summary, key_facts: Array.isArray(sd.key_facts) ? sd.key_facts : (memory.key_facts || []), up_to_round: round };
+      await admin.from('api_usage').insert({ room_id: roomId, kind: 'llm_aux', model: u2.model, prompt_tokens: u2.promptTokens, completion_tokens: u2.completionTokens, latency_ms: u2.latencyMs });
+    } catch {}
+  }
+
+  const { data: finalChars } = await admin.from('characters').select('status_flags, hp_current, san_current').eq('room_id', roomId);
+  const isOut = (c: any) => { const f = c?.status_flags || {}; return !!(f.dead || f.retired) || (c?.hp_current ?? 1) <= 0 || (c?.san_current ?? 1) <= 0; };
+  const bothOut = (finalChars?.length || 0) >= 1 && (finalChars || []).every(isOut);
+
+  const roomPatch: any = {
+    audio_flags: flags, suspicion: newSuspicion, memory: newMemory,
+    current_round: round + 1, turn_count: round,
+    pending_actions: {}, player_a_ready: false, player_b_ready: false,
+    waiting_for: 'both', resolution_status: 'collecting',
+  };
+  if (validScenes.has(scene)) roomPatch.scene_state = scene;
+  if (out.progress?.ending_triggered) {
+    roomPatch.game_state = 'ended';
+    const kind = String(out.progress.ending_kind || '').toLowerCase();
+    const kindScene = kind === 'good' ? 'GOOD_ENDING' : kind === 'bad' ? 'BAD_ENDING' : kind.includes('bitter') ? 'BITTERSWEET_ENDING' : (scene.includes('ENDING') ? scene : 'BITTERSWEET_ENDING');
+    roomPatch.scene_state = kindScene;
+    const kindLabel = kind === 'good' ? '好结局' : kind === 'bad' ? '坏结局' : kind === 'hidden' ? '隐藏结局' : kind.includes('bitter') ? '苦涩结局' : '结局';
+    const name = out.progress.ending_name ? `《${out.progress.ending_name}》（${kindLabel}）\n` : '';
+    await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: round, content: '【结局】' + name + (out.progress.ending_text || '调查到此结束。'), payload: { type: 'ending' } });
+  } else if (bothOut) {
+    roomPatch.game_state = 'ended';
+    roomPatch.scene_state = 'BAD_ENDING';
+    await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: round, content: '【结局】两位调查员都已倒下——一个死去，一个再也认不出这个世界。无人将真相带出此地。', payload: { type: 'ending' } });
+  }
+  await admin.from('rooms').update(roomPatch).eq('id', roomId);
+}

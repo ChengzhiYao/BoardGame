@@ -52,4 +52,13 @@ export function randomInvestigator(): RandomInvestigator {
   return {
     name: pick(SURNAMES) + given,
     gender,
-    age: String(22 + Math.f
+    age: String(22 + Math.floor(Math.random() * 34)),
+    occupation: pick(OCCUPATIONS),
+    personality: pick(PERSONALITIES),
+    background: pick(BACKGROUNDS),
+    personal_goal: pick(GOALS),
+    fear: pick(FEARS),
+    appearance: gender === 'male' ? pick(APPEARANCE_MALE) : pick(APPEARANCE_FEMALE),
+    inventory: pickSome(ITEMS.filter((i) => !/手枪|猎枪|弹药/.test(i)), 4),
+  };
+}

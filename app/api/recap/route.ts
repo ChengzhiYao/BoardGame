@@ -23,7 +23,26 @@ export async function POST(req: Request) {
   const { data: campaign } = await admin.from('campaigns').select('title').eq('id', room.campaign_id).maybeSingle();
   const { data: truth } = await admin.from('hidden_case_files').select('*').eq('campaign_id', room.campaign_id).maybeSingle();
 
-  // 调查员存活/精神状态小结
   const { data: players } = await admin.from('players').select('id, seat, user_id').eq('room_id', roomId);
   const { data: chars } = await admin.from('characters').select('*').eq('room_id', roomId);
-  const { data: users } = await admin.from('users').select('id,
+  const { data: users } = await admin.from('users').select('id, display_name').in('id', (players || []).map((p: any) => p.user_id));
+  const survivors = (chars || []).map((c: any) => {
+    const p = players?.find((x: any) => x.id === c.player_id);
+    const name = c.name || users?.find((u: any) => u.id === p?.user_id)?.display_name || '调查员';
+    const f = c.status_flags || {};
+    const out = f.dead ? '死亡' : f.retired || f.indef_insanity ? '永久疯狂 / 退场' : f.temp_insanity ? '临时疯狂（生还）' : '生还';
+    return { seat: p?.seat, name, hp: c.hp_current, hp_max: c.hp_max, san: c.san_current, san_start: c.san_start, status: out, alive: !f.dead && !f.retired };
+  });
+
+  return NextResponse.json({
+    title: campaign?.title,
+    truth: truth?.truth,
+    mastermind: truth?.mastermind,
+    supernatural: truth?.supernatural,
+    npcs: truth?.npc_secrets,
+    timeline: truth?.timeline_true,
+    key_clues: truth?.key_clues,
+    red_herrings: truth?.red_herrings,
+    survivors,
+  });
+}

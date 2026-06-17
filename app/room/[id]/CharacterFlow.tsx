@@ -319,4 +319,31 @@ function Avatar({ url, loading, seat }: { url?: string; loading?: boolean; seat:
     <div className={`w-14 h-14 rounded-full overflow-hidden border-2 ${ring} bg-ink flex items-center justify-center shrink-0`}>
       {url ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <im
+        <img src={url} alt="" className="w-full h-full object-cover" />
+      ) : loading ? (
+        <div className="w-5 h-5 border-2 border-eldritch/30 border-t-eldritch rounded-full animate-spin" />
+      ) : (
+        <span className="text-parchment/30 text-xs">{seat}</span>
+      )}
+    </div>
+  );
+}
+
+function BriefingView(props: ShellProps) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  async function ack() {
+    setBusy(true); setErr('');
+    try { await postStep(props.room.id, 'briefing_ack'); }
+    catch (e: any) { setErr(e.message); setBusy(false); }
+  }
+  return (
+    <Wrap title="守秘人的提醒">
+      <div className="p-5 rounded-lg bg-eldritch/10 border border-eldritch/30 text-parchment/85 leading-relaxed whitespace-pre-line">
+        {RULE_BRIEFING}
+      </div>
+      {err && <p className="text-blood text-sm text-center">{err}</p>}
+      <button onClick={ack} disabled={busy} className="self-center px-6 py-2.5 rounded bg-blood/80 hover:bg-blood text-parchment disabled:opacity-50">{busy ? '请稍候…' : '准备好了，开始调查'}</button>
+    </Wrap>
+  );
+}

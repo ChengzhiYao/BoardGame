@@ -10,7 +10,6 @@ import SoupRoom from './SoupRoom';
 import TDRoom from './TDRoom';
 import AudioManager from './AudioManager';
 
-// 根据游戏阶段解析音乐情绪状态
 function audioStateFor(room: any): string {
   const gs = room.game_state;
   if (['lobby', 'module_selection', 'case_locking'].includes(gs)) return 'MENU';
@@ -45,7 +44,6 @@ export default function RoomShell(props: ShellProps) {
 
   const refreshTimer = useRef<any>(null);
   useEffect(() => {
-    // 防刷新风暴：一次结算会写很多行，合并成 ~250ms 内一次刷新
     const debouncedRefresh = () => {
       if (refreshTimer.current) clearTimeout(refreshTimer.current);
       refreshTimer.current = setTimeout(() => router.refresh(), 250);
@@ -71,7 +69,6 @@ export default function RoomShell(props: ShellProps) {
     };
   }, [props.room.id, supabase, router]);
 
-  // 海龟汤 / 真心话大冒险：独立流程，不走 CoC 的十状态机
   if (props.room.mode === 'soup') {
     return <SoupRoom {...props} />;
   }
@@ -85,7 +82,6 @@ export default function RoomShell(props: ShellProps) {
 
   return (
     <>
-      {/* 始终挂载一次，避免切换阶段时音乐重启 */}
       <AudioManager state={audioState} />
       {playing ? (
         <Dashboard {...props} />
@@ -133,7 +129,6 @@ function FlowView({ state, props }: { state: string; props: ShellProps }) {
 }
 
 function inviteUrlOf(props: ShellProps) {
-  // 优先用浏览器当前域名，保证邀请链接始终指向玩家正在访问的站点（本地/线上都对）
   const origin = typeof window !== 'undefined' && window.location?.origin
     ? window.location.origin
     : (props.siteUrl || '');
@@ -233,4 +228,17 @@ function Centered({
   desc,
   spinner,
 }: {
-  ti
+  title: string;
+  desc: string;
+  spinner?: boolean;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-4 text-center max-w-lg">
+      {spinner && (
+        <div className="w-8 h-8 border-2 border-eldritch/30 border-t-eldritch rounded-full animate-spin" />
+      )}
+      <h1 className="text-2xl font-serif text-parchment">{title}</h1>
+      <p className="text-parchment/60 leading-relaxed">{desc}</p>
+    </div>
+  );
+}

@@ -1,4 +1,4 @@
-// 房间页（服务端组件）：校验成员身份、取初始数据，交给 RoomClient 做实时渲染。
+// 房间页（服务端组件）：校验成员身份、取初始数据，交给 RoomShell 做实时渲染。
 import { redirect } from 'next/navigation';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import RoomShell from './RoomShell';
@@ -10,7 +10,6 @@ export default async function RoomPage({ params }: { params: { id: string } }) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/');
 
-  // RLS 保证：只有房间成员能读到这一行；非成员拿到 null
   const { data: room } = await supabase
     .from('rooms')
     .select('*')
@@ -30,7 +29,6 @@ export default async function RoomPage({ params }: { params: { id: string } }) {
     .select('id, seat, user_id, is_online')
     .eq('room_id', params.id);
 
-  // users 表 RLS 只允许读自己那行，这里用 admin 客户端读成员昵称（仅名字）
   const admin = createAdminClient();
   const ids = (players || []).map((p) => p.user_id);
   const { data: users } = ids.length
@@ -49,7 +47,6 @@ export default async function RoomPage({ params }: { params: { id: string } }) {
     .select('*')
     .eq('room_id', params.id);
 
-  // 线索 / NPC / 场景图（RLS 已按可见性过滤）；空也无妨
   const { data: clues } = await supabase
     .from('clues_player')
     .select('*')
@@ -87,4 +84,13 @@ export default async function RoomPage({ params }: { params: { id: string } }) {
       initialMessages={messages || []}
       initialCharacters={characters || []}
       initialClues={clues || []}
-      initi
+      initialNpcs={npcs || []}
+      initialImages={images || []}
+      myPlayerId={me?.id || null}
+      mySeat={me?.seat || null}
+      userId={user.id}
+      inviteToken={room.invite_token}
+      siteUrl={site}
+    />
+  );
+}

@@ -43,4 +43,5 @@ export async function POST(req: Request) {
     await admin.from('users').update({ display_name: body.displayName }).eq('id', user.id);
   }
 
-  r
+  return NextResponse.json({ roomId: room.id, inviteToken: token });
+}

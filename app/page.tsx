@@ -95,4 +95,27 @@ export default function Home() {
             value={joinCode}
             onChange={(e) => setJoinCode(e.target.value)}
             placeholder="粘贴邀请码"
-            className="w-72 px-4 py-3 rounded bg-fog b
+            className="w-72 px-4 py-3 rounded bg-fog border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch"
+          />
+          <div className="flex gap-4">
+            <button
+              onClick={joinRoom}
+              disabled={busy}
+              className="px-6 py-3 rounded bg-eldritch/70 hover:bg-eldritch text-parchment border border-eldritch disabled:opacity-50"
+            >
+              {busy ? '正在加入…' : '加入'}
+            </button>
+            <button
+              onClick={() => setMode('idle')}
+              className="px-6 py-3 rounded bg-fog text-parchment/70 border border-parchment/20"
+            >
+              返回
+            </button>
+          </div>
+        </div>
+      )}
+
+      {err && <p className="text-blood text-sm">{err}</p>}
+    </main>
+  );
+}

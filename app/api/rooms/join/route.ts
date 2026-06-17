@@ -24,7 +24,6 @@ export async function POST(req: Request) {
   const { data: players } = await admin.from('players').select('*').eq('room_id', room.id);
   const mine = players?.find((p) => p.user_id === user.id);
   if (mine) {
-    // 已在房间里，直接进
     if (body.displayName) {
       await admin.from('users').update({ display_name: body.displayName }).eq('id', user.id);
     }
@@ -46,10 +45,13 @@ export async function POST(req: Request) {
     await admin.from('users').update({ display_name: body.displayName }).eq('id', user.id);
   }
 
-  // 满员后进入模组选择阶段（仅 CoC 模式；海龟汤由房主手动开始，不跳步）
-  if (room.mode !== 'soup' && (players?.length || 0) + 1 >= 2) {
+  // 满员后进入模组选择阶段（仅 CoC 模式；海龟汤/真心话由各自流程处理，不跳步）
+  if (room.mode === 'coc' && (players?.length || 0) + 1 >= 2) {
     await admin
       .from('rooms')
       .update({ status: 'character_creation', game_state: 'module_selection' })
       .eq('id', room.id);
   }
+
+  return NextResponse.json({ roomId: room.id });
+}

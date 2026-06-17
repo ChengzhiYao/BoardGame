@@ -511,4 +511,33 @@ function EndedBanner({ roomId }: { roomId: string }) {
                 <div className="flex flex-wrap gap-3 pb-2 border-b border-blood/20">
                   {recap.survivors.map((s: any, i: number) => (
                     <span key={i} className={`text-xs ${s.alive ? 'text-green-400' : 'text-blood'}`}>
-                      {s.seat}·{s.name}：{s.status}�
+                      {s.seat}·{s.name}：{s.status}（SAN {s.san}/{s.san_start}，HP {s.hp}/{s.hp_max}）
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div><span className="text-eldritch">真相：</span>{recap.truth}</div>
+              <div><span className="text-eldritch">幕后黑手：</span>{recap.mastermind?.identity} —— {recap.mastermind?.motive}</div>
+              {recap.supernatural?.nature && <div><span className="text-eldritch">超自然：</span>{recap.supernatural.nature}</div>}
+              {Array.isArray(recap.npcs) && recap.npcs.length > 0 && (
+                <div><span className="text-eldritch">NPC 秘密：</span>
+                  <ul className="list-disc pl-5 mt-1 space-y-1">
+                    {recap.npcs.map((n: any, i: number) => <li key={i}>{n.name}：{n.secret}{n.lie ? `（谎言：${n.lie}）` : ''}</li>)}
+                  </ul>
+                </div>
+              )}
+              {Array.isArray(recap.key_clues) && (
+                <div><span className="text-eldritch">关键线索：</span>
+                  <ul className="list-disc pl-5 mt-1 space-y-1">
+                    {recap.key_clues.map((c: any, i: number) => <li key={i}>{c.clue} → {c.reveals}</li>)}
+                  </ul>
+                </div>
+              )}
+            </>
+          )}
+          {!recap && !err && <p className="text-parchment/50">正在揭开封存的真相……</p>}
+        </div>
+      )}
+    </div>
+  );
+}

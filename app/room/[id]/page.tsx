@@ -52,9 +52,10 @@ export default async function RoomPage({ params }: { params: { id: string } }) {
     .select('*')
     .eq('room_id', params.id)
     .order('created_at', { ascending: true });
+  // 只取前端安全字段：绝不下发 secret / goal / memory / relationships（这些是 KP 侧机密）
   const { data: npcs } = await supabase
     .from('npcs')
-    .select('*')
+    .select('id, name, role, description, disposition, status, visible_to, first_seen_turn')
     .eq('room_id', params.id);
   const { data: images } = await supabase
     .from('images')

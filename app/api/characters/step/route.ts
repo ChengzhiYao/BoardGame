@@ -56,6 +56,18 @@ export async function POST(req: Request) {
   } else if (step === 'confirm') {
     targetStage = Math.max(targetStage, 4);
     patch.confirmed = true;
+    // 资源播种：按随身道具给可耗尽资源（弹药/光源），让开局后“资源稀缺”真正成立
+    const { data: full } = await admin
+      .from('characters').select('inventory, resources').eq('id', ch!.id).maybeSingle();
+    const inv: string[] = Array.isArray(full?.inventory) ? full!.inventory : [];
+    if (!full?.resources || Object.keys(full.resources).length === 0) {
+      const res: any = {};
+      if (inv.some((i: string) => /手枪|手槍|左轮|左輪/.test(i))) res['弹药'] = 6;
+      else if (inv.some((i: string) => /猎枪|獵槍|霰弹|步枪|步槍/.test(i))) res['弹药'] = 4;
+      if (inv.some((i: string) => /手电|手電|電筒/.test(i))) res['手电电量'] = 5;
+      if (inv.some((i: string) => /油灯|油燈|煤油|提灯|提燈/.test(i))) res['灯油'] = 4;
+      patch.resources = res;
+    }
   } else {
     return NextResponse.json({ error: '未知步骤' }, { status: 400 });
   }

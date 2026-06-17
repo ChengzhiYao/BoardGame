@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import Stepper from './Stepper';
 import { playSfx } from '@/lib/audio/sfx';
@@ -15,6 +16,7 @@ const IMG_TYPE_LABEL: Record<string, string> = {
 
 export default function Dashboard(props: ShellProps) {
   const supabase = useRef(createClient()).current;
+  const router = useRouter();
   const [messages, setMessages] = useState<any[]>(props.initialMessages);
   const [text, setText] = useState('');
   const [action, setAction] = useState('free');
@@ -40,6 +42,7 @@ export default function Dashboard(props: ShellProps) {
   };
 
   useEffect(() => {
+    let t: any;
     const ch = supabase
       .channel(`room-msgs-${props.room.id}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `room_id=eq.${props.room.id}` },
@@ -48,10 +51,13 @@ export default function Dashboard(props: ShellProps) {
           setMessages((prev) => prev.some((x) => x.id === m.id) ? prev : [...prev, m]);
           const sfx = m.payload?.sfx;
           if (Array.isArray(sfx)) sfx.forEach((k: string) => playSfx(k));
+          // 结算时服务端更新了房间/角色/线索/NPC（世界时钟、资源、嫌疑、关系等），去抖刷新拉取最新
+          if (t) clearTimeout(t);
+          t = setTimeout(() => router.refresh(), 500);
         })
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [props.room.id, supabase]);
+    return () => { if (t) clearTimeout(t); supabase.removeChannel(ch); };
+  }, [props.room.id, supabase, router]);
 
   useEffect(() => {
     setMessages((prev) => {
@@ -149,6 +155,7 @@ export default function Dashboard(props: ShellProps) {
         <SuspicionMeter value={props.room.suspicion || 0} />
         <span>配图额度 {props.room.image_used}/{props.room.image_budget}</span>
       </div>
+      <WorldClock clock={props.room.world_clock} round={props.room.current_round || 1} />
 
       {/* 手机端：Tab 切换 剧情 / 角色 / 调查 */}
       <div className="lg:hidden flex border-b border-eldritch/15 text-sm">
@@ -255,7 +262,7 @@ export default function Dashboard(props: ShellProps) {
 
           <Panel title="线索板">
             {props.initialClues.length === 0 ? <Empty text="尚无线索。展开调查吧。" /> : (
-              <ClueBoard clues={props.initialClues} />
+              <ClueBoard clues={props.initialClues} roomId={props.room.id} />
             )}
           </Panel>
 
@@ -295,6 +302,13 @@ function MessageRow({ m, mine, seat, who }: { m: any; mine: boolean; seat?: stri
       return (
         <div className="mx-auto max-w-2xl rounded-lg bg-blood/10 border border-blood/30 px-4 py-2 text-parchment/85 italic text-sm">
           <span className="text-[10px] text-blood not-italic">仅你可见 · </span>{m.content}
+        </div>
+      );
+    }
+    if (type === 'deduction') {
+      return (
+        <div className="mx-auto max-w-2xl text-center text-sm text-emerald-300 bg-emerald-900/15 border border-emerald-700/30 rounded px-3 py-1.5">
+          {m.content}
         </div>
       );
     }
@@ -349,6 +363,9 @@ function CharacterCard({ seat, char, name, online }: { seat: string; char: any; 
           {Array.isArray(char.inventory) && char.inventory.length > 0 && (
             <div className="text-parchment/50">道具：{char.inventory.join('、')}</div>
           )}
+          {char.resources && Object.keys(char.resources).length > 0 && (
+            <div className="text-amber-400/80">资源：{Object.entries(char.resources).map(([k, v]) => `${k} ${v}`).join('　')}</div>
+          )}
         </div>
       ) : <div className="text-xs text-parchment/40">尚未创建角色卡</div>}
     </div>
@@ -372,29 +389,102 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
 const THREAD_LABELS: Record<string, string> = {
   A: '建筑历史', B: '失踪 / 死亡', C: 'NPC 异常', D: '超自然现象', E: '关键物品 / 仪式', '其他': '其他线索',
 };
-function ClueBoard({ clues }: { clues: any[] }) {
+function ClueBoard({ clues, roomId }: { clues: any[]; roomId: string }) {
+  const router = useRouter();
+  const [sel, setSel] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  const toggle = (id: string) => setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+
+  async function deduce() {
+    if (sel.length < 2 || busy) return;
+    setBusy(true); setMsg('');
+    try {
+      const res = await fetch('/api/clues/combine', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomId, clueIds: sel }),
+      });
+      const d = await res.json();
+      if (!res.ok) setMsg(d.error || '推理失败');
+      else if (d.combines) { setMsg('🧩 ' + d.conclusion); setSel([]); router.refresh(); }
+      else setMsg(d.message || '这些线索暂时拼不出新结论。');
+    } catch (e: any) { setMsg(e.message); }
+    finally { setBusy(false); }
+  }
+
+  const deductions = clues.filter((c) => c.kind === 'deduction');
+  const facts = clues.filter((c) => c.kind !== 'deduction');
   const groups: Record<string, any[]> = {};
-  for (const c of clues) {
+  for (const c of facts) {
     const k = ['A', 'B', 'C', 'D', 'E'].includes(c.thread) ? c.thread : '其他';
     (groups[k] = groups[k] || []).push(c);
   }
   const order = ['A', 'B', 'C', 'D', 'E', '其他'].filter((k) => groups[k]?.length);
+
   return (
     <div className="space-y-3">
-      {order.map((k) => (
-        <div key={k}>
-          <div className="text-[10px] uppercase tracking-wider text-eldritch/70 mb-1">{THREAD_LABELS[k]}</div>
+      {deductions.length > 0 && (
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-emerald-400/80 mb-1">🧩 已得推论</div>
           <ul className="space-y-2">
-            {groups[k].map((c) => (
-              <li key={c.id} className="text-sm text-parchment/80 border-l-2 border-eldritch/50 pl-2">
+            {deductions.map((c) => (
+              <li key={c.id} className="text-sm text-emerald-200/90 border-l-2 border-emerald-500/60 pl-2">
                 <div className="font-medium">{c.title}</div>
-                <div className="text-parchment/50 text-xs">{c.description}</div>
-                {c.visible_to !== 'all' && <span className="text-[10px] text-blood">仅你可见 · 需告知队友</span>}
+                <div className="text-parchment/40 text-[10px]">{c.source}</div>
               </li>
             ))}
           </ul>
         </div>
+      )}
+      {order.map((k) => (
+        <div key={k}>
+          <div className="text-[10px] uppercase tracking-wider text-eldritch/70 mb-1">{THREAD_LABELS[k]}</div>
+          <ul className="space-y-1.5">
+            {groups[k].map((c) => {
+              const on = sel.includes(c.id);
+              return (
+                <li key={c.id}
+                  onClick={() => toggle(c.id)}
+                  className={`text-sm border-l-2 pl-2 py-0.5 cursor-pointer rounded-r ${on ? 'border-eldritch bg-eldritch/15' : 'border-eldritch/50 hover:bg-fog/60'}`}>
+                  <div className="flex items-start gap-1.5">
+                    <span className={`mt-0.5 w-3 h-3 rounded-sm border shrink-0 ${on ? 'bg-eldritch border-eldritch' : 'border-parchment/40'}`} />
+                    <div>
+                      <div className="font-medium text-parchment/80">{c.title}</div>
+                      <div className="text-parchment/50 text-xs">{c.description}</div>
+                      {c.visible_to !== 'all' && <span className="text-[10px] text-blood">仅你可见 · 需告知队友</span>}
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       ))}
+      <div className="pt-1 border-t border-eldritch/15 space-y-1.5">
+        <button onClick={deduce} disabled={sel.length < 2 || busy}
+          className="w-full px-3 py-1.5 rounded bg-eldritch/40 hover:bg-eldritch/70 text-parchment text-xs disabled:opacity-40">
+          {busy ? '推理中…' : `🧩 拼合推理（已选 ${sel.length}）`}
+        </button>
+        <div className="text-[10px] text-parchment/35">勾选 2 条以上线索，试着推出新结论。</div>
+        {msg && <div className="text-xs text-emerald-300/90">{msg}</div>}
+      </div>
+    </div>
+  );
+}
+
+function WorldClock({ clock, round }: { clock: any[]; round: number }) {
+  const events = (Array.isArray(clock) ? clock : [])
+    .filter((e) => e && !e.fired && !e.hidden && (Number(e.due_round) || 0) >= round)
+    .sort((a, b) => (a.due_round || 0) - (b.due_round || 0))
+    .slice(0, 2);
+  if (!events.length) return null;
+  return (
+    <div className="flex items-center gap-3 px-4 py-1.5 text-xs border-b border-amber-700/20 bg-amber-900/10 text-amber-300/90 overflow-x-auto">
+      <span className="shrink-0">⏳ 时间在流逝</span>
+      {events.map((e) => {
+        const left = Math.max(0, (e.due_round || 0) - round);
+        return <span key={e.id} className="shrink-0 text-amber-200/80">· {e.label}（约 {left} 回合）</span>;
+      })}
     </div>
   );
 }

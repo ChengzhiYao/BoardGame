@@ -136,10 +136,24 @@ export async function POST(req: Request) {
       locked_at: new Date().toISOString(),
     });
 
+    // 世界时钟：把案件的定时事件落到房间（随回合自动推进）
+    const clock = Array.isArray(caseData.world_clock)
+      ? caseData.world_clock
+          .filter((e: any) => e && e.label && Number(e.due_round) > 0)
+          .map((e: any) => ({
+            id: String(e.id || e.label).slice(0, 40),
+            label: String(e.label),
+            due_round: Math.max(2, Number(e.due_round) || 6),
+            hidden: e.hidden !== false,
+            on_fire: String(e.on_fire || ''),
+            fired: false,
+          }))
+      : [];
+
     // 绑定 campaign，进入建卡
     await admin
       .from('rooms')
-      .update({ campaign_id: campaign.id, game_state: 'character_creation' })
+      .update({ campaign_id: campaign.id, game_state: 'character_creation', world_clock: clock })
       .eq('id', roomId);
 
     return NextResponse.json({ ok: true });

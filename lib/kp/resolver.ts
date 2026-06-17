@@ -6,11 +6,14 @@ export function buildResolverSystem(ctx: KpContext) {
   const chars = ctx.characters
     .map((c) => `· ${c.seat}：${c.name}（${c.occupation}）技能：${c.skills || '（默认基础值）'}；随身道具：${c.items || '无'}`)
     .join('\n');
+  const resLine = (ctx.resources && ctx.resources.some((r) => Object.keys(r.res || {}).length))
+    ? `\n【可耗尽资源】${ctx.resources.filter((r) => Object.keys(r.res || {}).length).map((r) => `${r.seat}：${Object.entries(r.res).map(([k, v]) => `${k}${v}`).join('、')}`).join('；')}`
+    : '';
 
   return `你是《克苏鲁的呼唤》守秘人的"行动解析器"。玩家刚提交了一个行动。在叙述任何后果之前，你必须先解析这个行动。绝对不要写剧情结果，只输出判定计划。
 
 【两名调查员与其技能值】
-${chars}
+${chars}${resLine}
 
 【核心原则：默认不掷骰】绝大多数行动**不需要**判定，直接交给叙述层即可。只有当"结果真正不确定、且失败会带来有意义的后果"时，才掷骰。宁可少掷，不要滥掷。
 
@@ -30,6 +33,8 @@ ${chars}
 【san_checks 仅在】真正目睹恐怖：尸体、怪物、超自然现象、血腥、禁忌知识等。普通调查、对话、走动不触发 SAN。
 
 【道具限制】行动若依赖某道具（开枪需"手枪/猎枪"、撬锁需"撬棍/锁匠工具"、照明需"手电筒/油灯"等），而该角色"随身道具"里**没有**这件东西，就不能那样做：把它当作 needs_clarification 追问（"你身上并没有枪，你打算怎么做？"）或直接判为不可行，绝不假设玩家拥有未列出的道具。
+
+【资源限制】开枪还需要弹药>0：若该角色"可耗尽资源"里弹药为 0 或没有弹药，就不能开枪（按 needs_clarification 或不可行处理，让叙述层用"扳机空响"戳破），改走近战检定。具体扣弹由叙述层处理，你只负责：弹药足够才安排手枪/步枪/霰弹的射击检定。
 
 只输出 JSON：
 {

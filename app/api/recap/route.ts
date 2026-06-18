@@ -1,6 +1,9 @@
-// 结局复盘：游戏结束后，解锁隐藏真相档案返回给玩家。
+// 结局复盘：游戏结束后，解锁隐藏真相档案返回给玩家，并给每个玩家综合评分。
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
+import { callLLMJson } from '@/lib/llm';
+import { buildScorePrompt, formatScores } from '@/lib/score';
+import { langDirective } from '@/lib/i18n';
 
 export async function POST(req: Request) {
   const supabase = createServerClient();
@@ -14,7 +17,7 @@ export async function POST(req: Request) {
   const { data: me } = await admin.from('players').select('id').eq('room_id', roomId).eq('user_id', user.id).maybeSingle();
   if (!me) return NextResponse.json({ error: '你不在这个房间' }, { status: 403 });
 
-  const { data: room } = await admin.from('rooms').select('game_state, campaign_id').eq('id', roomId).maybeSingle();
+  const { data: room } = await admin.from('rooms').select('game_state, campaign_id, language').eq('id', roomId).maybeSingle();
   if (!room) return NextResponse.json({ error: '房间不存在' }, { status: 404 });
   if (room.game_state !== 'ended') {
     return NextResponse.json({ error: '游戏尚未结束，真相仍被封存。' }, { status: 409 });
@@ -34,6 +37,32 @@ export async function POST(req: Request) {
     return { seat: p?.seat, name, hp: c.hp_current, hp_max: c.hp_max, san: c.san_current, san_start: c.san_start, status: out, alive: !f.dead && !f.retired };
   });
 
+  // 玩家综合评分（生成一次，缓存为消息，重复打开不再消耗）
+  let scores: any[] = [];
+  const { data: existing } = await admin.from('messages').select('payload').eq('room_id', roomId).filter('payload->>type', 'eq', 'recap_score').limit(1).maybeSingle();
+  if (existing?.payload?.scores) {
+    scores = existing.payload.scores;
+  } else {
+    try {
+      const { data: pmsgs } = await admin.from('messages').select('sender_player_id, content').eq('room_id', roomId).eq('sender_type', 'player').order('created_at', { ascending: true });
+      const playersInput = (players || []).map((p: any) => {
+        const c = (chars || []).find((x: any) => x.player_id === p.id);
+        const nm = c?.name || users?.find((u: any) => u.id === p.user_id)?.display_name || p.seat;
+        return { seat: p.seat, name: nm, role: c?.occupation, actions: (pmsgs || []).filter((m: any) => m.sender_player_id === p.id).map((m: any) => m.content).slice(-25) };
+      });
+      if (playersInput.length) {
+        const { data: sc } = await callLLMJson<any>({
+          system: buildScorePrompt({ mode: 'coc', scenario: campaign?.title || '克苏鲁调查', truth: truth?.truth, players: playersInput }) + langDirective(room.language),
+          messages: [{ role: 'user', content: '请为每位调查员评分。' }], tier: 'main', temperature: 0.4, maxTokens: 1600, retry: true,
+        });
+        if (Array.isArray(sc?.scores) && sc.scores.length) {
+          scores = sc.scores;
+          await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: 99, content: formatScores(scores, room.language === 'en'), payload: { type: 'recap_score', scores } });
+        }
+      }
+    } catch { /* 评分失败不影响复盘 */ }
+  }
+
   return NextResponse.json({
     title: campaign?.title,
     truth: truth?.truth,
@@ -44,5 +73,6 @@ export async function POST(req: Request) {
     key_clues: truth?.key_clues,
     red_herrings: truth?.red_herrings,
     survivors,
+    scores,
   });
 }

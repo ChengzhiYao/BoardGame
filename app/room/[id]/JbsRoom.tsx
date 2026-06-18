@@ -400,6 +400,35 @@ function JbsMsg({ m, en, mine }: { m: any; en: boolean; mine: boolean }) {
   if (type === 'jbs_reveal') {
     return <div className="mx-auto max-w-2xl rounded-lg bg-blood/20 border border-blood/50 px-4 py-3 text-parchment leading-relaxed whitespace-pre-line">{m.content}</div>;
   }
+  if (type === 'jbs_score') {
+    const scores = m.payload?.scores || [];
+    return (
+      <div className="mx-auto max-w-2xl rounded-lg bg-eldritch/10 border border-eldritch/40 px-4 py-3">
+        <div className="text-eldritch text-sm mb-2">{en ? 'Player scorecard' : '玩家评分'}</div>
+        <div className="space-y-3">
+          {scores.map((s: any, i: number) => (
+            <div key={i} className="rounded bg-fog/60 border border-eldritch/20 p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-parchment text-sm">{s.name}{s.seat ? ` [${s.seat}]` : ''}</span>
+                <span className="text-eldritch font-serif">{s.total}<span className="text-parchment/40 text-xs">/100</span></span>
+              </div>
+              <div className="mt-2 space-y-1">
+                {(s.metrics || []).map((mt: any, j: number) => (
+                  <div key={j} className="flex items-center gap-2">
+                    <span className="text-parchment/60 text-[11px] w-20 shrink-0 truncate">{mt.label}</span>
+                    <div className="flex-1 h-1.5 rounded bg-ink overflow-hidden"><div className="h-full bg-eldritch/70" style={{ width: `${Math.max(0, Math.min(100, mt.score))}%` }} /></div>
+                    <span className="text-parchment/70 text-[11px] w-7 text-right">{mt.score}</span>
+                  </div>
+                ))}
+              </div>
+              {s.highlight && <div className="text-green-400/80 text-[11px] mt-1.5">👍 {s.highlight}</div>}
+              {s.improve && <div className="text-amber-400/80 text-[11px]">🔧 {s.improve}</div>}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
   if (type === 'jbs_dm') {
     return <div className="mx-auto max-w-2xl text-parchment/90 leading-relaxed whitespace-pre-line border-l-2 border-eldritch/50 pl-3">{m.content}</div>;
   }

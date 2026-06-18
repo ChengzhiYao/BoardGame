@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { callLLMJson } from '@/lib/llm';
 import { buildJbsVotePrompt } from '@/lib/jbs/prompt';
+import { buildScorePrompt, formatScores } from '@/lib/score';
 import { langDirective } from '@/lib/i18n';
 
 export const maxDuration = 60;
@@ -57,6 +58,30 @@ export async function POST(req: Request) {
     const reveal = (en ? '【TRUTH REVEALED】\n' : '【真相揭晓】\n') + (out.reveal || '')
       + `\n\n${en ? 'Most accused' : '得票最多'}: ${out.accused || '—'} ｜ ${out.correct ? (en ? '✔ Correct' : '✔ 指认成功') : (en ? '✘ Wrong' : '✘ 指认失败')} ｜ ${meterKey}: ${out.meter ?? 0}/100`;
     await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', turn_no: 7, content: reveal, payload: { type: 'jbs_reveal' } });
+
+    // 给每个真人玩家打综合评分
+    try {
+      const { data: allPlayers } = await admin.from('players').select('id, seat').eq('room_id', roomId);
+      const real = (allPlayers || []).filter((p: any) => p.seat === 'A' || p.seat === 'B');
+      const { data: jchars } = await admin.from('jbs_characters').select('name, assigned_seat').eq('room_id', roomId);
+      const { data: pmsgs } = await admin.from('messages').select('sender_player_id, content').eq('room_id', roomId).eq('sender_type', 'player').order('created_at', { ascending: true });
+      const cf = kase!.case_file || {};
+      const cfChars = cf.characters || [];
+      const playersInput = real.map((p: any) => {
+        const ch = (jchars || []).find((c: any) => c.assigned_seat === p.seat);
+        const full = cfChars.find((c: any) => c.name === ch?.name);
+        return { seat: p.seat, name: ch?.name || p.seat, role: full?.occupation, goal: full?.private_goal, actions: (pmsgs || []).filter((m: any) => m.sender_player_id === p.id).map((m: any) => m.content).slice(-25) };
+      });
+      if (playersInput.length) {
+        const { data: sc } = await callLLMJson<any>({
+          system: buildScorePrompt({ mode: 'jbs', scenario: `《${cf.title || ''}》｜本型${cf.type || ''}`, truth: cf.truth, players: playersInput }) + langDirective(room.language),
+          messages: [{ role: 'user', content: '请为每位玩家评分。' }], tier: 'main', temperature: 0.4, maxTokens: 1600, retry: true,
+        });
+        if (Array.isArray(sc?.scores) && sc.scores.length) {
+          await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: 99, content: formatScores(sc.scores, en), payload: { type: 'jbs_score', scores: sc.scores } });
+        }
+      }
+    } catch (e: any) { await admin.from('error_logs').insert({ room_id: roomId, scope: 'llm', message: '剧本杀评分:' + e.message }); }
 
     await admin.from('rooms').update({ game_state: 'ended', jbs_phase: 'reveal', jbs_act: room.jbs_total_acts || 7 }).eq('id', roomId);
     return NextResponse.json({ ok: true, revealed: true });

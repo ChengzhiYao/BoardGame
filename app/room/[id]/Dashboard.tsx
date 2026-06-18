@@ -662,6 +662,32 @@ function EndedBanner({ roomId, lang, isHost }: { roomId: string; lang: string; i
                   </ul>
                 </div>
               )}
+              {Array.isArray(recap.scores) && recap.scores.length > 0 && (
+                <div className="pt-2 border-t border-blood/20">
+                  <span className="text-eldritch">{EN(lang) ? 'Player scorecard:' : '玩家评分：'}</span>
+                  <div className="mt-2 space-y-2">
+                    {recap.scores.map((s: any, i: number) => (
+                      <div key={i} className="rounded bg-fog/50 border border-eldritch/20 p-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-parchment text-xs">{s.name}{s.seat ? ` [${s.seat}]` : ''}</span>
+                          <span className="text-eldritch font-serif text-sm">{s.total}<span className="text-parchment/40 text-[10px]">/100</span></span>
+                        </div>
+                        <div className="mt-1.5 space-y-1">
+                          {(s.metrics || []).map((mt: any, j: number) => (
+                            <div key={j} className="flex items-center gap-2">
+                              <span className="text-parchment/60 text-[10px] w-16 shrink-0 truncate">{mt.label}</span>
+                              <div className="flex-1 h-1.5 rounded bg-ink overflow-hidden"><div className="h-full bg-eldritch/70" style={{ width: `${Math.max(0, Math.min(100, mt.score))}%` }} /></div>
+                              <span className="text-parchment/70 text-[10px] w-6 text-right">{mt.score}</span>
+                            </div>
+                          ))}
+                        </div>
+                        {s.highlight && <div className="text-green-400/80 text-[10px] mt-1">👍 {s.highlight}</div>}
+                        {s.improve && <div className="text-amber-400/80 text-[10px]">🔧 {s.improve}</div>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
           )}
           {!recap && !err && <p className="text-parchment/50">{L.revealing}</p>}

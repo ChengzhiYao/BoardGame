@@ -57,6 +57,19 @@ export default function JbsRoom(props: ShellProps) {
     return () => clearInterval(id);
   }, [props.room.id, props.room.jbs_phase, props.room.jbs_act, props.room.game_state, supabase, router]);
 
+  // 自动生成角色头像：开本后房主端自动出图，无需点击；分批补齐直到全部完成。
+  const autoAvatar = useRef(false);
+  useEffect(() => {
+    const isHostNow = props.room.host_user_id === props.userId;
+    const phaseNow = props.room.jbs_phase;
+    const list = props.jbsCharacters || [];
+    if (!isHostNow || !['playing', 'vote', 'reveal'].includes(phaseNow || '') || list.length === 0) return;
+    if (!list.some((c: any) => !c.avatar_url) || autoAvatar.current) return;
+    autoAvatar.current = true;
+    genAvatars(false, true).finally(() => { autoAvatar.current = false; });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.room.jbs_phase, props.jbsCharacters]);
+
   async function call(url: string, body: any) {
     setBusy(true);
     try {
@@ -114,9 +127,12 @@ export default function JbsRoom(props: ShellProps) {
   async function startScript(id: string) { await call('/api/jbs/start', { roomId: props.room.id, scriptId: id }); }
   async function act_(content: string) { const c = content.trim(); if (!c) return; setText(''); await call('/api/jbs/act', { roomId: props.room.id, content: c }); }
   async function vote(target: string) { if (!confirm((en ? 'Accuse ' : '指认 ') + target + '?')) return; await call('/api/jbs/vote', { roomId: props.room.id, target }); }
-  async function genAvatars(force?: boolean) {
-    const r = await call('/api/jbs/avatars', { roomId: props.room.id, force: !!force });
-    if (r) { router.refresh(); if (r.remaining > 0) alert(en ? `Generated ${r.done}, ${r.remaining} left — click again to finish.` : `已生成 ${r.done} 张，还剩 ${r.remaining} 张，再点一次补齐。`); }
+  async function genAvatars(force?: boolean, silent?: boolean) {
+    const r = silent
+      ? await fetch('/api/jbs/avatars', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id, force: !!force }) }).then((x) => x.json()).catch(() => null)
+      : await call('/api/jbs/avatars', { roomId: props.room.id, force: !!force });
+    if (r?.ok) { router.refresh(); if (!silent && r.remaining > 0) alert(en ? `Generated ${r.done}, ${r.remaining} left — click again to finish.` : `已生成 ${r.done} 张，还剩 ${r.remaining} 张，再点一次补齐。`); }
+    return r;
   }
   async function replay() {
     setBusy(true);

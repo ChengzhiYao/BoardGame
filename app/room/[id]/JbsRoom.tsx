@@ -27,9 +27,10 @@ export default function JbsRoom(props: ShellProps) {
   const [showCards, setShowCards] = useState(false);
   const [showClues, setShowClues] = useState(false);
   const [showRes, setShowRes] = useState(false);
-  const { voiceOn, toggle: toggleVoice } = useTTS({
+  const { mode: voiceMode, cycle: cycleVoice } = useTTS({
     lang: props.room.language,
     messages,
+    roomId: props.room.id,
     classify: (m: any) => {
       const t = m.payload?.type;
       if (t === 'jbs_dm') return { kind: 'narrator' as const, text: m.content };
@@ -289,7 +290,7 @@ export default function JbsRoom(props: ShellProps) {
         <div className="flex items-center gap-2 shrink-0">
           {!ended && <span className="text-xs text-eldritch/80">{en ? `Act ${act}/${totalActs}${actName ? ' · ' + actName : ''}` : `第${act}/${totalActs}幕${actName ? ' · ' + actName : ''}`}</span>}
           {!ended && phase === 'playing' && actStart > 0 && <span className={`text-xs tabular-nums ${remainMs < 60000 ? 'text-blood' : 'text-parchment/50'}`}>⏱ {mmss}</span>}
-          <button onClick={toggleVoice} title={en ? 'Read NPC lines & narration aloud' : '朗读旁白与角色发言'} className={`text-xs px-2 py-1 rounded ${voiceOn ? 'bg-blood/50 text-parchment' : 'bg-eldritch/30 text-parchment/70'}`}>{voiceOn ? '🔊' : '🔈'}</button>
+          <button onClick={cycleVoice} title={voiceMode === 'off' ? (en ? 'Voice: off' : '语音：关') : voiceMode === 'browser' ? (en ? 'Voice: free' : '语音：免费') : (en ? 'Voice: HD (natural)' : '语音：高音质')} className={`text-xs px-2 py-1 rounded ${voiceMode === 'off' ? 'bg-eldritch/30 text-parchment/70' : voiceMode === 'browser' ? 'bg-eldritch/50 text-parchment' : 'bg-blood/60 text-parchment'}`}>{voiceMode === 'off' ? '🔇' : voiceMode === 'browser' ? '🔈' : '🎙️'}</button>
           {chars.length > 0 && <button onClick={() => setShowCards((v) => !v)} className="text-xs px-2 py-1 rounded bg-eldritch/30 text-parchment">{en ? 'Cast' : '角色卡'}</button>}
           {clueList.length > 0 && <button onClick={() => setShowClues((v) => !v)} className="text-xs px-2 py-1 rounded bg-amber-600/30 text-parchment">{en ? `Clues ${clueList.length}` : `线索 ${clueList.length}`}</button>}
           {resources.length > 0 && <button onClick={() => setShowRes((v) => !v)} className="text-xs px-2 py-1 rounded bg-eldritch/30 text-parchment">{en ? 'Resources' : '资源'}</button>}

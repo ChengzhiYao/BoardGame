@@ -105,9 +105,10 @@ export default function Dashboard(props: ShellProps) {
   }, [props.room.id, props.room.current_round, props.room.resolution_status, props.room.game_state, props.room.waiting_for, supabase, router]);
 
   const room = props.room;
-  const { voiceOn, toggle: toggleVoice } = useTTS({
+  const { mode: voiceMode, cycle: cycleVoice } = useTTS({
     lang,
     messages,
+    roomId: props.room.id,
     classify: (m: any) => (m.sender_type === 'kp' ? { kind: 'narrator' as const, text: m.content } : null),
   });
   const myReady = props.mySeat === 'A' ? room.player_a_ready : room.player_b_ready;
@@ -191,7 +192,7 @@ export default function Dashboard(props: ShellProps) {
         <span>{t('dash_round', { n: props.room.current_round || 1 })}</span>
         <SuspicionMeter value={props.room.suspicion || 0} lang={lang} />
         <span className="flex items-center gap-2">
-          <button onClick={toggleVoice} title={EN(lang) ? 'Read narration aloud' : '朗读旁白'} className={`px-1.5 py-0.5 rounded ${voiceOn ? 'bg-blood/50 text-parchment' : 'bg-eldritch/20 text-parchment/60'}`}>{voiceOn ? '🔊' : '🔈'}</button>
+          <button onClick={cycleVoice} title={voiceMode === 'off' ? (EN(lang) ? 'Voice: off' : '语音：关') : voiceMode === 'browser' ? (EN(lang) ? 'Voice: free' : '语音：免费') : (EN(lang) ? 'Voice: HD (natural)' : '语音：高音质')} className={`px-1.5 py-0.5 rounded ${voiceMode === 'off' ? 'bg-eldritch/20 text-parchment/60' : voiceMode === 'browser' ? 'bg-eldritch/50 text-parchment' : 'bg-blood/60 text-parchment'}`}>{voiceMode === 'off' ? '🔇' : voiceMode === 'browser' ? '🔈' : '🎙️'}</button>
           {t('dash_img_budget')} {props.room.image_used}/{props.room.image_budget}
         </span>
       </div>

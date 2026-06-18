@@ -18,6 +18,8 @@ export default function JbsRoom(props: ShellProps) {
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [headcount, setHeadcount] = useState(6);
+  const [pace, setPace] = useState(6);
+  const [now, setNow] = useState(Date.now());
   const [showRole, setShowRole] = useState(false);
   const [showCustom, setShowCustom] = useState(false);
   const [custom, setCustom] = useState<Record<string, string>>({});
@@ -36,6 +38,11 @@ export default function JbsRoom(props: ShellProps) {
   const roleMsgs = messages.filter((m) => m.payload?.type === 'jbs_role');
   const clueList = messages.filter((m) => m.payload?.type === 'jbs_evidence' || m.payload?.type === 'private');
   const resources: any[] = Array.isArray(props.room.jbs_resources) ? props.room.jbs_resources : [];
+  // 本幕倒计时
+  const actMin = props.room.jbs_act_minutes || 6;
+  const actStart = props.room.jbs_act_started_at ? new Date(props.room.jbs_act_started_at).getTime() : 0;
+  const remainMs = actStart ? Math.max(0, actStart + actMin * 60000 - now) : 0;
+  const mmss = `${String(Math.floor(remainMs / 60000)).padStart(2, '0')}:${String(Math.floor((remainMs % 60000) / 1000)).padStart(2, '0')}`;
 
   useEffect(() => {
     const ch = supabase.channel(`jbs-msgs-${props.room.id}`)
@@ -60,6 +67,21 @@ export default function JbsRoom(props: ShellProps) {
     const id = setInterval(tick, 4000);
     return () => clearInterval(id);
   }, [props.room.id, props.room.jbs_phase, props.room.jbs_act, props.room.game_state, supabase, router]);
+
+  // 倒计时每秒走字
+  useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id); }, []);
+
+  // 时间到 → 房主端自动推进本幕（每幕只触发一次）
+  const autoAdv = useRef(0);
+  useEffect(() => {
+    const isHostNow = props.room.host_user_id === props.userId;
+    if (!isHostNow || props.room.jbs_phase !== 'playing' || !actStart) return;
+    if (remainMs > 0 || busy) return;
+    if (autoAdv.current === props.room.jbs_act) return;
+    autoAdv.current = props.room.jbs_act;
+    advance(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remainMs, props.room.jbs_phase, props.room.jbs_act]);
 
   // 自动生成角色头像：开本后房主端自动出图，无需点击；分批补齐直到全部完成。
   const autoAvatar = useRef(false);
@@ -128,7 +150,7 @@ export default function JbsRoom(props: ShellProps) {
       </button>
     </div>
   );
-  async function startScript(id: string) { await call('/api/jbs/start', { roomId: props.room.id, scriptId: id }); }
+  async function startScript(id: string) { await call('/api/jbs/start', { roomId: props.room.id, scriptId: id, actMinutes: pace }); }
   async function act_(content: string) { const c = content.trim(); if (!c) return; setText(''); await call('/api/jbs/act', { roomId: props.room.id, content: c }); }
   async function advance(toVote?: boolean) { const r = await call('/api/jbs/advance', { roomId: props.room.id, toVote: !!toVote }); if (r) router.refresh(); }
   async function vote(target: string) { if (!confirm((en ? 'Accuse ' : '指认 ') + target + '?')) return; await call('/api/jbs/vote', { roomId: props.room.id, target }); }
@@ -170,6 +192,13 @@ export default function JbsRoom(props: ShellProps) {
               {[4, 6, 8].map((n) => (
                 <button key={n} onClick={() => setHeadcount(n)}
                   className={`px-3 py-1.5 rounded border text-sm ${headcount === n ? 'bg-eldritch/60 border-eldritch text-parchment' : 'bg-fog border-eldritch/30 text-parchment/60'}`}>{n}</button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-parchment/60">{en ? 'Pace / act:' : '每幕时长：'}</span>
+              {[[3, en ? 'Fast' : '快'], [6, en ? 'Normal' : '中'], [10, en ? 'Slow' : '慢']].map(([m, l]) => (
+                <button key={m as number} onClick={() => setPace(m as number)}
+                  className={`px-3 py-1.5 rounded border text-sm ${pace === m ? 'bg-eldritch/60 border-eldritch text-parchment' : 'bg-fog border-eldritch/30 text-parchment/60'}`}>{l}·{m}{en ? 'm' : '分'}</button>
               ))}
             </div>
             <div className="flex items-center gap-3">
@@ -244,6 +273,7 @@ export default function JbsRoom(props: ShellProps) {
         <span className="font-serif text-parchment text-sm truncate">{en ? 'Murder Mystery' : '剧本杀'} · {props.room.name}</span>
         <div className="flex items-center gap-2 shrink-0">
           {!ended && <span className="text-xs text-eldritch/80">{en ? `Act ${act} · ${ACTS_EN[act] || ''}` : `第${act}幕 · ${ACTS_ZH[act] || ''}`}</span>}
+          {!ended && phase === 'playing' && actStart > 0 && <span className={`text-xs tabular-nums ${remainMs < 60000 ? 'text-blood' : 'text-parchment/50'}`}>⏱ {mmss}</span>}
           {chars.length > 0 && <button onClick={() => setShowCards((v) => !v)} className="text-xs px-2 py-1 rounded bg-eldritch/30 text-parchment">{en ? 'Cast' : '角色卡'}</button>}
           {clueList.length > 0 && <button onClick={() => setShowClues((v) => !v)} className="text-xs px-2 py-1 rounded bg-amber-600/30 text-parchment">{en ? `Clues ${clueList.length}` : `线索 ${clueList.length}`}</button>}
           {resources.length > 0 && <button onClick={() => setShowRes((v) => !v)} className="text-xs px-2 py-1 rounded bg-eldritch/30 text-parchment">{en ? 'Resources' : '资源'}</button>}

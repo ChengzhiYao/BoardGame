@@ -12,8 +12,9 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: '未登录' }, { status: 401 });
 
-  const { roomId, scriptId } = await req.json().catch(() => ({} as any));
+  const { roomId, scriptId, actMinutes } = await req.json().catch(() => ({} as any));
   if (!roomId || !scriptId) return NextResponse.json({ error: '缺少参数' }, { status: 400 });
+  const actMin = Math.min(20, Math.max(2, Number(actMinutes) || 6));
 
   const admin = createAdminClient();
   const { data: room } = await admin.from('rooms').select('*').eq('id', roomId).maybeSingle();
@@ -91,6 +92,7 @@ export async function POST(req: Request) {
 
     await admin.from('rooms').update({
       game_state: 'playing', jbs_phase: 'playing', jbs_act: 1, modules_generating: false,
+      jbs_act_minutes: actMin, jbs_act_started_at: new Date().toISOString(),
     }).eq('id', roomId);
 
     return NextResponse.json({ ok: true });

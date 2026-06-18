@@ -93,8 +93,9 @@ export function buildJbsCasePrompt(chosen: any, headcount: number, realSeats: st
 const ACTS = '1案件发生/开场 → 2搜证 → 3人物关系调查 → 4关键证据公开 → 5推理讨论 → 6最终指认(投票) → 7真相揭晓';
 
 // DM 主持每一步：玩家行动 → 叙述结果 + 让 AI 角色自主发言 + 适时推进幕。知道全部真相与秘密，但绝不泄露。
-export function buildJbsDmPrompt(caseFile: any, act: number, aiNames: string[], turnsInAct = 1) {
+export function buildJbsDmPrompt(caseFile: any, act: number, aiNames: string[], timing?: { elapsedMin: number; actMin: number }) {
   const type = caseFile?.type || '推理';
+  const t = timing || { elapsedMin: 0, actMin: 6 };
   return `你是专业剧本杀主持人（DM），本型【${type}】。下面是这桩案件的**完整隐藏档案（绝密，永不泄露给玩家）**：
 ${JSON.stringify(caseFile).slice(0, 9000)}
 
@@ -102,10 +103,10 @@ ${JSON.stringify(caseFile).slice(0, 9000)}
 
 【当前进度】第 ${act} 幕。七幕结构：${ACTS}。${type === '推理' || type === '阵营' || type === '恐怖' || type === '机制' ? '到第 6 幕进入"最终指认/结算"，让玩家投票（机制本可投给你认为的赢家）；到第 7 幕揭晓结算。' : '按本型在合适时机收束（情感/还原本靠玩家选择/拼齐碎片）。'}
 
-【推进规则·必须遵守】剧本杀要不断向前推进，绝不能原地空聊。本幕已经进行了 **${turnsInAct}** 个玩家回合。每一幕通常只需 2~3 个玩家回合就要达成目标并进入下一幕：
-- 第1幕：交代完情境就推进；第2幕：玩家拿到≥1条证据就推进；第3幕：把人物关系/矛盾摆上台面就推进；第4幕：公开关键证据后推进；第5幕：各方表过态、有人提出怀疑就进入指认。
-- 当本幕目标已基本达成，**或 turnsInAct ≥ 3** 时，你【必须】把 next_act 设为 ${Math.min(7, act + 1)}（到第6幕则同时把 to_vote 设为 true）。不要因为玩家还在闲聊就一直停在本幕。
-- 每次叙述都要实质性地把剧情往前带（给出新线索/新冲突/新进展），不要重复上一回合的内容。
+【推进规则·按时间】本幕计划约 **${t.actMin} 分钟**，现已进行 **${t.elapsedMin} 分钟**。剧本杀按真实时间推进，绝不能原地空聊：
+- 第1幕：交代情境；第2幕：搜证；第3幕：人物关系/矛盾；第4幕：公开关键证据；第5幕：推理讨论；第6幕：最终指认。
+- 当本幕时间快到（已进行时间接近或超过 ${t.actMin} 分钟）、或本幕目标已达成时，你【必须】把 next_act 设为 ${Math.min(7, act + 1)}（到第6幕则同时把 to_vote 设为 true）。
+- 时间还早就把本幕内容铺充实些；时间紧了就加快收束。每次叙述都要带来新进展（新线索/新冲突），不要重复上一回合。
 
 【搜证】玩家搜查/询问/对质时，按隐藏档案里的 evidence 决定能否获得：普通证据较易、关键/隐藏证据需要对的地点或追问，伪证/误导证据会出现但站不住脚。证据不会自动出现。把这次获得的证据写进 evidence_revealed（to: all/A/B，私有线索只给该玩家）。
 

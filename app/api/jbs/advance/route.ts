@@ -19,7 +19,7 @@ export async function POST(req: Request) {
   const cur = room.jbs_act || 1;
   const nextAct = toVote ? 6 : Math.min(7, cur + 1);
   const goVote = !!toVote || nextAct >= 6;
-  await admin.from('rooms').update({ jbs_act: nextAct, jbs_phase: goVote ? 'vote' : 'playing', jbs_act_turns: 0 }).eq('id', roomId);
+  await admin.from('rooms').update({ jbs_act: nextAct, jbs_phase: goVote ? 'vote' : 'playing', jbs_act_started_at: new Date().toISOString() }).eq('id', roomId);
   if (!goVote) await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: nextAct, content: `▶ ${room.language === 'en' ? `Act ${nextAct}` : `第 ${nextAct} 幕`}`, payload: { type: 'jbs_act' } });
   return NextResponse.json({ ok: true, vote: goVote });
 }

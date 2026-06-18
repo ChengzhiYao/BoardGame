@@ -18,10 +18,12 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
   const { data: me } = await admin.from('players').select('id, seat').eq('room_id', roomId).eq('user_id', user.id).maybeSingle();
   if (!me) return NextResponse.json({ error: '你不在这个房间' }, { status: 403 });
-  const { data: room } = await admin.from('rooms').select('jbs_act, jbs_phase, jbs_act_turns, language').eq('id', roomId).maybeSingle();
+  const { data: room } = await admin.from('rooms').select('jbs_act, jbs_phase, jbs_act_minutes, jbs_act_started_at, language').eq('id', roomId).maybeSingle();
   if (!room || room.jbs_phase !== 'playing') return NextResponse.json({ error: '现在不能行动' }, { status: 409 });
   const curAct = room.jbs_act || 1;
-  const turnsInAct = (room.jbs_act_turns || 0) + 1;
+  const actMin = room.jbs_act_minutes || 6;
+  const startedAt = room.jbs_act_started_at ? new Date(room.jbs_act_started_at).getTime() : Date.now();
+  const elapsedMin = Math.max(0, Math.floor((Date.now() - startedAt) / 60000));
 
   const { data: kase } = await admin.from('jbs_cases').select('case_file').eq('room_id', roomId).maybeSingle();
   if (!kase) return NextResponse.json({ error: '案件未生成' }, { status: 409 });
@@ -41,7 +43,7 @@ export async function POST(req: Request) {
 
   try {
     const { data: out, usage } = await callLLMJson<any>({
-      system: buildJbsDmPrompt(kase.case_file, curAct, aiNames, turnsInAct) + langDirective(room.language),
+      system: buildJbsDmPrompt(kase.case_file, curAct, aiNames, { elapsedMin, actMin }) + langDirective(room.language),
       messages: [...base, { role: 'user', content: `${me.seat} 的行动：${content.trim()}` }],
       tier: 'main', temperature: 0.8, maxTokens: 2200, retry: true,
     });
@@ -63,11 +65,12 @@ export async function POST(req: Request) {
     }
 
     let nextAct = Math.min(7, Math.max(curAct, Number(out.next_act) || curAct));
-    // 兜底：DM 原地不动但本幕已≥4回合 → 强制推进，避免无限闲聊。
-    if (nextAct <= curAct && turnsInAct >= 4) nextAct = Math.min(7, curAct + 1);
+    // 兜底：本幕实际时间已超时长 → 强制推进，避免卡住。
+    if (nextAct <= curAct && elapsedMin >= actMin) nextAct = Math.min(7, curAct + 1);
     const advanced = nextAct > curAct;
     const toVote = !!out.to_vote || nextAct >= 6;
-    const patch: any = { jbs_act: nextAct, jbs_phase: toVote ? 'vote' : 'playing', jbs_act_turns: advanced ? 0 : turnsInAct };
+    const patch: any = { jbs_act: nextAct, jbs_phase: toVote ? 'vote' : 'playing' };
+    if (advanced) patch.jbs_act_started_at = new Date().toISOString();
     if (Array.isArray(out.resources) && out.resources.length) patch.jbs_resources = out.resources;
     await admin.from('rooms').update(patch).eq('id', roomId);
     if (advanced && !toVote) await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: nextAct, content: `▶ ${room.language === 'en' ? `Act ${nextAct}` : `第 ${nextAct} 幕`}`, payload: { type: 'jbs_act' } });

@@ -94,8 +94,8 @@ export default function JbsRoom(props: ShellProps) {
     const list = props.jbsCharacters || [];
     if (!isHostNow || !['playing', 'vote', 'reveal'].includes(phaseNow || '') || list.length === 0) return;
     if (!list.some((c: any) => !c.avatar_url) || autoAvatar.current) return;
-    autoAvatar.current = true;
-    genAvatars(false, true).finally(() => { autoAvatar.current = false; });
+    autoAvatar.current = true; // 每次进房只自动出一批，避免反复触发烧额度；剩余可手动补
+    genAvatars(false, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.room.jbs_phase, props.jbsCharacters]);
 

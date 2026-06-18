@@ -31,24 +31,21 @@ export async function POST(req: Request) {
   const todo = (chars || []).filter((c: any) => force || !c.avatar_url);
   if (!todo.length) return NextResponse.json({ ok: true, done: 0 });
 
-  let done = 0;
+  // 并行生成（每个角色独立出图+上传+落库；realtime 会让头像逐个出现）
   const errors: string[] = [];
-  for (const c of todo) {
-    try {
-      const full = { ...(byName[c.name] || {}), name: c.name, age: c.age, occupation: c.occupation, public_info: c.public_info };
-      const buf = await generateImage(buildJbsPortraitPrompt(full, meta));
-      const path = `avatars/jbs/${c.id}.png`;
-      const up = await admin.storage.from('scene-images').upload(path, buf, { contentType: 'image/png', upsert: true });
-      if (up.error) throw new Error(up.error.message);
-      const { data: pub } = admin.storage.from('scene-images').getPublicUrl(path);
-      await admin.from('jbs_characters').update({ avatar_url: pub.publicUrl }).eq('id', c.id);
-      await admin.from('api_usage').insert({ room_id: roomId, kind: 'image', model: process.env.IMAGE_MODEL || 'gpt-image-1-mini', image_count: 1, cost: 0.005 });
-      done++;
-    } catch (e: any) {
-      errors.push(`${c.name}: ${e.message}`);
-    }
-  }
+  const results = await Promise.allSettled(todo.map(async (c: any) => {
+    const full = { ...(byName[c.name] || {}), name: c.name, age: c.age, occupation: c.occupation, public_info: c.public_info };
+    const buf = await generateImage(buildJbsPortraitPrompt(full, meta));
+    const path = `avatars/jbs/${c.id}.png`;
+    const up = await admin.storage.from('scene-images').upload(path, buf, { contentType: 'image/png', upsert: true });
+    if (up.error) throw new Error(up.error.message);
+    const { data: pub } = admin.storage.from('scene-images').getPublicUrl(path);
+    await admin.from('jbs_characters').update({ avatar_url: pub.publicUrl }).eq('id', c.id);
+    await admin.from('api_usage').insert({ room_id: roomId, kind: 'image', model: process.env.IMAGE_MODEL || 'gpt-image-1-mini', image_count: 1, cost: 0.005 });
+  }));
+  let done = 0;
+  results.forEach((r, i) => { if (r.status === 'fulfilled') done++; else errors.push(`${todo[i].name}: ${r.reason?.message || r.reason}`); });
 
   if (errors.length) await admin.from('error_logs').insert({ room_id: roomId, scope: 'image', message: '剧本杀头像:' + errors.join(' | ') });
-  return NextResponse.json({ ok: true, done, remaining: todo.length - done, errors });
+  return NextResponse.json({ ok: true, done, remaining: todo.length - done, errors: errors.slice(0, 3) });
 }

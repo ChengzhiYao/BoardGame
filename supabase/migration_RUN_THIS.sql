@@ -218,6 +218,7 @@ alter table rooms add column if not exists jbs_act int not null default 0;      
 alter table rooms add column if not exists jbs_options jsonb;                     -- 3 个候选剧本
 alter table rooms add column if not exists jbs_phase text;                        -- script|locking|playing|vote|revealing|reveal
 alter table rooms add column if not exists jbs_resources jsonb;                   -- 机制本：各角色资源/分数快照
+alter table rooms add column if not exists jbs_act_turns int not null default 0;  -- 本幕已进行的玩家回合数（用于自动推进）
 
 -- 隐藏案件档案（含真相 + 全部角色秘密），仅 service_role 可读写
 create table if not exists jbs_cases (

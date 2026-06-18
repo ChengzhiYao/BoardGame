@@ -130,6 +130,7 @@ export default function JbsRoom(props: ShellProps) {
   );
   async function startScript(id: string) { await call('/api/jbs/start', { roomId: props.room.id, scriptId: id }); }
   async function act_(content: string) { const c = content.trim(); if (!c) return; setText(''); await call('/api/jbs/act', { roomId: props.room.id, content: c }); }
+  async function advance(toVote?: boolean) { const r = await call('/api/jbs/advance', { roomId: props.room.id, toVote: !!toVote }); if (r) router.refresh(); }
   async function vote(target: string) { if (!confirm((en ? 'Accuse ' : '指认 ') + target + '?')) return; await call('/api/jbs/vote', { roomId: props.room.id, target }); }
   async function genAvatars(force?: boolean, silent?: boolean) {
     const r = silent
@@ -338,11 +339,19 @@ export default function JbsRoom(props: ShellProps) {
           </div>
         </div>
       ) : (
-        <div className="border-t border-eldritch/20 px-4 py-3 flex gap-2 max-w-3xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
-          <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && act_(text)}
-            placeholder={en ? 'Investigate, question, accuse, speak…' : '搜证、询问、对质、发言…'} disabled={busy}
-            className="flex-1 min-w-0 px-4 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch disabled:opacity-50" />
-          <button onClick={() => act_(text)} disabled={busy} className="px-5 py-2 rounded bg-eldritch/60 hover:bg-eldritch text-parchment disabled:opacity-50 shrink-0">{en ? 'Act' : '行动'}</button>
+        <div className="border-t border-eldritch/20 px-4 py-3 flex flex-col gap-2 max-w-3xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+          <div className="flex gap-2">
+            <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && act_(text)}
+              placeholder={en ? 'Investigate, question, accuse, speak…' : '搜证、询问、对质、发言…'} disabled={busy}
+              className="flex-1 min-w-0 px-4 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch disabled:opacity-50" />
+            <button onClick={() => act_(text)} disabled={busy} className="px-5 py-2 rounded bg-eldritch/60 hover:bg-eldritch text-parchment disabled:opacity-50 shrink-0">{en ? 'Act' : '行动'}</button>
+          </div>
+          {isHost && (
+            <div className="flex items-center justify-center gap-3 text-xs">
+              <button onClick={() => advance(false)} disabled={busy} className="px-3 py-1.5 rounded bg-fog border border-eldritch/40 text-parchment/80 hover:bg-eldritch/20 disabled:opacity-50">{en ? 'Next act ▶' : '进入下一幕 ▶'}</button>
+              <button onClick={() => advance(true)} disabled={busy} className="px-3 py-1.5 rounded bg-blood/40 border border-blood/50 text-parchment/90 hover:bg-blood/60 disabled:opacity-50">{en ? 'Go to accusation ⚖' : '进入最终指认 ⚖'}</button>
+            </div>
+          )}
         </div>
       )}
     </main>
@@ -376,6 +385,9 @@ function JbsMsg({ m, en, mine }: { m: any; en: boolean; mine: boolean }) {
   }
   if (type === 'jbs_vote') {
     return <div className="text-center text-sm text-parchment/60 whitespace-pre-line">{m.content}</div>;
+  }
+  if (type === 'jbs_act') {
+    return <div className="flex items-center gap-3 my-1"><div className="flex-1 h-px bg-eldritch/30" /><span className="text-eldritch/80 text-xs tracking-widest">{m.content}</span><div className="flex-1 h-px bg-eldritch/30" /></div>;
   }
   if (m.sender_type === 'system') {
     return <div className="text-center text-sm text-parchment/50 whitespace-pre-line">{m.content}</div>;

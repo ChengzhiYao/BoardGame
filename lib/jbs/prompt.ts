@@ -111,6 +111,7 @@ ${JSON.stringify(caseFile).slice(0, 9000)}
 把他们的发言放进 ai_lines（每条 {name,text}）。
 
 【绝不】剧透真相、点明凶手、说"正确答案"、替玩家下结论。
+${type === '机制' ? '【机制本·账房】你要维护每个角色的资源/分数。每回合在 resources 里给出**全部角色的当前快照**（每人若干项资源，如金钱/筹码/情报/影响力/物资等，用数值或简短描述）；私下的增减原因写进 private_notes 给当事人。resources 必须每回合都返回完整最新快照。' : '本型无需 resources，留空数组。'}
 
 只输出 JSON：
 {
@@ -118,6 +119,7 @@ ${JSON.stringify(caseFile).slice(0, 9000)}
   "ai_lines": [ { "name": "AI角色名", "text": "其本人口吻的发言（可撒谎）" } ],
   "evidence_revealed": [ { "name": "证据名", "desc": "玩家看到的描述", "to": "all" } ],
   "private_notes": [ { "to": "A", "text": "只有该玩家察觉到的私人信息" } ],
+  "resources": [ { "name": "角色名", "items": [ { "label": "资源名", "value": "数值或描述" } ] } ],
   "next_act": ${act},
   "to_vote": false,
   "hint": "下一步玩家可以做什么（不暗示答案，只给方向）"

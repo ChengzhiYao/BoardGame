@@ -91,6 +91,18 @@ export default function Dashboard(props: ShellProps) {
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, thinking]);
 
+  useEffect(() => {
+    const tick = async () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      const { data } = await supabase.from('messages').select('*').eq('room_id', props.room.id).order('created_at', { ascending: true }).limit(300);
+      if (data) setMessages((prev) => { const ids = new Set(prev.map((m) => m.id)); const add = data.filter((m: any) => !ids.has(m.id)); return add.length ? [...prev, ...add] : prev; });
+      const { data: r } = await supabase.from('rooms').select('current_round, resolution_status, game_state, waiting_for').eq('id', props.room.id).maybeSingle();
+      if (r && (r.current_round !== props.room.current_round || r.resolution_status !== props.room.resolution_status || r.game_state !== props.room.game_state || r.waiting_for !== props.room.waiting_for)) router.refresh();
+    };
+    const id = setInterval(tick, 4000);
+    return () => clearInterval(id);
+  }, [props.room.id, props.room.current_round, props.room.resolution_status, props.room.game_state, props.room.waiting_for, supabase, router]);
+
   const room = props.room;
   const myReady = props.mySeat === 'A' ? room.player_a_ready : room.player_b_ready;
   const resolving = room.resolution_status === 'resolving';
@@ -136,7 +148,7 @@ export default function Dashboard(props: ShellProps) {
     return null;
   })();
 
-  async function makeImage(imageId: string) {
+  async function makeImage(imageId: string, silent?: boolean) {
     setGenImg(imageId);
     try {
       const res = await fetch('/api/images/generate', {
@@ -144,13 +156,24 @@ export default function Dashboard(props: ShellProps) {
         body: JSON.stringify({ roomId: props.room.id, imageId }),
       });
       const data = await res.json();
-      if (!res.ok) alert(data.error || (EN(lang) ? 'Image failed' : '出图失败'));
-    } catch (e: any) { alert((EN(lang) ? 'Image failed: ' : '出图失败：') + e.message); }
+      if (!res.ok && !silent) alert(data.error || (EN(lang) ? 'Image failed' : '出图失败'));
+    } catch (e: any) { if (!silent) alert((EN(lang) ? 'Image failed: ' : '出图失败：') + e.message); }
     finally { setGenImg(null); }
   }
 
   const suggestedImages = props.initialImages.filter((i) => i.status === 'suggested' || i.status === 'generating' || i.status === 'failed');
   const doneImages = props.initialImages.filter((i) => i.status === 'done');
+
+  const autoImg = useRef(false);
+  useEffect(() => {
+    if (props.userId !== props.room.host_user_id) return;
+    if ((props.room.image_used ?? 0) >= (props.room.image_budget ?? 0)) return;
+    const next = props.initialImages.find((i) => i.status === 'suggested');
+    if (!next || autoImg.current || genImg) return;
+    autoImg.current = true;
+    makeImage(next.id, true).finally(() => { autoImg.current = false; });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.initialImages, props.room.image_used, props.room.image_budget]);
 
   return (
     <main className="h-[100svh] flex flex-col overflow-hidden">

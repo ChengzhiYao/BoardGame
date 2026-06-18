@@ -22,6 +22,8 @@ export default function JbsRoom(props: ShellProps) {
   const [showCustom, setShowCustom] = useState(false);
   const [custom, setCustom] = useState<Record<string, string>>({});
   const [showCards, setShowCards] = useState(false);
+  const [showClues, setShowClues] = useState(false);
+  const [showRes, setShowRes] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const phase = props.room.jbs_phase as string | undefined;
@@ -32,6 +34,8 @@ export default function JbsRoom(props: ShellProps) {
   const myChar = chars.find((c: any) => c.assigned_seat === props.mySeat);
   const inviteUrl = `${typeof window !== 'undefined' ? window.location.origin : props.siteUrl}/join/${props.inviteToken}`;
   const roleMsgs = messages.filter((m) => m.payload?.type === 'jbs_role');
+  const clueList = messages.filter((m) => m.payload?.type === 'jbs_evidence' || m.payload?.type === 'private');
+  const resources: any[] = Array.isArray(props.room.jbs_resources) ? props.room.jbs_resources : [];
 
   useEffect(() => {
     const ch = supabase.channel(`jbs-msgs-${props.room.id}`)
@@ -239,10 +243,37 @@ export default function JbsRoom(props: ShellProps) {
         <span className="font-serif text-parchment text-sm truncate">{en ? 'Murder Mystery' : '剧本杀'} · {props.room.name}</span>
         <div className="flex items-center gap-2 shrink-0">
           {!ended && <span className="text-xs text-eldritch/80">{en ? `Act ${act} · ${ACTS_EN[act] || ''}` : `第${act}幕 · ${ACTS_ZH[act] || ''}`}</span>}
-          {chars.length > 0 && <button onClick={() => setShowCards((v) => !v)} className="text-xs px-2 py-1 rounded bg-eldritch/30 text-parchment">{en ? 'Cast cards' : '角色卡'}</button>}
+          {chars.length > 0 && <button onClick={() => setShowCards((v) => !v)} className="text-xs px-2 py-1 rounded bg-eldritch/30 text-parchment">{en ? 'Cast' : '角色卡'}</button>}
+          {clueList.length > 0 && <button onClick={() => setShowClues((v) => !v)} className="text-xs px-2 py-1 rounded bg-amber-600/30 text-parchment">{en ? `Clues ${clueList.length}` : `线索 ${clueList.length}`}</button>}
+          {resources.length > 0 && <button onClick={() => setShowRes((v) => !v)} className="text-xs px-2 py-1 rounded bg-eldritch/30 text-parchment">{en ? 'Resources' : '资源'}</button>}
           {myChar && <button onClick={() => setShowRole((v) => !v)} className="text-xs px-2 py-1 rounded bg-eldritch/30 text-parchment">{en ? 'My role' : '我的角色'}</button>}
         </div>
       </header>
+
+      {showClues && (
+        <div className="px-4 py-3 bg-amber-950/20 border-b border-amber-700/30 max-w-3xl w-full mx-auto space-y-1.5">
+          <div className="text-xs text-amber-300/70 mb-1">{en ? 'Clues you have found' : '你已掌握的线索'}</div>
+          {clueList.map((m) => (
+            <div key={m.id} className="text-sm text-parchment/85 leading-snug">{m.payload?.type === 'private' ? '🔒 ' : '🔍 '}{m.content.replace(/^🔍\s*/, '')}</div>
+          ))}
+        </div>
+      )}
+
+      {showRes && (
+        <div className="px-4 py-3 bg-ink/60 border-b border-eldritch/20 max-w-3xl w-full mx-auto">
+          <div className="text-xs text-parchment/50 mb-2">{en ? 'Resource standings (mechanism)' : '资源/分数（机制本）'}</div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {resources.map((r: any, i: number) => (
+              <div key={i} className="rounded bg-fog border border-eldritch/30 p-2">
+                <div className="text-parchment text-sm truncate">{r.name}</div>
+                <div className="text-parchment/60 text-[11px] space-y-0.5 mt-1">
+                  {(r.items || []).map((it: any, j: number) => <div key={j} className="flex justify-between gap-2"><span className="truncate">{it.label}</span><span className="text-eldritch shrink-0">{it.value}</span></div>)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {showCards && (
         <div className="px-4 py-3 bg-ink/60 border-b border-eldritch/20 max-w-3xl w-full mx-auto">

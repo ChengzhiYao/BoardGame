@@ -62,7 +62,9 @@ export async function POST(req: Request) {
 
     const nextAct = Math.min(7, Math.max(room.jbs_act || 1, Number(out.next_act) || room.jbs_act || 1));
     const toVote = !!out.to_vote || nextAct >= 6;
-    await admin.from('rooms').update({ jbs_act: nextAct, jbs_phase: toVote ? 'vote' : 'playing' }).eq('id', roomId);
+    const patch: any = { jbs_act: nextAct, jbs_phase: toVote ? 'vote' : 'playing' };
+    if (Array.isArray(out.resources) && out.resources.length) patch.jbs_resources = out.resources;
+    await admin.from('rooms').update(patch).eq('id', roomId);
     return NextResponse.json({ ok: true, vote: toVote });
   } catch (e: any) {
     await admin.from('error_logs').insert({ room_id: roomId, scope: 'llm', message: '剧本杀DM:' + e.message });

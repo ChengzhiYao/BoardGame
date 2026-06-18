@@ -43,6 +43,18 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
   useEffect(() => { setMessages((prev) => { const ids = new Set(prev.map((m) => m.id)); const add = props.initialMessages.filter((m) => !ids.has(m.id)); return add.length ? [...prev, ...add] : prev; }); }, [props.initialMessages]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
+  useEffect(() => {
+    const tick = async () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      const { data } = await supabase.from('messages').select('*').eq('room_id', props.room.id).order('created_at', { ascending: true }).limit(300);
+      if (data) setMessages((prev) => { const ids = new Set(prev.map((m) => m.id)); const add = data.filter((m: any) => !ids.has(m.id)); return add.length ? [...prev, ...add] : prev; });
+      const { data: r } = await supabase.from('rooms').select('game_state').eq('id', props.room.id).maybeSingle();
+      if (r && r.game_state !== props.room.game_state) router.refresh();
+    };
+    const id = setInterval(tick, 4000);
+    return () => clearInterval(id);
+  }, [props.room.id, props.room.game_state, supabase, router]);
+
   async function call(url: string, body: any) {
     setBusy(true);
     try {

@@ -18,7 +18,7 @@ export default function JbsRoom(props: ShellProps) {
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [headcount, setHeadcount] = useState(6);
-  const [pace, setPace] = useState(6);
+  const [pace, setPace] = useState(9);
   const [now, setNow] = useState(Date.now());
   const [showRole, setShowRole] = useState(false);
   const [showCustom, setShowCustom] = useState(false);
@@ -196,7 +196,7 @@ export default function JbsRoom(props: ShellProps) {
             </div>
             <div className="flex items-center gap-2">
               <span className="text-sm text-parchment/60">{en ? 'Pace / act:' : '每幕时长：'}</span>
-              {[[3, en ? 'Fast' : '快'], [6, en ? 'Normal' : '中'], [10, en ? 'Slow' : '慢']].map(([m, l]) => (
+              {[[6, en ? 'Fast' : '快'], [9, en ? 'Normal' : '中'], [13, en ? 'Slow' : '慢']].map(([m, l]) => (
                 <button key={m as number} onClick={() => setPace(m as number)}
                   className={`px-3 py-1.5 rounded border text-sm ${pace === m ? 'bg-eldritch/60 border-eldritch text-parchment' : 'bg-fog border-eldritch/30 text-parchment/60'}`}>{l}·{m}{en ? 'm' : '分'}</button>
               ))}
@@ -378,8 +378,10 @@ export default function JbsRoom(props: ShellProps) {
           </div>
           {isHost && (
             <div className="flex items-center justify-center gap-3 text-xs">
-              <button onClick={() => advance(false)} disabled={busy} className="px-3 py-1.5 rounded bg-fog border border-eldritch/40 text-parchment/80 hover:bg-eldritch/20 disabled:opacity-50">{en ? 'Next act ▶' : '进入下一幕 ▶'}</button>
-              <button onClick={() => advance(true)} disabled={busy} className="px-3 py-1.5 rounded bg-blood/40 border border-blood/50 text-parchment/90 hover:bg-blood/60 disabled:opacity-50">{en ? 'Go to accusation ⚖' : '进入最终指认 ⚖'}</button>
+              {(() => { const locked = actStart > 0 && remainMs > 0; return (<>
+                <button onClick={() => advance(false)} disabled={busy || locked} title={locked ? (en ? 'Available after this act’s timer' : '本幕时间到才能点') : ''} className="px-3 py-1.5 rounded bg-fog border border-eldritch/40 text-parchment/80 hover:bg-eldritch/20 disabled:opacity-40">{locked ? (en ? `Next act in ${mmss}` : `${mmss} 后可进入下一幕`) : (en ? 'Next act ▶' : '进入下一幕 ▶')}</button>
+                <button onClick={() => advance(true)} disabled={busy || locked} title={locked ? (en ? 'Available after this act’s timer' : '本幕时间到才能点') : ''} className="px-3 py-1.5 rounded bg-blood/40 border border-blood/50 text-parchment/90 hover:bg-blood/60 disabled:opacity-40">{en ? 'Go to accusation ⚖' : '进入最终指认 ⚖'}</button>
+              </>); })()}
             </div>
           )}
         </div>

@@ -11,10 +11,18 @@ export async function POST(req: Request) {
   if (!roomId) return NextResponse.json({ error: '缺少 roomId' }, { status: 400 });
 
   const admin = createAdminClient();
-  const { data: room } = await admin.from('rooms').select('host_user_id, jbs_act, jbs_phase, language').eq('id', roomId).maybeSingle();
+  const { data: room } = await admin.from('rooms').select('host_user_id, jbs_act, jbs_phase, jbs_act_minutes, jbs_act_started_at, language').eq('id', roomId).maybeSingle();
   if (!room) return NextResponse.json({ error: '房间不存在' }, { status: 404 });
   if (room.host_user_id !== user.id) return NextResponse.json({ error: '只有房主可以推进' }, { status: 403 });
   if (room.jbs_phase !== 'playing') return NextResponse.json({ error: '现在不能推进' }, { status: 409 });
+
+  // 时间闸门：本幕时长未到不能手动推进
+  const startedAt = room.jbs_act_started_at ? new Date(room.jbs_act_started_at).getTime() : 0;
+  const minutes = room.jbs_act_minutes || 6;
+  if (startedAt && Date.now() < startedAt + minutes * 60000) {
+    const leftSec = Math.ceil((startedAt + minutes * 60000 - Date.now()) / 1000);
+    return NextResponse.json({ error: `本幕还差 ${Math.floor(leftSec / 60)}分${leftSec % 60}秒`, wait: leftSec }, { status: 409 });
+  }
 
   const cur = room.jbs_act || 1;
   const nextAct = toVote ? 6 : Math.min(7, cur + 1);

@@ -14,7 +14,7 @@ export async function POST(req: Request) {
 
   const { roomId, scriptId, actMinutes } = await req.json().catch(() => ({} as any));
   if (!roomId || !scriptId) return NextResponse.json({ error: '缺少参数' }, { status: 400 });
-  const actMin = Math.min(20, Math.max(2, Number(actMinutes) || 6));
+  const actMin = Math.min(20, Math.max(2, Number(actMinutes) || 9));
 
   const admin = createAdminClient();
   const { data: room } = await admin.from('rooms').select('*').eq('id', roomId).maybeSingle();

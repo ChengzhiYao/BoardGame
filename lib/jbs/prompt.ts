@@ -21,12 +21,22 @@ const TYPE_FOCUS: Record<JbsType, string> = {
   机制: '机制/经济对抗：核心是资源与博弈，不一定有凶案。开局给每个角色不同的初始资源（金钱/筹码/情报/物资/影响力等）与可执行的行动（交易、投资、结盟、抢夺、下注、谈判、暗算）。DM 充当规则仲裁与"账房"：每回合在 private_notes 里向各玩家结算其资源增减，公开重大局势变化；维护一张隐藏的资源/分数表。可以有冲突对抗（抢夺/对赌/战斗）——由 DM 依据双方资源与策略裁定胜负，不要拖泥带水。AI 角色按自身利益最大化行动，会算计、毁约、抱团。最终按"机制值"（资源/目标达成度）排名结算，给出赢家。',
 };
 
-// 生成 3 个原创剧本选项（玩家可见层，绝不含真相）。覆盖不同本型。
-export function buildJbsScriptGenPrompt(headcount: number) {
+// 生成 3 个原创剧本选项（玩家可见层，绝不含真相）。覆盖不同本型。custom 为玩家自定义方向（可选）。
+export function buildJbsScriptGenPrompt(headcount: number, custom?: Record<string, string> | null) {
+  const c = custom || {};
+  const wants: string[] = [];
+  if (c.type) wants.push(`本型偏好：${c.type}（至少 1 个剧本必须是这个本型）`);
+  if (c.era) wants.push(`时代背景：${c.era}`);
+  if (c.place) wants.push(`主要场景：${c.place}`);
+  if (c.theme) wants.push(`玩家的点子/主题（务必让其中一个剧本紧扣它）：${c.theme}`);
+  if (c.forbidden) wants.push(`避免出现：${c.forbidden}`);
+  const customBlock = wants.length
+    ? `\n\n【玩家自定义方向】请在尊重原创的前提下贴合下列要求（只影响题材/风格/设定，绝不让玩家决定真相与隐藏身份）：\n- ${wants.join('\n- ')}`
+    : '';
   return `你是资深剧本杀（实景推理）编剧。请生成 3 个**原创**剧本选项供玩家挑选，覆盖**不同本型**，给玩家真正的多元选择。
 本局真人 + AI 补位后的总人数约为 ${headcount} 人，请让每个剧本的推荐人数与之接近（${headcount} 或 ${headcount}±1）。
 
-本型可选（每个剧本标注它的 type）：推理凶案本 / 情感本 / 欢乐本 / 阵营本 / 恐怖本 / 还原本 / 机制本。3 个剧本尽量是 3 种不同的 type。
+本型可选（每个剧本标注它的 type）：推理凶案本 / 情感本 / 欢乐本 / 阵营本 / 恐怖本 / 还原本 / 机制本。3 个剧本尽量是 3 种不同的 type。${customBlock}
 
 每个剧本只给"玩家可见"信息，绝不透露真相/凶手/隐藏身份：
 - title 标题（有钩子、不剧透）

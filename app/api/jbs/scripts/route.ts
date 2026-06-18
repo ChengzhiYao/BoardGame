@@ -12,7 +12,7 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: '未登录' }, { status: 401 });
 
-  const { roomId, headcount } = await req.json().catch(() => ({} as any));
+  const { roomId, headcount, customDirection } = await req.json().catch(() => ({} as any));
   if (!roomId) return NextResponse.json({ error: '缺少 roomId' }, { status: 400 });
 
   const admin = createAdminClient();
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
   await admin.from('rooms').update({ modules_generating: true }).eq('id', roomId);
   try {
     const { data, usage } = await callLLMJson<{ scripts: any[] }>({
-      system: buildJbsScriptGenPrompt(hc) + langDirective(room.language),
+      system: buildJbsScriptGenPrompt(hc, customDirection) + langDirective(room.language),
       messages: [{ role: 'user', content: '请生成 3 个剧本。' }],
       tier: 'main', temperature: 1.0, maxTokens: 1800,
     });

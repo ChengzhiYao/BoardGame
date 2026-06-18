@@ -19,6 +19,8 @@ export default function JbsRoom(props: ShellProps) {
   const [copied, setCopied] = useState(false);
   const [headcount, setHeadcount] = useState(6);
   const [showRole, setShowRole] = useState(false);
+  const [showCustom, setShowCustom] = useState(false);
+  const [custom, setCustom] = useState<Record<string, string>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const phase = props.room.jbs_phase as string | undefined;
@@ -52,7 +54,49 @@ export default function JbsRoom(props: ShellProps) {
     finally { setBusy(false); }
   }
 
-  async function genScripts() { await call('/api/jbs/scripts', { roomId: props.room.id, headcount }); }
+  async function genScripts(dir?: Record<string, string> | null) {
+    const r = await call('/api/jbs/scripts', { roomId: props.room.id, headcount, customDirection: dir || null });
+    if (r) setShowCustom(false);
+  }
+
+  const TYPE_OPTS = en
+    ? [['', 'Any'], ['推理', 'Murder Mystery'], ['情感', 'Emotional'], ['欢乐', 'Comedy'], ['阵营', 'Faction'], ['恐怖', 'Horror'], ['还原', 'Reconstruction'], ['机制', 'Mechanism/Economy']]
+    : [['', '不限'], ['推理', '推理凶案'], ['情感', '情感'], ['欢乐', '欢乐'], ['阵营', '阵营对抗'], ['恐怖', '恐怖'], ['还原', '还原'], ['机制', '机制/经济']];
+
+  const customPanel = (
+    <div className="w-full max-w-xl p-4 rounded-lg bg-fog border border-eldritch/30 flex flex-col gap-3 text-left">
+      <p className="text-xs text-parchment/50">{en ? 'Customization only shapes theme, era and mood — it never lets you decide the truth, killer or hidden roles.' : '自定义只影响题材、时代与氛围，不会让你决定真相、凶手或隐藏身份。'}</p>
+      <label className="flex flex-col gap-1 text-sm text-parchment/70">{en ? 'Preferred type' : '本型偏好'}
+        <select value={custom.type || ''} onChange={(e) => setCustom({ ...custom, type: e.target.value })}
+          className="px-2 py-1.5 rounded bg-ink border border-eldritch/30 text-parchment">
+          {TYPE_OPTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+        </select>
+      </label>
+      <div className="grid grid-cols-2 gap-3">
+        <label className="flex flex-col gap-1 text-sm text-parchment/70">{en ? 'Era' : '时代背景'}
+          <input value={custom.era || ''} onChange={(e) => setCustom({ ...custom, era: e.target.value })}
+            placeholder={en ? 'e.g. Republic era' : '例如：民国'} className="px-3 py-2 rounded bg-ink border border-eldritch/30 text-parchment placeholder:text-parchment/30" />
+        </label>
+        <label className="flex flex-col gap-1 text-sm text-parchment/70">{en ? 'Place' : '场景'}
+          <input value={custom.place || ''} onChange={(e) => setCustom({ ...custom, place: e.target.value })}
+            placeholder={en ? 'e.g. a cruise ship' : '例如：豪华游轮'} className="px-3 py-2 rounded bg-ink border border-eldritch/30 text-parchment placeholder:text-parchment/30" />
+        </label>
+      </div>
+      <label className="flex flex-col gap-1 text-sm text-parchment/70">{en ? 'Your idea / theme' : '你的点子 / 主题'}
+        <textarea value={custom.theme || ''} onChange={(e) => setCustom({ ...custom, theme: e.target.value })} rows={2}
+          placeholder={en ? 'Describe the story you want — characters, setup, twist…' : '描述你想要的故事——人物、设定、反转……'}
+          className="px-3 py-2 rounded bg-ink border border-eldritch/30 text-parchment placeholder:text-parchment/30" />
+      </label>
+      <label className="flex flex-col gap-1 text-sm text-parchment/70">{en ? 'Avoid (forbidden content)' : '避免内容'}
+        <input value={custom.forbidden || ''} onChange={(e) => setCustom({ ...custom, forbidden: e.target.value })}
+          placeholder={en ? 'e.g. nothing too gory' : '例如：不要太血腥'} className="px-3 py-2 rounded bg-ink border border-eldritch/30 text-parchment placeholder:text-parchment/30" />
+      </label>
+      <button onClick={() => genScripts(custom)} disabled={busy || generating}
+        className="self-start px-5 py-2 rounded bg-eldritch/60 hover:bg-eldritch text-parchment text-sm disabled:opacity-50">
+        {busy || generating ? (en ? 'Writing…' : '生成中…') : (en ? 'Generate in this direction' : '按这个方向生成')}
+      </button>
+    </div>
+  );
   async function startScript(id: string) { await call('/api/jbs/start', { roomId: props.room.id, scriptId: id }); }
   async function act_(content: string) { const c = content.trim(); if (!c) return; setText(''); await call('/api/jbs/act', { roomId: props.room.id, content: c }); }
   async function vote(target: string) { if (!confirm((en ? 'Accuse ' : '指认 ') + target + '?')) return; await call('/api/jbs/vote', { roomId: props.room.id, target }); }
@@ -89,10 +133,17 @@ export default function JbsRoom(props: ShellProps) {
                   className={`px-3 py-1.5 rounded border text-sm ${headcount === n ? 'bg-eldritch/60 border-eldritch text-parchment' : 'bg-fog border-eldritch/30 text-parchment/60'}`}>{n}</button>
               ))}
             </div>
-            <button onClick={genScripts} disabled={busy || generating}
-              className="px-6 py-3 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-50">
-              {busy || generating ? (en ? 'Writing scripts…' : '正在出本…') : (en ? 'Generate scripts' : '生成剧本')}
-            </button>
+            <div className="flex items-center gap-3">
+              <button onClick={() => genScripts()} disabled={busy || generating}
+                className="px-6 py-3 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-50">
+                {busy || generating ? (en ? 'Writing scripts…' : '正在出本…') : (en ? 'Generate scripts' : '生成剧本')}
+              </button>
+              <button onClick={() => setShowCustom((v) => !v)} disabled={busy || generating}
+                className="px-4 py-3 rounded bg-fog border border-eldritch/40 text-parchment/80 text-sm hover:bg-eldritch/20 disabled:opacity-50">
+                {en ? 'Custom script' : '自定义剧本'}
+              </button>
+            </div>
+            {showCustom && customPanel}
           </div>
         ) : <p className="text-parchment/40 text-sm">{en ? 'Waiting for the host to pick a script…' : '等待房主出本……'}</p>}
       </main>
@@ -120,7 +171,15 @@ export default function JbsRoom(props: ShellProps) {
             </div>
           ))}
         </div>
-        {isHost && <button onClick={genScripts} disabled={busy || generating} className="text-parchment/40 text-sm underline">{en ? 'Reroll scripts' : '换一批'}</button>}
+        {isHost && (
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex items-center gap-4">
+              <button onClick={() => genScripts()} disabled={busy || generating} className="text-parchment/40 text-sm underline">{en ? 'Reroll scripts' : '换一批'}</button>
+              <button onClick={() => setShowCustom((v) => !v)} disabled={busy || generating} className="text-eldritch/80 text-sm underline">{en ? 'Custom script' : '自定义剧本'}</button>
+            </div>
+            {showCustom && customPanel}
+          </div>
+        )}
       </main>
     );
   }

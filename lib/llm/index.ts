@@ -133,23 +133,23 @@ export async function callLLMJson<T = any>(req: LLMRequest): Promise<{ data: T; 
   const temperature = req.temperature ?? 0.4;
   const maxTokens = req.maxTokens ?? 2000;
   const t0 = Date.now();
-  let text = '';
-  let promptTokens = 0;
-  let completionTokens = 0;
-  const jsonGuard = '\n\n你必须只输出一个合法 JSON 对象，不要任何额外文字、解释或 markdown 代码块。';
+  const jsonGuard = '\n\n你必须只输出一个合法 JSON 对象（不要任何思考过程、解释或 markdown 代码块）。Output ONLY one valid JSON object — no reasoning, no prose, no code fences.';
 
-  if (provider === 'anthropic') {
-    const res = await anthropic().messages.create({
-      model,
-      system: req.system + jsonGuard,
-      max_tokens: maxTokens,
-      temperature,
-      messages: req.messages.map((m) => ({ role: m.role, content: m.content })),
-    });
-    text = res.content.filter((b) => b.type === 'text').map((b: any) => b.text).join('');
-    promptTokens = res.usage?.input_tokens ?? 0;
-    completionTokens = res.usage?.output_tokens ?? 0;
-  } else {
+  async function attempt(): Promise<{ text: string; pt: number; ct: number }> {
+    if (provider === 'anthropic') {
+      const res = await anthropic().messages.create({
+        model,
+        system: req.system + jsonGuard,
+        max_tokens: maxTokens,
+        temperature,
+        messages: req.messages.map((m) => ({ role: m.role, content: m.content })),
+      });
+      return {
+        text: res.content.filter((b) => b.type === 'text').map((b: any) => b.text).join(''),
+        pt: res.usage?.input_tokens ?? 0,
+        ct: res.usage?.output_tokens ?? 0,
+      };
+    }
     const res = await chatClient(provider).chat.completions.create({
       model,
       temperature,
@@ -160,28 +160,41 @@ export async function callLLMJson<T = any>(req: LLMRequest): Promise<{ data: T; 
         ...req.messages.map((m) => ({ role: m.role, content: m.content })),
       ],
     });
-    text = res.choices[0]?.message?.content ?? '';
-    promptTokens = res.usage?.prompt_tokens ?? 0;
-    completionTokens = res.usage?.completion_tokens ?? 0;
+    return {
+      text: res.choices[0]?.message?.content ?? '',
+      pt: res.usage?.prompt_tokens ?? 0,
+      ct: res.usage?.completion_tokens ?? 0,
+    };
   }
 
-  const data = safeParseJson<T>(text);
-  return {
-    data,
-    usage: { text, provider, model, promptTokens, completionTokens, latencyMs: Date.now() - t0 },
-  };
+  // DeepSeek 等偶尔会夹带思考/代码块导致 JSON 解析失败：最多重试一次。
+  let lastErr: any = null;
+  let text = '';
+  let pt = 0;
+  let ct = 0;
+  for (let i = 0; i < 2; i++) {
+    try {
+      const r = await attempt();
+      text = r.text; pt += r.pt; ct += r.ct;
+      const data = safeParseJson<T>(text);
+      return { data, usage: { text, provider, model, promptTokens: pt, completionTokens: ct, latencyMs: Date.now() - t0 } };
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr || new Error('LLM JSON 解析失败');
 }
 
 function safeParseJson<T>(text: string): T {
-  try {
-    return JSON.parse(text) as T;
-  } catch {
-    // 容错：截取第一个 { 到最后一个 }
-    const start = text.indexOf('{');
-    const end = text.lastIndexOf('}');
-    if (start !== -1 && end !== -1) {
-      try { return JSON.parse(text.slice(start, end + 1)) as T; } catch {}
-    }
-    throw new Error('LLM 未返回合法 JSON：' + text.slice(0, 200));
+  let s = String(text || '').trim();
+  // 去掉 markdown 代码围栏 ```json ... ```
+  s = s.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+  try { return JSON.parse(s) as T; } catch {}
+  // 容错：截取第一个 { 到最后一个 }（跳过思考前缀/后缀）
+  const start = s.indexOf('{');
+  const end = s.lastIndexOf('}');
+  if (start !== -1 && end !== -1 && end > start) {
+    try { return JSON.parse(s.slice(start, end + 1)) as T; } catch {}
   }
+  throw new Error('LLM 未返回合法 JSON：' + s.slice(0, 200));
 }

@@ -21,6 +21,7 @@ export default function JbsRoom(props: ShellProps) {
   const [showRole, setShowRole] = useState(false);
   const [showCustom, setShowCustom] = useState(false);
   const [custom, setCustom] = useState<Record<string, string>>({});
+  const [showCards, setShowCards] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const phase = props.room.jbs_phase as string | undefined;
@@ -42,6 +43,19 @@ export default function JbsRoom(props: ShellProps) {
 
   useEffect(() => { setMessages((prev) => { const ids = new Set(prev.map((m) => m.id)); const add = props.initialMessages.filter((m) => !ids.has(m.id)); return add.length ? [...prev, ...add] : prev; }); }, [props.initialMessages]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+
+  // 轮询兜底：被邀请的匿名玩家realtime可能被RLS过滤而收不到推送，这里每隔几秒主动拉一次消息与房间阶段，保证两边同步。
+  useEffect(() => {
+    const tick = async () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      const { data } = await supabase.from('messages').select('*').eq('room_id', props.room.id).order('created_at', { ascending: true }).limit(300);
+      if (data) setMessages((prev) => { const ids = new Set(prev.map((m) => m.id)); const add = data.filter((m: any) => !ids.has(m.id)); return add.length ? [...prev, ...add] : prev; });
+      const { data: r } = await supabase.from('rooms').select('jbs_phase, jbs_act, game_state').eq('id', props.room.id).maybeSingle();
+      if (r && (r.jbs_phase !== props.room.jbs_phase || r.jbs_act !== props.room.jbs_act || r.game_state !== props.room.game_state)) router.refresh();
+    };
+    const id = setInterval(tick, 4000);
+    return () => clearInterval(id);
+  }, [props.room.id, props.room.jbs_phase, props.room.jbs_act, props.room.game_state, supabase, router]);
 
   async function call(url: string, body: any) {
     setBusy(true);
@@ -100,6 +114,10 @@ export default function JbsRoom(props: ShellProps) {
   async function startScript(id: string) { await call('/api/jbs/start', { roomId: props.room.id, scriptId: id }); }
   async function act_(content: string) { const c = content.trim(); if (!c) return; setText(''); await call('/api/jbs/act', { roomId: props.room.id, content: c }); }
   async function vote(target: string) { if (!confirm((en ? 'Accuse ' : '指认 ') + target + '?')) return; await call('/api/jbs/vote', { roomId: props.room.id, target }); }
+  async function genAvatars(force?: boolean) {
+    const r = await call('/api/jbs/avatars', { roomId: props.room.id, force: !!force });
+    if (r) { router.refresh(); if (r.remaining > 0) alert(en ? `Generated ${r.done}, ${r.remaining} left — click again to finish.` : `已生成 ${r.done} 张，还剩 ${r.remaining} 张，再点一次补齐。`); }
+  }
   async function replay() {
     setBusy(true);
     try {
@@ -205,9 +223,38 @@ export default function JbsRoom(props: ShellProps) {
         <span className="font-serif text-parchment text-sm truncate">{en ? 'Murder Mystery' : '剧本杀'} · {props.room.name}</span>
         <div className="flex items-center gap-2 shrink-0">
           {!ended && <span className="text-xs text-eldritch/80">{en ? `Act ${act} · ${ACTS_EN[act] || ''}` : `第${act}幕 · ${ACTS_ZH[act] || ''}`}</span>}
+          {chars.length > 0 && <button onClick={() => setShowCards((v) => !v)} className="text-xs px-2 py-1 rounded bg-eldritch/30 text-parchment">{en ? 'Cast cards' : '角色卡'}</button>}
           {myChar && <button onClick={() => setShowRole((v) => !v)} className="text-xs px-2 py-1 rounded bg-eldritch/30 text-parchment">{en ? 'My role' : '我的角色'}</button>}
         </div>
       </header>
+
+      {showCards && (
+        <div className="px-4 py-3 bg-ink/60 border-b border-eldritch/20 max-w-3xl w-full mx-auto">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {chars.map((c: any) => {
+              const isMe = c.assigned_seat && c.assigned_seat === props.mySeat;
+              return (
+                <div key={c.name} className={`rounded-lg border p-2 flex gap-2 items-start ${isMe ? 'bg-blood/15 border-blood/50' : 'bg-fog border-eldritch/30'}`}>
+                  <div className="w-12 h-12 rounded overflow-hidden bg-ink border border-eldritch/30 shrink-0 flex items-center justify-center">
+                    {c.avatar_url ? <img src={c.avatar_url} alt={c.name} className="w-full h-full object-cover" /> : <span className="text-parchment/30 text-lg">{(c.name || '?').slice(0, 1)}</span>}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-parchment text-sm truncate">{c.name}{c.assigned_seat ? ` [${c.assigned_seat}]` : (en ? ' ·AI' : ' ·AI')}</div>
+                    <div className="text-parchment/50 text-[11px] truncate">{[c.age, c.occupation].filter(Boolean).join(' · ')}</div>
+                    <div className="text-parchment/60 text-[11px] leading-snug line-clamp-3">{c.public_info}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {isHost && (
+            <button onClick={() => genAvatars(!chars.some((c: any) => !c.avatar_url))} disabled={busy}
+              className="mt-3 px-4 py-1.5 rounded bg-eldritch/50 hover:bg-eldritch text-parchment text-xs disabled:opacity-50">
+              {busy ? (en ? 'Drawing portraits…' : '正在生成头像…') : chars.some((c: any) => !c.avatar_url) ? (en ? '🎨 Generate cast portraits' : '🎨 生成角色头像') : (en ? '↻ Redraw portraits' : '↻ 重新生成头像')}
+            </button>
+          )}
+        </div>
+      )}
 
       {showRole && (
         <div className="px-4 py-3 bg-blood/10 border-b border-blood/30 max-w-3xl w-full mx-auto text-sm text-parchment/85 whitespace-pre-line">

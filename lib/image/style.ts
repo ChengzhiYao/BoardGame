@@ -64,6 +64,36 @@ export function buildAvatarPrompt(char: any, era?: string, theme?: string): stri
   return buildImagePrompt('npc_portrait', subject, era, theme);
 }
 
+// 剧本杀角色肖像：画风【不固定】，按本剧的本型/题材/时代与这名角色自身的描述来决定，
+// 每一局、每个角色都不一样，而不是套用克苏鲁那套锁定风格。
+const JBS_MOOD: Record<string, string> = {
+  恐怖: '幽暗不安、冷调、阴影浓重、令人紧张的氛围',
+  欢乐: '明亮温暖、轻松俏皮、色彩活泼明快',
+  情感: '柔和温暖的电影感，细腻的情绪与淡淡怀旧',
+  推理: '冷峻的黑色电影氛围，戏剧性的明暗对比',
+  阵营: '史诗、张力十足的戏剧光影',
+  还原: '泛黄褪色的旧时光与回忆质感',
+  机制: '冷静、现代、利落、商战般的质感',
+};
+
+export function buildJbsPortraitPrompt(c: any, meta: { type?: string; genre?: string; era?: string; place?: string }): string {
+  const looks = [
+    c?.age ? `${c.age}` : '',
+    c?.occupation || '',
+    c?.personality ? `性格气质：${c.personality}` : '',
+    c?.background ? `背景：${String(c.background).slice(0, 90)}` : '',
+    c?.public_info ? String(c.public_info).slice(0, 70) : '',
+  ].filter(Boolean).join('，');
+  const subject = `${c?.name || '角色'}——${looks || '一名角色'}`;
+  const mood = JBS_MOOD[meta.type || ''] || '写实而有戏剧感的电影氛围';
+  const era = meta.era ? `时代背景：${meta.era}，服装、发型、道具须贴合该时代。` : '';
+  return `人物半身肖像：${subject}。单人，正面略侧，神情可辨，深色中性背景。`
+    + `${era}题材风格：${meta.genre || ''}${meta.place ? `（${meta.place}）` : ''}。`
+    + `【画风随这名角色与本剧设定而定，不要套用固定风格】体现${mood}；`
+    + `写实细腻的插画/绘画质感，整组角色风格协调但各自贴合人物个性、年龄与职业；`
+    + `仅在题材本身轻松时才偏卡通，否则写实；画面无文字、无水印、无边框。`;
+}
+
 // 场景／NPC／怪物等场景图 prompt（在 AI 给出的画面描述前后套上统一风格）
 export function buildScenePrompt(scene: string, era?: string): string {
   return `画面：${scene}。${eraStyle(era)} ${ART_STYLE}`;

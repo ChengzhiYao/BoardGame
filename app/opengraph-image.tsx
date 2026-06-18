@@ -2,7 +2,7 @@
 // 想换成自己的图：删掉本文件，放一张 app/opengraph-image.png（1200×630）即可自动生效。
 import { ImageResponse } from 'next/og';
 
-export const alt = 'Call of the Deep · Cthulhu co-op TRPG';
+export const alt = '谜夜 · MystNight — AI-hosted murder mystery games';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -23,16 +23,16 @@ export default function Image() {
         }}
       >
         <div style={{ display: 'flex', fontSize: 26, letterSpacing: 10, color: '#6f9a86', marginBottom: 22 }}>
-          CTHULHU · CO-OP HORROR TRPG
+          AI-HOSTED MYSTERY NIGHTS
         </div>
-        <div style={{ display: 'flex', fontSize: 96, fontWeight: 700, letterSpacing: 2 }}>
-          CALL OF THE DEEP
+        <div style={{ display: 'flex', fontSize: 110, fontWeight: 700, letterSpacing: 6 }}>
+          MystNight
         </div>
-        <div style={{ display: 'flex', fontSize: 30, color: '#a89e87', marginTop: 26, maxWidth: 860, textAlign: 'center' }}>
-          Two investigators. One AI Keeper. A truth that never changes.
+        <div style={{ display: 'flex', fontSize: 30, color: '#a89e87', marginTop: 26, maxWidth: 900, textAlign: 'center' }}>
+          Grab a friend. An AI host writes a fresh case just for tonight.
         </div>
-        <div style={{ display: 'flex', fontSize: 22, color: '#5f6b74', marginTop: 40, letterSpacing: 4 }}>
-          ZH / EN
+        <div style={{ display: 'flex', fontSize: 22, color: '#5f6b74', marginTop: 40, letterSpacing: 5 }}>
+          MURDER MYSTERY · WHODUNIT · LATERAL PUZZLES　|　ZH / EN
         </div>
       </div>
     ),

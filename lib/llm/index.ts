@@ -26,6 +26,7 @@ export interface LLMRequest {
   temperature?: number;      // 真相相关用低温，默认 0.6
   maxTokens?: number;
   provider?: Provider;       // 可强制指定某家，默认读环境变量
+  retry?: boolean;           // 解析失败是否重试一次（默认仅 aux 重试；大主调用慎用，怕超时）
 }
 
 export interface LLMResult {
@@ -169,7 +170,7 @@ export async function callLLMJson<T = any>(req: LLMRequest): Promise<{ data: T; 
 
   // DeepSeek 等偶尔会夹带思考/代码块导致 JSON 解析失败：辅助调用最多重试一次。
   // 主调用（叙述/模组生成）本就大且慢，重试会撑爆 Vercel 60s 超时，故不重试，只靠宽容解析。
-  const attempts = tier === 'aux' ? 2 : 1;
+  const attempts = (req.retry ?? (tier === 'aux')) ? 2 : 1;
   let lastErr: any = null;
   let text = '';
   let pt = 0;

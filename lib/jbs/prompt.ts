@@ -62,7 +62,7 @@ export function buildJbsCasePrompt(chosen: any, headcount: number, realSeats: st
 【本型重心】${focus}
 
 【人数与补位】总角色数 = ${headcount}。其中 ${realSeats.length} 名由真人扮演（座位 ${realSeats.join('、')}），其余 ${headcount - realSeats.length} 名为 **AI 补位角色**。
-- 每个角色都要有完整人格：name、age、occupation、personality、background、public_info（公开身份信息，人人可见）、secret（隐藏秘密，仅本人知道）、private_goal（私人目标）、private_task（私人任务）、relationships（与其他角色的隐藏关系）。
+- 每个角色都要有完整人格：name、gender（male/female）、age、occupation、personality、background、public_info（公开身份信息，人人可见）、secret（隐藏秘密，仅本人知道）、private_goal（私人目标）、private_task（私人任务）、relationships（与其他角色的隐藏关系）。gender 要与名字/身份相符。
 - 角色之间的秘密/目标要**彼此冲突**，制造怀疑与张力。至少一人说谎。
 - ${type === '阵营' ? '为每个角色标注 faction（所属阵营），并写清各阵营的胜利条件。' : type === '机制' ? '为每个角色写明 starting_resources（初始资源，写进 private_goal/private_task）与可用行动；factions 里用一条说明排名/胜利如何计算（机制值）。murderer 可留空。' : type === '推理' || type === '恐怖' ? '明确 murderer（凶手是哪个角色名）、method、motive、真实 timeline。' : 'murderer/method/motive 可留空，重点放在角色秘密、目标与关系上。'}
 - AI 补位角色同样要有独立秘密/目标，绝不主动帮真人、绝不自爆关键身份。
@@ -85,7 +85,7 @@ export function buildJbsCasePrompt(chosen: any, headcount: number, realSeats: st
   "red_herrings": [ { "clue":"", "why":"为何误导、最终如何被排除" } ],
   "factions": [ { "name":"阵营名", "win":"胜利条件" } ],
   "characters": [
-    { "name":"", "age":"", "occupation":"", "personality":"", "background":"", "public_info":"人人可见的公开信息", "secret":"只有本人知道的秘密", "private_goal":"私人目标", "private_task":"私人任务", "relationships":"与他人的隐藏关系", "faction":"（阵营本填，否则空）", "is_murderer": false }
+    { "name":"", "gender":"male", "age":"", "occupation":"", "personality":"", "background":"", "public_info":"人人可见的公开信息", "secret":"只有本人知道的秘密", "private_goal":"私人目标", "private_task":"私人任务", "relationships":"与他人的隐藏关系", "faction":"（阵营本填，否则空）", "is_murderer": false }
   ],
   "ending_conditions": [ { "name":"结局名", "when":"触发条件（按指认结果/玩家选择/生存等）", "outcome":"结局描写" } ],
   "acts": [ { "name":"幕名（公开、不剧透）", "goal":"本幕要达成什么（DM 内部用）" } ],

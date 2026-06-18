@@ -34,7 +34,11 @@ export default function JbsRoom(props: ShellProps) {
     classify: (m: any) => {
       const t = m.payload?.type;
       if (t === 'jbs_dm') return { kind: 'narrator' as const, text: m.content };
-      if (t === 'jbs_ai') return { kind: 'character' as const, name: m.payload?.name, text: m.content };
+      if (t === 'jbs_ai') {
+        const nm = m.payload?.name;
+        const g = (props.jbsCharacters || []).find((c: any) => c.name === nm)?.gender;
+        return { kind: 'character' as const, name: nm, gender: g === 'female' ? 'female' as const : 'male' as const, text: m.content };
+      }
       return null;
     },
   });

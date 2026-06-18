@@ -244,6 +244,7 @@ create table if not exists jbs_characters (
   id uuid primary key default gen_random_uuid(),
   room_id uuid not null references rooms(id) on delete cascade,
   name text, age text, occupation text, public_info text,
+  gender text,
   is_ai boolean not null default false,
   assigned_seat text,   -- 'A'/'B'，AI 为 null
   faction text,         -- 阵营本用
@@ -251,6 +252,7 @@ create table if not exists jbs_characters (
   avatar_url text,
   created_at timestamptz not null default now()
 );
+alter table jbs_characters add column if not exists gender text; -- 配音按性别选嗓音
 alter table jbs_characters enable row level security;
 drop policy if exists jbs_char_read on jbs_characters;
 create policy jbs_char_read on jbs_characters for select using (is_room_member(room_id) or is_admin());

@@ -74,7 +74,7 @@ export default async function RoomPage({ params }: { params: { id: string } }) {
 
   // 剧本杀：角色名册（公开字段，RLS 允许成员读）
   const { data: jbsCharacters } = room.mode === 'jbs'
-    ? await supabase.from('jbs_characters').select('name, age, occupation, public_info, is_ai, assigned_seat, status, avatar_url').eq('room_id', params.id)
+    ? await supabase.from('jbs_characters').select('name, age, occupation, public_info, is_ai, assigned_seat, status, avatar_url, gender').eq('room_id', params.id)
     : { data: [] as any[] };
 
   const me = (players || []).find((p) => p.user_id === user.id);

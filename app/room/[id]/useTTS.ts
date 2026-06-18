@@ -2,15 +2,25 @@
 import { useEffect, useRef, useState } from 'react';
 
 // 共享语音系统：三档 —— off(关) / browser(免费浏览器语音) / openai(高音质真人声)。
-// classify(m) 返回 { kind:'narrator'|'character', name?, text } 或 null（不读）。
-type Spoken = { kind: 'narrator' | 'character'; name?: string; text: string } | null;
+// classify(m) 返回 { kind:'narrator'|'character', name?, gender?, text } 或 null（不读）。
+type Spoken = { kind: 'narrator' | 'character'; name?: string; gender?: 'male' | 'female'; text: string } | null;
 export type VoiceMode = 'off' | 'browser' | 'openai';
 
-const OAI_CHAR_VOICES = ['alloy', 'echo', 'fable', 'nova', 'shimmer'];
+const OAI_FEMALE = ['nova', 'shimmer', 'alloy'];
+const OAI_MALE = ['echo', 'fable'];
+const OAI_ANY = ['alloy', 'echo', 'fable', 'nova', 'shimmer'];
 const OAI_NARRATOR = 'onyx';
 
 const clean = (t: string) => String(t || '').replace(/[🔍🔒🗳️▶👍🔧⏱⚖🎨↻🎲💀🩸✔✘🔊🔈🎙️]/g, '').replace(/\s+/g, ' ').trim();
 function hashName(name: string) { let h = 0; for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0; return h; }
+function oaiVoice(gender: string | undefined, h: number) {
+  const pool = gender === 'female' ? OAI_FEMALE : gender === 'male' ? OAI_MALE : OAI_ANY;
+  return pool[h % pool.length];
+}
+function browserPitch(gender: string | undefined, h: number) {
+  const base = gender === 'female' ? 1.15 : gender === 'male' ? 0.8 : 0.95;
+  return Math.min(1.6, base + (h % 18) / 100);
+}
 
 export function useTTS(opts: { lang?: string; messages: any[]; classify: (m: any) => Spoken; roomId?: string }) {
   const { lang, messages, classify, roomId } = opts;
@@ -78,6 +88,7 @@ export function useTTS(opts: { lang?: string; messages: any[]; classify: (m: any
       if (!c) continue;
       const text = clean(c.text);
       if (!text) continue;
+      const h = hashName(String(c.name || ''));
 
       if (mode === 'browser') {
         if (!window.speechSynthesis) continue;
@@ -86,11 +97,11 @@ export function useTTS(opts: { lang?: string; messages: any[]; classify: (m: any
         const list = pool.length ? pool : all;
         const u = new SpeechSynthesisUtterance(text.slice(0, 600));
         u.lang = zh ? 'zh-CN' : 'en-US';
-        if (c.kind === 'narrator') { u.voice = list[0] || null; u.pitch = 0.92; u.rate = 0.98; }
-        else { const h = hashName(String(c.name || '')); u.voice = list.length ? list[h % list.length] : null; u.pitch = 0.8 + (h % 40) / 100; u.rate = 0.95 + ((h >> 3) % 20) / 100; }
+        if (c.kind === 'narrator') { u.voice = list[0] || null; u.pitch = 0.9; u.rate = 0.98; }
+        else { u.voice = list.length ? list[h % list.length] : null; u.pitch = browserPitch(c.gender, h); u.rate = 0.95 + ((h >> 3) % 16) / 100; }
         window.speechSynthesis.speak(u);
       } else {
-        const voice = c.kind === 'narrator' ? OAI_NARRATOR : OAI_CHAR_VOICES[hashName(String(c.name || '')) % OAI_CHAR_VOICES.length];
+        const voice = c.kind === 'narrator' ? OAI_NARRATOR : oaiVoice(c.gender, h);
         queue.current.push({ text: text.slice(0, 900), voice });
         worker();
       }

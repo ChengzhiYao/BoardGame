@@ -56,6 +56,7 @@ export async function POST(req: Request) {
       const seat = i < realSeats.length ? realSeats[i] : null;
       await admin.from('jbs_characters').insert({
         room_id: roomId, name: c.name, age: c.age || '', occupation: c.occupation || '',
+        gender: (c.gender === 'female' || c.gender === '女' || c.gender === 'f') ? 'female' : 'male',
         public_info: c.public_info || '', is_ai: !seat, assigned_seat: seat, faction: c.faction || null, status: 'alive',
       });
       roster.push(`· ${c.name}（${c.occupation || ''}）${c.public_info || ''}${seat ? `　[${seat}]` : '　[AI]'}`);

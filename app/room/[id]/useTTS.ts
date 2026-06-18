@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { setVoiceControl } from './voiceControl';
 
 type Spoken = { kind: 'narrator' | 'character'; name?: string; gender?: 'male' | 'female'; text: string } | null;
 export type VoiceMode = 'off' | 'browser' | 'openai';
@@ -98,6 +99,13 @@ export function useTTS(opts: { lang?: string; messages: any[]; classify: (m: any
   }, [messages, mode]);
 
   useEffect(() => () => stopAll(), []);
+
+  // 把控制权注册给悬浮音频条（AudioManager 渲染语音开关）
+  const cycleRef = useRef(cycle); cycleRef.current = cycle;
+  useEffect(() => {
+    setVoiceControl({ mode, cycle: () => cycleRef.current() });
+    return () => setVoiceControl(null);
+  }, [mode]);
 
   return { mode, cycle };
 }

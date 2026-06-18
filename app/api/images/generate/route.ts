@@ -51,7 +51,7 @@ export async function POST(req: Request) {
 
     await admin.from('images').update({ status: 'done', storage_url: pub.publicUrl, cost: 0.04 }).eq('id', imageId);
     await admin.from('rooms').update({ image_used: (room.image_used || 0) + 1 }).eq('id', roomId);
-    await admin.from('api_usage').insert({ room_id: roomId, kind: 'image', model: process.env.IMAGE_MODEL || 'gpt-image-1', image_count: 1, cost: 0.04 });
+    await admin.from('api_usage').insert({ room_id: roomId, kind: 'image', model: process.env.IMAGE_MODEL || 'gpt-image-1-mini', image_count: 1, cost: 0.005 });
 
     return NextResponse.json({ ok: true, url: pub.publicUrl });
   } catch (e: any) {

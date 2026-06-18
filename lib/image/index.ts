@@ -12,7 +12,7 @@ function client() {
 // prompt 应已由 buildScenePrompt / buildAvatarPrompt 套好统一风格。
 // 不传 response_format（不同模型支持不一）：返回 b64 就解码，返回 url 就下载，通用。
 export async function generateImage(prompt: string): Promise<Buffer> {
-  const model = process.env.IMAGE_MODEL || 'gpt-image-1';
+  const model = process.env.IMAGE_MODEL || 'gpt-image-1-mini';
   const res = await client().images.generate({ model, prompt, size: '1024x1024', n: 1 });
   const d: any = res.data?.[0];
   if (d?.b64_json) return Buffer.from(d.b64_json, 'base64');

@@ -1,6 +1,11 @@
-// 房主手动推进剧本杀到下一幕（或直接进入最终指认）。
+// 房主手动 / 倒计时自动推进剧本杀到下一幕。推进后由 DM 主动做"本幕开场"，让新的一幕真正发生。
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
+import { callLLMJson, type LLMMessage } from '@/lib/llm';
+import { buildJbsDmPrompt } from '@/lib/jbs/prompt';
+import { langDirective } from '@/lib/i18n';
+
+export const maxDuration = 60;
 
 export async function POST(req: Request) {
   const supabase = createServerClient();
@@ -16,7 +21,7 @@ export async function POST(req: Request) {
   if (room.host_user_id !== user.id) return NextResponse.json({ error: '只有房主可以推进' }, { status: 403 });
   if (room.jbs_phase !== 'playing') return NextResponse.json({ error: '现在不能推进' }, { status: 409 });
 
-  // 时间闸门：本幕时长未到不能手动推进
+  // 时间闸门：本幕时长未到不能推进
   const startedAt = room.jbs_act_started_at ? new Date(room.jbs_act_started_at).getTime() : 0;
   const minutes = room.jbs_act_minutes || 6;
   if (startedAt && Date.now() < startedAt + minutes * 60000) {
@@ -29,7 +34,52 @@ export async function POST(req: Request) {
   const voteAct = Math.max(2, total - 1);
   const nextAct = toVote ? voteAct : Math.min(total, cur + 1);
   const goVote = !!toVote || nextAct >= voteAct;
+  const en = room.language === 'en';
+
   await admin.from('rooms').update({ jbs_act: nextAct, jbs_phase: goVote ? 'vote' : 'playing', jbs_act_started_at: new Date().toISOString() }).eq('id', roomId);
-  if (!goVote) await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: nextAct, content: `▶ ${room.language === 'en' ? `Act ${nextAct}` : `第 ${nextAct} 幕`}`, payload: { type: 'jbs_act' } });
+  await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: nextAct, content: `▶ ${en ? `Act ${nextAct}` : `第 ${nextAct} 幕`}`, payload: { type: 'jbs_act' } });
+
+  // DM 主动开场：让新的一幕真正推进（给出新进展/线索/AI 反应），不要干等玩家。
+  try {
+    const { data: kase } = await admin.from('jbs_cases').select('case_file').eq('room_id', roomId).maybeSingle();
+    const { data: chars } = await admin.from('jbs_characters').select('name, is_ai').eq('room_id', roomId);
+    if (kase) {
+      const aiNames = (chars || []).filter((c: any) => c.is_ai).map((c: any) => c.name);
+      const { data: history } = await admin.from('messages').select('sender_type, content, payload').eq('room_id', roomId).order('created_at', { ascending: true }).limit(400);
+      const base: LLMMessage[] = (history || []).slice(-14).map((m: any) => {
+        if (m.sender_type === 'kp') return { role: 'assistant', content: m.content };
+        const tag = m.payload?.type === 'jbs_ai' ? `[${m.payload?.name || 'NPC'}]` : m.sender_type === 'player' ? '[玩家]' : '[系统]';
+        return { role: 'user', content: `${tag} ${m.content}` } as LLMMessage;
+      });
+      const nudge = goVote
+        ? `（幕转场）现在进入第 ${nextAct} 幕「最终指认」。请做一段简短的收束开场：把局势推到摊牌时刻，提示玩家即将进行最终指认，并让相关 AI 角色表态。不要剧透真相，不要替玩家下结论。next_act 保持 ${nextAct}。`
+        : `（幕转场）现在进入第 ${nextAct} 幕。请你**主动**做本幕开场：推动剧情进入新阶段，抛出本幕的新场景/新进展/新线索/新冲突，并让相关 AI 角色自然反应。不要干等玩家先开口。next_act 保持 ${nextAct}。`;
+      const { data: out, usage } = await callLLMJson<any>({
+        system: buildJbsDmPrompt(kase.case_file, nextAct, aiNames, { elapsedMin: 0, actMin: minutes }) + langDirective(room.language),
+        messages: [...base, { role: 'user', content: nudge }],
+        tier: 'main', temperature: 0.85, maxTokens: 2200, retry: true,
+      });
+      await admin.from('api_usage').insert({ room_id: roomId, kind: 'llm_main', model: usage.model, prompt_tokens: usage.promptTokens, completion_tokens: usage.completionTokens, latency_ms: usage.latencyMs });
+
+      if (out.narration) await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', turn_no: nextAct, content: out.narration, payload: { type: 'jbs_dm' } });
+      for (const a of out.ai_lines || []) {
+        if (!a?.text || !a?.name) continue;
+        await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', turn_no: nextAct, content: a.text, payload: { type: 'jbs_ai', name: a.name } });
+      }
+      for (const ev of out.evidence_revealed || []) {
+        if (!ev?.name) continue;
+        const vis = ev.to === 'A' ? 'player_a' : ev.to === 'B' ? 'player_b' : 'public';
+        await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: nextAct, content: `🔍 ${ev.name}：${ev.desc || ''}`, visibility: vis, payload: { type: 'jbs_evidence' } });
+      }
+      for (const pn of out.private_notes || []) {
+        if (!pn?.text || !['A', 'B'].includes(pn.to)) continue;
+        await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: nextAct, content: pn.text, visibility: pn.to === 'A' ? 'player_a' : 'player_b', payload: { type: 'private' } });
+      }
+      if (Array.isArray(out.resources) && out.resources.length) await admin.from('rooms').update({ jbs_resources: out.resources }).eq('id', roomId);
+    }
+  } catch (e: any) {
+    await admin.from('error_logs').insert({ room_id: roomId, scope: 'llm', message: '剧本杀幕转场:' + e.message });
+  }
+
   return NextResponse.json({ ok: true, vote: goVote });
 }

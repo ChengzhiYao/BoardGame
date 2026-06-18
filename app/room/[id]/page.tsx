@@ -72,10 +72,13 @@ export default async function RoomPage({ params }: { params: { id: string } }) {
     ? await supabase.from('soup_puzzles').select('surface').eq('room_id', params.id).maybeSingle()
     : { data: null };
 
-  // 剧本杀：角色名册（公开字段，RLS 允许成员读）
-  const { data: jbsCharacters } = room.mode === 'jbs'
-    ? await supabase.from('jbs_characters').select('name, age, occupation, public_info, is_ai, assigned_seat, status, avatar_url, gender').eq('room_id', params.id)
-    : { data: [] as any[] };
+  // 剧本杀：角色名册（公开字段，RLS 允许成员读）。gender 列若未迁移则退回不带 gender，避免整表读不出来。
+  let jbsCharacters: any[] = [];
+  if (room.mode === 'jbs') {
+    let r = await supabase.from('jbs_characters').select('name, age, occupation, public_info, is_ai, assigned_seat, status, avatar_url, gender').eq('room_id', params.id);
+    if (r.error) r = await supabase.from('jbs_characters').select('name, age, occupation, public_info, is_ai, assigned_seat, status, avatar_url').eq('room_id', params.id);
+    jbsCharacters = r.data || [];
+  }
 
   const me = (players || []).find((p) => p.user_id === user.id);
   const site = process.env.NEXT_PUBLIC_SITE_URL || '';

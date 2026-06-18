@@ -285,7 +285,19 @@ export default function JbsRoom(props: ShellProps) {
   // ===== 游戏中 / 投票 / 揭晓 =====
   const voting = phase === 'vote';
   const ended = phase === 'reveal' || props.room.game_state === 'ended';
-  const candidates = chars.filter((c: any) => c.name !== myChar?.name);
+  // 候选人：优先用角色表；为空则从公开名册消息里兜底解析名字，避免投票界面没按钮卡死。
+  const rosterMsg = messages.find((m) => m.payload?.type === 'jbs_roster');
+  const rosterNames = rosterMsg
+    ? String(rosterMsg.content).split('\n').filter((l) => /^[·•]/.test(l.trim())).map((l) => l.trim().replace(/^[·•]\s*/, '').split(/[（(]/)[0].trim()).filter(Boolean)
+    : [];
+  const myName = (() => {
+    const roleMsg = messages.find((m) => m.payload?.type === 'jbs_role');
+    const mt = String(roleMsg?.content || '').match(/[「『](.+?)[」』]/);
+    return myChar?.name || (mt ? mt[1] : '');
+  })();
+  const candList: any[] = chars.length ? chars : rosterNames.map((n) => ({ name: n, is_ai: false }));
+  const candidates = candList.filter((c: any) => c.name && c.name !== myName);
+  const showAccuseBtn = act >= Math.ceil(totalActs / 2); // 过半幕后才允许提前进入最终指认
 
   return (
     <main className="h-[100svh] flex flex-col overflow-hidden">
@@ -399,7 +411,7 @@ export default function JbsRoom(props: ShellProps) {
           {isHost && (
             <div className="flex items-center justify-center gap-3 text-xs">
               <button onClick={() => advance(false)} disabled={busy || !keyFound} title={!keyFound ? (en ? 'Find this act’s key clue first (or wait for the timer)' : '先找到本幕关键线索（或等倒计时）') : ''} className="px-3 py-1.5 rounded bg-fog border border-eldritch/40 text-parchment/80 hover:bg-eldritch/20 disabled:opacity-40">{keyFound ? (en ? 'Next act ▶' : '进入下一幕 ▶') : (en ? '🔒 Find key clue' : '🔒 需关键线索')}</button>
-              <button onClick={() => advance(true)} disabled={busy} className="px-3 py-1.5 rounded bg-blood/40 border border-blood/50 text-parchment/90 hover:bg-blood/60 disabled:opacity-40">{en ? 'Go to accusation ⚖' : '进入最终指认 ⚖'}</button>
+              {showAccuseBtn && <button onClick={() => advance(true)} disabled={busy} className="px-3 py-1.5 rounded bg-blood/40 border border-blood/50 text-parchment/90 hover:bg-blood/60 disabled:opacity-40">{en ? 'Go to accusation ⚖' : '进入最终指认 ⚖'}</button>}
             </div>
           )}
         </div>

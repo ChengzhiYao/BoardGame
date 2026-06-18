@@ -381,10 +381,8 @@ export default function JbsRoom(props: ShellProps) {
           </div>
           {isHost && (
             <div className="flex items-center justify-center gap-3 text-xs">
-              {(() => { const locked = actStart > 0 && remainMs > 0; return (<>
-                <button onClick={() => advance(false)} disabled={busy || locked} title={locked ? (en ? 'Available after this act’s timer' : '本幕时间到才能点') : ''} className="px-3 py-1.5 rounded bg-fog border border-eldritch/40 text-parchment/80 hover:bg-eldritch/20 disabled:opacity-40">{locked ? (en ? `Next act in ${mmss}` : `${mmss} 后可进入下一幕`) : (en ? 'Next act ▶' : '进入下一幕 ▶')}</button>
-                <button onClick={() => advance(true)} disabled={busy || locked} title={locked ? (en ? 'Available after this act’s timer' : '本幕时间到才能点') : ''} className="px-3 py-1.5 rounded bg-blood/40 border border-blood/50 text-parchment/90 hover:bg-blood/60 disabled:opacity-40">{en ? 'Go to accusation ⚖' : '进入最终指认 ⚖'}</button>
-              </>); })()}
+              <button onClick={() => advance(false)} disabled={busy} className="px-3 py-1.5 rounded bg-fog border border-eldritch/40 text-parchment/80 hover:bg-eldritch/20 disabled:opacity-40">{en ? 'Next act ▶' : '进入下一幕 ▶'}</button>
+              <button onClick={() => advance(true)} disabled={busy} className="px-3 py-1.5 rounded bg-blood/40 border border-blood/50 text-parchment/90 hover:bg-blood/60 disabled:opacity-40">{en ? 'Go to accusation ⚖' : '进入最终指认 ⚖'}</button>
             </div>
           )}
         </div>

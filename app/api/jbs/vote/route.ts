@@ -18,7 +18,7 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
   const { data: me } = await admin.from('players').select('id, seat').eq('room_id', roomId).eq('user_id', user.id).maybeSingle();
   if (!me) return NextResponse.json({ error: '你不在这个房间' }, { status: 403 });
-  const { data: room } = await admin.from('rooms').select('jbs_phase, language').eq('id', roomId).maybeSingle();
+  const { data: room } = await admin.from('rooms').select('jbs_phase, jbs_total_acts, language').eq('id', roomId).maybeSingle();
   if (!room || room.jbs_phase !== 'vote') return NextResponse.json({ error: '现在不是指认阶段' }, { status: 409 });
 
   // 记录本人投票（每人一票，重复则覆盖）
@@ -58,7 +58,7 @@ export async function POST(req: Request) {
       + `\n\n${en ? 'Most accused' : '得票最多'}: ${out.accused || '—'} ｜ ${out.correct ? (en ? '✔ Correct' : '✔ 指认成功') : (en ? '✘ Wrong' : '✘ 指认失败')} ｜ ${meterKey}: ${out.meter ?? 0}/100`;
     await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', turn_no: 7, content: reveal, payload: { type: 'jbs_reveal' } });
 
-    await admin.from('rooms').update({ game_state: 'ended', jbs_phase: 'reveal', jbs_act: 7 }).eq('id', roomId);
+    await admin.from('rooms').update({ game_state: 'ended', jbs_phase: 'reveal', jbs_act: room.jbs_total_acts || 7 }).eq('id', roomId);
     return NextResponse.json({ ok: true, revealed: true });
   } catch (e: any) {
     await admin.from('rooms').update({ jbs_phase: 'vote' }).eq('id', roomId);

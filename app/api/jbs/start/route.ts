@@ -90,9 +90,16 @@ export async function POST(req: Request) {
       payload: { type: 'jbs_dm' },
     });
 
+    const acts: any[] = Array.isArray(cf.acts) && cf.acts.length >= 4 ? cf.acts : [];
+    const totalActs = acts.length ? Math.min(8, Math.max(5, acts.length)) : 7;
+    const actNames = acts.length
+      ? acts.slice(0, totalActs).map((a: any) => a?.name || '')
+      : (en ? ['Opening', 'Investigate', 'Relationships', 'Key Evidence', 'Discussion', 'Accusation', 'Reveal'] : ['案件开场', '搜证', '人物关系', '关键证据', '推理讨论', '最终指认', '真相揭晓']);
+
     await admin.from('rooms').update({
       game_state: 'playing', jbs_phase: 'playing', jbs_act: 1, modules_generating: false,
       jbs_act_minutes: actMin, jbs_act_started_at: new Date().toISOString(),
+      jbs_total_acts: totalActs, jbs_act_names: actNames,
     }).eq('id', roomId);
 
     return NextResponse.json({ ok: true });

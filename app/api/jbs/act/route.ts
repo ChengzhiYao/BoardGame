@@ -18,7 +18,7 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
   const { data: me } = await admin.from('players').select('id, seat').eq('room_id', roomId).eq('user_id', user.id).maybeSingle();
   if (!me) return NextResponse.json({ error: '你不在这个房间' }, { status: 403 });
-  const { data: room } = await admin.from('rooms').select('jbs_act, jbs_phase, jbs_act_minutes, jbs_act_started_at, language').eq('id', roomId).maybeSingle();
+  const { data: room } = await admin.from('rooms').select('jbs_act, jbs_phase, jbs_act_minutes, jbs_act_started_at, jbs_total_acts, language').eq('id', roomId).maybeSingle();
   if (!room || room.jbs_phase !== 'playing') return NextResponse.json({ error: '现在不能行动' }, { status: 409 });
   const curAct = room.jbs_act || 1;
   const actMin = room.jbs_act_minutes || 6;
@@ -29,6 +29,8 @@ export async function POST(req: Request) {
   if (!kase) return NextResponse.json({ error: '案件未生成' }, { status: 409 });
   const { data: chars } = await admin.from('jbs_characters').select('name, is_ai').eq('room_id', roomId);
   const aiNames = (chars || []).filter((c: any) => c.is_ai).map((c: any) => c.name);
+  const totalActs = room.jbs_total_acts || (Array.isArray(kase.case_file?.acts) ? kase.case_file.acts.length : 7);
+  const voteAct = Math.max(2, totalActs - 1); // 倒数第二幕进入最终指认/收束，最后一幕揭晓
 
   // 落库玩家行动
   await admin.from('messages').insert({ room_id: roomId, sender_type: 'player', sender_player_id: me.id, action_type: 'free', content: content.trim(), turn_no: room.jbs_act || 1, visibility: 'public' });
@@ -64,11 +66,11 @@ export async function POST(req: Request) {
       await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: room.jbs_act || 1, content: pn.text, visibility: pn.to === 'A' ? 'player_a' : 'player_b', payload: { type: 'private' } });
     }
 
-    let nextAct = Math.min(7, Math.max(curAct, Number(out.next_act) || curAct));
+    let nextAct = Math.min(totalActs, Math.max(curAct, Number(out.next_act) || curAct));
     // 兜底：本幕实际时间已超时长 → 强制推进，避免卡住。
-    if (nextAct <= curAct && elapsedMin >= actMin) nextAct = Math.min(7, curAct + 1);
+    if (nextAct <= curAct && elapsedMin >= actMin) nextAct = Math.min(totalActs, curAct + 1);
     const advanced = nextAct > curAct;
-    const toVote = !!out.to_vote || nextAct >= 6;
+    const toVote = !!out.to_vote || nextAct >= voteAct;
     const patch: any = { jbs_act: nextAct, jbs_phase: toVote ? 'vote' : 'playing' };
     if (advanced) patch.jbs_act_started_at = new Date().toISOString();
     if (Array.isArray(out.resources) && out.resources.length) patch.jbs_resources = out.resources;

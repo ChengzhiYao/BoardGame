@@ -39,6 +39,9 @@ export default function JbsRoom(props: ShellProps) {
   const clueList = messages.filter((m) => m.payload?.type === 'jbs_evidence' || m.payload?.type === 'private');
   const resources: any[] = Array.isArray(props.room.jbs_resources) ? props.room.jbs_resources : [];
   // 本幕倒计时
+  const totalActs = props.room.jbs_total_acts || 7;
+  const actNames: string[] = Array.isArray(props.room.jbs_act_names) ? props.room.jbs_act_names : [];
+  const actName = actNames[act - 1] || (en ? ACTS_EN[act] || '' : ACTS_ZH[act] || '');
   const actMin = props.room.jbs_act_minutes || 6;
   const actStart = props.room.jbs_act_started_at ? new Date(props.room.jbs_act_started_at).getTime() : 0;
   const remainMs = actStart ? Math.max(0, actStart + actMin * 60000 - now) : 0;
@@ -272,7 +275,7 @@ export default function JbsRoom(props: ShellProps) {
       <header className="px-4 py-2.5 border-b border-eldritch/20 flex items-center justify-between gap-2">
         <span className="font-serif text-parchment text-sm truncate">{en ? 'Murder Mystery' : '剧本杀'} · {props.room.name}</span>
         <div className="flex items-center gap-2 shrink-0">
-          {!ended && <span className="text-xs text-eldritch/80">{en ? `Act ${act} · ${ACTS_EN[act] || ''}` : `第${act}幕 · ${ACTS_ZH[act] || ''}`}</span>}
+          {!ended && <span className="text-xs text-eldritch/80">{en ? `Act ${act}/${totalActs}${actName ? ' · ' + actName : ''}` : `第${act}/${totalActs}幕${actName ? ' · ' + actName : ''}`}</span>}
           {!ended && phase === 'playing' && actStart > 0 && <span className={`text-xs tabular-nums ${remainMs < 60000 ? 'text-blood' : 'text-parchment/50'}`}>⏱ {mmss}</span>}
           {chars.length > 0 && <button onClick={() => setShowCards((v) => !v)} className="text-xs px-2 py-1 rounded bg-eldritch/30 text-parchment">{en ? 'Cast' : '角色卡'}</button>}
           {clueList.length > 0 && <button onClick={() => setShowClues((v) => !v)} className="text-xs px-2 py-1 rounded bg-amber-600/30 text-parchment">{en ? `Clues ${clueList.length}` : `线索 ${clueList.length}`}</button>}

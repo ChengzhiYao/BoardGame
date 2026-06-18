@@ -221,6 +221,8 @@ alter table rooms add column if not exists jbs_resources jsonb;                 
 alter table rooms add column if not exists jbs_act_turns int not null default 0;  -- 本幕已进行的玩家回合数（备用）
 alter table rooms add column if not exists jbs_act_minutes int not null default 6; -- 每幕时长（分钟），到点自动推进
 alter table rooms add column if not exists jbs_act_started_at timestamptz;         -- 本幕开始的真实时间（用于倒计时）
+alter table rooms add column if not exists jbs_total_acts int not null default 7;  -- 本剧总幕数（5~8，按剧本生成）
+alter table rooms add column if not exists jbs_act_names jsonb;                    -- 各幕公开幕名（前端显示用，不含剧透）
 
 -- 隐藏案件档案（含真相 + 全部角色秘密），仅 service_role 可读写
 create table if not exists jbs_cases (

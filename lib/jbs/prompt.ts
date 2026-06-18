@@ -69,7 +69,9 @@ export function buildJbsCasePrompt(chosen: any, headcount: number, realSeats: st
 
 【设计准则】至少 3 名嫌疑人；至少 3 条错误推理/误导路线；至少 2 层隐藏真相；至少 1 次重大反转；至少 1 个关键秘密。绝不要"开局即可猜出答案"。
 
-只输出 JSON（characters 数组长度必须 = ${headcount}）：
+【幕数·按本设计】根据这个剧本的体量自行决定**总幕数（5~8 幕）**：短小精悍的本 5 幕、信息量大/反转多的长本 7~8 幕。把每一幕写进 acts 数组（每幕 {name 幕名, goal 本幕目标}）。结构约定：${type === '推理' || type === '阵营' || type === '恐怖' || type === '机制' ? '前面若干幕是开场/搜证/调查/对质等；**倒数第二幕必须是「最终指认」（投票指认）**；**最后一幕是「真相揭晓」**。' : '前面若干幕推进剧情/情感/拼合，**最后一幕是「结局揭晓」**。'} name 是公开的幕名（不含剧透）。
+
+只输出 JSON（characters 数组长度必须 = ${headcount}，acts 长度 5~8）：
 {
   "title": "${chosen.title}",
   "type": "${type}",
@@ -86,26 +88,30 @@ export function buildJbsCasePrompt(chosen: any, headcount: number, realSeats: st
     { "name":"", "age":"", "occupation":"", "personality":"", "background":"", "public_info":"人人可见的公开信息", "secret":"只有本人知道的秘密", "private_goal":"私人目标", "private_task":"私人任务", "relationships":"与他人的隐藏关系", "faction":"（阵营本填，否则空）", "is_murderer": false }
   ],
   "ending_conditions": [ { "name":"结局名", "when":"触发条件（按指认结果/玩家选择/生存等）", "outcome":"结局描写" } ],
+  "acts": [ { "name":"幕名（公开、不剧透）", "goal":"本幕要达成什么（DM 内部用）" } ],
   "opening": "第一幕开场：DM 念给全体玩家听的开场白（2~4句，营造氛围、交代案件/情境的起点），不剧透真相。"
 }`;
 }
-
-const ACTS = '1案件发生/开场 → 2搜证 → 3人物关系调查 → 4关键证据公开 → 5推理讨论 → 6最终指认(投票) → 7真相揭晓';
 
 // DM 主持每一步：玩家行动 → 叙述结果 + 让 AI 角色自主发言 + 适时推进幕。知道全部真相与秘密，但绝不泄露。
 export function buildJbsDmPrompt(caseFile: any, act: number, aiNames: string[], timing?: { elapsedMin: number; actMin: number }) {
   const type = caseFile?.type || '推理';
   const t = timing || { elapsedMin: 0, actMin: 6 };
+  const acts: { name?: string; goal?: string }[] = Array.isArray(caseFile?.acts) && caseFile.acts.length >= 4 ? caseFile.acts : [];
+  const total = acts.length || 7;
+  const voteAct = Math.max(2, total - 1);
+  const actList = acts.length ? acts.map((a, i) => `第${i + 1}幕「${a.name || ''}」：${a.goal || ''}`).join(' → ') : '开场 → 搜证 → 调查 → 对质 → 最终指认 → 真相揭晓';
+  const cur = acts[act - 1];
   return `你是专业剧本杀主持人（DM），本型【${type}】。下面是这桩案件的**完整隐藏档案（绝密，永不泄露给玩家）**：
 ${JSON.stringify(caseFile).slice(0, 9000)}
 
 【你的职责】主持一场真正的剧本杀，不是写小说。提供事实，不替玩家推理、不总结正确答案、不暗示真相、不降低难度、不迎合玩家。玩家猜错就是错，允许冤枉好人、错过证据、坏结局。真相与凶手已锁定，绝不因玩家猜测而改变。
 
-【当前进度】第 ${act} 幕。七幕结构：${ACTS}。${type === '推理' || type === '阵营' || type === '恐怖' || type === '机制' ? '到第 6 幕进入"最终指认/结算"，让玩家投票（机制本可投给你认为的赢家）；到第 7 幕揭晓结算。' : '按本型在合适时机收束（情感/还原本靠玩家选择/拼齐碎片）。'}
+【本剧共 ${total} 幕】${actList}
+【当前】第 ${act}/${total} 幕${cur ? `「${cur.name || ''}」，本幕目标：${cur.goal || ''}` : ''}。${voteAct < total ? `到第 ${voteAct} 幕进入"最终指认"，让玩家投票指认；第 ${total} 幕揭晓结算。` : `第 ${total} 幕收束揭晓。`}
 
 【推进规则·按时间】本幕计划约 **${t.actMin} 分钟**，现已进行 **${t.elapsedMin} 分钟**。剧本杀按真实时间推进，绝不能原地空聊：
-- 第1幕：交代情境；第2幕：搜证；第3幕：人物关系/矛盾；第4幕：公开关键证据；第5幕：推理讨论；第6幕：最终指认。
-- 当本幕时间快到（已进行时间接近或超过 ${t.actMin} 分钟）、或本幕目标已达成时，你【必须】把 next_act 设为 ${Math.min(7, act + 1)}（到第6幕则同时把 to_vote 设为 true）。
+- 当本幕时间快到（已进行时间接近或超过 ${t.actMin} 分钟）、或本幕目标已达成时，你【必须】把 next_act 设为 ${Math.min(total, act + 1)}${act + 1 >= voteAct && voteAct < total ? '（进入最终指认时同时把 to_vote 设为 true）' : ''}。
 - 时间还早就把本幕内容铺充实些；时间紧了就加快收束。每次叙述都要带来新进展（新线索/新冲突），不要重复上一回合。
 
 【搜证】玩家搜查/询问/对质时，按隐藏档案里的 evidence 决定能否获得：普通证据较易、关键/隐藏证据需要对的地点或追问，伪证/误导证据会出现但站不住脚。证据不会自动出现。把这次获得的证据写进 evidence_revealed（to: all/A/B，私有线索只给该玩家）。

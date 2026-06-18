@@ -29,8 +29,6 @@ export async function POST(req: Request) {
   if (!kase) return NextResponse.json({ error: '案件未生成' }, { status: 409 });
   const { data: chars } = await admin.from('jbs_characters').select('name, is_ai').eq('room_id', roomId);
   const aiNames = (chars || []).filter((c: any) => c.is_ai).map((c: any) => c.name);
-  const totalActs = room.jbs_total_acts || (Array.isArray(kase.case_file?.acts) ? kase.case_file.acts.length : 7);
-  const voteAct = Math.max(2, totalActs - 1); // 倒数第二幕进入最终指认/收束，最后一幕揭晓
 
   // 落库玩家行动
   await admin.from('messages').insert({ room_id: roomId, sender_type: 'player', sender_player_id: me.id, action_type: 'free', content: content.trim(), turn_no: room.jbs_act || 1, visibility: 'public' });
@@ -66,17 +64,9 @@ export async function POST(req: Request) {
       await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: room.jbs_act || 1, content: pn.text, visibility: pn.to === 'A' ? 'player_a' : 'player_b', payload: { type: 'private' } });
     }
 
-    let nextAct = Math.min(totalActs, Math.max(curAct, Number(out.next_act) || curAct));
-    // 兜底：本幕实际时间已超时长 → 强制推进，避免卡住。
-    if (nextAct <= curAct && elapsedMin >= actMin) nextAct = Math.min(totalActs, curAct + 1);
-    const advanced = nextAct > curAct;
-    const toVote = !!out.to_vote || nextAct >= voteAct;
-    const patch: any = { jbs_act: nextAct, jbs_phase: toVote ? 'vote' : 'playing' };
-    if (advanced) patch.jbs_act_started_at = new Date().toISOString();
-    if (Array.isArray(out.resources) && out.resources.length) patch.jbs_resources = out.resources;
-    await admin.from('rooms').update(patch).eq('id', roomId);
-    if (advanced && !toVote) await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: nextAct, content: `▶ ${room.language === 'en' ? `Act ${nextAct}` : `第 ${nextAct} 幕`}`, payload: { type: 'jbs_act' } });
-    return NextResponse.json({ ok: true, vote: toVote, act: nextAct });
+    // 幕的推进只由 /api/jbs/advance（倒计时自动 / 房主手动）负责；玩家行动回合内绝不跳幕，避免乱推进。
+    if (Array.isArray(out.resources) && out.resources.length) await admin.from('rooms').update({ jbs_resources: out.resources }).eq('id', roomId);
+    return NextResponse.json({ ok: true });
   } catch (e: any) {
     await admin.from('error_logs').insert({ room_id: roomId, scope: 'llm', message: '剧本杀DM:' + e.message });
     return NextResponse.json({ error: 'DM 出错，请重试：' + e.message }, { status: 500 });

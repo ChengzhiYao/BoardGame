@@ -212,4 +212,56 @@ alter table profiles enable row level security;
 -- ---------- 17. 多语言：每个房间一种语言（中文 / 英文），AI 内容按此生成 ----------
 alter table rooms add column if not exists language text not null default 'zh'; -- zh | en
 
+-- ---------- 18. 剧本杀模式（多人本格推理 / 情感 / 阵营 / 恐怖 / 还原 等本型）----------
+-- rooms.mode 现可为 coc | soup | td | jbs
+alter table rooms add column if not exists jbs_act int not null default 0;       -- 当前幕（1~7）
+alter table rooms add column if not exists jbs_options jsonb;                     -- 3 个候选剧本
+alter table rooms add column if not exists jbs_phase text;                        -- script|locking|playing|vote|revealing|reveal
+
+-- 隐藏案件档案（含真相 + 全部角色秘密），仅 service_role 可读写
+create table if not exists jbs_cases (
+  id uuid primary key default gen_random_uuid(),
+  room_id uuid not null references rooms(id) on delete cascade,
+  type text,            -- 推理/情感/欢乐/阵营/恐怖/还原
+  title text,
+  headcount int,        -- 推荐人数
+  meter_key text,       -- 结算面板：推理值/情感值/欢乐值/阵营值/恐惧值/还原度
+  case_file jsonb not null,
+  locked_at timestamptz,
+  created_at timestamptz not null default now()
+);
+alter table jbs_cases enable row level security;
+-- 不开放 anon/authenticated 策略：含真相，仅服务端读写。
+
+-- 角色（真人座位 A/B + AI 补位）。仅公开字段前端可见；秘密/目标留在 case_file，由私信下发本人。
+create table if not exists jbs_characters (
+  id uuid primary key default gen_random_uuid(),
+  room_id uuid not null references rooms(id) on delete cascade,
+  name text, age text, occupation text, public_info text,
+  is_ai boolean not null default false,
+  assigned_seat text,   -- 'A'/'B'，AI 为 null
+  faction text,         -- 阵营本用
+  status text,
+  avatar_url text,
+  created_at timestamptz not null default now()
+);
+alter table jbs_characters enable row level security;
+drop policy if exists jbs_char_read on jbs_characters;
+create policy jbs_char_read on jbs_characters for select using (is_room_member(room_id) or is_admin());
+
+-- 最终指认/投票
+create table if not exists jbs_votes (
+  id uuid primary key default gen_random_uuid(),
+  room_id uuid not null references rooms(id) on delete cascade,
+  voter text,   -- 'A'/'B' 或 AI 角色名
+  target text,  -- 被指认的角色名
+  created_at timestamptz not null default now()
+);
+alter table jbs_votes enable row level security;
+drop policy if exists jbs_vote_read on jbs_votes;
+create policy jbs_vote_read on jbs_votes for select using (is_room_member(room_id) or is_admin());
+
+do $$ begin alter publication supabase_realtime add table jbs_characters; exception when duplicate_object then null; end $$;
+do $$ begin alter publication supabase_realtime add table jbs_votes; exception when duplicate_object then null; end $$;
+
 -- 完成。刷新网页即可。

@@ -10,7 +10,7 @@ export default function Home() {
   const [name, setName] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [mode, setMode] = useState<'idle' | 'join'>('idle');
-  const [gameMode, setGameMode] = useState<'coc' | 'soup' | 'td'>('coc');
+  const [gameMode, setGameMode] = useState<'coc' | 'soup' | 'td' | 'jbs'>('coc');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   useEffect(() => { setLang(getClientLang()); }, []);
@@ -20,8 +20,8 @@ export default function Home() {
 
   function roomName() {
     const suffix = lang === 'en'
-      ? (gameMode === 'soup' ? '’s Lateral Mystery' : gameMode === 'td' ? '’s Truth or Dare' : '’s Investigation')
-      : (gameMode === 'soup' ? ' 的海龟汤' : gameMode === 'td' ? ' 的真心话大冒险' : ' 的调查');
+      ? (gameMode === 'soup' ? '’s Lateral Mystery' : gameMode === 'td' ? '’s Truth or Dare' : gameMode === 'jbs' ? '’s Murder Mystery' : '’s Investigation')
+      : (gameMode === 'soup' ? ' 的海龟汤' : gameMode === 'td' ? ' 的真心话大冒险' : gameMode === 'jbs' ? ' 的剧本杀' : ' 的调查');
     return `${name.trim()}${suffix}`;
   }
 
@@ -80,7 +80,7 @@ export default function Home() {
 
       {mode === 'idle' && (
         <div className="flex gap-2 flex-wrap justify-center">
-          {(['coc', 'soup', 'td'] as const).map((k) => (
+          {(['coc', 'soup', 'td', 'jbs'] as const).map((k) => (
             <button key={k} onClick={() => setGameMode(k)}
               className={`px-4 py-2 rounded text-sm border ${gameMode === k ? 'bg-blood/30 border-blood text-parchment' : 'bg-fog border-eldritch/30 text-parchment/60'}`}>
               {t(`mode_${k}`)}

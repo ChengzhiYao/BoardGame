@@ -72,6 +72,11 @@ export default async function RoomPage({ params }: { params: { id: string } }) {
     ? await supabase.from('soup_puzzles').select('surface').eq('room_id', params.id).maybeSingle()
     : { data: null };
 
+  // 剧本杀：角色名册（公开字段，RLS 允许成员读）
+  const { data: jbsCharacters } = room.mode === 'jbs'
+    ? await supabase.from('jbs_characters').select('name, occupation, public_info, is_ai, assigned_seat, status').eq('room_id', params.id)
+    : { data: [] as any[] };
+
   const me = (players || []).find((p) => p.user_id === user.id);
   const site = process.env.NEXT_PUBLIC_SITE_URL || '';
 
@@ -92,6 +97,7 @@ export default async function RoomPage({ params }: { params: { id: string } }) {
       userId={user.id}
       inviteToken={room.invite_token}
       siteUrl={site}
+      jbsCharacters={(jbsCharacters as any[]) || []}
     />
   );
 }

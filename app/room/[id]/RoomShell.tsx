@@ -8,6 +8,7 @@ import CharacterFlow from './CharacterFlow';
 import Dashboard from './Dashboard';
 import SoupRoom from './SoupRoom';
 import TDRoom from './TDRoom';
+import JbsRoom from './JbsRoom';
 import AudioManager from './AudioManager';
 
 const EN = (l?: string) => l === 'en';
@@ -38,6 +39,7 @@ export type ShellProps = {
   siteUrl: string;
   caseQuality?: any;
   soupSurface?: string;
+  jbsCharacters?: any[];
 };
 
 export default function RoomShell(props: ShellProps) {
@@ -51,7 +53,7 @@ export default function RoomShell(props: ShellProps) {
       refreshTimer.current = setTimeout(() => router.refresh(), 250);
     };
     const ch = supabase.channel(`room-struct-${props.room.id}`);
-    const tables = ['rooms', 'players', 'characters', 'clues', 'npcs', 'images'];
+    const tables = ['rooms', 'players', 'characters', 'clues', 'npcs', 'images', 'jbs_characters', 'jbs_votes'];
     tables.forEach((table) => {
       ch.on(
         'postgres_changes',
@@ -68,6 +70,7 @@ export default function RoomShell(props: ShellProps) {
 
   if (props.room.mode === 'soup') return <SoupRoom {...props} />;
   if (props.room.mode === 'td') return <TDRoom {...props} />;
+  if (props.room.mode === 'jbs') return <JbsRoom {...props} />;
 
   const state = props.room.game_state || 'lobby';
   const audioState = audioStateFor(props.room);

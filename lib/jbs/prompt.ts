@@ -1,5 +1,5 @@
 // 剧本杀（多人本格）prompt 构建。支持多种本型，每种 type 驱动不同的 DM 重心与结算面板。
-export type JbsType = '推理' | '情感' | '欢乐' | '阵营' | '恐怖' | '还原';
+export type JbsType = '推理' | '情感' | '欢乐' | '阵营' | '恐怖' | '还原' | '机制';
 
 export const JBS_TYPES: { type: JbsType; label: { zh: string; en: string }; meter: { zh: string; en: string } }[] = [
   { type: '推理', label: { zh: '推理凶案本', en: 'Murder Mystery' }, meter: { zh: '推理值', en: 'Deduction' } },
@@ -8,6 +8,7 @@ export const JBS_TYPES: { type: JbsType; label: { zh: string; en: string }; mete
   { type: '阵营', label: { zh: '阵营本', en: 'Faction' }, meter: { zh: '阵营值', en: 'Faction' } },
   { type: '恐怖', label: { zh: '恐怖本', en: 'Horror' }, meter: { zh: '恐惧值', en: 'Fear' } },
   { type: '还原', label: { zh: '还原本', en: 'Reconstruction' }, meter: { zh: '还原度', en: 'Restoration' } },
+  { type: '机制', label: { zh: '机制本', en: 'Mechanism / Economy' }, meter: { zh: '机制值', en: 'Mechanism' } },
 ];
 
 const TYPE_FOCUS: Record<JbsType, string> = {
@@ -17,6 +18,7 @@ const TYPE_FOCUS: Record<JbsType, string> = {
   阵营: '阵营对抗：开局分 2~3 个阵营，每名角色有秘密身份、隐藏任务、个人目标。支持结盟/欺骗/背叛/投票。AI 角色必须优先完成阵营任务、绝不帮真人。最终按阵营胜负结算。',
   恐怖: '恐怖生存：核心是活下来。重压迫感、未知感、惊吓、异常事件；逐步揭露真相、绝不一次性解释。允许死亡/疯狂/失踪/坏结局。最终统计生存率。（这类与克苏鲁相近，氛围要真的吓人。）',
   还原: '还原真相：重点不是找凶手，而是"发生了什么、为什么发生"。玩家通过记忆碎片、信件、日记、录音、照片逐步拼出完整过去。重人物关系、历史事件、时间线、真相碎片。最终拼出完整往事。',
+  机制: '机制/经济对抗：核心是资源与博弈，不一定有凶案。开局给每个角色不同的初始资源（金钱/筹码/情报/物资/影响力等）与可执行的行动（交易、投资、结盟、抢夺、下注、谈判、暗算）。DM 充当规则仲裁与"账房"：每回合在 private_notes 里向各玩家结算其资源增减，公开重大局势变化；维护一张隐藏的资源/分数表。可以有冲突对抗（抢夺/对赌/战斗）——由 DM 依据双方资源与策略裁定胜负，不要拖泥带水。AI 角色按自身利益最大化行动，会算计、毁约、抱团。最终按"机制值"（资源/目标达成度）排名结算，给出赢家。',
 };
 
 // 生成 3 个原创剧本选项（玩家可见层，绝不含真相）。覆盖不同本型。
@@ -24,7 +26,7 @@ export function buildJbsScriptGenPrompt(headcount: number) {
   return `你是资深剧本杀（实景推理）编剧。请生成 3 个**原创**剧本选项供玩家挑选，覆盖**不同本型**，给玩家真正的多元选择。
 本局真人 + AI 补位后的总人数约为 ${headcount} 人，请让每个剧本的推荐人数与之接近（${headcount} 或 ${headcount}±1）。
 
-本型可选（每个剧本标注它的 type）：推理凶案本 / 情感本 / 欢乐本 / 阵营本 / 恐怖本 / 还原本。3 个剧本尽量是 3 种不同的 type。
+本型可选（每个剧本标注它的 type）：推理凶案本 / 情感本 / 欢乐本 / 阵营本 / 恐怖本 / 还原本 / 机制本。3 个剧本尽量是 3 种不同的 type。
 
 每个剧本只给"玩家可见"信息，绝不透露真相/凶手/隐藏身份：
 - title 标题（有钩子、不剧透）
@@ -52,7 +54,7 @@ export function buildJbsCasePrompt(chosen: any, headcount: number, realSeats: st
 【人数与补位】总角色数 = ${headcount}。其中 ${realSeats.length} 名由真人扮演（座位 ${realSeats.join('、')}），其余 ${headcount - realSeats.length} 名为 **AI 补位角色**。
 - 每个角色都要有完整人格：name、age、occupation、personality、background、public_info（公开身份信息，人人可见）、secret（隐藏秘密，仅本人知道）、private_goal（私人目标）、private_task（私人任务）、relationships（与其他角色的隐藏关系）。
 - 角色之间的秘密/目标要**彼此冲突**，制造怀疑与张力。至少一人说谎。
-- ${type === '阵营' ? '为每个角色标注 faction（所属阵营），并写清各阵营的胜利条件。' : '推理/恐怖本：明确 murderer（凶手是哪个角色名）、method、motive、真实 timeline。'}
+- ${type === '阵营' ? '为每个角色标注 faction（所属阵营），并写清各阵营的胜利条件。' : type === '机制' ? '为每个角色写明 starting_resources（初始资源，写进 private_goal/private_task）与可用行动；factions 里用一条说明排名/胜利如何计算（机制值）。murderer 可留空。' : type === '推理' || type === '恐怖' ? '明确 murderer（凶手是哪个角色名）、method、motive、真实 timeline。' : 'murderer/method/motive 可留空，重点放在角色秘密、目标与关系上。'}
 - AI 补位角色同样要有独立秘密/目标，绝不主动帮真人、绝不自爆关键身份。
 
 【设计准则】至少 3 名嫌疑人；至少 3 条错误推理/误导路线；至少 2 层隐藏真相；至少 1 次重大反转；至少 1 个关键秘密。绝不要"开局即可猜出答案"。
@@ -88,7 +90,7 @@ ${JSON.stringify(caseFile).slice(0, 9000)}
 
 【你的职责】主持一场真正的剧本杀，不是写小说。提供事实，不替玩家推理、不总结正确答案、不暗示真相、不降低难度、不迎合玩家。玩家猜错就是错，允许冤枉好人、错过证据、坏结局。真相与凶手已锁定，绝不因玩家猜测而改变。
 
-【当前进度】第 ${act} 幕。七幕结构：${ACTS}。完成本幕目标就把 next_act 设为下一幕（最多到 7）。${type === '推理' || type === '阵营' || type === '恐怖' ? '到第 6 幕进入"最终指认"，让玩家投票指认；到第 7 幕揭晓。' : '按本型在合适时机收束（情感/还原本靠玩家选择/拼齐碎片）。'}
+【当前进度】第 ${act} 幕。七幕结构：${ACTS}。完成本幕目标就把 next_act 设为下一幕（最多到 7）。${type === '推理' || type === '阵营' || type === '恐怖' || type === '机制' ? '到第 6 幕进入"最终指认/结算"，让玩家投票（机制本可投给你认为的赢家）；到第 7 幕揭晓结算。' : '按本型在合适时机收束（情感/还原本靠玩家选择/拼齐碎片）。'}
 
 【搜证】玩家搜查/询问/对质时，按隐藏档案里的 evidence 决定能否获得：普通证据较易、关键/隐藏证据需要对的地点或追问，伪证/误导证据会出现但站不住脚。证据不会自动出现。把这次获得的证据写进 evidence_revealed（to: all/A/B，私有线索只给该玩家）。
 

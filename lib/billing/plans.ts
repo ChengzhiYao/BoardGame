@@ -10,9 +10,9 @@ export interface Pack {
   best?: boolean;
 }
 export const PACKS: Pack[] = [
-  { id: 'p2', games: 2, price: 990, label: { zh: '入门 · 2 局', en: 'Starter · 2 games' }, perGame: { zh: '约 $4.95/局', en: '~$4.95/game' } },
-  { id: 'p5', games: 5, price: 1990, label: { zh: '标准 · 5 局', en: 'Standard · 5 games' }, perGame: { zh: '约 $3.98/局', en: '~$3.98/game' }, tag: { zh: '最受欢迎', en: 'Popular' } },
-  { id: 'p15', games: 15, price: 3800, label: { zh: '超值 · 15 局', en: 'Value · 15 games' }, perGame: { zh: '约 $2.53/局', en: '~$2.53/game' }, tag: { zh: '最划算', en: 'Best value' }, best: true },
+  { id: 'p2', games: 2, price: 495, label: { zh: '入门 · 2 局', en: 'Starter · 2 games' }, perGame: { zh: '约 $2.48/局', en: '~$2.48/game' } },
+  { id: 'p5', games: 5, price: 995, label: { zh: '标准 · 5 局', en: 'Standard · 5 games' }, perGame: { zh: '约 $1.99/局', en: '~$1.99/game' }, tag: { zh: '最受欢迎', en: 'Popular' } },
+  { id: 'p15', games: 15, price: 1900, label: { zh: '超值 · 15 局', en: 'Value · 15 games' }, perGame: { zh: '约 $1.27/局', en: '~$1.27/game' }, tag: { zh: '最划算', en: 'Best value' }, best: true },
 ];
 export const CURRENCY = 'usd';
 export const CURRENCY_SYMBOL = '$';

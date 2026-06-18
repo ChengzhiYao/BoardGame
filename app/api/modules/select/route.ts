@@ -64,7 +64,7 @@ export async function POST(req: Request) {
         const { data: cd, usage } = await callLLMJson<any>({
           system: buildCaseLockPrompt(chosen, room.custom_direction, theme) + langDirective(room.language),
           messages: [{ role: 'user', content: '请生成隐藏案件档案。' }],
-          tier: 'main', temperature: 0.7, maxTokens: 2600,
+          tier: 'main', temperature: 0.7, maxTokens: 4800,
         });
         await admin.from('api_usage').insert({ room_id: roomId, kind: 'llm_main', model: usage.model, prompt_tokens: usage.promptTokens, completion_tokens: usage.completionTokens, latency_ms: usage.latencyMs });
 

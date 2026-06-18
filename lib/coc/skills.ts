@@ -48,3 +48,21 @@ export function skillPointPool(char: { edu?: number; int_attr?: number }): numbe
   return (char.edu || 0) * 4 + (char.int_attr || 0) * 2;
 }
 export const SKILL_CAP = 75;
+
+// 判定时按角色卡取"真实、固定"的技能值——不让 AI 随意猜数。
+// 优先用角色已分配的技能总值；否则用基础值；都没有则默认 25。
+export function skillValueFor(char: any, name: string): number {
+  if (!name) return 25;
+  const sk = char?.skills?.[name];
+  if (sk && typeof sk.total === 'number') return sk.total;
+  const def = SKILLS.find((d) => d.name === name);
+  if (def) return baseFor(def, char || {});
+  // 模糊匹配（如"手枪/射击(手枪)"）
+  const fuzzy = SKILLS.find((d) => name.includes(d.name) || d.name.includes(name));
+  if (fuzzy) {
+    const ch = char?.skills?.[fuzzy.name];
+    if (ch && typeof ch.total === 'number') return ch.total;
+    return baseFor(fuzzy, char || {});
+  }
+  return 25;
+}

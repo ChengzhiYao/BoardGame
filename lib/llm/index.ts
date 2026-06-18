@@ -167,12 +167,14 @@ export async function callLLMJson<T = any>(req: LLMRequest): Promise<{ data: T; 
     };
   }
 
-  // DeepSeek 等偶尔会夹带思考/代码块导致 JSON 解析失败：最多重试一次。
+  // DeepSeek 等偶尔会夹带思考/代码块导致 JSON 解析失败：辅助调用最多重试一次。
+  // 主调用（叙述/模组生成）本就大且慢，重试会撑爆 Vercel 60s 超时，故不重试，只靠宽容解析。
+  const attempts = tier === 'aux' ? 2 : 1;
   let lastErr: any = null;
   let text = '';
   let pt = 0;
   let ct = 0;
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < attempts; i++) {
     try {
       const r = await attempt();
       text = r.text; pt += r.pt; ct += r.ct;

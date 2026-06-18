@@ -71,14 +71,29 @@ export default function ModuleSelection(props: ShellProps) {
       <div className="flex flex-col items-center justify-center gap-4 text-center">
         <div className="w-8 h-8 border-2 border-eldritch/30 border-t-eldritch rounded-full animate-spin" />
         <p className="text-parchment/60">{en ? 'The Keeper is dreaming up 3 original modules…' : '守秘人正在构思 3 个原创模组……'}</p>
+        {props.mySeat === 'A' && (
+          <button onClick={() => generate()} disabled={busy}
+            className="text-xs text-parchment/40 hover:text-parchment underline">
+            {en ? 'Stuck for a while? Retry' : '卡很久了？点此重试'}
+          </button>
+        )}
+        {err && <p className="text-blood text-sm">{err}</p>}
       </div>
     );
   }
 
   if (modules.length === 0) {
+    const isHost = props.mySeat === 'A';
     return (
       <div className="flex flex-col items-center justify-center gap-4 text-center">
-        <p className="text-parchment/60">{en ? 'Waiting for the host to generate modules…' : '等待房主生成模组选项……'}</p>
+        <p className="text-parchment/60">{isHost ? (en ? 'Module generation didn’t finish.' : '模组生成没有完成。') : (en ? 'Waiting for the host to generate modules…' : '等待房主生成模组选项……')}</p>
+        {isHost && (
+          <button onClick={() => generate()} disabled={busy}
+            className="px-5 py-2 rounded bg-blood/80 hover:bg-blood text-parchment text-sm disabled:opacity-50">
+            {busy ? (en ? 'Generating…' : '生成中…') : (en ? 'Generate modules' : '生成模组')}
+          </button>
+        )}
+        {err && <p className="text-blood text-sm">{err}</p>}
       </div>
     );
   }

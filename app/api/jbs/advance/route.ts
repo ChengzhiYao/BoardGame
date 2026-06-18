@@ -12,7 +12,7 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: '未登录' }, { status: 401 });
 
-  const { roomId, toVote } = await req.json().catch(() => ({} as any));
+  const { roomId, toVote, auto } = await req.json().catch(() => ({} as any));
   if (!roomId) return NextResponse.json({ error: '缺少 roomId' }, { status: 400 });
 
   const admin = createAdminClient();
@@ -21,10 +21,22 @@ export async function POST(req: Request) {
   if (room.host_user_id !== user.id) return NextResponse.json({ error: '只有房主可以推进' }, { status: 403 });
   if (room.jbs_phase !== 'playing') return NextResponse.json({ error: '现在不能推进' }, { status: 409 });
 
-  // 房主可随时手动推进（线索找齐就提前进下一幕）；倒计时到点会自动推进。
+  // 倒计时到点会自动推进（auto=true，无条件放行）；房主手动推进「下一幕」需先找到本幕关键线索。
   const minutes = room.jbs_act_minutes || 6;
-
   const cur = room.jbs_act || 1;
+
+  if (!auto && !toVote) {
+    const startedAt = room.jbs_act_started_at ? new Date(room.jbs_act_started_at).getTime() : 0;
+    const timeUp = !startedAt || Date.now() >= startedAt + minutes * 60000;
+    if (!timeUp) {
+      try {
+        const { count } = await admin.from('messages').select('id', { count: 'exact', head: true })
+          .eq('room_id', roomId).eq('turn_no', cur)
+          .filter('payload->>type', 'eq', 'jbs_evidence').filter('payload->>key', 'eq', 'true');
+        if (!count) return NextResponse.json({ error: '本幕关键线索还没找到，先搜证；或等倒计时结束自动推进', needKey: true }, { status: 409 });
+      } catch { /* 查询异常则放行，避免卡住 */ }
+    }
+  }
   const total = room.jbs_total_acts || 7;
   const voteAct = Math.max(2, total - 1);
   const nextAct = toVote ? voteAct : Math.min(total, cur + 1);
@@ -64,7 +76,7 @@ export async function POST(req: Request) {
       for (const ev of out.evidence_revealed || []) {
         if (!ev?.name) continue;
         const vis = ev.to === 'A' ? 'player_a' : ev.to === 'B' ? 'player_b' : 'public';
-        await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: nextAct, content: `🔍 ${ev.name}：${ev.desc || ''}`, visibility: vis, payload: { type: 'jbs_evidence' } });
+        await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: nextAct, content: `🔍 ${ev.name}：${ev.desc || ''}`, visibility: vis, payload: { type: 'jbs_evidence', key: !!ev.key } });
       }
       for (const pn of out.private_notes || []) {
         if (!pn?.text || !['A', 'B'].includes(pn.to)) continue;

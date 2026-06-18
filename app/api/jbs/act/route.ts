@@ -57,7 +57,7 @@ export async function POST(req: Request) {
     for (const ev of out.evidence_revealed || []) {
       if (!ev?.name) continue;
       const vis = ev.to === 'A' ? 'player_a' : ev.to === 'B' ? 'player_b' : 'public';
-      await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: room.jbs_act || 1, content: `🔍 ${ev.name}：${ev.desc || ''}`, visibility: vis, payload: { type: 'jbs_evidence' } });
+      await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: room.jbs_act || 1, content: `🔍 ${ev.name}：${ev.desc || ''}`, visibility: vis, payload: { type: 'jbs_evidence', key: !!ev.key } });
     }
     for (const pn of out.private_notes || []) {
       if (!pn?.text || !['A', 'B'].includes(pn.to)) continue;

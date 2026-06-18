@@ -37,6 +37,7 @@ export default function JbsRoom(props: ShellProps) {
   const inviteUrl = `${typeof window !== 'undefined' ? window.location.origin : props.siteUrl}/join/${props.inviteToken}`;
   const roleMsgs = messages.filter((m) => m.payload?.type === 'jbs_role');
   const clueList = messages.filter((m) => m.payload?.type === 'jbs_evidence' || m.payload?.type === 'private');
+  const keyFound = messages.some((m: any) => m.payload?.type === 'jbs_evidence' && m.payload?.key && m.turn_no === (props.room.jbs_act || 1));
   const resources: any[] = Array.isArray(props.room.jbs_resources) ? props.room.jbs_resources : [];
   // 本幕倒计时
   const totalActs = props.room.jbs_total_acts || 7;
@@ -82,7 +83,7 @@ export default function JbsRoom(props: ShellProps) {
     if (remainMs > 0 || busy) return;
     if (autoAdv.current === props.room.jbs_act) return;
     autoAdv.current = props.room.jbs_act;
-    advance(false);
+    advance(false, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remainMs, props.room.jbs_phase, props.room.jbs_act]);
 
@@ -155,7 +156,7 @@ export default function JbsRoom(props: ShellProps) {
   );
   async function startScript(id: string) { await call('/api/jbs/start', { roomId: props.room.id, scriptId: id, actMinutes: pace }); }
   async function act_(content: string) { const c = content.trim(); if (!c) return; setText(''); await call('/api/jbs/act', { roomId: props.room.id, content: c }); }
-  async function advance(toVote?: boolean) { const r = await call('/api/jbs/advance', { roomId: props.room.id, toVote: !!toVote }); if (r) router.refresh(); }
+  async function advance(toVote?: boolean, auto?: boolean) { const r = await call('/api/jbs/advance', { roomId: props.room.id, toVote: !!toVote, auto: !!auto }); if (r) router.refresh(); }
   async function vote(target: string) { if (!confirm((en ? 'Accuse ' : '指认 ') + target + '?')) return; await call('/api/jbs/vote', { roomId: props.room.id, target }); }
   async function genAvatars(force?: boolean, silent?: boolean) {
     const r = silent
@@ -381,7 +382,7 @@ export default function JbsRoom(props: ShellProps) {
           </div>
           {isHost && (
             <div className="flex items-center justify-center gap-3 text-xs">
-              <button onClick={() => advance(false)} disabled={busy} className="px-3 py-1.5 rounded bg-fog border border-eldritch/40 text-parchment/80 hover:bg-eldritch/20 disabled:opacity-40">{en ? 'Next act ▶' : '进入下一幕 ▶'}</button>
+              <button onClick={() => advance(false)} disabled={busy || !keyFound} title={!keyFound ? (en ? 'Find this act’s key clue first (or wait for the timer)' : '先找到本幕关键线索（或等倒计时）') : ''} className="px-3 py-1.5 rounded bg-fog border border-eldritch/40 text-parchment/80 hover:bg-eldritch/20 disabled:opacity-40">{keyFound ? (en ? 'Next act ▶' : '进入下一幕 ▶') : (en ? '🔒 Find key clue' : '🔒 需关键线索')}</button>
               <button onClick={() => advance(true)} disabled={busy} className="px-3 py-1.5 rounded bg-blood/40 border border-blood/50 text-parchment/90 hover:bg-blood/60 disabled:opacity-40">{en ? 'Go to accusation ⚖' : '进入最终指认 ⚖'}</button>
             </div>
           )}

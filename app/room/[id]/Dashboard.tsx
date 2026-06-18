@@ -156,7 +156,7 @@ export default function Dashboard(props: ShellProps) {
     <main className="h-[100svh] flex flex-col overflow-hidden">
       <Stepper current={props.room.game_state} lang={lang} />
 
-      {ended && <EndedBanner roomId={props.room.id} lang={lang} />}
+      {ended && <EndedBanner roomId={props.room.id} lang={lang} isHost={props.userId === props.room.host_user_id} />}
 
       <div className="flex items-center justify-between px-4 py-2 text-xs text-parchment/50 border-b border-eldritch/10">
         <span>{t('dash_round', { n: props.room.current_round || 1 })}</span>
@@ -559,11 +559,23 @@ function GuidanceBlock({ g, mySeat, disabled, onPick, lang }: { g: any; mySeat: 
   );
 }
 
-function EndedBanner({ roomId, lang }: { roomId: string; lang: string }) {
+function EndedBanner({ roomId, lang, isHost }: { roomId: string; lang: string; isHost: boolean }) {
   const t = tr(lang);
   const [recap, setRecap] = useState<any>(null);
   const [open, setOpen] = useState(false);
   const [err, setErr] = useState('');
+  const [replaying, setReplaying] = useState(false);
+
+  async function replay() {
+    setReplaying(true);
+    try {
+      const res = await fetch('/api/rooms/replay', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId }) });
+      const d = await res.json();
+      if (res.status === 402) { window.location.href = '/upgrade'; return; }
+      if (!res.ok) { alert(d.error || (EN(lang) ? 'Failed' : '失败')); setReplaying(false); return; }
+      // 成功后由实时刷新把双方带回"选择模组"
+    } catch (e: any) { alert(e.message); setReplaying(false); }
+  }
   const L = EN(lang)
     ? { truth: 'Truth: ', mind: 'Mastermind: ', sup: 'Supernatural: ', npc: 'NPC secrets: ', clues: 'Key clues: ', lie: 'lie: ', revealing: 'Unsealing the truth…' }
     : { truth: '真相：', mind: '幕后黑手：', sup: '超自然：', npc: 'NPC 秘密：', clues: '关键线索：', lie: '谎言：', revealing: '正在揭开封存的真相……' };
@@ -581,10 +593,21 @@ function EndedBanner({ roomId, lang }: { roomId: string; lang: string }) {
 
   return (
     <div className="bg-blood/15 border-b border-blood/40 px-4 py-3">
-      <div className="flex items-center justify-between max-w-4xl mx-auto">
+      <div className="flex items-center justify-between max-w-4xl mx-auto gap-3 flex-wrap">
         <span className="text-parchment font-serif">{t('ended_banner')}</span>
-        <button onClick={load} className="px-4 py-1.5 rounded bg-blood/70 hover:bg-blood text-parchment text-sm">{t('view_recap')}</button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button onClick={load} className="px-4 py-1.5 rounded bg-blood/70 hover:bg-blood text-parchment text-sm">{t('view_recap')}</button>
+          {isHost && (
+            <button onClick={replay} disabled={replaying}
+              className="px-4 py-1.5 rounded bg-eldritch/60 hover:bg-eldritch text-parchment text-sm border border-eldritch disabled:opacity-50">
+              {replaying ? (EN(lang) ? 'Starting…' : '开始中…') : (EN(lang) ? '↻ Play again' : '↻ 再来一局')}
+            </button>
+          )}
+        </div>
       </div>
+      {!isHost && (
+        <p className="text-center text-parchment/40 text-xs mt-2">{EN(lang) ? 'The host can start another game.' : '房主可以开启下一局。'}</p>
+      )}
       {open && (
         <div className="max-w-4xl mx-auto mt-3 p-4 rounded-lg bg-ink border border-blood/40 text-sm text-parchment/85 space-y-3">
           {err && <p className="text-blood">{err}</p>}

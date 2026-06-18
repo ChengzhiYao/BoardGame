@@ -27,6 +27,20 @@ export async function POST(req: Request) {
     );
   }
 
+  // 剧本杀：清空上一局并回到出本大厅
+  if (room.mode === 'jbs') {
+    for (const tbl of ['messages', 'jbs_cases', 'jbs_characters', 'jbs_votes']) {
+      await admin.from(tbl).delete().eq('room_id', roomId);
+    }
+    await admin.from('rooms').update({
+      game_state: 'lobby', jbs_phase: null, jbs_act: 0, jbs_options: null, modules_generating: false,
+    }).eq('id', roomId);
+    if (!ent.whitelisted) {
+      await admin.from('profiles').update({ credits: Math.max(0, (ent.credits || 0) - 1) }).eq('user_id', user.id);
+    }
+    return NextResponse.json({ ok: true });
+  }
+
   for (const tbl of ['messages', 'dice_rolls', 'san_logs', 'clues', 'npcs', 'images', 'locations', 'timeline_events', 'characters']) {
     await admin.from(tbl).delete().eq('room_id', roomId);
   }

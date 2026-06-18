@@ -56,6 +56,17 @@ export default function JbsRoom(props: ShellProps) {
   async function startScript(id: string) { await call('/api/jbs/start', { roomId: props.room.id, scriptId: id }); }
   async function act_(content: string) { const c = content.trim(); if (!c) return; setText(''); await call('/api/jbs/act', { roomId: props.room.id, content: c }); }
   async function vote(target: string) { if (!confirm((en ? 'Accuse ' : '指认 ') + target + '?')) return; await call('/api/jbs/vote', { roomId: props.room.id, target }); }
+  async function replay() {
+    setBusy(true);
+    try {
+      const res = await fetch('/api/rooms/replay', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) });
+      if (res.status === 402) { router.push('/upgrade'); return; }
+      const d = await res.json();
+      if (!res.ok) { alert(d.error || (en ? 'Error' : '出错了')); return; }
+      router.refresh();
+    } catch (e: any) { alert((en ? 'Failed: ' : '失败：') + e.message); }
+    finally { setBusy(false); }
+  }
 
   // ===== 大厅 / 出本 =====
   if (!phase || phase === 'lobby') {
@@ -152,8 +163,14 @@ export default function JbsRoom(props: ShellProps) {
       </div>
 
       {ended ? (
-        <div className="border-t border-blood/40 px-4 py-3 text-center max-w-3xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
-          <span className="text-parchment/70 text-sm">{en ? 'The case is closed. Create a new room to play again.' : '本局结束。回首页可以创建新的一局。'}</span>
+        <div className="border-t border-blood/40 px-4 py-3 flex flex-col items-center gap-2 max-w-3xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+          <span className="text-parchment/70 text-sm">{en ? 'The case is closed.' : '本局结束。'}</span>
+          {isHost && (
+            <button onClick={replay} disabled={busy}
+              className="px-5 py-2 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood text-sm disabled:opacity-50">
+              {busy ? (en ? 'Resetting…' : '重置中…') : (en ? '↻ Play again (new script)' : '↻ 再来一局（换新本）')}
+            </button>
+          )}
         </div>
       ) : voting ? (
         <div className="border-t border-eldritch/20 px-4 py-3 max-w-3xl w-full mx-auto space-y-2" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>

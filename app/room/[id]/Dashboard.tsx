@@ -6,6 +6,7 @@ import Stepper from './Stepper';
 import { playSfx } from '@/lib/audio/sfx';
 import type { ShellProps } from './RoomShell';
 import { tr } from '@/lib/i18n';
+import { useTTS } from './useTTS';
 
 const EN = (l?: string) => l === 'en';
 
@@ -104,6 +105,11 @@ export default function Dashboard(props: ShellProps) {
   }, [props.room.id, props.room.current_round, props.room.resolution_status, props.room.game_state, props.room.waiting_for, supabase, router]);
 
   const room = props.room;
+  const { voiceOn, toggle: toggleVoice } = useTTS({
+    lang,
+    messages,
+    classify: (m: any) => (m.sender_type === 'kp' ? { kind: 'narrator' as const, text: m.content } : null),
+  });
   const myReady = props.mySeat === 'A' ? room.player_a_ready : room.player_b_ready;
   const resolving = room.resolution_status === 'resolving';
   const myPending = room.pending_actions?.[props.mySeat as string]?.content;
@@ -184,7 +190,10 @@ export default function Dashboard(props: ShellProps) {
       <div className="flex items-center justify-between px-4 py-2 text-xs text-parchment/50 border-b border-eldritch/10">
         <span>{t('dash_round', { n: props.room.current_round || 1 })}</span>
         <SuspicionMeter value={props.room.suspicion || 0} lang={lang} />
-        <span>{t('dash_img_budget')} {props.room.image_used}/{props.room.image_budget}</span>
+        <span className="flex items-center gap-2">
+          <button onClick={toggleVoice} title={EN(lang) ? 'Read narration aloud' : '朗读旁白'} className={`px-1.5 py-0.5 rounded ${voiceOn ? 'bg-blood/50 text-parchment' : 'bg-eldritch/20 text-parchment/60'}`}>{voiceOn ? '🔊' : '🔈'}</button>
+          {t('dash_img_budget')} {props.room.image_used}/{props.room.image_budget}
+        </span>
       </div>
       <WorldClock clock={props.room.world_clock} round={props.room.current_round || 1} lang={lang} />
 

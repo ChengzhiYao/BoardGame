@@ -1,22 +1,11 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 
-// 共享语音系统：三档 —— off(关) / browser(免费浏览器语音) / openai(高音质真人声)。
-// classify(m) 返回 { kind:'narrator'|'character', name?, gender?, text } 或 null（不读）。
 type Spoken = { kind: 'narrator' | 'character'; name?: string; gender?: 'male' | 'female'; text: string } | null;
 export type VoiceMode = 'off' | 'browser' | 'openai';
 
-const OAI_FEMALE = ['nova', 'shimmer', 'alloy'];
-const OAI_MALE = ['echo', 'fable'];
-const OAI_ANY = ['alloy', 'echo', 'fable', 'nova', 'shimmer'];
-const OAI_NARRATOR = 'onyx';
-
 const clean = (t: string) => String(t || '').replace(/[🔍🔒🗳️▶👍🔧⏱⚖🎨↻🎲💀🩸✔✘🔊🔈🎙️]/g, '').replace(/\s+/g, ' ').trim();
 function hashName(name: string) { let h = 0; for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0; return h; }
-function oaiVoice(gender: string | undefined, h: number) {
-  const pool = gender === 'female' ? OAI_FEMALE : gender === 'male' ? OAI_MALE : OAI_ANY;
-  return pool[h % pool.length];
-}
 function browserPitch(gender: string | undefined, h: number) {
   const base = gender === 'female' ? 1.15 : gender === 'male' ? 0.8 : 0.95;
   return Math.min(1.6, base + (h % 18) / 100);
@@ -28,7 +17,7 @@ export function useTTS(opts: { lang?: string; messages: any[]; classify: (m: any
   const modeRef = useRef<VoiceMode>('off'); modeRef.current = mode;
   const voicesRef = useRef<SpeechSynthesisVoice[]>([]);
   const spoken = useRef<Set<string>>(new Set());
-  const queue = useRef<{ text: string; voice: string }[]>([]);
+  const queue = useRef<{ text: string; gender: string; narrator: boolean; seed: number; lang: string }[]>([]);
   const running = useRef(false);
   const curAudio = useRef<HTMLAudioElement | null>(null);
 
@@ -62,7 +51,7 @@ export function useTTS(opts: { lang?: string; messages: any[]; classify: (m: any
     while (queue.current.length && modeRef.current === 'openai') {
       const task = queue.current.shift()!;
       try {
-        const res = await fetch('/api/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId, text: task.text, voice: task.voice }) });
+        const res = await fetch('/api/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId, ...task }) });
         if (!res.ok) continue;
         const { url } = await res.json();
         if (!url) continue;
@@ -101,8 +90,7 @@ export function useTTS(opts: { lang?: string; messages: any[]; classify: (m: any
         else { u.voice = list.length ? list[h % list.length] : null; u.pitch = browserPitch(c.gender, h); u.rate = 0.95 + ((h >> 3) % 16) / 100; }
         window.speechSynthesis.speak(u);
       } else {
-        const voice = c.kind === 'narrator' ? OAI_NARRATOR : oaiVoice(c.gender, h);
-        queue.current.push({ text: text.slice(0, 900), voice });
+        queue.current.push({ text: text.slice(0, 900), gender: c.gender || '', narrator: c.kind === 'narrator', seed: h, lang: zh ? 'zh' : 'en' });
         worker();
       }
     }

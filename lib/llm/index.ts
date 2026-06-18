@@ -185,6 +185,25 @@ export async function callLLMJson<T = any>(req: LLMRequest): Promise<{ data: T; 
       lastErr = e;
     }
   }
+  // 兜底：主 provider 多次拿不到合法 JSON（偶发空响应 / 被内容审查挡下）→ 退回 OpenAI 再试一次。
+  if (provider !== 'openai' && process.env.OPENAI_API_KEY) {
+    try {
+      const fbModel = process.env.LLM_FALLBACK_MODEL || 'gpt-4o-mini';
+      const res = await openai().chat.completions.create({
+        model: fbModel,
+        temperature,
+        max_tokens: maxTokens,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: req.system + jsonGuard },
+          ...req.messages.map((m) => ({ role: m.role, content: m.content })),
+        ],
+      });
+      const t2 = res.choices[0]?.message?.content ?? '';
+      const data = safeParseJson<T>(t2);
+      return { data, usage: { text: t2, provider: 'openai', model: fbModel, promptTokens: pt + (res.usage?.prompt_tokens ?? 0), completionTokens: ct + (res.usage?.completion_tokens ?? 0), latencyMs: Date.now() - t0 } };
+    } catch (e) { lastErr = e; }
+  }
   throw lastErr || new Error('LLM JSON 解析失败');
 }
 

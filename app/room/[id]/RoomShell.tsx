@@ -13,6 +13,14 @@ import AudioManager from './AudioManager';
 
 const EN = (l?: string) => l === 'en';
 
+function jbsAudioState(room: any): string {
+  const phase = room.jbs_phase;
+  if (room.game_state === 'ended' || phase === 'reveal') return 'TRUTH_REVEAL';
+  if (phase === 'vote') return 'FINAL_CONFRONTATION';
+  if (phase === 'playing') return (room.jbs_act || 1) >= 3 ? 'EXPLORATION_DANGEROUS' : 'EXPLORATION_SAFE';
+  return 'MENU';
+}
+
 function audioStateFor(room: any): string {
   const gs = room.game_state;
   if (['lobby', 'module_selection', 'case_locking'].includes(gs)) return 'MENU';
@@ -70,7 +78,7 @@ export default function RoomShell(props: ShellProps) {
 
   if (props.room.mode === 'soup') return <SoupRoom {...props} />;
   if (props.room.mode === 'td') return <TDRoom {...props} />;
-  if (props.room.mode === 'jbs') return <JbsRoom {...props} />;
+  if (props.room.mode === 'jbs') return (<><AudioManager state={jbsAudioState(props.room)} /><JbsRoom {...props} /></>);
 
   const state = props.room.game_state || 'lobby';
   const audioState = audioStateFor(props.room);

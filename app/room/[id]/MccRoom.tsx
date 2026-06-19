@@ -267,7 +267,7 @@ export default function MccRoom(props: ShellProps) {
 
       {/* 我的手牌 + 操作 */}
       {!ended ? (
-        <div className="border-t border-eldritch/20 px-4 py-3 space-y-2 max-w-3xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+        <div className="border-t border-eldritch/20 px-4 py-3 space-y-2 max-w-5xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
           {(spectator || meDead) ? (
               <div className="text-center text-sm text-parchment/55 py-3">{en ? 'Watching the chaos…' : '围观这场混乱……'}</div>
             ) : pickCard ? (
@@ -280,25 +280,25 @@ export default function MccRoom(props: ShellProps) {
             </div>
           ) : (
             <>
-              <div className="flex gap-2 flex-wrap min-h-[2.5rem]">
-                {hand.length === 0 && <span className="text-sm text-parchment/40">{en ? '(no cards)' : '（没有手牌）'}</span>}
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-parchment/45">{myTurn ? (en ? 'Play any number of cards, then draw to end your turn.' : '可连续出牌，出完点"抽一张牌"结束回合。') : (en ? 'Waiting for your turn…' : '等待你的回合……')}</span>
+                <button onClick={drawCard} disabled={busy || !myTurn}
+                  className="px-5 py-2 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood text-sm disabled:opacity-40 shrink-0">
+                  {en ? 'Draw a card ▶' : '抽一张牌 ▶'}
+                </button>
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {hand.length === 0 && <span className="text-sm text-parchment/40 self-center">{en ? '(no cards)' : '（没有手牌）'}</span>}
                 {hand.map((c, i) => {
                   const usable = myTurn && !['ward', 'hiss', 'mirror'].includes(c);
                   return (
                     <button key={i} disabled={busy || !usable} title={en ? META[c]?.d_en : META[c]?.d_zh}
                       onClick={() => { if (NEEDS_TARGET.includes(c)) setPickCard(c); else playCard(c); }}
-                      className={`mcc-deal rounded-lg transition ${usable ? 'hover:-translate-y-1 cursor-pointer' : 'opacity-55 cursor-default'}`}>
-                      <MccCard card={c} en={en} w={122} />
+                      className={`mcc-deal shrink-0 rounded-lg transition ${usable ? 'hover:-translate-y-1 cursor-pointer' : 'opacity-55 cursor-default'}`}>
+                      <MccCard card={c} en={en} w={116} />
                     </button>
                   );
                 })}
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-parchment/45">{myTurn ? (en ? 'Play cards, then draw to end your turn.' : '出牌，然后抽一张结束回合。') : (en ? 'Waiting for your turn…' : '等待你的回合……')}</span>
-                <button onClick={drawCard} disabled={busy || !myTurn}
-                  className="px-5 py-2 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood text-sm disabled:opacity-40">
-                  {en ? 'Draw a card ▶' : '抽一张牌 ▶'}
-                </button>
               </div>
             </>
           )}

@@ -55,6 +55,18 @@ export default function JbsRoom(props: ShellProps) {
   const clueList = messages.filter((m) => m.payload?.type === 'jbs_evidence' || m.payload?.type === 'private');
   const keyFound = messages.some((m: any) => m.payload?.type === 'jbs_evidence' && m.payload?.key && m.turn_no === (props.room.jbs_act || 1));
   const resources: any[] = Array.isArray(props.room.jbs_resources) ? props.room.jbs_resources : [];
+  // 真人发言显示其角色名（按座位映射）
+  const seatByPid: Record<string, string> = {};
+  (props.initialPlayers || []).forEach((p: any) => { seatByPid[p.id] = p.seat; });
+  const charNameBySeat: Record<string, string> = {};
+  (props.jbsCharacters || []).forEach((c: any) => { if (c.assigned_seat) charNameBySeat[c.assigned_seat] = c.name; });
+  function speakerOf(m: any): string {
+    if (!m.sender_player_id) return '';
+    const seat = seatByPid[m.sender_player_id];
+    const p = (props.initialPlayers || []).find((x: any) => x.id === m.sender_player_id);
+    const dn = p ? (props.initialUsers || []).find((u: any) => u.id === p.user_id)?.display_name : '';
+    return charNameBySeat[seat] || dn || (en ? 'Player' : '玩家');
+  }
   // 本幕倒计时
   const totalActs = props.room.jbs_total_acts || 7;
   const actNames: string[] = Array.isArray(props.room.jbs_act_names) ? props.room.jbs_act_names : [];
@@ -383,7 +395,7 @@ export default function JbsRoom(props: ShellProps) {
       )}
 
       <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-3 max-w-3xl w-full mx-auto">
-        {messages.map((m) => <JbsMsg key={m.id} m={m} en={en} mine={m.sender_player_id === props.myPlayerId} />)}
+        {messages.map((m) => <JbsMsg key={m.id} m={m} en={en} mine={m.sender_player_id === props.myPlayerId} who={speakerOf(m)} />)}
         {busy && <div className="text-center text-parchment/40 italic text-sm">{en ? 'The host is narrating…' : '主持人推进中……'}</div>}
         <div ref={bottomRef} />
       </div>
@@ -430,7 +442,7 @@ export default function JbsRoom(props: ShellProps) {
   );
 }
 
-function JbsMsg({ m, en, mine }: { m: any; en: boolean; mine: boolean }) {
+function JbsMsg({ m, en, mine, who }: { m: any; en: boolean; mine: boolean; who?: string }) {
   const type = m.payload?.type;
   if (type === 'jbs_roster') {
     return <div className="mx-auto max-w-2xl rounded-lg bg-eldritch/10 border border-eldritch/40 px-4 py-3 text-parchment/85 leading-relaxed whitespace-pre-line text-sm">{m.content}</div>;
@@ -495,6 +507,7 @@ function JbsMsg({ m, en, mine }: { m: any; en: boolean; mine: boolean }) {
   }
   return (
     <div className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
+      {who && <span className="text-xs text-parchment/45 mb-1">{who}{mine ? (en ? ' (you)' : '（你）') : (en ? ' (player)' : '（真人）')}</span>}
       <div className={`max-w-[80%] px-4 py-2 rounded-lg ${mine ? 'bg-blood/25 border border-blood/40' : 'bg-fog border border-parchment/20'} text-parchment/90`}>{m.content}</div>
     </div>
   );

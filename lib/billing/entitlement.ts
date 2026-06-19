@@ -12,8 +12,11 @@ export async function getEntitlement(admin: any, user: any): Promise<Entitlement
   if (!user || user.is_anonymous || !user.email) {
     return { canHost: false, reason: 'login', whitelisted: false, credits: 0, email: user?.email || null };
   }
-  // 确保有 profile 行
-  await admin.from('profiles').upsert({ user_id: user.id, email: user.email }, { onConflict: 'user_id', ignoreDuplicates: true });
+  // 确保有 profile 行；**新账号首次创建时赠送 1 局免费额度**（老账号不受影响）
+  const { data: had } = await admin.from('profiles').select('user_id').eq('user_id', user.id).maybeSingle();
+  if (!had) {
+    await admin.from('profiles').insert({ user_id: user.id, email: user.email, credits: 1 });
+  }
   const { data: wl } = await admin.from('whitelist_emails').select('email').eq('email', user.email).maybeSingle();
   const { data: p } = await admin.from('profiles').select('credits, is_whitelisted').eq('user_id', user.id).maybeSingle();
   const whitelisted = !!wl || !!p?.is_whitelisted;

@@ -68,6 +68,7 @@ export function buildJbsCasePrompt(chosen: any, headcount: number, realSeats: st
 - AI 补位角色同样要有独立秘密/目标，绝不主动帮真人、绝不自爆关键身份。
 
 【设计准则】至少 3 名嫌疑人；至少 3 条错误推理/误导路线；至少 2 层隐藏真相；至少 1 次重大反转；至少 1 个关键秘密。绝不要"开局即可猜出答案"。
+${type === '推理' || type === '恐怖' || type === '阵营' ? '【人人皆有嫌疑】这是推理/悬疑类的核心：**每一个角色（含真人座位与 AI，也含你想嫁祸的对象）都必须有一个看似成立的杀人/作案动机或重大可疑之处**——比如与被害者的恩怨、金钱/遗产/感情纠纷、被掌握的把柄、当晚说不清的可疑行踪、现场留下的可疑痕迹等。让每个人都像凶手、彼此都有理由互相怀疑，玩家很难一眼锁定。但**真凶只有 murderer 一人**，其余所有人的动机/可疑点都是**精心设计的误导（红鲱鱼）**，最终能被排除。把每个角色这条"看似的动机"写进它的 apparent_motive 字段。' : ''}
 
 【幕数·按本设计】根据这个剧本的体量自行决定**总幕数（5~8 幕）**：短小精悍的本 5 幕、信息量大/反转多的长本 7~8 幕。把每一幕写进 acts 数组（每幕 {name 幕名, goal 本幕目标}）。结构约定：${type === '推理' || type === '阵营' || type === '恐怖' || type === '机制' ? '前面若干幕是开场/搜证/调查/对质等；**倒数第二幕必须是「最终指认」（投票指认）**；**最后一幕是「真相揭晓」**。' : '前面若干幕推进剧情/情感/拼合，**最后一幕是「结局揭晓」**。'} name 是公开的幕名（不含剧透）。
 
@@ -85,7 +86,7 @@ export function buildJbsCasePrompt(chosen: any, headcount: number, realSeats: st
   "red_herrings": [ { "clue":"", "why":"为何误导、最终如何被排除" } ],
   "factions": [ { "name":"阵营名", "win":"胜利条件" } ],
   "characters": [
-    { "name":"", "gender":"male", "age":"", "occupation":"", "personality":"", "background":"", "public_info":"人人可见的公开信息", "secret":"只有本人知道的秘密", "private_goal":"私人目标", "private_task":"私人任务", "relationships":"与他人的隐藏关系", "faction":"（阵营本填，否则空）", "is_murderer": false }
+    { "name":"", "gender":"male", "age":"", "occupation":"", "personality":"", "background":"", "public_info":"人人可见的公开信息", "secret":"只有本人知道的秘密", "apparent_motive":"这个角色看似成立的杀人动机/可疑之处（推理/恐怖本人人都要有，用于迷惑；真凶之外的都是误导）", "private_goal":"私人目标", "private_task":"私人任务", "relationships":"与他人的隐藏关系", "faction":"（阵营本填，否则空）", "is_murderer": false }
   ],
   "ending_conditions": [ { "name":"结局名", "when":"触发条件（按指认结果/玩家选择/生存等）", "outcome":"结局描写" } ],
   "acts": [ { "name":"幕名（公开、不剧透）", "goal":"本幕要达成什么（DM 内部用）" } ],

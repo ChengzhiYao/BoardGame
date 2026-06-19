@@ -118,12 +118,13 @@ export default function Home() {
 
       {err && <p className="text-blood text-sm">{err}</p>}
       <a href="/upgrade" className="text-parchment/40 hover:text-parchment text-sm underline">{t('home_upgrade_link')}</a>
-      <AdminPanel />
+      <AdminPanel lang={lang} />
     </main>
   );
 }
 
-function AdminPanel() {
+function AdminPanel({ lang }: { lang: Lang }) {
+  const en = lang === 'en';
   const [s, setS] = useState<any | null>(null);
   async function load() {
     try { const r = await fetch('/api/admin/stats'); if (r.ok) setS(await r.json()); else setS(null); }
@@ -134,9 +135,11 @@ function AdminPanel() {
   return (
     <div className="fixed bottom-3 left-3 z-30 rounded-lg bg-fog/90 border border-eldritch/30 px-3 py-2 text-xs text-parchment/80 backdrop-blur space-y-0.5 text-left">
       <div className="text-eldritch font-medium">● Admin · live</div>
-      <div>🟢 在线玩家 <span className="text-parchment">{s.activePlayers}</span> · 活跃房间 <span className="text-parchment">{s.activeRooms}</span></div>
-      <div>进行中 {s.playingRooms} · 今日新局 {s.roomsToday}</div>
-      <div className="text-parchment/40">累计 房间 {s.totalRooms} · 玩家 {s.totalPlayers}</div>
+      <div>🟢 {en ? 'Online' : '在线'} <span className="text-parchment">{s.activePlayers}</span> · {en ? 'active rooms' : '活跃房间'} <span className="text-parchment">{s.activeRooms}</span></div>
+      <div>{en ? 'Users' : '历史玩家'} {s.distinctUsers} · {en ? 'played' : '已玩'} {s.gamesPlayed} · {en ? 'finished' : '完成'} {s.gamesFinished}</div>
+      <div>{en ? 'Today' : '今日'}: {en ? 'new games' : '新局'} {s.roomsToday} · {en ? 'new players' : '新玩家'} {s.playersToday}</div>
+      <div>{en ? 'Playtime' : '总时长'} {s.totalPlayMinutes}m · {en ? 'avg/game' : '均局'} {s.avgGameMinutes}m · {en ? 'msgs' : '消息'} {s.totalMessages}</div>
+      <div className="text-parchment/40">CoC {s.modes?.coc ?? 0} · {en ? 'Soup' : '汤'} {s.modes?.soup ?? 0} · {en ? 'T/D' : '真'} {s.modes?.td ?? 0} · {en ? 'Murder' : '杀'} {s.modes?.jbs ?? 0}</div>
     </div>
   );
 }

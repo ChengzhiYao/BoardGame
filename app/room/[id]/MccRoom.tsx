@@ -34,6 +34,7 @@ export default function MccRoom(props: ShellProps) {
   const [pickCard, setPickCard] = useState<string>('');
   const [peek, setPeek] = useState<string[] | null>(null);
   const [mirrorPick, setMirrorPick] = useState(false);
+  const [showDiscard, setShowDiscard] = useState(false);
   const [aiFill, setAiFill] = useState(true);
   const [totalSeats, setTotalSeats] = useState(4);
   const logRef = useRef<HTMLDivElement>(null);
@@ -194,10 +195,32 @@ export default function MccRoom(props: ShellProps) {
       {(spectator || meDead) && <div className="px-4 py-1.5 text-center text-xs bg-ink/70 text-parchment/55 border-b border-eldritch/15">{spectator ? (en ? '👁 Spectating (no seat this game)' : '👁 观战中（你不在本局座位）') : (en ? '💀 You are out — spectating' : '💀 你已出局 · 观战中')}</div>}
       <header className="px-4 py-3 border-b border-eldritch/20 flex items-center justify-between gap-2">
         <span className="font-serif text-parchment text-sm truncate"><span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse mr-1.5 align-middle" />{en ? 'Midnight Cat Curse' : '午夜猫诅咒'}</span>
-        <span className="text-xs text-parchment/55">{ended ? (en ? 'Game over' : '对局结束') : (en ? `Deck ${pub.deckCount} · ${myTurn ? 'YOUR TURN' : turnName + '’s turn'}` : `牌堆 ${pub.deckCount} · ${myTurn ? '轮到你' : turnName + ' 的回合'}`)}{pub.turnsToTake > 1 ? ` (×${pub.turnsToTake})` : ''}</span>
+        <div className="flex items-center gap-2 shrink-0">
+          <button onClick={() => setShowDiscard((v) => !v)} className="text-xs px-2 py-1 rounded bg-eldritch/30 text-parchment">{en ? `Discard ${pub.discardCount}` : `弃牌 ${pub.discardCount}`}</button>
+          <span className="text-xs text-parchment/55">{ended ? (en ? 'Game over' : '对局结束') : (en ? `Deck ${pub.deckCount} · ${myTurn ? 'YOUR TURN' : turnName + '’s turn'}` : `牌堆 ${pub.deckCount} · ${myTurn ? '轮到你' : turnName + ' 的回合'}`)}{pub.turnsToTake > 1 ? ` (×${pub.turnsToTake})` : ''}</span>
+        </div>
       </header>
 
       {/* 玩家桌 */}
+      {showDiscard && (() => {
+        const counts: Record<string, number> = {}; (pub.discard || []).forEach((c: string) => { counts[c] = (counts[c] || 0) + 1; });
+        return (
+          <div className="px-4 py-3 bg-ink/85 border-b border-eldritch/20 max-w-5xl w-full mx-auto">
+            <div className="text-xs text-parchment/50 mb-2">{en ? `Discard pile (${pub.discardCount})` : `弃牌堆（共 ${pub.discardCount} 张）`}</div>
+            {pub.discardCount === 0 ? <div className="text-sm text-parchment/40">{en ? '(empty)' : '（空）'}</div> : (
+              <div className="flex gap-2 flex-wrap max-h-[40vh] overflow-y-auto">
+                {Object.entries(counts).map(([c, num]) => (
+                  <div key={c} className="relative">
+                    <MccCard card={c} en={en} w={76} />
+                    {num > 1 && <span className="absolute -top-1 -right-1 text-[10px] px-1.5 py-0.5 rounded-full bg-blood text-parchment border border-blood/60">×{num}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       <div className="px-4 py-2 border-b border-eldritch/15 flex gap-1.5 flex-wrap">
         {pub.players.map((p: any) => (
           <span key={p.seat} className={`text-xs px-2 py-1 rounded-full border ${p.seat === pub.turn && !ended ? 'bg-eldritch/40 border-eldritch text-parchment' : p.alive ? 'bg-fog border-eldritch/30 text-parchment/80' : 'bg-ink border-parchment/15 text-parchment/30 line-through'}`}>

@@ -200,7 +200,7 @@ export function publicView(s: State) {
   const pend = s.pending ? (s.pending.type === 'ward' ? { type: 'ward', seat: s.pending.seat } : { type: 'react', card: s.pending.card, by: s.pending.by, target: s.pending.target, hiss: s.pending.hiss }) : null;
   return {
     status: s.status, turn: s.turn, turnsToTake: s.turnsToTake,
-    deckCount: s.deck.length, discardTop: s.discard[s.discard.length - 1] || null, discardCount: s.discard.length,
+    deckCount: s.deck.length, discardTop: s.discard[s.discard.length - 1] || null, discardCount: s.discard.length, discard: s.discard,
     winner: s.winner, pending: pend,
     players: s.seats.map((seat) => ({ seat, name: s.names[seat], alive: s.alive[seat], handCount: s.hands[seat].length, isAI: s.bots.includes(seat) })),
     log: s.log.slice(-20),

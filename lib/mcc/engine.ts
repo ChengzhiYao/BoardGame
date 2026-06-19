@@ -14,6 +14,7 @@ export interface State {
   alive: Record<string, boolean>;
   turn: string;
   turnsToTake: number;
+  bots: string[]; // 由 AI 扮演的座位
   status: 'playing' | 'ended';
   winner: string | null;
   pending: null
@@ -29,7 +30,7 @@ export const PLAYABLE: Card[] = ['nap', 'swap', 'peek', 'shuffle', 'hex', 'thief
 export const NEEDS_TARGET: Card[] = ['swap', 'hex', 'thief'];
 const CANCELABLE: Card[] = ['nap', 'swap', 'hex', 'thief', 'noise']; // peek/shuffle/lives 立即生效，不进响应窗口
 
-export function newGame(players: { seat: string; name: string }[]): State {
+export function newGame(players: { seat: string; name: string; bot?: boolean }[]): State {
   const seats = players.map((p) => p.seat).sort();
   const names: Record<string, string> = {}; players.forEach((p) => (names[p.seat] = p.name));
   const N = seats.length;
@@ -43,7 +44,8 @@ export function newGame(players: { seat: string; name: string }[]): State {
   for (let i = 0; i < Math.max(0, 6 - N); i++) deck.push('ward');
   for (let i = 0; i < N - 1; i++) deck.push('curse');
   shuffle(deck);
-  return { deck, discard: [], hands, seats, names, alive, turn: seats[0], turnsToTake: 1, status: 'playing', winner: null, pending: null, log: [{ msg: '🐾 午夜降临，猫群苏醒——活到最后的人获胜。' }] };
+  const bots = players.filter((p) => p.bot).map((p) => p.seat);
+  return { deck, discard: [], hands, seats, names, alive, turn: seats[0], turnsToTake: 1, bots, status: 'playing', winner: null, pending: null, log: [{ msg: '🐾 午夜降临，猫群苏醒——活到最后的人获胜。' }] };
 }
 
 function nm(s: State, seat: string) { return s.names[seat] || seat; }
@@ -72,8 +74,8 @@ function eliminate(s: State, seat: string) {
 }
 
 function someoneCanReact(s: State, by: string, card: Card, target: string | null): boolean {
-  for (const p of aliveSeats(s)) { if (p === by) continue; if (s.hands[p].includes('hiss')) return true; }
-  if (NEEDS_TARGET.includes(card) && target && s.hands[target]?.includes('mirror')) return true;
+  for (const p of aliveSeats(s)) { if (p === by || s.bots.includes(p)) continue; if (s.hands[p].includes('hiss')) return true; }
+  if (NEEDS_TARGET.includes(card) && target && !s.bots.includes(target) && s.hands[target]?.includes('mirror')) return true;
   return false;
 }
 
@@ -196,8 +198,28 @@ export function publicView(s: State) {
     status: s.status, turn: s.turn, turnsToTake: s.turnsToTake,
     deckCount: s.deck.length, discardTop: s.discard[s.discard.length - 1] || null, discardCount: s.discard.length,
     winner: s.winner, pending: pend,
-    players: s.seats.map((seat) => ({ seat, name: s.names[seat], alive: s.alive[seat], handCount: s.hands[seat].length })),
+    players: s.seats.map((seat) => ({ seat, name: s.names[seat], alive: s.alive[seat], handCount: s.hands[seat].length, isAI: s.bots.includes(seat) })),
     log: s.log.slice(-20),
   };
 }
 export function handRows(s: State) { return s.seats.map((seat) => ({ seat, cards: s.hands[seat] })); }
+
+// AI 机器猫的单步行动（房主端轮询驱动）：偶尔出一张牌，然后抽牌。
+export function botAct(s: State, seat: string) {
+  if (s.status !== 'playing' || s.turn !== seat || s.pending) return;
+  const hand = s.hands[seat];
+  const playable = hand.filter((c) => PLAYABLE.includes(c));
+  if (playable.length && Math.random() < 0.45) {
+    const offensive = playable.filter((c) => c === 'thief' || c === 'hex');
+    const from = offensive.length && Math.random() < 0.6 ? offensive : playable;
+    const card = from[Math.floor(Math.random() * from.length)];
+    let target: string | undefined;
+    if (NEEDS_TARGET.includes(card)) {
+      const opps = aliveSeats(s).filter((x) => x !== seat);
+      target = opps.length ? opps[Math.floor(Math.random() * opps.length)] : undefined;
+    }
+    if (!NEEDS_TARGET.includes(card) || target) play(s, seat, card, target);
+  }
+  if (s.pending || s.turn !== seat || s.status !== 'playing') return; // 进入响应窗口 / 回合已转移
+  draw(s, seat);
+}

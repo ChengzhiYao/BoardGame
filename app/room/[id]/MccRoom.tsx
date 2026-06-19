@@ -32,6 +32,8 @@ export default function MccRoom(props: ShellProps) {
   const [pickCard, setPickCard] = useState<string>('');
   const [peek, setPeek] = useState<string[] | null>(null);
   const [mirrorPick, setMirrorPick] = useState(false);
+  const [aiFill, setAiFill] = useState(true);
+  const [totalSeats, setTotalSeats] = useState(4);
   const logRef = useRef<HTMLDivElement>(null);
 
   const isHost = props.room.host_user_id === props.userId;
@@ -68,6 +70,17 @@ export default function MccRoom(props: ShellProps) {
     return () => clearInterval(id);
   }, [isHost, pub?.pending, props.room.id]);
 
+  // 房主端：驱动机器猫行动
+  useEffect(() => {
+    if (!isHost || !pub || pub.status !== 'playing') return;
+    const turnAI = pub.players.find((p: any) => p.seat === pub.turn)?.isAI;
+    const wardAI = pub.pending?.type === 'ward' && pub.players.find((p: any) => p.seat === pub.pending.seat)?.isAI;
+    if (!turnAI && !wardAI) return;
+    const run = () => { fetch('/api/mcc/bot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) }).catch(() => {}); };
+    run(); const id = setInterval(run, 2500);
+    return () => clearInterval(id);
+  }, [isHost, pub?.status, pub?.turn, pub?.pending, props.room.id]);
+
   async function call(url: string, body: any) {
     setBusy(true);
     try {
@@ -79,7 +92,7 @@ export default function MccRoom(props: ShellProps) {
     } catch (e: any) { alert((en ? 'Failed: ' : '失败：') + e.message); return null; }
     finally { setBusy(false); }
   }
-  async function start() { await call('/api/mcc/start', { roomId: props.room.id }); }
+  async function start() { await call('/api/mcc/start', { roomId: props.room.id, aiFill, total: totalSeats }); }
   async function replay() { await call('/api/rooms/replay', { roomId: props.room.id }); }
   async function playCard(card: string, target?: string) {
     setPickCard('');
@@ -118,10 +131,27 @@ export default function MccRoom(props: ShellProps) {
             className="px-4 py-1.5 rounded bg-eldritch/40 hover:bg-eldritch text-parchment text-sm">{copied ? (en ? 'Copied' : '已复制') : (en ? 'Copy invite link' : '复制邀请链接')}</button>
         </div>
         {isHost ? (
-          <button onClick={start} disabled={busy || props.initialPlayers.length < 2}
-            className="px-6 py-3 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-50">
-            {busy ? (en ? 'Dealing…' : '发牌中…') : props.initialPlayers.length < 2 ? (en ? 'Need 2+ players' : '至少 2 人') : (en ? 'Deal & start →' : '发牌开始 →')}
-          </button>
+          <>
+            <div className="flex flex-col items-center gap-2">
+              <label className="flex items-center gap-2 text-sm text-parchment/80 cursor-pointer">
+                <input type="checkbox" checked={aiFill} onChange={(e) => setAiFill(e.target.checked)} />
+                {en ? 'Fill empty seats with AI cats 🤖' : '用机器猫🤖补满空位'}
+              </label>
+              {aiFill && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-parchment/50">{en ? 'Total players:' : '总人数：'}</span>
+                  {[2, 3, 4, 5, 6].map((n) => (
+                    <button key={n} onClick={() => setTotalSeats(n)} disabled={n < props.initialPlayers.length}
+                      className={`px-2.5 py-1 rounded border text-sm ${totalSeats === n ? 'bg-eldritch/60 border-eldritch text-parchment' : 'bg-fog border-eldritch/30 text-parchment/60'} disabled:opacity-30`}>{n}</button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button onClick={start} disabled={busy || (!aiFill && props.initialPlayers.length < 2)}
+              className="px-6 py-3 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-50">
+              {busy ? (en ? 'Dealing…' : '发牌中…') : (!aiFill && props.initialPlayers.length < 2) ? (en ? 'Need 2+ players' : '至少 2 人') : (en ? 'Deal & start →' : '发牌开始 →')}
+            </button>
+          </>
         ) : <span className="text-sm text-parchment/50">{en ? 'Waiting for the host to start…' : '等待房主开始……'}</span>}
       </main>
     );
@@ -140,7 +170,7 @@ export default function MccRoom(props: ShellProps) {
       <div className="px-4 py-2 border-b border-eldritch/15 flex gap-1.5 flex-wrap">
         {pub.players.map((p: any) => (
           <span key={p.seat} className={`text-xs px-2 py-1 rounded-full border ${p.seat === pub.turn && !ended ? 'bg-eldritch/40 border-eldritch text-parchment' : p.alive ? 'bg-fog border-eldritch/30 text-parchment/80' : 'bg-ink border-parchment/15 text-parchment/30 line-through'}`}>
-            {p.seat === pub.turn && !ended ? '▶ ' : ''}{p.name}{p.seat === mySeat ? (en ? ' (you)' : '（你）') : ''} · {en ? `${p.handCount} cards` : `${p.handCount}张`}{!p.alive ? ' 💀' : ''}
+            {p.seat === pub.turn && !ended ? '▶ ' : ''}{p.name}{p.isAI ? ' 🤖' : ''}{p.seat === mySeat ? (en ? ' (you)' : '（你）') : ''} · {en ? `${p.handCount} cards` : `${p.handCount}张`}{!p.alive ? ' 💀' : ''}
           </span>
         ))}
       </div>

@@ -45,8 +45,10 @@ export async function POST(req: Request) {
     await admin.from('users').update({ display_name: body.displayName }).eq('id', user.id);
   }
 
-  // 满员后进入模组选择阶段（仅 CoC 模式；海龟汤/真心话由各自流程处理，不跳步）
-  if (room.mode === 'coc' && (players?.length || 0) + 1 >= 2) {
+  // 满员后进入模组选择阶段（仅 CoC；海龟汤/真心话由各自流程处理，不跳步）。
+  // 仅当房间还在 lobby 时才自动推进——避免房主已单人开局后，迟到的第二人把进度重置回选模组。
+  const stillLobby = !room.game_state || room.game_state === 'lobby';
+  if (room.mode === 'coc' && stillLobby && (players?.length || 0) + 1 >= 2) {
     await admin
       .from('rooms')
       .update({ status: 'character_creation', game_state: 'module_selection' })

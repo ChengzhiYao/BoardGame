@@ -56,9 +56,10 @@ export async function POST(req: Request) {
   // 关键：写完后重新读取最新状态，避免两人几乎同时提交时各读到对方的旧值而双双卡住
   const { data: fresh } = await admin
     .from('rooms').select('player_a_ready, player_b_ready').eq('id', roomId).maybeSingle();
-  // 已退场的座位视为"自动就绪"，让在场的另一名玩家可以独自推进
-  const aReady = !!fresh?.player_a_ready || isOut(charOfSeat0('A'));
-  const bReady = !!fresh?.player_b_ready || isOut(charOfSeat0('B'));
+  // 空座（单人局缺的座位）或已退场的座位都视为"自动就绪"，让在场玩家可独自推进
+  const hasSeat = (seat: string) => !!players0?.some((x: any) => x.seat === seat);
+  const aReady = !hasSeat('A') || !!fresh?.player_a_ready || isOut(charOfSeat0('A'));
+  const bReady = !hasSeat('B') || !!fresh?.player_b_ready || isOut(charOfSeat0('B'));
 
   if (!(aReady && bReady)) {
     const waiting_for = aReady ? 'B' : 'A';

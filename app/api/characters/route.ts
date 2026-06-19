@@ -56,15 +56,16 @@ export async function POST(req: Request) {
     await admin.from('characters').insert(payload);
   }
 
-  // 检查是否两人都完成 → 进入跑团
+  // 检查是否在座玩家全部完成 → 进入跑团（单人=1人也成立）
   const { data: players } = await admin.from('players').select('id').eq('room_id', roomId);
   const { data: chars } = await admin
     .from('characters')
     .select('id, is_complete')
     .eq('room_id', roomId);
+  const total = players?.length || 0;
   const bothReady =
-    (players?.length || 0) >= 2 &&
-    (chars?.filter((c) => c.is_complete).length || 0) >= 2;
+    total >= 1 &&
+    (chars?.filter((c) => c.is_complete).length || 0) >= total;
 
   if (bothReady) {
     await admin.from('rooms').update({ status: 'playing' }).eq('id', roomId);

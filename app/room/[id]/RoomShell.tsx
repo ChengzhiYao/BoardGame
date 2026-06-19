@@ -165,7 +165,7 @@ function Lobby(props: ShellProps) {
     <div className="flex flex-col items-center justify-center gap-6 text-center max-w-md">
       <h1 className="text-2xl font-serif text-parchment">{props.room.name}</h1>
       <p className="text-parchment/60">
-        {full ? (EN(lang) ? 'Both investigators are here.' : '两位调查员均已到齐。') : (EN(lang) ? 'Waiting for the second investigator…' : '等待第二位调查员加入……')}（{props.initialPlayers.length}/2）
+        {full ? (EN(lang) ? 'Both investigators are here.' : '两位调查员均已到齐。') : (EN(lang) ? 'Play on your own, or invite a second investigator.' : '一个人也能开局，也可以再叫一位调查员。')}（{props.initialPlayers.length}/2）
       </p>
 
       {full ? (
@@ -174,14 +174,25 @@ function Lobby(props: ShellProps) {
           {busy ? (EN(lang) ? 'Starting…' : '正在开始…') : (EN(lang) ? 'Choose a module' : '开始选择模组')}
         </button>
       ) : (
-        <div className="flex flex-col items-center gap-3 w-full">
-          <span className="text-sm text-parchment/50">{EN(lang) ? 'Send this invite link to your partner:' : '把这条邀请链接发给你的同伴：'}</span>
-          <code className="text-xs px-3 py-2 rounded bg-fog border border-eldritch/30 text-eldritch break-all w-full">{url}</code>
-          <button
-            onClick={() => { navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
-            className="px-5 py-2 rounded bg-eldritch/50 hover:bg-eldritch text-parchment text-sm">
-            {copied ? (EN(lang) ? 'Copied' : '已复制') : (EN(lang) ? 'Copy invite link' : '复制邀请链接')}
+        <div className="flex flex-col items-center gap-4 w-full">
+          {/* 单人开局：一个人也能开 */}
+          <button onClick={start} disabled={busy}
+            className="px-6 py-3 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-50">
+            {busy ? (EN(lang) ? 'Starting…' : '正在开始…') : (EN(lang) ? 'Play solo →' : '单人开始 →')}
           </button>
+          <div className="flex items-center gap-3 w-full">
+            <span className="h-px flex-1 bg-eldritch/20" />
+            <span className="text-xs text-parchment/40">{EN(lang) ? 'or invite a partner' : '或叫上一位同伴'}</span>
+            <span className="h-px flex-1 bg-eldritch/20" />
+          </div>
+          <div className="flex flex-col items-center gap-3 w-full">
+            <code className="text-xs px-3 py-2 rounded bg-fog border border-eldritch/30 text-eldritch break-all w-full">{url}</code>
+            <button
+              onClick={() => { navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+              className="px-5 py-2 rounded bg-eldritch/50 hover:bg-eldritch text-parchment text-sm">
+              {copied ? (EN(lang) ? 'Copied' : '已复制') : (EN(lang) ? 'Copy invite link' : '复制邀请链接')}
+            </button>
+          </div>
         </div>
       )}
 

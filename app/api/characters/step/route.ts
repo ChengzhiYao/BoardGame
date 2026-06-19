@@ -94,7 +94,7 @@ async function maybeAdvanceRoom(admin: any, roomId: string, step: string) {
     .select('creation_stage, confirmed')
     .eq('room_id', roomId);
   const need = (players?.length || 0);
-  if (need < 2) return;
+  if (need < 1) return; // 单人也能推进：按实际在座人数为准，不再写死 2 人
 
   const reach = (n: number) =>
     (chars?.filter((c: any) => (c.creation_stage || 0) >= n).length || 0) >= need;
@@ -122,7 +122,8 @@ async function maybeStartPlaying(admin: any, roomId: string) {
     .select('id, is_ready')
     .eq('room_id', roomId);
   const ready = (players?.filter((p: any) => p.is_ready).length || 0);
-  if ((players?.length || 0) < 2 || ready < 2) return;
+  const total = (players?.length || 0);
+  if (total < 1 || ready < total) return; // 在座玩家全部点了"准备好"即可开场（单人=1人）
 
   const { data: room } = await admin.from('rooms').select('campaign_id, game_state').eq('id', roomId).maybeSingle();
   if (!room || room.game_state === 'playing') return;

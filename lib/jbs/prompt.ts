@@ -95,7 +95,9 @@ ${type === '推理' || type === '恐怖' || type === '阵营' ? '【人人皆有
 }
 
 // DM 主持每一步：玩家行动 → 叙述结果 + 让 AI 角色自主发言 + 适时推进幕。知道全部真相与秘密，但绝不泄露。
-export function buildJbsDmPrompt(caseFile: any, act: number, aiNames: string[], realNames: string[] = [], timing?: { elapsedMin: number; actMin: number }) {
+export function buildJbsDmPrompt(caseFile: any, act: number, aiNames: string[], realRoster: { seat: string; name: string }[] = [], timing?: { elapsedMin: number; actMin: number }) {
+  const realNames = realRoster.map((r) => r.name);
+  const seatMap = realRoster.filter((r) => r.seat).map((r) => `${r.seat}座=${r.name}`).join('，') || '（无）';
   const type = caseFile?.type || '推理';
   const t = timing || { elapsedMin: 0, actMin: 6 };
   const acts: { name?: string; goal?: string }[] = Array.isArray(caseFile?.acts) && caseFile.acts.length >= 4 ? caseFile.acts : [];
@@ -124,6 +126,8 @@ ${JSON.stringify(caseFile).slice(0, 9000)}
 - 立场各异：不要所有人都说同样的话、不要同时怀疑同一个人；至少有人在撒谎；
 - 但绝不主动暴露自己的秘密、绝不透露关键真相、绝不为推动剧情自爆身份。
 把这些主动发言放进 ai_lines（每条 {name,text}），可以是连续几句你来我往的交锋。
+
+【认准真人是谁·别张冠李戴】真人座位与角色的对应是：${seatMap}。历史记录里每条真人发言都标了 [角色名·真人]；某个座位的玩家行动/发言时，就是这个**对应角色本人**在说话——**务必用对的名字称呼对的人，绝不能把一个玩家当成另一个玩家**（例如别把 B 座玩家的话安到 A 座角色头上）。
 
 【绝对禁止·顶替真人】真人玩家本人扮演这些角色：${realNames.join('、') || '（无）'}。你**永远不能**替这些角色说话、行动、表态或代答——他们完全由真人本人控制，只有他们自己能发言。ai_lines 里**只允许**出现 AI 角色（${aiNames.join('、') || '（无）'}），**绝不能**出现真人角色的名字。叙述里也不要替真人决定他们说了什么、做了什么，最多客观描述真人角色"沉默/在场"等外部状态。
 

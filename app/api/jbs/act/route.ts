@@ -27,25 +27,33 @@ export async function POST(req: Request) {
 
   const { data: kase } = await admin.from('jbs_cases').select('case_file').eq('room_id', roomId).maybeSingle();
   if (!kase) return NextResponse.json({ error: '案件未生成' }, { status: 409 });
-  const { data: chars } = await admin.from('jbs_characters').select('name, is_ai').eq('room_id', roomId);
+  const { data: chars } = await admin.from('jbs_characters').select('name, is_ai, assigned_seat').eq('room_id', roomId);
   const aiNames = (chars || []).filter((c: any) => c.is_ai).map((c: any) => c.name);
-  const realNames = (chars || []).filter((c: any) => !c.is_ai).map((c: any) => c.name);
+  const realRoster = (chars || []).filter((c: any) => !c.is_ai && c.assigned_seat).map((c: any) => ({ seat: c.assigned_seat, name: c.name }));
+  const nameBySeat: Record<string, string> = {};
+  realRoster.forEach((r: any) => { nameBySeat[r.seat] = r.name; });
+  const { data: players } = await admin.from('players').select('id, seat').eq('room_id', roomId);
+  const seatByPid: Record<string, string> = {};
+  (players || []).forEach((p: any) => { seatByPid[p.id] = p.seat; });
+  const myName = nameBySeat[me.seat] || me.seat;
 
   // 落库玩家行动
   await admin.from('messages').insert({ room_id: roomId, sender_type: 'player', sender_player_id: me.id, action_type: 'free', content: content.trim(), turn_no: room.jbs_act || 1, visibility: 'public' });
 
-  // 历史
-  const { data: history } = await admin.from('messages').select('sender_type, content, payload, visibility').eq('room_id', roomId).order('created_at', { ascending: true }).limit(400);
+  // 历史（玩家发言标注真实角色名，避免 DM 张冠李戴）
+  const { data: history } = await admin.from('messages').select('sender_type, content, payload, visibility, sender_player_id').eq('room_id', roomId).order('created_at', { ascending: true }).limit(400);
   const base: LLMMessage[] = (history || []).slice(-18).map((m: any) => {
     if (m.sender_type === 'kp') return { role: 'assistant', content: m.content };
-    const tag = m.payload?.type === 'jbs_ai' ? `[${m.payload?.name || 'NPC'}]` : m.sender_type === 'player' ? '[玩家]' : '[系统]';
+    let tag = '[系统]';
+    if (m.payload?.type === 'jbs_ai') tag = `[${m.payload?.name || 'NPC'}·AI]`;
+    else if (m.sender_type === 'player') tag = `[${nameBySeat[seatByPid[m.sender_player_id]] || '玩家'}·真人]`;
     return { role: 'user', content: `${tag} ${m.content}` } as LLMMessage;
   });
 
   try {
     const { data: out, usage } = await callLLMJson<any>({
-      system: buildJbsDmPrompt(kase.case_file, curAct, aiNames, realNames, { elapsedMin, actMin }) + langDirective(room.language),
-      messages: [...base, { role: 'user', content: `${me.seat} 的行动：${content.trim()}` }],
+      system: buildJbsDmPrompt(kase.case_file, curAct, aiNames, realRoster, { elapsedMin, actMin }) + langDirective(room.language),
+      messages: [...base, { role: 'user', content: `[${myName}·真人·${me.seat}座] 的行动：${content.trim()}` }],
       tier: 'main', temperature: 0.8, maxTokens: 2200, retry: true,
     });
     await admin.from('api_usage').insert({ room_id: roomId, kind: 'llm_main', model: usage.model, prompt_tokens: usage.promptTokens, completion_tokens: usage.completionTokens, latency_ms: usage.latencyMs });

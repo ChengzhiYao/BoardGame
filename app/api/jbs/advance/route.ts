@@ -49,21 +49,28 @@ export async function POST(req: Request) {
   // DM 主动开场：让新的一幕真正推进（给出新进展/线索/AI 反应），不要干等玩家。
   try {
     const { data: kase } = await admin.from('jbs_cases').select('case_file').eq('room_id', roomId).maybeSingle();
-    const { data: chars } = await admin.from('jbs_characters').select('name, is_ai').eq('room_id', roomId);
+    const { data: chars } = await admin.from('jbs_characters').select('name, is_ai, assigned_seat').eq('room_id', roomId);
     if (kase) {
       const aiNames = (chars || []).filter((c: any) => c.is_ai).map((c: any) => c.name);
-      const realNames = (chars || []).filter((c: any) => !c.is_ai).map((c: any) => c.name);
-      const { data: history } = await admin.from('messages').select('sender_type, content, payload').eq('room_id', roomId).order('created_at', { ascending: true }).limit(400);
+      const realRoster = (chars || []).filter((c: any) => !c.is_ai && c.assigned_seat).map((c: any) => ({ seat: c.assigned_seat, name: c.name }));
+      const nameBySeat: Record<string, string> = {};
+      realRoster.forEach((r: any) => { nameBySeat[r.seat] = r.name; });
+      const { data: players } = await admin.from('players').select('id, seat').eq('room_id', roomId);
+      const seatByPid: Record<string, string> = {};
+      (players || []).forEach((p: any) => { seatByPid[p.id] = p.seat; });
+      const { data: history } = await admin.from('messages').select('sender_type, content, payload, sender_player_id').eq('room_id', roomId).order('created_at', { ascending: true }).limit(400);
       const base: LLMMessage[] = (history || []).slice(-14).map((m: any) => {
         if (m.sender_type === 'kp') return { role: 'assistant', content: m.content };
-        const tag = m.payload?.type === 'jbs_ai' ? `[${m.payload?.name || 'NPC'}]` : m.sender_type === 'player' ? '[玩家]' : '[系统]';
+        let tag = '[系统]';
+        if (m.payload?.type === 'jbs_ai') tag = `[${m.payload?.name || 'NPC'}·AI]`;
+        else if (m.sender_type === 'player') tag = `[${nameBySeat[seatByPid[m.sender_player_id]] || '玩家'}·真人]`;
         return { role: 'user', content: `${tag} ${m.content}` } as LLMMessage;
       });
       const nudge = goVote
         ? `（幕转场）现在进入第 ${nextAct} 幕「最终指认」。请做一段简短的收束开场：把局势推到摊牌时刻，提示玩家即将进行最终指认，并让相关 AI 角色表态。不要剧透真相，不要替玩家下结论。next_act 保持 ${nextAct}。`
         : `（幕转场）现在进入第 ${nextAct} 幕。请你**主动**做本幕开场：交代本幕的场景、气氛与局势变化，让相关 AI 角色自然反应、把矛盾往前推。**但不要主动公布任何线索/证据（evidence_revealed 留空）**——线索只在玩家自己搜证时才给。不要干等玩家先开口。next_act 保持 ${nextAct}。`;
       const { data: out, usage } = await callLLMJson<any>({
-        system: buildJbsDmPrompt(kase.case_file, nextAct, aiNames, realNames, { elapsedMin: 0, actMin: minutes }) + langDirective(room.language),
+        system: buildJbsDmPrompt(kase.case_file, nextAct, aiNames, realRoster, { elapsedMin: 0, actMin: minutes }) + langDirective(room.language),
         messages: [...base, { role: 'user', content: nudge }],
         tier: 'main', temperature: 0.85, maxTokens: 2200, retry: true,
       });

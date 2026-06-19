@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { ShellProps } from './RoomShell';
+import MccCard from './MccCard';
 
 const META: Record<string, { e: string; zh: string; en: string; d_zh: string; d_en: string }> = {
   curse: { e: '😼', zh: '诅咒猫', en: 'Curse Cat', d_zh: '抽到即出局，除非有护身铃', d_en: 'Drawing it eliminates you unless warded' },
@@ -178,7 +179,7 @@ export default function MccRoom(props: ShellProps) {
       {/* 牌堆 / 弃牌 */}
       <div className="px-4 py-3 flex items-center justify-center gap-6 border-b border-eldritch/10">
         <div className="text-center"><div className="w-16 h-22 rounded-lg bg-gradient-to-b from-eldritch/40 to-ink border border-eldritch/40 flex items-center justify-center text-2xl">🂠</div><div className="text-xs text-parchment/50 mt-1">{en ? 'Deck' : '牌堆'} {pub.deckCount}</div></div>
-        <div className="text-center"><div className="w-16 h-22 rounded-lg bg-fog border border-eldritch/30 flex items-center justify-center text-2xl">{pub.discardTop ? META[pub.discardTop]?.e : '—'}</div><div className="text-xs text-parchment/50 mt-1">{en ? 'Discard' : '弃牌'} {pub.discardCount}</div></div>
+        <div className="text-center">{pub.discardTop ? <MccCard card={pub.discardTop} en={en} w={58} /> : <div className="w-14 h-20 rounded-lg bg-fog border border-eldritch/30 flex items-center justify-center text-2xl text-parchment/30">—</div>}<div className="text-xs text-parchment/50 mt-1">{en ? 'Discard' : '弃牌'} {pub.discardCount}</div></div>
       </div>
 
       {/* 日志 */}
@@ -190,7 +191,7 @@ export default function MccRoom(props: ShellProps) {
       {peek && (
         <div className="px-4 py-3 border-t border-amber-700/40 bg-amber-950/30 max-w-2xl w-full mx-auto">
           <div className="text-xs text-amber-300/80 mb-1.5">🕯️ {en ? 'Top of deck (top → down):' : '牌堆顶（从上到下）：'}</div>
-          <div className="flex gap-2">{peek.map((c, i) => <span key={i} className="text-sm px-2 py-1 rounded bg-fog border border-eldritch/30 text-parchment/85">{cn(c, en)}</span>)}</div>
+          <div className="flex gap-3">{peek.map((c, i) => <MccCard key={i} card={c} en={en} w={66} />)}</div>
           <button onClick={() => setPeek(null)} className="mt-2 text-xs text-parchment/50 underline">{en ? 'close' : '收起'}</button>
         </div>
       )}
@@ -249,13 +250,16 @@ export default function MccRoom(props: ShellProps) {
             <>
               <div className="flex gap-2 flex-wrap min-h-[2.5rem]">
                 {hand.length === 0 && <span className="text-sm text-parchment/40">{en ? '(no cards)' : '（没有手牌）'}</span>}
-                {hand.map((c, i) => (
-                  <button key={i} disabled={busy || !myTurn || ['ward', 'hiss', 'mirror'].includes(c)} title={en ? META[c]?.d_en : META[c]?.d_zh}
-                    onClick={() => { if (NEEDS_TARGET.includes(c)) setPickCard(c); else playCard(c); }}
-                    className={`px-2.5 py-2 rounded-lg border text-sm ${myTurn && !['ward', 'hiss', 'mirror'].includes(c) ? 'bg-fog border-eldritch/40 hover:bg-eldritch/20 text-parchment' : 'bg-ink border-parchment/15 text-parchment/45'}`}>
-                    {cn(c, en)}
-                  </button>
-                ))}
+                {hand.map((c, i) => {
+                  const usable = myTurn && !['ward', 'hiss', 'mirror'].includes(c);
+                  return (
+                    <button key={i} disabled={busy || !usable} title={en ? META[c]?.d_en : META[c]?.d_zh}
+                      onClick={() => { if (NEEDS_TARGET.includes(c)) setPickCard(c); else playCard(c); }}
+                      className={`rounded-lg transition ${usable ? 'hover:-translate-y-1 cursor-pointer' : 'opacity-55 cursor-default'}`}>
+                      <MccCard card={c} en={en} w={72} />
+                    </button>
+                  );
+                })}
               </div>
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs text-parchment/45">{myTurn ? (en ? 'Play cards, then draw to end your turn.' : '出牌，然后抽一张结束回合。') : (en ? 'Waiting for your turn…' : '等待你的回合……')}</span>

@@ -37,7 +37,8 @@ export async function POST(req: Request) {
   }
 
   // 全员到齐 → 结算
-  const { data: kase } = await admin.from('jbs_cases').select('case_file').eq('room_id', roomId).maybeSingle();
+  const { data: kaseRows } = await admin.from('jbs_cases').select('case_file').eq('room_id', roomId).order('created_at', { ascending: false }).limit(1);
+  const kase = kaseRows?.[0];
   const { data: chars } = await admin.from('jbs_characters').select('name, is_ai').eq('room_id', roomId);
   const aiNames = (chars || []).filter((c: any) => c.is_ai).map((c: any) => c.name);
 

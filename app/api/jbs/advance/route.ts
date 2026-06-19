@@ -48,7 +48,8 @@ export async function POST(req: Request) {
 
   // DM 主动开场：让新的一幕真正推进（给出新进展/线索/AI 反应），不要干等玩家。
   try {
-    const { data: kase } = await admin.from('jbs_cases').select('case_file').eq('room_id', roomId).maybeSingle();
+    const { data: kaseRows } = await admin.from('jbs_cases').select('case_file').eq('room_id', roomId).order('created_at', { ascending: false }).limit(1);
+    const kase = kaseRows?.[0];
     const { data: chars } = await admin.from('jbs_characters').select('name, is_ai, assigned_seat').eq('room_id', roomId);
     if (kase) {
       const aiNames = (chars || []).filter((c: any) => c.is_ai).map((c: any) => c.name);

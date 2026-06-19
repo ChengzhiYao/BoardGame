@@ -25,7 +25,8 @@ export async function POST(req: Request) {
   const startedAt = room.jbs_act_started_at ? new Date(room.jbs_act_started_at).getTime() : Date.now();
   const elapsedMin = Math.max(0, Math.floor((Date.now() - startedAt) / 60000));
 
-  const { data: kase } = await admin.from('jbs_cases').select('case_file').eq('room_id', roomId).maybeSingle();
+  const { data: kaseRows } = await admin.from('jbs_cases').select('case_file').eq('room_id', roomId).order('created_at', { ascending: false }).limit(1);
+  const kase = kaseRows?.[0];
   if (!kase) return NextResponse.json({ error: '案件未生成' }, { status: 409 });
   const { data: chars } = await admin.from('jbs_characters').select('name, is_ai, assigned_seat').eq('room_id', roomId);
   const aiNames = (chars || []).filter((c: any) => c.is_ai).map((c: any) => c.name);

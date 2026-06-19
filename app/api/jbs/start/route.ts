@@ -31,7 +31,12 @@ export async function POST(req: Request) {
   const realSeats = (players || []).map((p: any) => p.seat).filter((s: string) => s === 'A' || s === 'B').sort();
   const headcount = Math.max(realSeats.length, Math.min(8, Number(chosen.headcount) || 6));
 
-  await admin.from('rooms').update({ jbs_phase: 'locking', modules_generating: true }).eq('id', roomId);
+  // 原子锁：只有把 phase 从 script/lobby 抢到 locking 的那一个请求能继续，避免多人同时点"选这个"导致重复开本。
+  const { data: claimed } = await admin.from('rooms').update({ jbs_phase: 'locking', modules_generating: true }).eq('id', roomId).in('jbs_phase', ['script', 'lobby']).select('id');
+  if (!claimed || !claimed.length) return NextResponse.json({ ok: true, already: true });
+  // 清掉本房间可能残留的旧案件/角色，保证只有一套
+  await admin.from('jbs_cases').delete().eq('room_id', roomId);
+  await admin.from('jbs_characters').delete().eq('room_id', roomId);
   try {
     const { data: cf, usage } = await callLLMJson<any>({
       system: buildJbsCasePrompt(chosen, headcount, realSeats) + langDirective(room.language),

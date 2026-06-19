@@ -20,7 +20,8 @@ export async function POST(req: Request) {
   if (!room) return NextResponse.json({ error: '房间不存在' }, { status: 404 });
   if (room.host_user_id !== user.id) return NextResponse.json({ error: '只有房主可以生成头像' }, { status: 403 });
 
-  const { data: kase } = await admin.from('jbs_cases').select('case_file').eq('room_id', roomId).maybeSingle();
+  const { data: kaseRows } = await admin.from('jbs_cases').select('case_file').eq('room_id', roomId).order('created_at', { ascending: false }).limit(1);
+  const kase = kaseRows?.[0];
   if (!kase) return NextResponse.json({ error: '案件未生成' }, { status: 409 });
   const cf = kase.case_file || {};
   const meta = { type: cf.type, genre: cf.genre || cf.title, era: cf.era, place: cf.place };

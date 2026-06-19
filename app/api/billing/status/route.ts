@@ -1,6 +1,7 @@
-// 当前账号的开房额度状态（给收费页 / 落地页用）。
+// 当前账号的开房额度状态（给收费页 / 落地页用）。走 getEntitlement，确保一次性免费额度在登录看首页时就发放。
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
+import { getEntitlement } from '@/lib/billing/entitlement';
 
 export async function GET() {
   const supabase = createServerClient();
@@ -9,9 +10,6 @@ export async function GET() {
     return NextResponse.json({ loggedIn: false });
   }
   const admin = createAdminClient();
-  await admin.from('profiles').upsert({ user_id: user.id, email: user.email }, { onConflict: 'user_id', ignoreDuplicates: true });
-  const { data: wl } = await admin.from('whitelist_emails').select('email').eq('email', user.email).maybeSingle();
-  const { data: p } = await admin.from('profiles').select('credits, is_whitelisted').eq('user_id', user.id).maybeSingle();
-  const whitelisted = !!wl || !!p?.is_whitelisted;
-  return NextResponse.json({ loggedIn: true, email: user.email, whitelisted, credits: p?.credits || 0 });
+  const ent = await getEntitlement(admin, user);
+  return NextResponse.json({ loggedIn: true, email: ent.email, whitelisted: ent.whitelisted, credits: ent.credits });
 }

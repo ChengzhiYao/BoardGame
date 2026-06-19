@@ -192,6 +192,7 @@ create table if not exists profiles (
   stripe_customer_id text,
   created_at timestamptz not null default now()
 );
+alter table profiles add column if not exists free_granted boolean not null default false; -- 是否已发过一次性免费额度
 alter table profiles enable row level security;
 drop policy if exists profiles_self_read on profiles;
 create policy profiles_self_read on profiles for select using (auth.uid() = user_id or is_admin());

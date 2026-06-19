@@ -111,7 +111,7 @@ export default function Dashboard(props: ShellProps) {
     roomId: props.room.id,
     classify: (m: any) => (m.sender_type === 'kp' ? { kind: 'narrator' as const, text: m.content } : null),
   });
-  const myReady = props.mySeat === 'A' ? room.player_a_ready : room.player_b_ready;
+  const myReady = !!room.pending_actions?.[props.mySeat as string]?.content;
   const resolving = room.resolution_status === 'resolving';
   const myPending = room.pending_actions?.[props.mySeat as string]?.content;
   const myChar = charOfSeat(props.mySeat as string);
@@ -206,10 +206,9 @@ export default function Dashboard(props: ShellProps) {
 
       <div className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-[260px_1fr_300px] overflow-hidden">
         <aside className={`border-r border-eldritch/15 p-3 space-y-3 overflow-y-auto min-h-0 lg:block ${mobileTab === 'chars' ? 'block flex-1' : 'hidden'}`}>
-          {(['A', 'B'] as const).map((seat) => {
-            const p = players.find((x) => x.seat === seat);
-            return <CharacterCard key={seat} seat={seat} char={charOfSeat(seat)} name={nameOfUser(p?.user_id)} online={!!online[p?.user_id as string]} lang={lang} />;
-          })}
+          {[...players].sort((a, b) => a.seat.localeCompare(b.seat)).map((p) => (
+            <CharacterCard key={p.seat} seat={p.seat} char={charOfSeat(p.seat)} name={nameOfUser(p?.user_id)} online={!!online[p?.user_id as string]} lang={lang} />
+          ))}
         </aside>
 
         <section className={`flex-col overflow-hidden min-h-0 lg:flex ${mobileTab === 'story' ? 'flex flex-1' : 'hidden'}`}>
@@ -231,7 +230,7 @@ export default function Dashboard(props: ShellProps) {
           </div>
 
           <div className="border-t border-eldritch/20 px-4 py-3 space-y-2 shrink-0" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
-            <RoundStatus room={room} nameA={charNameOrUser('A')} nameB={charNameOrUser('B')} lang={lang} />
+            <RoundStatus room={room} players={players} nameOfSeat={charNameOrUser} lang={lang} />
 
             {myOut && !ended ? (
               <div className="text-center text-sm text-blood py-1">{t('out_notice')}</div>
@@ -510,11 +509,13 @@ function WorldClock({ clock, round, lang }: { clock: any[]; round: number; lang:
   );
 }
 
-function RoundStatus({ room, nameA, nameB, lang }: { room: any; nameA: string; nameB: string; lang: string }) {
-  const a = room.player_a_ready, b = room.player_b_ready;
+function RoundStatus({ room, players, nameOfSeat, lang }: { room: any; players: any[]; nameOfSeat: (seat: string) => string; lang: string }) {
+  const pending = room.pending_actions || {};
+  const seats = [...(players || [])].map((p) => p.seat).sort();
   const resolving = room.resolution_status === 'resolving';
   const submitted = EN(lang) ? 'submitted' : '已提交';
   const acting = EN(lang) ? 'acting…' : '行动中…';
+  const allIn = seats.length > 0 && seats.every((s) => !!pending[s]?.content);
   const Pill = ({ ready, name, seat }: { ready: boolean; name: string; seat: string }) => (
     <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs ${ready ? 'border-green-500/50 text-green-400 bg-green-900/15' : 'border-parchment/20 text-parchment/45'}`}>
       <span className={`w-1.5 h-1.5 rounded-full ${ready ? 'bg-green-400' : 'bg-parchment/30 animate-pulse'}`} />
@@ -522,13 +523,12 @@ function RoundStatus({ room, nameA, nameB, lang }: { room: any; nameA: string; n
     </span>
   );
   return (
-    <div className="flex items-center justify-center gap-3 flex-wrap">
-      <Pill ready={a} name={nameA} seat="A" />
-      <Pill ready={b} name={nameB} seat="B" />
+    <div className="flex items-center justify-center gap-2 flex-wrap">
+      {seats.map((s) => <Pill key={s} ready={!!pending[s]?.content} name={nameOfSeat(s)} seat={s} />)}
       {resolving ? (
         <span className="text-xs text-amber-400">{EN(lang) ? 'Keeper is resolving…' : '守秘人结算中…'}</span>
-      ) : a && b ? null : (
-        <span className="text-xs text-parchment/40">{EN(lang) ? 'Resolves once both submit' : '两人都提交后开始结算'}</span>
+      ) : allIn ? null : (
+        <span className="text-xs text-parchment/40">{EN(lang) ? 'Resolves once everyone submits' : '所有人都提交后开始结算'}</span>
       )}
     </div>
   );

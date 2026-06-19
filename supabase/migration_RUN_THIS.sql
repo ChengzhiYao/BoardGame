@@ -291,4 +291,8 @@ create policy messages_member_read on messages for select using (
   )
 );
 
+-- ---------- 20. CoC 最多 6 人：放开私密线索的座位约束（座位本身已在第 19 节放开到 A–H）----------
+alter table clues drop constraint if exists clues_visible_to_check;
+alter table clues add constraint clues_visible_to_check check (visible_to in ('all','A','B','C','D','E','F','G','H'));
+
 -- 完成。刷新网页即可。

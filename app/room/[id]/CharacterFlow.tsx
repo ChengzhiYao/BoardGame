@@ -25,13 +25,13 @@ export default function CharacterFlow(props: ShellProps) {
   const myPlayer = props.initialPlayers.find((p) => p.id === props.myPlayerId);
 
   if (state === 'character_creation')
-    return myChar && (myChar.creation_stage || 0) >= 1 ? <Waiting label={EN(lang) ? 'Profile submitted' : '资料已提交'} chars={props.initialCharacters} need={1} lang={lang} /> : <InfoForm {...props} />;
+    return myChar && (myChar.creation_stage || 0) >= 1 ? <Waiting label={EN(lang) ? 'Profile submitted' : '资料已提交'} chars={props.initialCharacters} total={props.initialPlayers.length} need={1} lang={lang} /> : <InfoForm {...props} />;
   if (state === 'attribute_allocation')
-    return myChar && (myChar.creation_stage || 0) >= 2 ? <Waiting label={EN(lang) ? 'Stats set' : '属性已确定'} chars={props.initialCharacters} need={2} lang={lang} /> : <AttributeForm {...props} />;
+    return myChar && (myChar.creation_stage || 0) >= 2 ? <Waiting label={EN(lang) ? 'Stats set' : '属性已确定'} chars={props.initialCharacters} total={props.initialPlayers.length} need={2} lang={lang} /> : <AttributeForm {...props} />;
   if (state === 'skill_allocation')
-    return myChar && (myChar.creation_stage || 0) >= 3 ? <Waiting label={EN(lang) ? 'Skills assigned' : '技能已分配'} chars={props.initialCharacters} need={3} lang={lang} /> : <SkillForm {...props} myChar={myChar} />;
+    return myChar && (myChar.creation_stage || 0) >= 3 ? <Waiting label={EN(lang) ? 'Skills assigned' : '技能已分配'} chars={props.initialCharacters} total={props.initialPlayers.length} need={3} lang={lang} /> : <SkillForm {...props} myChar={myChar} />;
   if (state === 'character_confirmation')
-    return myChar?.confirmed ? <Waiting label={EN(lang) ? 'You confirmed' : '你已确认'} chars={props.initialCharacters} need={4} lang={lang} /> : <ConfirmView {...props} />;
+    return myChar?.confirmed ? <Waiting label={EN(lang) ? 'You confirmed' : '你已确认'} chars={props.initialCharacters} total={props.initialPlayers.length} need={4} lang={lang} /> : <ConfirmView {...props} />;
   if (state === 'rule_briefing')
     return myPlayer?.is_ready ? <WaitingReady players={props.initialPlayers} lang={lang} /> : <BriefingView {...props} />;
   return null;
@@ -49,21 +49,23 @@ function Wrap({ title, desc, children }: any) {
   );
 }
 
-function Waiting({ label, chars, need, lang }: { label: string; chars: any[]; need: number; lang: string }) {
+function Waiting({ label, chars, need, total, lang }: { label: string; chars: any[]; need: number; total?: number; lang: string }) {
   const done = chars.filter((c) => (c.creation_stage || 0) >= need).length;
+  const n = total || 2;
   return (
     <div className="flex flex-col items-center gap-3 text-center">
       <div className="w-7 h-7 border-2 border-eldritch/30 border-t-eldritch rounded-full animate-spin" />
-      <p className="text-parchment/70">{label}{EN(lang) ? `, waiting for your partner… (${done}/2)` : `，等待同伴……（${done}/2）`}</p>
+      <p className="text-parchment/70">{label}{EN(lang) ? `, waiting for the others… (${done}/${n})` : `，等待其他人……（${done}/${n}）`}</p>
     </div>
   );
 }
 function WaitingReady({ players, lang }: { players: any[]; lang: string }) {
   const done = players.filter((p) => p.is_ready).length;
+  const n = players.length || 2;
   return (
     <div className="flex flex-col items-center gap-3 text-center">
       <div className="w-7 h-7 border-2 border-eldritch/30 border-t-eldritch rounded-full animate-spin" />
-      <p className="text-parchment/70">{EN(lang) ? `You’re ready, waiting for your partner… (${done}/2)` : `你已准备就绪，等待同伴……（${done}/2）`}</p>
+      <p className="text-parchment/70">{EN(lang) ? `You’re ready, waiting for the others… (${done}/${n})` : `你已准备就绪，等待其他人……（${done}/${n}）`}</p>
     </div>
   );
 }

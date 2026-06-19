@@ -32,7 +32,7 @@ export async function POST(req: Request) {
 
   // 容量：剧本杀最多 8 名真人（AI 补满其余），其它模式仍是 2 人。
   const SEATS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-  const cap = room.mode === 'jbs' ? 8 : 2;
+  const cap = room.mode === 'jbs' ? 8 : room.mode === 'coc' ? 6 : 2;
   if ((players?.length || 0) >= cap) {
     return NextResponse.json({ error: `房间已满（${cap}/${cap}）` }, { status: 403 });
   }
@@ -48,15 +48,7 @@ export async function POST(req: Request) {
     await admin.from('users').update({ display_name: body.displayName }).eq('id', user.id);
   }
 
-  // 满员后进入模组选择阶段（仅 CoC；海龟汤/真心话由各自流程处理，不跳步）。
-  // 仅当房间还在 lobby 时才自动推进——避免房主已单人开局后，迟到的第二人把进度重置回选模组。
-  const stillLobby = !room.game_state || room.game_state === 'lobby';
-  if (room.mode === 'coc' && stillLobby && (players?.length || 0) + 1 >= 2) {
-    await admin
-      .from('rooms')
-      .update({ status: 'character_creation', game_state: 'module_selection' })
-      .eq('id', room.id);
-  }
+  // 不再自动跳步：CoC 现支持 1~6 人，由房主在大厅手动点"开始"，以便等更多同伴加入。
 
   return NextResponse.json({ roomId: room.id });
 }

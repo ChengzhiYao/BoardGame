@@ -49,22 +49,19 @@ export async function POST(req: Request) {
   // 写入我的待结算行动
   const pending = { ...(room.pending_actions || {}) };
   pending[me.seat] = { content: content.trim(), action_type: action_type || 'free', player_id: me.id };
-  const readyPatch: any = { pending_actions: pending };
-  if (me.seat === 'A') readyPatch.player_a_ready = true; else readyPatch.player_b_ready = true;
-  await admin.from('rooms').update(readyPatch).eq('id', roomId);
+  await admin.from('rooms').update({ pending_actions: pending }).eq('id', roomId);
 
-  // 关键：写完后重新读取最新状态，避免两人几乎同时提交时各读到对方的旧值而双双卡住
+  // 写完后重新读取最新 pending，避免多人几乎同时提交各读到旧值而卡住
   const { data: fresh } = await admin
-    .from('rooms').select('player_a_ready, player_b_ready').eq('id', roomId).maybeSingle();
-  // 空座（单人局缺的座位）或已退场的座位都视为"自动就绪"，让在场玩家可独自推进
-  const hasSeat = (seat: string) => !!players0?.some((x: any) => x.seat === seat);
-  const aReady = !hasSeat('A') || !!fresh?.player_a_ready || isOut(charOfSeat0('A'));
-  const bReady = !hasSeat('B') || !!fresh?.player_b_ready || isOut(charOfSeat0('B'));
+    .from('rooms').select('pending_actions').eq('id', roomId).maybeSingle();
+  const freshPending = fresh?.pending_actions || pending;
+  // 在座且未退场的座位都必须提交；空座/已退场座位自动跳过 → 支持 1~6 人同房
+  const activeSeats = (players0 || []).map((p: any) => p.seat).filter((s: string) => !isOut(charOfSeat0(s)));
+  const remaining = activeSeats.filter((s: string) => !freshPending?.[s]?.content);
 
-  if (!(aReady && bReady)) {
-    const waiting_for = aReady ? 'B' : 'A';
-    await admin.from('rooms').update({ waiting_for }).eq('id', roomId);
-    return NextResponse.json({ ok: true, status: 'waiting', waiting_for });
+  if (remaining.length > 0) {
+    await admin.from('rooms').update({ waiting_for: remaining.join(',') }).eq('id', roomId);
+    return NextResponse.json({ ok: true, status: 'waiting', waiting_for: remaining });
   }
 
   // 两人都就绪：抢占结算（防止双方同时触发重复结算）
@@ -106,6 +103,8 @@ async function resolveRound(admin: any, roomId: string) {
   const charBySeat = (seat: string) => { const p = players?.find((x: any) => x.seat === seat); return characters?.find((c: any) => c.player_id === p?.id); };
   const nameOfSeat = (seat: string) => { const p = players?.find((x: any) => x.seat === seat); return users?.find((u: any) => u.id === p?.user_id)?.display_name || '调查员'; };
   const playerIdOfSeat = (seat: string) => players?.find((x: any) => x.seat === seat)?.id;
+  // 本房间实际在座的座位（CoC 现支持 1~6 人，全部按座位列表动态结算）
+  const seats: string[] = (players || []).map((p: any) => p.seat).sort();
 
   const { data: campaign } = room.campaign_id ? await admin.from('campaigns').select('*').eq('id', room.campaign_id).maybeSingle() : { data: null };
   const { data: truth } = campaign ? await admin.from('hidden_case_files').select('*').eq('campaign_id', campaign.id).maybeSingle() : { data: null };
@@ -118,11 +117,11 @@ async function resolveRound(admin: any, roomId: string) {
   const clock: any[] = Array.isArray(room.world_clock) ? room.world_clock : [];
   const due = clock.filter((e) => e && !e.fired && (Number(e.due_round) || 999) <= round);
 
-  const ctxChars = (['A', 'B'] as const).map((seat) => {
+  const ctxChars = seats.map((seat) => {
     const c = charBySeat(seat);
     return { seat, name: c?.name || '调查员', occupation: c?.occupation || '', hp: `${c?.hp_current ?? '?'}/${c?.hp_max ?? '?'}`, san: `${c?.san_current ?? '?'}/${c?.san_max ?? '?'}`, skills: c?.skills ? Object.entries(c.skills).map(([k, v]: any) => `${k} ${v.total}`).join('、') : '', items: Array.isArray(c?.inventory) ? c.inventory.join('、') : '' };
   });
-  const resourcesCtx = (['A', 'B'] as const).map((seat) => { const c = charBySeat(seat); return { seat, name: c?.name || '调查员', res: (c?.resources && typeof c.resources === 'object') ? c.resources : {} }; });
+  const resourcesCtx = seats.map((seat) => { const c = charBySeat(seat); return { seat, name: c?.name || '调查员', res: (c?.resources && typeof c.resources === 'object') ? c.resources : {} }; });
   const imageRemaining = (room.image_budget || 0) - (room.image_used || 0);
   const memory = room.memory || { summary: '', key_facts: [], up_to_round: 0 };
   // 解析器用的基础上下文（含资源，便于判断弹药够不够开枪）
@@ -139,8 +138,9 @@ async function resolveRound(admin: any, roomId: string) {
   });
 
   // 落库两名玩家的行动 + 逐个解析掷骰
-  const seatLines: Record<string, string[]> = { A: [], B: [] };
-  for (const seat of ['A', 'B'] as const) {
+  const seatLines: Record<string, string[]> = {};
+  seats.forEach((s) => { seatLines[s] = []; });
+  for (const seat of seats) {
     const pa = pending[seat];
     if (!pa?.content) continue;
     await admin.from('messages').insert({ room_id: roomId, sender_type: 'player', sender_player_id: pa.player_id || playerIdOfSeat(seat), action_type: pa.action_type || 'free', content: pa.content, turn_no: round, visibility: 'public' });
@@ -183,7 +183,7 @@ async function resolveRound(admin: any, roomId: string) {
     }
     // 敌意回击：玩家挑衅/攻击/送上门 → 敌人真的还手扣 HP（机制化，不靠叙述层良心）
     for (const ia of plan.incoming_attacks || []) {
-      const tseat = ['A', 'B'].includes(ia.target) ? ia.target : seat;
+      const tseat = seats.includes(ia.target) ? ia.target : seat;
       const tc = charBySeat(tseat); if (!tc) continue;
       const isTOut = (() => { const f = tc.status_flags || {}; return !!(f.dead || f.retired) || (tc.hp_current ?? 1) <= 0; })();
       if (isTOut) continue;
@@ -209,7 +209,7 @@ async function resolveRound(admin: any, roomId: string) {
   }
 
   // 判定后：构造叙述上下文（含世界时钟 / NPC 记忆与态度 / 疯狂 / 资源）
-  const madness = (['A', 'B'] as const).map((seat) => { const c = charBySeat(seat); const kind = madnessOf(c); return kind ? { seat, name: c?.name || '调查员', kind, san: c?.san_current ?? 0 } : null; }).filter(Boolean) as any[];
+  const madness = seats.map((seat) => { const c = charBySeat(seat); const kind = madnessOf(c); return kind ? { seat, name: c?.name || '调查员', kind, san: c?.san_current ?? 0 } : null; }).filter(Boolean) as any[];
   const { data: npcRows } = await admin.from('npcs').select('name, role, disposition, goal, secret, memory, status, relationships').eq('room_id', roomId).order('first_seen_turn', { ascending: true });
   const narratorCtx: any = {
     ...baseCtx,
@@ -221,16 +221,18 @@ async function resolveRound(admin: any, roomId: string) {
     resources: resourcesCtx,
   };
 
-  // 统一叙述（主模型）
-  const note = `【本回合双人行动与判定结果，请统一结算】
-玩家A（${nameOfSeat('A')}）：${pending.A?.content || '（未行动）'}
-A 判定：${seatLines.A.length ? seatLines.A.join('；') : '无需骰子'}
-玩家B（${nameOfSeat('B')}）：${pending.B?.content || '（未行动）'}
-B 判定：${seatLines.B.length ? seatLines.B.join('；') : '无需骰子'}
+  // 统一叙述（主模型）——按实际在座调查员（1~6 人）动态拼装
+  const actionBlock = seats.map((seat) => {
+    const c = charBySeat(seat);
+    const nm = c?.name || nameOfSeat(seat);
+    return `调查员${seat}（${nm}）：${pending[seat]?.content || '（未行动）'}\n${seat} 判定：${seatLines[seat]?.length ? seatLines[seat].join('；') : '无需骰子'}`;
+  }).join('\n');
+  const sectionHint = seats.map((seat) => { const c = charBySeat(seat); return `【${c?.name || nameOfSeat(seat)}（${seat}）行动结果】…`; }).join('\n');
+  const note = `【本回合 ${seats.length} 名调查员的行动与判定结果，请统一结算】
+${actionBlock}
 ${due.length ? `\n★本回合世界时钟到点：${due.map((e) => e.label + (e.on_fire ? `（${e.on_fire}）` : '')).join('；')}——必须把它写进剧情。` : ''}
-narration 必须分段输出：
-【玩家A行动结果】…
-【玩家B行动结果】…
+narration 必须分段输出，每位调查员一段，再加世界状态：
+${sectionHint}
 【世界状态变化】…（嫌疑值/NPC态度/SAN/HP 概述）
 下一步可行动作放进 guidance.options。骰子已判定，不要再请求。${round >= 25 ? `\n（本局已进行 ${round} 回合。若案件已接近真相或收尾，请果断给出结局：progress.ending_triggered=true 并写好 ending_text 与结局类型。）` : ''}`;
 
@@ -245,20 +247,20 @@ narration 必须分段输出：
 
   // 疯狂私有幻觉：以"KP 叙述"的样式只发给该玩家，与真实叙述难以分辨
   for (const h of out.hallucinations || []) {
-    if (!h?.text || !['A', 'B'].includes(h.to)) continue;
-    await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', turn_no: round, content: h.text, visibility: h.to === 'A' ? 'player_a' : 'player_b', payload: { hallucination: true } });
+    if (!h?.text || !seats.includes(h.to)) continue;
+    await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', turn_no: round, content: h.text, visibility: `seat:${h.to}`, payload: { hallucination: true } });
   }
 
   // 私人事件（明确标"仅你可见"，与幻觉不同）
   for (const pn of out.private_notes || []) {
-    if (!pn?.text || !['A', 'B'].includes(pn.to)) continue;
-    await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: round, content: pn.text, visibility: pn.to === 'A' ? 'player_a' : 'player_b', payload: { type: 'private' } });
+    if (!pn?.text || !seats.includes(pn.to)) continue;
+    await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: round, content: pn.text, visibility: `seat:${pn.to}`, payload: { type: 'private' } });
   }
 
-  // 各玩家当前所在地点（从各自的 guidance 块取，双人可分头行动）
+  // 各玩家当前所在地点（从各自的 guidance 块取，可分头行动）
   const g = out.guidance || {};
-  const locOf = (seat: 'A' | 'B') => (seat === 'A' ? g.a?.location : g.b?.location) || g.location;
-  for (const seat of ['A', 'B'] as const) {
+  const locOf = (seat: string) => g[seat.toLowerCase()]?.location || g.location;
+  for (const seat of seats) {
     const loc = locOf(seat);
     if (loc) { const c = charBySeat(seat); if (c) await admin.from('characters').update({ current_location: loc }).eq('id', c.id); }
   }

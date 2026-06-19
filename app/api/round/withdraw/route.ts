@@ -20,12 +20,8 @@ export async function POST(req: Request) {
 
   const pending = { ...(room.pending_actions || {}) };
   delete pending[me.seat];
-  const patch: any = { pending_actions: pending };
-  if (me.seat === 'A') patch.player_a_ready = false; else patch.player_b_ready = false;
-  const aReady = me.seat === 'A' ? false : room.player_a_ready;
-  const bReady = me.seat === 'B' ? false : room.player_b_ready;
-  patch.waiting_for = aReady && bReady ? null : (!aReady && !bReady ? 'both' : (aReady ? 'B' : 'A'));
-  await admin.from('rooms').update(patch).eq('id', roomId);
+  // 就绪状态改为从 pending_actions 推导（支持 1~6 人），撤回只需移除本座位的行动。
+  await admin.from('rooms').update({ pending_actions: pending, waiting_for: me.seat }).eq('id', roomId);
 
   return NextResponse.json({ ok: true });
 }

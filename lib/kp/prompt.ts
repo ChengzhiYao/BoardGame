@@ -85,7 +85,7 @@ NPC秘密与谎言：${JSON.stringify(t.npc_secrets || [])}
 ${truthBlock}
 ${formatMemoryBlock(ctx.memory)}
 
-【两名调查员】
+【调查员（${ctx.characters.length} 名，按座位）】
 ${chars}
 【已知线索】${knownClues}
 【当前嫌疑值】${ctx.suspicion}

@@ -86,6 +86,18 @@ export default async function RoomPage({ params }: { params: { id: string } }) {
     botcPlayers = r.data || [];
   }
 
+  let mccPublic: any = null;
+  let mccHand: string[] = [];
+  if (room.mode === 'mcc') {
+    const pr = await supabase.from('mcc_public').select('data').eq('room_id', params.id).maybeSingle();
+    mccPublic = pr.data?.data || null;
+    const mySeatRow = (players || []).find((p) => p.user_id === user.id);
+    if (mySeatRow) {
+      const hr = await supabase.from('mcc_hands').select('cards').eq('room_id', params.id).eq('seat', mySeatRow.seat).maybeSingle();
+      mccHand = (hr.data?.cards as string[]) || [];
+    }
+  }
+
   const me = (players || []).find((p) => p.user_id === user.id);
   const site = process.env.NEXT_PUBLIC_SITE_URL || '';
 
@@ -93,6 +105,8 @@ export default async function RoomPage({ params }: { params: { id: string } }) {
     <RoomShell
       caseQuality={caseQuality}
       botcPlayers={botcPlayers}
+      mccPublic={mccPublic}
+      mccHand={mccHand}
       soupSurface={(soup as any)?.surface || ''}
       room={room}
       initialPlayers={players || []}

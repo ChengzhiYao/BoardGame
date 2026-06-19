@@ -354,4 +354,41 @@ create table if not exists botc_night (
 alter table botc_night enable row level security;
 -- 不开放任何 anon/authenticated 读策略：夜间行动保密，仅服务端读写。
 
+-- ---------- 22. Midnight Cat Curse（原创"赌运气"猫主题派对牌游戏；2~6 真人，无 AI）----------
+-- rooms.mode 现可为 coc | soup | td | jbs | botc | mcc
+alter table rooms add column if not exists mcc_phase text; -- lobby|playing|ended
+
+-- 完整对局状态（含牌堆顺序与各家手牌，机密，仅 service_role 可读写）
+create table if not exists mcc_games (
+  room_id uuid primary key references rooms(id) on delete cascade,
+  state jsonb not null,
+  updated_at timestamptz not null default now()
+);
+alter table mcc_games enable row level security;
+-- 不开放任何 anon/authenticated 读策略：含牌堆顺序与他人手牌。
+
+-- 公开桌面快照（牌堆数量/弃牌堆顶/各家手牌数/当前回合/日志，房间成员可读）
+create table if not exists mcc_public (
+  room_id uuid primary key references rooms(id) on delete cascade,
+  data jsonb not null,
+  updated_at timestamptz not null default now()
+);
+alter table mcc_public enable row level security;
+drop policy if exists mcc_public_read on mcc_public;
+create policy mcc_public_read on mcc_public for select using (is_room_member(room_id) or is_admin());
+
+-- 每名玩家的手牌（仅本人可读）
+create table if not exists mcc_hands (
+  room_id uuid not null references rooms(id) on delete cascade,
+  seat text not null,
+  cards jsonb not null default '[]'::jsonb,
+  primary key (room_id, seat)
+);
+alter table mcc_hands enable row level security;
+drop policy if exists mcc_hands_read on mcc_hands;
+create policy mcc_hands_read on mcc_hands for select using (seat = my_seat(room_id) or is_admin());
+
+do $$ begin alter publication supabase_realtime add table mcc_public; exception when duplicate_object then null; end $$;
+do $$ begin alter publication supabase_realtime add table mcc_hands; exception when duplicate_object then null; end $$;
+
 -- 完成。刷新网页即可。

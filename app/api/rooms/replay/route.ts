@@ -55,6 +55,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
 
+  // 午夜猫诅咒：清空牌局回到大厅
+  if (room.mode === 'mcc') {
+    for (const tbl of ['mcc_games', 'mcc_public', 'mcc_hands']) {
+      await admin.from(tbl).delete().eq('room_id', roomId);
+    }
+    await admin.from('rooms').update({ game_state: 'lobby', mcc_phase: 'lobby', modules_generating: false }).eq('id', roomId);
+    if (!ent.whitelisted) {
+      await admin.from('profiles').update({ credits: Math.max(0, (ent.credits || 0) - 1) }).eq('user_id', user.id);
+    }
+    return NextResponse.json({ ok: true });
+  }
+
   // 海龟汤 / 真心话：清空对局回到各自大厅
   if (room.mode === 'soup' || room.mode === 'td') {
     await admin.from('messages').delete().eq('room_id', roomId);

@@ -10,6 +10,7 @@ import SoupRoom from './SoupRoom';
 import TDRoom from './TDRoom';
 import JbsRoom from './JbsRoom';
 import BotcRoom from './BotcRoom';
+import MccRoom from './MccRoom';
 import AudioManager from './AudioManager';
 
 const EN = (l?: string) => l === 'en';
@@ -50,6 +51,8 @@ export type ShellProps = {
   soupSurface?: string;
   jbsCharacters?: any[];
   botcPlayers?: any[];
+  mccPublic?: any;
+  mccHand?: string[];
 };
 
 export default function RoomShell(props: ShellProps) {
@@ -82,6 +85,7 @@ export default function RoomShell(props: ShellProps) {
   if (props.room.mode === 'td') return <TDRoom {...props} />;
   if (props.room.mode === 'jbs') return (<><AudioManager state={jbsAudioState(props.room)} /><JbsRoom {...props} /></>);
   if (props.room.mode === 'botc') return <BotcRoom {...props} />;
+  if (props.room.mode === 'mcc') return <MccRoom {...props} />;
 
   const state = props.room.game_state || 'lobby';
   const audioState = audioStateFor(props.room);

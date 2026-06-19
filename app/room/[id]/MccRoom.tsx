@@ -84,8 +84,10 @@ export default function MccRoom(props: ShellProps) {
         else if (m.includes('🏆')) mccSfx('win');
         else if (m.includes('🔔')) { mccSfx('ward'); setFlashKey((k) => k + 1); }
         else if (m.includes('🎴')) mccSfx('draw');
-        else if (m.includes('🃏') || m.includes('🙀') || m.includes('🚫') || m.includes('🪞')) mccSfx('flip');
-        else if (/[🌀🐾🍤🔊🧶🐈🕯️😴]/u.test(m)) mccSfx('flip');
+        else if (m.includes('🙀')) mccSfx('hiss');
+        else if (m.includes('🌀')) mccSfx('shuffle');
+        else if (m.includes('🃏') || m.includes('🚫') || m.includes('🪞')) mccSfx('flip');
+        else if (/[🐾🍤🔊🧶🐈🕯️😴]/u.test(m)) mccSfx('flip');
       }
     }
     logLen.current = logs.length;

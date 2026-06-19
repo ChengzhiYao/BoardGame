@@ -2,7 +2,7 @@
 // 午夜猫诅咒音效：抽/翻/出局/胜利等。护身铃复用已有 bell.mp3，胜利复用 reveal.mp3，其余 Web Audio 合成。
 import { audioBus } from './bus';
 
-const FILES: Record<string, string> = { ward: '/audio/botc/bell.mp3', win: '/audio/botc/reveal.mp3' };
+const FILES: Record<string, string> = { ward: '/audio/botc/bell.mp3', win: '/audio/botc/reveal.mp3', flip: '/audio/mcc/flip.mp3', draw: '/audio/mcc/draw.mp3', eliminate: '/audio/mcc/out.mp3', shuffle: '/audio/mcc/shuffle.mp3', hiss: '/audio/mcc/hiss.mp3' };
 let ctx: AudioContext | null = null;
 function ac(): AudioContext | null { if (typeof window === 'undefined') return null; try { ctx = ctx || new (window.AudioContext || (window as any).webkitAudioContext)(); return ctx; } catch { return null; } }
 function tone(freq: number, start: number, dur: number, type: OscillatorType = 'sine', gain = 0.16, slideTo?: number) {

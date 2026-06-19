@@ -118,7 +118,26 @@ export default function Home() {
 
       {err && <p className="text-blood text-sm">{err}</p>}
       <a href="/upgrade" className="text-parchment/40 hover:text-parchment text-sm underline">{t('home_upgrade_link')}</a>
+      <AdminPanel />
     </main>
+  );
+}
+
+function AdminPanel() {
+  const [s, setS] = useState<any | null>(null);
+  async function load() {
+    try { const r = await fetch('/api/admin/stats'); if (r.ok) setS(await r.json()); else setS(null); }
+    catch { setS(null); }
+  }
+  useEffect(() => { load(); const id = setInterval(load, 15000); return () => clearInterval(id); }, []);
+  if (!s) return null;
+  return (
+    <div className="fixed bottom-3 left-3 z-30 rounded-lg bg-fog/90 border border-eldritch/30 px-3 py-2 text-xs text-parchment/80 backdrop-blur space-y-0.5 text-left">
+      <div className="text-eldritch font-medium">● Admin · live</div>
+      <div>🟢 在线玩家 <span className="text-parchment">{s.activePlayers}</span> · 活跃房间 <span className="text-parchment">{s.activeRooms}</span></div>
+      <div>进行中 {s.playingRooms} · 今日新局 {s.roomsToday}</div>
+      <div className="text-parchment/40">累计 房间 {s.totalRooms} · 玩家 {s.totalPlayers}</div>
+    </div>
   );
 }
 

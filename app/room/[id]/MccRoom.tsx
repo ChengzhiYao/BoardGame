@@ -275,9 +275,9 @@ export default function MccRoom(props: ShellProps) {
       </div>
 
       {/* 牌堆 / 弃牌 */}
-      <div className="px-4 py-3 flex items-center justify-center gap-6 border-b border-eldritch/10">
-        <div className="text-center"><div className="w-[72px] h-[100px] rounded-xl bg-black border border-white/25 flex items-center justify-center"><div className="w-8 h-12 rounded border border-white/20" /></div><div className="text-xs text-parchment/50 mt-1">{en ? 'Deck' : '牌堆'} {pub.deckCount}</div></div>
-        <div className="text-center">{pub.discardTop ? <div key={pub.discardTop + '-' + pub.discardCount} className="mcc-pop"><MccCard card={pub.discardTop} en={en} w={96} /></div> : <div className="w-14 h-20 rounded-lg bg-fog border border-eldritch/30 flex items-center justify-center text-2xl text-parchment/30">—</div>}<div className="text-xs text-parchment/50 mt-1">{en ? 'Discard' : '弃牌'} {pub.discardCount}</div></div>
+      <div className="px-4 py-2 flex items-center justify-center gap-6 border-b border-eldritch/10">
+        <div className="text-center"><div className="w-12 h-[68px] rounded-lg bg-black border border-white/25 flex items-center justify-center"><div className="w-6 h-9 rounded border border-white/20" /></div><div className="text-xs text-parchment/50 mt-1">{en ? 'Deck' : '牌堆'} {pub.deckCount}</div></div>
+        <div className="text-center">{pub.discardTop ? <div key={pub.discardTop + '-' + pub.discardCount} className="mcc-pop"><MccCard card={pub.discardTop} en={en} w={64} /></div> : <div className="w-14 h-20 rounded-lg bg-fog border border-eldritch/30 flex items-center justify-center text-2xl text-parchment/30">—</div>}<div className="text-xs text-parchment/50 mt-1">{en ? 'Discard' : '弃牌'} {pub.discardCount}</div></div>
       </div>
 
       {/* 日志 */}
@@ -313,7 +313,7 @@ export default function MccRoom(props: ShellProps) {
         const canMirror = ['swap', 'hex', 'thief'].includes(pend.card) && pend.target === mySeat && hand.includes('mirror');
         const others = pub.players.filter((p: any) => p.alive && p.seat !== mySeat && p.seat !== pend.by);
         return (
-          <div className="px-4 py-3 border-t border-amber-700/40 bg-amber-950/25 max-w-2xl w-full mx-auto text-center space-y-2">
+          <div className="px-4 py-2 border-t border-amber-700/40 bg-amber-950/25 max-w-2xl w-full mx-auto text-center space-y-1">
             <div className="text-sm text-amber-200/90">🃏 {byName} {en ? 'played' : '打出'}「{cn(pend.card, en)}」{tgtName ? (en ? ` \u2192 ${tgtName}` : `（指向 ${tgtName}）`) : ''} · {pend.hiss % 2 === 1 ? (en ? 'will be CANCELED' : '当前将被取消') : (en ? 'will resolve' : '当前将生效')}</div>
             {myAlive && (
               <div className="flex gap-2 justify-center flex-wrap">
@@ -355,7 +355,7 @@ export default function MccRoom(props: ShellProps) {
                   {en ? 'Draw a card ▶' : '抽一张牌 ▶'}
                 </button>
               </div>
-              <div className="flex items-end gap-2 overflow-x-auto pt-20 pb-2 px-2" style={{ WebkitOverflowScrolling: 'touch' }}>
+              <div className="flex items-end gap-2 overflow-x-auto pt-3 sm:pt-16 pb-2 px-2" style={{ WebkitOverflowScrolling: 'touch' }}>
                 {hand.length === 0 && <span className="text-sm text-parchment/40 self-center">{en ? '(no cards)' : '（没有手牌）'}</span>}
                 {hand.map((c, i) => {
                   const usable = myTurn && !['ward', 'hiss', 'mirror'].includes(c);
@@ -365,7 +365,7 @@ export default function MccRoom(props: ShellProps) {
                       onClick={() => { if (!usable || busy) return; if (NEEDS_TARGET.includes(c)) setPickCard(c); else playCard(c); }}
                       className={`hand-card mcc-deal shrink-0 ${usable ? 'cursor-pointer' : 'opacity-55 cursor-default'}`}>
                       <div style={{ transform: `rotate(${(i - mid) * 2}deg)`, transformOrigin: 'bottom center' }}>
-                        <MccCard card={c} en={en} w={112} />
+                        <MccCard card={c} en={en} w={100} />
                       </div>
                     </button>
                   );

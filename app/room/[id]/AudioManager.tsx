@@ -13,6 +13,28 @@ export default function AudioManager({ state }: { state: string }) {
   const [voice, setVoice] = useState<VCtrl>(getVoiceControl());
   useEffect(() => subscribeVoiceControl(setVoice), []);
 
+  // 可拖动：玩家自由把悬浮条拖到不挡屏幕的位置，记住坐标
+  const barRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const posRef = useRef<{ x: number; y: number } | null>(null);
+  const dragRef = useRef<{ dx: number; dy: number } | null>(null);
+  useEffect(() => { try { const s = localStorage.getItem('audiobar_pos'); if (s) { const p = JSON.parse(s); setPos(p); posRef.current = p; } } catch {} }, []);
+  function onGripDown(e: any) {
+    const r = barRef.current?.getBoundingClientRect(); if (!r) return;
+    dragRef.current = { dx: e.clientX - r.left, dy: e.clientY - r.top };
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+    e.preventDefault();
+  }
+  function onGripMove(e: any) {
+    if (!dragRef.current) return;
+    const w = barRef.current?.offsetWidth || 160, h = barRef.current?.offsetHeight || 36;
+    const W = typeof window !== 'undefined' ? window.innerWidth : 9999, H = typeof window !== 'undefined' ? window.innerHeight : 9999;
+    const x = Math.max(4, Math.min(W - w - 4, e.clientX - dragRef.current.dx));
+    const y = Math.max(4, Math.min(H - h - 4, e.clientY - dragRef.current.dy));
+    const p = { x, y }; posRef.current = p; setPos(p);
+  }
+  function onGripUp() { if (dragRef.current) { dragRef.current = null; try { localStorage.setItem('audiobar_pos', JSON.stringify(posRef.current)); } catch {} } }
+
   const bedRef = useRef<HTMLAudioElement | null>(null);
   const fadeRef = useRef<any>(null);
   const lastLoopCat = useRef<AudioCategory | null>(null);
@@ -121,7 +143,10 @@ export default function AudioManager({ state }: { state: string }) {
   useEffect(() => () => { if (bedRef.current) bedRef.current.pause(); }, []);
 
   return (
-    <div className="fixed right-2 top-2 lg:top-auto lg:bottom-3 lg:right-3 z-50 flex items-center gap-2 bg-fog/90 border border-eldritch/30 rounded-full px-3 py-1.5 backdrop-blur">
+    <div ref={barRef} style={pos ? { left: pos.x, top: pos.y, right: 'auto', bottom: 'auto' } : undefined}
+      className="fixed right-2 top-2 lg:top-auto lg:bottom-3 lg:right-3 z-50 flex items-center gap-2 bg-fog/90 border border-eldritch/30 rounded-full px-3 py-1.5 backdrop-blur">
+      <span onPointerDown={onGripDown} onPointerMove={onGripMove} onPointerUp={onGripUp} style={{ touchAction: 'none' }}
+        className="cursor-move select-none text-parchment/40 leading-none px-0.5" title="拖动">⠿</span>
       {voice && (
         <button onClick={voice.cycle}
           title={voice.mode === 'off' ? '角色语音：关' : voice.mode === 'browser' ? '角色语音：免费' : '角色语音：高音质'}

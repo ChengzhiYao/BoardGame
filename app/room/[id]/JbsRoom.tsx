@@ -205,7 +205,7 @@ export default function JbsRoom(props: ShellProps) {
           <button onClick={() => { navigator.clipboard.writeText(inviteUrl); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
             className="px-4 py-1.5 rounded bg-eldritch/40 hover:bg-eldritch text-parchment text-sm">{copied ? (en ? 'Copied' : '已复制') : (en ? 'Copy invite link' : '复制邀请链接')}</button>
         </div>
-        {isHost ? (
+        {(
           <div className="flex flex-col items-center gap-3">
             <div className="flex items-center gap-2">
               <span className="text-sm text-parchment/60">{en ? 'Total cast:' : '总人数：'}</span>
@@ -233,7 +233,7 @@ export default function JbsRoom(props: ShellProps) {
             </div>
             {showCustom && customPanel}
           </div>
-        ) : <p className="text-parchment/40 text-sm">{en ? 'Waiting for the host to pick a script…' : '等待房主出本……'}</p>}
+        )}
       </main>
     );
   }
@@ -254,12 +254,12 @@ export default function JbsRoom(props: ShellProps) {
               <p className="text-eldritch/80 text-sm italic">{s.tagline}</p>
               <p className="text-parchment/70 text-sm leading-relaxed flex-1">{s.hook}</p>
               <p className="text-parchment/40 text-xs">{en ? 'Difficulty' : '难度'}: {s.difficulty} · {en ? 'Emotion' : '情感'}: {s.emotion}</p>
-              {isHost && <button onClick={() => startScript(s.id)} disabled={busy}
-                className="mt-1 px-4 py-2 rounded bg-blood/80 hover:bg-blood text-parchment text-sm disabled:opacity-50">{busy ? (en ? 'Opening…' : '开本中…') : (en ? 'Play this' : '选这个')}</button>}
+              <button onClick={() => startScript(s.id)} disabled={busy}
+                className="mt-1 px-4 py-2 rounded bg-blood/80 hover:bg-blood text-parchment text-sm disabled:opacity-50">{busy ? (en ? 'Opening…' : '开本中…') : (en ? 'Play this' : '选这个')}</button>
             </div>
           ))}
         </div>
-        {isHost && (
+        {(
           <div className="flex flex-col items-center gap-3">
             <div className="flex items-center gap-4">
               <button onClick={() => genScripts()} disabled={busy || generating} className="text-parchment/40 text-sm underline">{en ? 'Reroll scripts' : '换一批'}</button>

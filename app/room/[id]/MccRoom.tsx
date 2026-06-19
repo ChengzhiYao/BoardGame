@@ -35,6 +35,11 @@ export default function MccRoom(props: ShellProps) {
   const [peek, setPeek] = useState<string[] | null>(null);
   const [mirrorPick, setMirrorPick] = useState(false);
   const [showDiscard, setShowDiscard] = useState(false);
+  const [preview, setPreview] = useState<number | null>(null);
+  const [armed, setArmed] = useState(false);
+  const [flashKey, setFlashKey] = useState(0);
+  const touchStartY = useRef(0);
+  const armedRef = useRef(false);
   const [aiFill, setAiFill] = useState(true);
   const [totalSeats, setTotalSeats] = useState(4);
   const logRef = useRef<HTMLDivElement>(null);
@@ -72,9 +77,9 @@ export default function MccRoom(props: ShellProps) {
     if (logs.length > logLen.current) {
       for (const l of logs.slice(logLen.current)) {
         const m = l.msg || '';
-        if (m.includes('💀')) mccSfx('eliminate');
+        if (m.includes('💀')) { mccSfx('eliminate'); setFlashKey((k) => k + 1); }
         else if (m.includes('🏆')) mccSfx('win');
-        else if (m.includes('🔔')) mccSfx('ward');
+        else if (m.includes('🔔')) { mccSfx('ward'); setFlashKey((k) => k + 1); }
         else if (m.includes('🎴')) mccSfx('draw');
         else if (m.includes('🃏') || m.includes('🙀') || m.includes('🚫') || m.includes('🪞')) mccSfx('flip');
       }
@@ -129,10 +134,7 @@ export default function MccRoom(props: ShellProps) {
   }
   async function drawCard() {
     const d = await call('/api/mcc/draw', { roomId: props.room.id });
-    if (d?.drew) {
-      if (d.eliminated) {/* log shows it */ }
-      else if (d.needWard) {/* ward modal via pub.pending */ }
-    }
+    if (d?.drew === 'curse') { setFlashKey((k) => k + 1); mccSfx('curse'); }
   }
   async function useWard(pos: number) { await call('/api/mcc/ward', { roomId: props.room.id, pos }); }
   async function react(kind: 'hiss' | 'mirror', newTarget?: string) { setMirrorPick(false); await call('/api/mcc/react', { roomId: props.room.id, kind, newTarget }); }
@@ -192,6 +194,13 @@ export default function MccRoom(props: ShellProps) {
 
   return (
     <main className="h-[100svh] flex flex-col overflow-hidden">
+      {flashKey > 0 && <div key={flashKey} className="mcc-flash pointer-events-none fixed inset-0 z-[60] bg-red-700" />}
+      {preview != null && hand[preview] && (
+        <div className="pointer-events-none fixed left-1/2 -translate-x-1/2 z-40" style={{ bottom: 200 }}>
+          <div className={armed ? 'rounded-xl ring-2 ring-blood' : ''}><MccCard card={hand[preview]} en={en} w={196} /></div>
+          {armed && <div className="text-center text-xs mt-1 text-blood">{en ? 'Release to play ▲' : '松手打出 ▲'}</div>}
+        </div>
+      )}
       {(spectator || meDead) && <div className="px-4 py-1.5 text-center text-xs bg-ink/70 text-parchment/55 border-b border-eldritch/15">{spectator ? (en ? '👁 Spectating (no seat this game)' : '👁 观战中（你不在本局座位）') : (en ? '💀 You are out — spectating' : '💀 你已出局 · 观战中')}</div>}
       <header className="px-4 py-3 border-b border-eldritch/20 flex items-center justify-between gap-2">
         <span className="font-serif text-parchment text-sm truncate"><span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse mr-1.5 align-middle" />{en ? 'Midnight Cat Curse' : '午夜猫诅咒'}</span>
@@ -207,6 +216,19 @@ export default function MccRoom(props: ShellProps) {
         return (
           <div className="px-4 py-3 bg-ink/85 border-b border-eldritch/20 max-w-5xl w-full mx-auto">
             <div className="text-xs text-parchment/50 mb-2">{en ? `Discard pile (${pub.discardCount})` : `弃牌堆（共 ${pub.discardCount} 张）`}</div>
+            {(pub.feed || []).length > 0 && (
+              <div className="mb-3">
+                <div className="text-[11px] text-parchment/45 mb-1.5">{en ? 'Recent plays (newest first)' : '出牌顺序（最新在前）'}</div>
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {[...pub.feed].reverse().map((it: any, i: number) => (
+                    <div key={i} className="shrink-0 text-center">
+                      <div className="text-[9px] text-parchment/50 mb-0.5 truncate" style={{ maxWidth: 66 }}>{pub.players.find((p: any) => p.seat === it.by)?.name || it.by}</div>
+                      <MccCard card={it.c} en={en} w={66} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {pub.discardCount === 0 ? <div className="text-sm text-parchment/40">{en ? '(empty)' : '（空）'}</div> : (
               <div className="flex gap-2 flex-wrap max-h-[40vh] overflow-y-auto">
                 {Object.entries(counts).map(([c, num]) => (
@@ -310,16 +332,23 @@ export default function MccRoom(props: ShellProps) {
                   {en ? 'Draw a card ▶' : '抽一张牌 ▶'}
                 </button>
               </div>
-              <div className="flex gap-2 overflow-x-auto pb-1">
+              <div className="flex items-end overflow-x-auto pt-9 pb-1 pl-2">
                 {hand.length === 0 && <span className="text-sm text-parchment/40 self-center">{en ? '(no cards)' : '（没有手牌）'}</span>}
                 {hand.map((c, i) => {
                   const usable = myTurn && !['ward', 'hiss', 'mirror'].includes(c);
+                  const mid = (hand.length - 1) / 2;
+                  const tryPlay = () => { if (!usable || busy) return; if (NEEDS_TARGET.includes(c)) setPickCard(c); else playCard(c); };
                   return (
-                    <button key={i} disabled={busy || !usable} title={en ? META[c]?.d_en : META[c]?.d_zh}
-                      onClick={() => { if (NEEDS_TARGET.includes(c)) setPickCard(c); else playCard(c); }}
-                      className={`mcc-deal shrink-0 rounded-lg transition ${usable ? 'hover:-translate-y-1 cursor-pointer' : 'opacity-55 cursor-default'}`}>
-                      <MccCard card={c} en={en} w={116} />
-                    </button>
+                    <div key={i} className="hand-card mcc-deal shrink-0" style={{ marginLeft: i ? -30 : 0, zIndex: i, touchAction: 'pan-x' }}
+                      onMouseEnter={() => setPreview(i)} onMouseLeave={() => setPreview((p) => (p === i ? null : p))}
+                      onClick={tryPlay}
+                      onTouchStart={(e) => { setPreview(i); touchStartY.current = e.touches[0].clientY; armedRef.current = false; setArmed(false); }}
+                      onTouchMove={(e) => { const a = (touchStartY.current - e.touches[0].clientY) > 60 && usable; armedRef.current = a; setArmed(a); }}
+                      onTouchEnd={() => { if (armedRef.current) tryPlay(); setPreview(null); setArmed(false); armedRef.current = false; }}>
+                      <div style={{ transform: `rotate(${(i - mid) * 2.6}deg)`, transformOrigin: 'bottom center' }} className={usable ? 'cursor-pointer' : 'opacity-55'}>
+                        <MccCard card={c} en={en} w={116} />
+                      </div>
+                    </div>
                   );
                 })}
               </div>

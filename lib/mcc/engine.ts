@@ -15,6 +15,7 @@ export interface State {
   turn: string;
   turnsToTake: number;
   bots: string[]; // 由 AI 扮演的座位
+  feed: { c: Card; by: string }[]; // 出牌顺序（谁出了什么）
   status: 'playing' | 'ended';
   winner: string | null;
   pending: null
@@ -45,7 +46,7 @@ export function newGame(players: { seat: string; name: string; bot?: boolean }[]
   for (let i = 0; i < N - 1; i++) deck.push('curse');
   shuffle(deck);
   const bots = players.filter((p) => p.bot).map((p) => p.seat);
-  return { deck, discard: [], hands, seats, names, alive, turn: seats[0], turnsToTake: 1, bots, status: 'playing', winner: null, pending: null, log: [{ msg: '🐾 午夜降临，猫群苏醒——活到最后的人获胜。' }] };
+  return { deck, discard: [], hands, seats, names, alive, turn: seats[0], turnsToTake: 1, bots, feed: [], status: 'playing', winner: null, pending: null, log: [{ msg: '🐾 午夜降临，猫群苏醒——活到最后的人获胜。' }] };
 }
 
 function nm(s: State, seat: string) { return s.names[seat] || seat; }
@@ -124,6 +125,7 @@ export function play(s: State, seat: string, card: Card, target?: string): { ok:
   const tgt = target || null;
   if (NEEDS_TARGET.includes(card)) { if (!tgt || !s.alive[tgt] || tgt === seat) return { ok: false, error: '请选择一个有效的目标玩家' }; }
   s.hands[seat].splice(idx, 1); s.discard.push(card);
+  s.feed.push({ c: card, by: seat }); if (s.feed.length > 50) s.feed = s.feed.slice(-50);
 
   if (card === 'peek') { L(s, `🕯️ ${nm(s, seat)} 借烛光偷看了牌堆顶。`); return { ok: true, peek: s.deck.slice(-3).reverse() }; }
 
@@ -200,7 +202,7 @@ export function publicView(s: State) {
   const pend = s.pending ? (s.pending.type === 'ward' ? { type: 'ward', seat: s.pending.seat } : { type: 'react', card: s.pending.card, by: s.pending.by, target: s.pending.target, hiss: s.pending.hiss }) : null;
   return {
     status: s.status, turn: s.turn, turnsToTake: s.turnsToTake,
-    deckCount: s.deck.length, discardTop: s.discard[s.discard.length - 1] || null, discardCount: s.discard.length, discard: s.discard,
+    deckCount: s.deck.length, discardTop: s.discard[s.discard.length - 1] || null, discardCount: s.discard.length, discard: s.discard, feed: s.feed.slice(-24),
     winner: s.winner, pending: pend,
     players: s.seats.map((seat) => ({ seat, name: s.names[seat], alive: s.alive[seat], handCount: s.hands[seat].length, isAI: s.bots.includes(seat) })),
     log: s.log.slice(-20),

@@ -38,3 +38,9 @@ body {
 .mcc-deal { animation: mccDeal .26s ease-out both; }
 @keyframes mccShake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-2px) rotate(-1deg); } 75% { transform: translateX(2px) rotate(1deg); } }
 .mcc-shake { animation: mccShake .3s ease-in-out; }
+
+/* 午夜猫诅咒 · 诅咒猫红屏 + 扇形手牌 */
+@keyframes mccFlash { 0% { opacity: 0; } 12% { opacity: .5; } 100% { opacity: 0; } }
+.mcc-flash { animation: mccFlash .7s ease-out forwards; }
+.hand-card { transition: transform .16s ease; }
+.hand-card:hover { transform: translateY(-22px) scale(1.07); z-index: 50 !important; }

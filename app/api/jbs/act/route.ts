@@ -29,6 +29,7 @@ export async function POST(req: Request) {
   if (!kase) return NextResponse.json({ error: '案件未生成' }, { status: 409 });
   const { data: chars } = await admin.from('jbs_characters').select('name, is_ai').eq('room_id', roomId);
   const aiNames = (chars || []).filter((c: any) => c.is_ai).map((c: any) => c.name);
+  const realNames = (chars || []).filter((c: any) => !c.is_ai).map((c: any) => c.name);
 
   // 落库玩家行动
   await admin.from('messages').insert({ room_id: roomId, sender_type: 'player', sender_player_id: me.id, action_type: 'free', content: content.trim(), turn_no: room.jbs_act || 1, visibility: 'public' });
@@ -43,7 +44,7 @@ export async function POST(req: Request) {
 
   try {
     const { data: out, usage } = await callLLMJson<any>({
-      system: buildJbsDmPrompt(kase.case_file, curAct, aiNames, { elapsedMin, actMin }) + langDirective(room.language),
+      system: buildJbsDmPrompt(kase.case_file, curAct, aiNames, realNames, { elapsedMin, actMin }) + langDirective(room.language),
       messages: [...base, { role: 'user', content: `${me.seat} 的行动：${content.trim()}` }],
       tier: 'main', temperature: 0.8, maxTokens: 2200, retry: true,
     });
@@ -52,6 +53,7 @@ export async function POST(req: Request) {
     if (out.narration) await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', turn_no: room.jbs_act || 1, content: out.narration, payload: { type: 'jbs_dm' } });
     for (const a of out.ai_lines || []) {
       if (!a?.text || !a?.name) continue;
+      if (!aiNames.includes(a.name)) continue; // 硬过滤：绝不让 AI 顶替真人/未知角色发言
       await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', turn_no: room.jbs_act || 1, content: a.text, payload: { type: 'jbs_ai', name: a.name } });
     }
     for (const ev of out.evidence_revealed || []) {

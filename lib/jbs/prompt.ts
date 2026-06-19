@@ -94,7 +94,7 @@ export function buildJbsCasePrompt(chosen: any, headcount: number, realSeats: st
 }
 
 // DM 主持每一步：玩家行动 → 叙述结果 + 让 AI 角色自主发言 + 适时推进幕。知道全部真相与秘密，但绝不泄露。
-export function buildJbsDmPrompt(caseFile: any, act: number, aiNames: string[], timing?: { elapsedMin: number; actMin: number }) {
+export function buildJbsDmPrompt(caseFile: any, act: number, aiNames: string[], realNames: string[] = [], timing?: { elapsedMin: number; actMin: number }) {
   const type = caseFile?.type || '推理';
   const t = timing || { elapsedMin: 0, actMin: 6 };
   const acts: { name?: string; goal?: string }[] = Array.isArray(caseFile?.acts) && caseFile.acts.length >= 4 ? caseFile.acts : [];
@@ -122,6 +122,8 @@ ${JSON.stringify(caseFile).slice(0, 9000)}
 - 立场各异：不要所有人都说同样的话、不要同时怀疑同一个人；至少有人在撒谎；
 - 但绝不主动暴露自己的秘密、绝不透露关键真相、绝不为推动剧情自爆身份。
 把这些主动发言放进 ai_lines（每条 {name,text}），可以是连续几句你来我往的交锋。
+
+【绝对禁止·顶替真人】真人玩家本人扮演这些角色：${realNames.join('、') || '（无）'}。你**永远不能**替这些角色说话、行动、表态或代答——他们完全由真人本人控制，只有他们自己能发言。ai_lines 里**只允许**出现 AI 角色（${aiNames.join('、') || '（无）'}），**绝不能**出现真人角色的名字。叙述里也不要替真人决定他们说了什么、做了什么，最多客观描述真人角色"沉默/在场"等外部状态。
 
 【绝不】剧透真相、点明凶手、说"正确答案"、替玩家下结论。
 ${type === '机制' ? '【机制本·账房】你要维护每个角色的资源/分数。每回合在 resources 里给出**全部角色的当前快照**（每人若干项资源，如金钱/筹码/情报/影响力/物资等，用数值或简短描述）；私下的增减原因写进 private_notes 给当事人。resources 必须每回合都返回完整最新快照。' : '本型无需 resources，留空数组。'}

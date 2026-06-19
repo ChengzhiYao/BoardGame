@@ -52,6 +52,7 @@ export async function POST(req: Request) {
     const { data: chars } = await admin.from('jbs_characters').select('name, is_ai').eq('room_id', roomId);
     if (kase) {
       const aiNames = (chars || []).filter((c: any) => c.is_ai).map((c: any) => c.name);
+      const realNames = (chars || []).filter((c: any) => !c.is_ai).map((c: any) => c.name);
       const { data: history } = await admin.from('messages').select('sender_type, content, payload').eq('room_id', roomId).order('created_at', { ascending: true }).limit(400);
       const base: LLMMessage[] = (history || []).slice(-14).map((m: any) => {
         if (m.sender_type === 'kp') return { role: 'assistant', content: m.content };
@@ -62,7 +63,7 @@ export async function POST(req: Request) {
         ? `（幕转场）现在进入第 ${nextAct} 幕「最终指认」。请做一段简短的收束开场：把局势推到摊牌时刻，提示玩家即将进行最终指认，并让相关 AI 角色表态。不要剧透真相，不要替玩家下结论。next_act 保持 ${nextAct}。`
         : `（幕转场）现在进入第 ${nextAct} 幕。请你**主动**做本幕开场：推动剧情进入新阶段，抛出本幕的新场景/新进展/新线索/新冲突，并让相关 AI 角色自然反应。不要干等玩家先开口。next_act 保持 ${nextAct}。`;
       const { data: out, usage } = await callLLMJson<any>({
-        system: buildJbsDmPrompt(kase.case_file, nextAct, aiNames, { elapsedMin: 0, actMin: minutes }) + langDirective(room.language),
+        system: buildJbsDmPrompt(kase.case_file, nextAct, aiNames, realNames, { elapsedMin: 0, actMin: minutes }) + langDirective(room.language),
         messages: [...base, { role: 'user', content: nudge }],
         tier: 'main', temperature: 0.85, maxTokens: 2200, retry: true,
       });
@@ -71,6 +72,7 @@ export async function POST(req: Request) {
       if (out.narration) await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', turn_no: nextAct, content: out.narration, payload: { type: 'jbs_dm' } });
       for (const a of out.ai_lines || []) {
         if (!a?.text || !a?.name) continue;
+        if (!aiNames.includes(a.name)) continue; // 硬过滤：绝不让 AI 顶替真人/未知角色发言
         await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', turn_no: nextAct, content: a.text, payload: { type: 'jbs_ai', name: a.name } });
       }
       for (const ev of out.evidence_revealed || []) {

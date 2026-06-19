@@ -336,7 +336,7 @@ export default function MccRoom(props: ShellProps) {
                   {en ? 'Draw a card ▶' : '抽一张牌 ▶'}
                 </button>
               </div>
-              <div className="flex items-end justify-center pt-16 pb-1">
+              <div className="flex items-end overflow-x-auto pt-20 pb-1 px-2">
                 {hand.length === 0 && <span className="text-sm text-parchment/40 self-center">{en ? '(no cards)' : '（没有手牌）'}</span>}
                 {hand.map((c, i) => {
                   const usable = myTurn && !['ward', 'hiss', 'mirror'].includes(c);

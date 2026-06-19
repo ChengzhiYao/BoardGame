@@ -26,6 +26,7 @@ export function buildBotcSetupPrompt(size: number, theme: string, seats: string[
 - 外来者（好人但帮倒忙，多为 learn/none）：善良阵营，但技能/状态给好人添乱。例：以为自己是镇民其实信息常错；死亡会连累相邻者。
 - 爪牙（邪恶，常 night_action=poison 或 none）：开局即知道恶魔是谁；破坏技能。例：每夜投毒一人，使其当夜信息变假；或自身验为善良。
 - 恶魔（邪恶，night_action=kill）：每夜杀一人（第一夜不杀）；开局即知道所有爪牙，并得到 3 个未入局好人身份用于伪装。
+- 为每个 AI 角色起一个普通**公开化名**（name 字段，契合题材的人名，**绝不能等于其隐藏身份名**），玩家板只显示化名，身份保密。
 - 给每个身份一句**可执行**的技能描述。为每个身份标注 night_action ∈ {kill, poison, protect, learn, none}；learn 的角色另给 learns 字段说明它每夜得知什么。
 
 【胜负】好人：白天投票**处决掉恶魔**即胜。邪恶：当存活玩家只剩 2 人（且恶魔在其中）或好人已无法翻盘时胜。
@@ -34,7 +35,7 @@ export function buildBotcSetupPrompt(size: number, theme: string, seats: string[
 {
   "theme": "本局题材名",
   "roles": [
-    { "seat": "真人座位字母或 null(AI)", "role": "原创身份名", "team": "townsfolk|outsider|minion|demon", "is_demon": false, "ability": "一句话技能", "night_action": "kill|poison|protect|learn|none", "learns": "(若 learn)每夜得知什么", "first_night_info": "第一夜私下得知：镇民给真信息；外来者可能给错的；爪牙/恶魔互相告知队友身份与座位；无则留空" }
+    { "seat": "真人座位字母或 null(AI)", "name": "公开化名（普通人名，契合题材，必须与身份名不同；真人座位留空，系统填真人昵称）", "role": "隐藏身份名", "team": "townsfolk|outsider|minion|demon", "is_demon": false, "ability": "一句话技能", "night_action": "kill|poison|protect|learn|none", "learns": "(若 learn)每夜得知什么", "first_night_info": "第一夜私下得知：镇民给真信息；外来者可能给错的；爪牙/恶魔互相告知队友身份与座位；无则留空" }
   ],
   "evil_seats": ["邪恶方的座位字母或 AI 身份名列表"],
   "demon_ref": "恶魔的座位字母或其身份名",
@@ -69,6 +70,7 @@ ${core(setup)}
 
 近期讨论（参考氛围）：${transcript || '（无）'}
 
+deaths / player_private.to / ai_private.who 一律用**座位或公开化名**指代玩家，绝不用隐藏身份名。
 只输出 JSON：
 {
   "wake_sequence": [ { "actor": "座位/AI名", "action": "poison|protect|kill|learn", "result": "极简结果(如 投毒A / 保护B / 杀C失败 / D获知信息)" } ],
@@ -96,7 +98,8 @@ ${aiNotes || '（暂无额外私密信息）'}
 
 近期对话：${transcript || '（无）'}
 
-只输出 JSON：{ "lines": [ { "name": "AI身份名", "text": "其本人口吻、带具体理由的发言" } ] }`;
+指代任何玩家时用其**公开化名或座位**，绝不用隐藏身份名。
+只输出 JSON：{ "lines": [ { "name": "发言 AI 的公开化名", "text": "其本人口吻、带具体理由的发言" } ] }`;
 }
 
 export function buildBotcVotePrompt(setup: any, day: number, alive: string[], humanVotes: string, aiNames: string[], aiNotes: string, transcript: string) {
@@ -114,6 +117,7 @@ ${core(setup)}
 
 本局讨论（投票要据此判断）：${transcript || '（无）'}
 
+ai_votes.voter / target / executed 一律用**座位或公开化名**指代玩家，绝不用隐藏身份名。
 只输出 JSON：
 {
   "ai_votes": [ { "voter": "AI名", "target": "座位/名字/skip", "reason": "一句话推理依据" } ],

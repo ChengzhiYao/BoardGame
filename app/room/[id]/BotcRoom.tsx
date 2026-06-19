@@ -6,6 +6,9 @@ import { playSfx } from '@/lib/audio/sfx';
 import { playBotcCue } from '@/lib/audio/botcCue';
 import type { ShellProps } from './RoomShell';
 
+const teamCls: Record<string, string> = { demon: 'text-red-400', minion: 'text-orange-400', outsider: 'text-sky-400', townsfolk: 'text-emerald-400' };
+function teamName(t: string, en: boolean) { return t === 'demon' ? (en ? 'Demon' : '恶魔') : t === 'minion' ? (en ? 'Minion' : '爪牙') : t === 'outsider' ? (en ? 'Outsider' : '外来者') : (en ? 'Townsfolk' : '镇民'); }
+
 export default function BotcRoom(props: ShellProps) {
   const router = useRouter();
   const supabase = useRef(createClient()).current;
@@ -17,8 +20,11 @@ export default function BotcRoom(props: ShellProps) {
   const [size, setSize] = useState(6);
   const [theme, setTheme] = useState('');
   const [roleOpen, setRoleOpen] = useState(true);
+  const [showRoles, setShowRoles] = useState(false);
+  const [showPlayers, setShowPlayers] = useState(false);
   const [myVote, setMyVote] = useState('');
   const [myNightTarget, setMyNightTarget] = useState('');
+  const [claimSel, setClaimSel] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
   const sfxSeen = useRef<Set<string>>(new Set());
   const wokeFor = useRef<string>('');
@@ -34,6 +40,11 @@ export default function BotcRoom(props: ShellProps) {
   const usedGhost = !!meBp?.used_ghost_vote;
   const roleCard = messages.filter((m) => m.payload?.type === 'botc_role').slice(-1)[0]?.content || '';
   const myNightAction = messages.filter((m) => m.payload?.type === 'botc_role_action').slice(-1)[0]?.payload?.action || '';
+  const manifest: any[] = messages.filter((m) => m.payload?.type === 'botc_manifest').slice(-1)[0]?.payload?.roles || [];
+  const revealAssign: any[] = messages.filter((m) => m.payload?.type === 'botc_reveal').slice(-1)[0]?.payload?.assignments || [];
+  // 各座位最新"自称"身份
+  const claims: Record<string, string> = {};
+  messages.filter((m) => m.payload?.type === 'botc_claim').forEach((m) => { if (m.payload?.seat) claims[m.payload.seat] = m.payload.role; });
 
   useEffect(() => {
     const ch = supabase.channel(`botc-msgs-${props.room.id}`)
@@ -50,7 +61,6 @@ export default function BotcRoom(props: ShellProps) {
   useEffect(() => { setMessages((prev) => { const ids = new Set(prev.map((m) => m.id)); const add = props.initialMessages.filter((m) => !ids.has(m.id)); return add.length ? [...prev, ...add] : prev; }); }, [props.initialMessages]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
-  // 音效：新消息携带 payload.sfx 时播放（cue_* 为合成音，其余为素材音）
   useEffect(() => {
     for (const m of messages) {
       const sfx = m.payload?.sfx;
@@ -60,14 +70,12 @@ export default function BotcRoom(props: ShellProps) {
     }
   }, [messages]);
 
-  // 入夜且自己有夜间能力 → 轻提示音"叫醒"
   useEffect(() => {
     if (phase === 'night' && iAmAlive && ['kill', 'poison', 'protect'].includes(myNightAction)) {
       const key = `${day}`; if (wokeFor.current !== key) { wokeFor.current = key; playBotcCue('cue_wake'); }
     }
   }, [phase, day, myNightAction, iAmAlive]);
 
-  // 轮询兜底
   useEffect(() => {
     const tick = async () => {
       if (typeof document !== 'undefined' && document.hidden) return;
@@ -80,7 +88,6 @@ export default function BotcRoom(props: ShellProps) {
     return () => clearInterval(id);
   }, [props.room.id, props.room.botc_phase, props.room.botc_day, supabase, router]);
 
-  // 房主端：白天定时催 AI 发言
   useEffect(() => {
     if (!isHost || phase !== 'day') return;
     const run = () => { fetch('/api/botc/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) }).catch(() => {}); };
@@ -99,16 +106,17 @@ export default function BotcRoom(props: ShellProps) {
     finally { setBusy(false); }
   }
   async function start() { await call('/api/botc/start', { roomId: props.room.id, size, theme: theme.trim() || null }); }
+  async function replay() { const d = await call('/api/rooms/replay', { roomId: props.room.id }); if (d?.ok) router.refresh(); }
   async function resolveDay() { if (!confirm(en ? 'Tally votes and execute?' : '统计投票并处决？')) return; await call('/api/botc/resolve', { roomId: props.room.id }); }
   async function resolveNight() { if (!confirm(en ? 'Resolve the night?' : '结算今夜（天亮）？')) return; await call('/api/botc/resolve-night', { roomId: props.room.id }); }
-  async function replay() {
-    const d = await call('/api/rooms/replay', { roomId: props.room.id });
-    if (d?.ok) router.refresh();
-  }
   async function sendChat() {
     const c = text.trim(); if (!c || !props.myPlayerId) return;
     setText('');
     await supabase.from('messages').insert({ room_id: props.room.id, sender_type: 'player', sender_player_id: props.myPlayerId, content: c, visibility: 'public', turn_no: day });
+  }
+  async function claim(role: string) {
+    setClaimSel(role); if (!props.myPlayerId || !props.mySeat) return;
+    await supabase.from('messages').insert({ room_id: props.room.id, sender_type: 'player', sender_player_id: props.myPlayerId, content: (en ? `claims to be 「${role}」` : `自称身份：「${role}」`), visibility: 'public', turn_no: day, payload: { type: 'botc_claim', seat: props.mySeat, role } });
   }
   async function vote(t: string) { setMyVote(t); await call('/api/botc/vote', { roomId: props.room.id, target: t }); }
   async function nightAct(t: string) { setMyNightTarget(t); await call('/api/botc/night', { roomId: props.room.id, target: t }); }
@@ -157,19 +165,57 @@ export default function BotcRoom(props: ShellProps) {
   const aliveTargets = bps.filter((p) => p.alive && p.seat && p.seat !== props.mySeat);
   const hasNightPower = ['kill', 'poison', 'protect'].includes(myNightAction);
   const nightLabel = myNightAction === 'kill' ? (en ? 'Kill' : '杀害') : myNightAction === 'poison' ? (en ? 'Poison' : '投毒') : myNightAction === 'protect' ? (en ? 'Protect' : '保护') : '';
-  const canVote = iAmAlive || !usedGhost; // 活人可投；死者保留一张鬼票
+  const canVote = iAmAlive || !usedGhost;
+  const trueRoleOf = (seat: string) => revealAssign.find((a) => a.seat === seat);
 
   return (
     <main className={`h-[100svh] flex flex-col overflow-hidden ${night ? 'bg-[#06060c]' : ''}`}>
-      <header className="px-4 py-3 border-b border-eldritch/20 flex items-center justify-between">
-        <span className="font-serif text-parchment">{en ? 'Bloodbound' : '血染'} · {props.room.name}</span>
-        <span className="text-xs text-parchment/50">{ended ? (en ? 'Game over' : '对局结束') : night ? (en ? `🌙 Night ${day}` : `🌙 第 ${day} 夜`) : (en ? `☀ Day ${day} · discuss & vote` : `☀ 第 ${day} 天 · 讨论与投票`)}</span>
+      <header className="px-4 py-3 border-b border-eldritch/20 flex items-center justify-between gap-2">
+        <span className="font-serif text-parchment text-sm truncate">{en ? 'Bloodbound' : '血染'} · {props.room.name}</span>
+        <div className="flex items-center gap-2 shrink-0">
+          {manifest.length > 0 && <button onClick={() => { setShowRoles((v) => !v); setShowPlayers(false); }} className="text-xs px-2 py-1 rounded bg-eldritch/30 text-parchment">{en ? 'Roles' : '身份'}</button>}
+          <button onClick={() => { setShowPlayers((v) => !v); setShowRoles(false); }} className="text-xs px-2 py-1 rounded bg-eldritch/30 text-parchment">{en ? `Players ${bps.length}` : `玩家 ${bps.length}`}</button>
+          <span className="text-xs text-parchment/50">{ended ? (en ? 'Over' : '结束') : night ? (en ? `🌙 N${day}` : `🌙 第${day}夜`) : (en ? `☀ D${day}` : `☀ 第${day}天`)}</span>
+        </div>
       </header>
 
+      {/* 本局身份面板 */}
+      {showRoles && manifest.length > 0 && (
+        <div className="px-4 py-3 bg-ink/70 border-b border-eldritch/20 max-w-3xl w-full mx-auto">
+          <div className="text-xs text-parchment/50 mb-2">{en ? 'Roles that exist in this game (you don’t know who has which)' : '本局会出现的身份（不知道谁是谁）'}</div>
+          <div className="space-y-1.5">
+            {manifest.map((m, i) => (
+              <div key={i} className="text-sm leading-snug"><span className="text-parchment/90">{m.role}</span> <span className={`text-[11px] ${teamCls[m.team] || 'text-parchment/50'}`}>· {teamName(m.team, en)}</span><div className="text-parchment/55 text-xs">{m.ability}</div></div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 玩家面板 */}
+      {showPlayers && (
+        <div className="px-4 py-3 bg-ink/70 border-b border-eldritch/20 max-w-3xl w-full mx-auto">
+          <div className="text-xs text-parchment/50 mb-2">{en ? `Players (${bps.filter((p) => p.alive).length} alive / ${bps.length})` : `玩家（存活 ${bps.filter((p) => p.alive).length} / 共 ${bps.length}）`}</div>
+          <div className="grid grid-cols-2 gap-1.5">
+            {bps.map((p, i) => {
+              const tr = trueRoleOf(p.seat);
+              return (
+                <div key={i} className={`text-sm rounded px-2 py-1 border ${p.alive ? 'bg-fog border-eldritch/30' : 'bg-ink border-parchment/15 text-parchment/40'}`}>
+                  <span className={p.alive ? 'text-parchment/85' : 'line-through'}>{p.seat}·{p.display_name}</span>{p.is_ai ? ' 🤖' : ''}{!p.alive ? ' ☠' : ''}
+                  {ended && tr ? <span className={`text-[11px] ${teamCls[tr.team] || ''}`}> ·「{tr.role}」</span>
+                    : claims[p.seat] ? <span className="text-[11px] text-amber-300/80"> （{en ? 'claims' : '自称'}：{claims[p.seat]}）</span> : null}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 顶部玩家条 */}
       <div className="px-4 py-2 border-b border-eldritch/15 flex gap-1.5 flex-wrap">
         {bps.map((p, i) => (
           <span key={i} className={`text-xs px-2 py-1 rounded-full border ${p.alive ? 'bg-fog border-eldritch/30 text-parchment/80' : 'bg-ink border-parchment/15 text-parchment/30 line-through'}`}>
-            {p.seat ? `${p.seat}·` : ''}{p.display_name}{p.is_ai ? ' 🤖' : ''}{!p.alive ? ' ☠' : ''}
+            {p.seat}·{p.display_name}{p.is_ai ? ' 🤖' : ''}{!p.alive ? ' ☠' : ''}
+            {claims[p.seat] && !ended ? <span className="text-amber-300/80">（{en ? 'c' : '自称'}:{claims[p.seat]}）</span> : null}
           </span>
         ))}
       </div>
@@ -185,7 +231,7 @@ export default function BotcRoom(props: ShellProps) {
       )}
 
       <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-3 max-w-3xl w-full mx-auto">
-        {messages.filter((m) => m.payload?.type !== 'botc_role' && m.payload?.type !== 'botc_role_action').map((m) => <BotcMsg key={m.id} m={m} mine={m.sender_player_id === props.myPlayerId} en={en} />)}
+        {messages.filter((m) => !['botc_role', 'botc_role_action', 'botc_manifest'].includes(m.payload?.type)).map((m) => <BotcMsg key={m.id} m={m} mine={m.sender_player_id === props.myPlayerId} en={en} />)}
         {busy && <div className="text-center text-parchment/40 italic text-sm">{en ? 'The Storyteller is resolving…' : '说书人结算中……'}</div>}
         <div ref={bottomRef} />
       </div>
@@ -194,8 +240,7 @@ export default function BotcRoom(props: ShellProps) {
         <div className="border-t border-blood/40 px-4 py-3 text-center max-w-3xl w-full mx-auto flex flex-col items-center gap-2" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
           <span className="text-parchment/70 text-sm">{en ? 'The game is over.' : '本局结束。'}</span>
           {isHost && (
-            <button onClick={replay} disabled={busy}
-              className="px-5 py-2 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood text-sm disabled:opacity-50">
+            <button onClick={replay} disabled={busy} className="px-5 py-2 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood text-sm disabled:opacity-50">
               {busy ? (en ? 'Resetting…' : '重置中…') : (en ? '↻ Play again (new setup)' : '↻ 再来一局（重新发身份）')}
             </button>
           )}
@@ -231,6 +276,18 @@ export default function BotcRoom(props: ShellProps) {
             <button onClick={sendChat} disabled={!props.myPlayerId} className="px-4 py-2 rounded bg-eldritch/60 hover:bg-eldritch text-parchment text-sm shrink-0">{en ? 'Say' : '发言'}</button>
           </div>
           <div className="flex gap-2 items-center flex-wrap">
+            {iAmAlive && manifest.length > 0 && (
+              <>
+                <span className="text-xs text-parchment/50 shrink-0">{en ? 'Claim:' : '宣称：'}</span>
+                <select value={claimSel} onChange={(e) => e.target.value && claim(e.target.value)} disabled={busy}
+                  className="px-2 py-1.5 rounded bg-fog border border-eldritch/30 text-parchment text-sm">
+                  <option value="">{en ? '— claim a role —' : '— 宣称身份 —'}</option>
+                  {manifest.map((m, i) => <option key={i} value={m.role}>{m.role}</option>)}
+                </select>
+              </>
+            )}
+          </div>
+          <div className="flex gap-2 items-center flex-wrap">
             <span className="text-xs text-parchment/50 shrink-0">{iAmAlive ? (en ? 'Execute:' : '指认处决：') : (en ? '👻 Ghost vote:' : '👻 鬼票：')}</span>
             {canVote ? (
               <select value={myVote} onChange={(e) => e.target.value && vote(e.target.value)} disabled={busy}
@@ -260,6 +317,7 @@ function BotcMsg({ m, mine, en }: { m: any; mine: boolean; en: boolean }) {
   if (type === 'botc_st') return <div className="mx-auto max-w-2xl rounded-lg bg-eldritch/10 border border-eldritch/40 px-4 py-3 text-parchment/90 leading-relaxed whitespace-pre-line text-sm">📖 {m.content}</div>;
   if (type === 'botc_private') return <div className="mx-auto max-w-2xl rounded-lg bg-amber-900/15 border border-amber-700/40 px-4 py-2 text-amber-200/90 leading-relaxed whitespace-pre-line text-sm">🔒 {en ? 'Only you:' : '仅你可见：'} {m.content}</div>;
   if (type === 'botc_vote') return <div className="text-center text-xs text-parchment/50">{m.content}</div>;
+  if (type === 'botc_claim') return <div className="text-center text-xs text-amber-300/70">📣 {m.content}</div>;
   if (type === 'botc_ai') return (
     <div className="flex flex-col items-start">
       <span className="text-xs text-parchment/40 mb-1">{m.payload?.name} 🤖</span>

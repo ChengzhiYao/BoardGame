@@ -62,7 +62,7 @@ export async function POST(req: Request) {
 
     const after = (await admin.from('botc_players').select('seat, display_name, alive').eq('room_id', roomId)).data || [];
     const demonRole = roles.find((r: any) => r.is_demon || r.team === 'demon');
-    const demonKey = demonRole ? (demonRole.seat || demonRole.role) : null;
+    const demonKey = demonRole ? (demonRole.seat || null) : null;
     const demonAlive = !demonKey ? true : (after.find((p: any) => (/^[A-H]$/.test(demonKey) ? p.seat === demonKey : p.display_name === demonKey))?.alive ?? false);
     const aliveCount = after.filter((p: any) => p.alive).length;
     let win: 'good' | 'evil' | null = null;
@@ -71,7 +71,7 @@ export async function POST(req: Request) {
     if (win) {
       const reveal = roles.map((r: any) => `${r.seat || r.role}：「${r.role}」 · ${r.team === 'demon' ? '恶魔' : r.team === 'minion' ? '爪牙' : r.team === 'outsider' ? '外来者' : '镇民'}`).join('\n');
       const winText = win === 'good' ? (en ? '🟦 GOOD wins — the Demon is dead.' : '🟦 好人胜利 —— 恶魔已伏诛。') : (en ? '🟥 EVIL wins.' : '🟥 邪恶胜利。');
-      await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', turn_no: day, content: `${winText}\n\n${en ? 'Roles revealed:' : '身份揭晓：'}\n${reveal}`, payload: { type: 'botc_reveal', sfx: ['cue_reveal'] } });
+      await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', turn_no: day, content: `${winText}\n\n${en ? 'Roles revealed:' : '身份揭晓：'}\n${reveal}`, payload: { type: 'botc_reveal', sfx: ['cue_reveal'], assignments: roles.map((r: any) => ({ seat: r.seat, role: r.role, team: r.team })) } });
       await admin.from('rooms').update({ botc_phase: 'reveal', game_state: 'ended', modules_generating: false }).eq('id', roomId);
       return NextResponse.json({ ok: true, win });
     }

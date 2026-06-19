@@ -52,17 +52,22 @@ export async function POST(req: Request) {
     const { data: users } = await admin.from('users').select('id, display_name').in('id', (players || []).map((p: any) => p.user_id));
     const nameOfSeat = (seat: string) => { const p = players?.find((x: any) => x.seat === seat); return users?.find((u: any) => u.id === p?.user_id)?.display_name || '玩家'; };
 
-    const assigned = new Set(roles.map((r) => r.seat).filter((s: string) => /^[A-H]$/.test(s)));
+    // 真人座位先各分到一个身份
+    const assigned = new Set(roles.map((r: any) => r.seat).filter((s: string) => realSeats.includes(s)));
     const missing = realSeats.filter((s: string) => !assigned.has(s));
     let mi = 0;
-    for (const r of roles) { if (mi >= missing.length) break; if (!/^[A-H]$/.test(r.seat)) r.seat = missing[mi++]; }
-    for (const r of roles) { if (!/^[A-H]$/.test(r.seat)) r.seat = null; }
-
-    const rows = roles.map((r: any, i: number) => ({
-      room_id: roomId, seat: r.seat || null,
-      display_name: r.seat ? nameOfSeat(r.seat) : (r.role || `AI-${i + 1}`),
-      is_ai: !r.seat, alive: true,
-    }));
+    for (const r of roles) { if (mi >= missing.length) break; if (!realSeats.includes(r.seat)) r.seat = missing[mi++]; }
+    // 给 AI 角色也分配座位（真人占用之外的字母），让每个玩家都有稳定座位标识
+    const ALL = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+    const taken = new Set(roles.map((r: any) => r.seat).filter((s: string) => realSeats.includes(s)));
+    const free = ALL.filter((s) => !taken.has(s)); let fi = 0;
+    for (const r of roles) { if (!realSeats.includes(r.seat)) r.seat = free[fi++]; }
+    // 公开名：真人用昵称，AI 用"玩家N"（身份保密，绝不显示身份名）
+    let aiIdx = 0;
+    const rows = roles.map((r: any) => {
+      const real = realSeats.includes(r.seat);
+      return { room_id: roomId, seat: r.seat, display_name: real ? nameOfSeat(r.seat) : `玩家${++aiIdx}`, is_ai: !real, alive: true };
+    });
     await admin.from('botc_players').insert(rows);
     await admin.from('botc_setup').insert({ room_id: roomId, data: { ...cf, roles, _notes: [] } });
 
@@ -79,6 +84,11 @@ export async function POST(req: Request) {
       }
     }
 
+    // 本局身份清单（公开，不含谁是谁）——洗牌后只列 身份/阵营/技能
+    const teamCn = (t: string) => t === 'demon' ? (en ? 'Demon' : '恶魔') : t === 'minion' ? (en ? 'Minion' : '爪牙') : t === 'outsider' ? (en ? 'Outsider' : '外来者') : (en ? 'Townsfolk' : '镇民');
+    const manifest = roles.map((r: any) => ({ role: r.role, team: r.team, ability: r.ability }));
+    for (let i = manifest.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [manifest[i], manifest[j]] = [manifest[j], manifest[i]]; }
+    await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: 0, content: (en ? 'Roles in play this game:\n' : '本局会出现的身份：\n') + manifest.map((m: any) => `· ${m.role}（${teamCn(m.team)}）：${m.ability || ''}`).join('\n'), payload: { type: 'botc_manifest', roles: manifest } });
     await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', turn_no: 1, content: cf.opening || (en ? 'Night falls… and dawn breaks on Day 1. Discuss.' : '夜幕降临……第 1 天天亮了，请开始讨论。'), payload: { type: 'botc_st', sfx: ['cue_nightfall'] } });
     await admin.from('rooms').update({ game_state: 'playing', botc_phase: 'day', botc_day: 1, botc_size: finalSize, modules_generating: false }).eq('id', roomId);
     return NextResponse.json({ ok: true });

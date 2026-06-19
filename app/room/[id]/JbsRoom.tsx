@@ -199,6 +199,16 @@ export default function JbsRoom(props: ShellProps) {
       <main className="min-h-[100svh] flex flex-col items-center justify-center gap-6 px-6 text-center">
         <h1 className="text-2xl font-serif text-parchment">{en ? 'Murder Mystery' : '剧本杀'} · {props.room.name}</h1>
         <p className="text-parchment/60 max-w-md">{en ? '2 real players + AI-played characters fill the cast. Everyone gets a secret role; investigate, discuss, and finally accuse the killer.' : '2 名真人 + AI 扮演其余角色补满人数。每人一个隐藏身份，搜证、讨论，最后指认真凶。'}</p>
+        <div className="flex flex-col items-center gap-1.5">
+          <span className="text-sm text-parchment/50">{en ? `${props.initialPlayers.length}/2 players joined` : `已加入 ${props.initialPlayers.length}/2 名玩家`}{props.initialPlayers.length < 2 ? (en ? ' · waiting…' : ' · 等待中…') : (en ? ' · ready' : ' · 已齐')}</span>
+          <div className="flex gap-2 flex-wrap justify-center">
+            {props.initialPlayers.map((p: any) => {
+              const nm = props.initialUsers.find((u: any) => u.id === p.user_id)?.display_name || (en ? 'Player' : '玩家');
+              const mine = p.user_id === props.userId;
+              return <span key={p.id} className={`text-xs px-2.5 py-1 rounded-full border ${mine ? 'bg-blood/25 border-blood/50 text-parchment' : 'bg-fog border-eldritch/30 text-parchment/80'}`}>● {nm} [{p.seat}]{mine ? (en ? ' · you' : ' · 你') : ''}</span>;
+            })}
+          </div>
+        </div>
         <div className="flex flex-col items-center gap-3 w-full max-w-md">
           <span className="text-sm text-parchment/50">{en ? 'Invite your partner:' : '把链接发给同伴：'}</span>
           <code className="text-xs px-3 py-2 rounded bg-fog border border-eldritch/30 text-eldritch break-all w-full">{inviteUrl}</code>

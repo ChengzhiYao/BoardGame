@@ -12,11 +12,17 @@ export function langDirective(lang?: string): string {
 
 // ---- 客户端语言读写（仅浏览器）----
 export function getClientLang(): Lang {
-  if (typeof document === 'undefined') return 'zh';
+  if (typeof document === 'undefined') return 'en';
+  // 1) 用户手动选过 → 用保存的
   const m = document.cookie.match(/(?:^|;\s*)lang=(zh|en)/);
   if (m) return m[1] as Lang;
   try { const l = localStorage.getItem('lang'); if (l === 'en' || l === 'zh') return l; } catch {}
-  return 'zh';
+  // 2) 没选过 → 按浏览器语言自动识别：中文浏览器用中文，其余默认英文
+  try {
+    const langs = (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language]) || [];
+    if (langs.some((x) => /^zh/i.test(x || ''))) return 'zh';
+  } catch {}
+  return 'en';
 }
 export function setClientLang(l: Lang) {
   try { localStorage.setItem('lang', l); } catch {}

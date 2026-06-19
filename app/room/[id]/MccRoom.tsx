@@ -28,7 +28,8 @@ export default function MccRoom(props: ShellProps) {
   const supabase = useRef(createClient()).current;
   const en = props.room.language === 'en';
   const pub: any = props.mccPublic;
-  const hand: string[] = props.mccHand || [];
+  const [hand, setHand] = useState<string[]>(props.mccHand || []);
+  useEffect(() => { setHand(props.mccHand || []); }, [props.mccHand]);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [pickCard, setPickCard] = useState<string>('');
@@ -143,8 +144,11 @@ export default function MccRoom(props: ShellProps) {
   }
   async function playCard(card: string, target?: string) {
     setPickCard('');
+    const snapshot = hand;
+    setHand((h) => { const i = h.indexOf(card); if (i < 0) return h; const c = [...h]; c.splice(i, 1); return c; });
     const d = await call('/api/mcc/play', { roomId: props.room.id, card, target });
-    if (d?.peek) setPeek(d.peek);
+    if (!d) { setHand(snapshot); return; }
+    if (d.peek) setPeek(d.peek);
   }
   async function drawCard() {
     const d = await call('/api/mcc/draw', { roomId: props.room.id });

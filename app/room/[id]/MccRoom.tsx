@@ -38,6 +38,7 @@ export default function MccRoom(props: ShellProps) {
   const [preview, setPreview] = useState<number | null>(null);
   const [armed, setArmed] = useState(false);
   const [flashKey, setFlashKey] = useState(0);
+  const [resetting, setResetting] = useState(false);
   const touchStartY = useRef(0);
   const armedRef = useRef(false);
   const [aiFill, setAiFill] = useState(true);
@@ -126,7 +127,15 @@ export default function MccRoom(props: ShellProps) {
     finally { setBusy(false); }
   }
   async function start() { await call('/api/mcc/start', { roomId: props.room.id, aiFill, total: totalSeats }); }
-  async function replay() { const d = await call('/api/rooms/replay', { roomId: props.room.id }); if (d?.ok && typeof window !== 'undefined') window.location.reload(); }
+  async function replay() {
+    setResetting(true);
+    try {
+      const res = await fetch('/api/rooms/replay', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { alert(d.error || (en ? 'Error' : '出错了')); setResetting(false); return; }
+      if (typeof window !== 'undefined') window.location.reload();
+    } catch (e: any) { alert((en ? 'Failed: ' : '失败：') + e.message); setResetting(false); }
+  }
   async function playCard(card: string, target?: string) {
     setPickCard('');
     const d = await call('/api/mcc/play', { roomId: props.room.id, card, target });
@@ -353,7 +362,7 @@ export default function MccRoom(props: ShellProps) {
       ) : (
         <div className="border-t border-blood/40 px-4 py-4 text-center max-w-2xl w-full mx-auto flex flex-col items-center gap-2" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
           <div className="text-lg font-serif text-parchment">🏆 {pub.winner ? (pub.players.find((p: any) => p.seat === pub.winner)?.name) : '—'} {en ? 'survives the night!' : '撑过了这一夜！'}</div>
-          {isHost && <button onClick={replay} disabled={busy} className="px-5 py-2 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood text-sm disabled:opacity-50">{busy ? (en ? 'Resetting…' : '重置中…') : (en ? '↻ Play again' : '↻ 再来一局')}</button>}
+          {isHost && <button onClick={replay} disabled={resetting} className="px-5 py-2 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood text-sm disabled:opacity-50">{resetting ? (en ? 'Resetting…' : '重置中…') : (en ? '↻ Play again' : '↻ 再来一局')}</button>}
         </div>
       )}
     </main>

@@ -16,6 +16,7 @@ export default function BotcRoom(props: ShellProps) {
   const [messages, setMessages] = useState<any[]>(props.initialMessages);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [copied, setCopied] = useState(false);
   const [size, setSize] = useState(6);
   const [theme, setTheme] = useState('');
@@ -110,7 +111,15 @@ export default function BotcRoom(props: ShellProps) {
     finally { setBusy(false); }
   }
   async function start() { await call('/api/botc/start', { roomId: props.room.id, size, theme: theme.trim() || null }); }
-  async function replay() { const d = await call('/api/rooms/replay', { roomId: props.room.id }); if (d?.ok && typeof window !== 'undefined') window.location.reload(); }
+  async function replay() {
+    setResetting(true);
+    try {
+      const res = await fetch('/api/rooms/replay', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { alert(d.error || (en ? 'Error' : '出错了')); setResetting(false); return; }
+      if (typeof window !== 'undefined') window.location.reload();
+    } catch (e: any) { alert((en ? 'Failed: ' : '失败：') + e.message); setResetting(false); }
+  }
   async function passTurn() { const d = await call('/api/botc/pass', { roomId: props.room.id }); if (d?.ok) router.refresh(); }
   async function resolveDay() { if (!confirm(en ? 'Tally votes and execute?' : '统计投票并处决？')) return; await call('/api/botc/resolve', { roomId: props.room.id }); }
   async function resolveNight() { if (!confirm(en ? 'Resolve the night?' : '结算今夜（天亮）？')) return; await call('/api/botc/resolve-night', { roomId: props.room.id }); }
@@ -260,8 +269,8 @@ export default function BotcRoom(props: ShellProps) {
         <div className="border-t border-blood/40 px-4 py-3 text-center max-w-3xl w-full mx-auto flex flex-col items-center gap-2" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
           <span className="text-parchment/70 text-sm">{en ? 'The game is over.' : '本局结束。'}</span>
           {isHost && (
-            <button onClick={replay} disabled={busy} className="px-5 py-2 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood text-sm disabled:opacity-50">
-              {busy ? (en ? 'Resetting…' : '重置中…') : (en ? '↻ Play again (new setup)' : '↻ 再来一局（重新发身份）')}
+            <button onClick={replay} disabled={resetting} className="px-5 py-2 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood text-sm disabled:opacity-50">
+              {resetting ? (en ? 'Resetting…' : '重置中…') : (en ? '↻ Play again (new setup)' : '↻ 再来一局（重新发身份）')}
             </button>
           )}
         </div>

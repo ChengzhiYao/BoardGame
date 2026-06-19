@@ -18,6 +18,7 @@ export default function JbsRoom(props: ShellProps) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [headcount, setHeadcount] = useState(6);
   const [pace, setPace] = useState(9);
   const [now, setNow] = useState(Date.now());
@@ -194,15 +195,13 @@ export default function JbsRoom(props: ShellProps) {
     return r;
   }
   async function replay() {
-    setBusy(true);
+    setResetting(true);
     try {
       const res = await fetch('/api/rooms/replay', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) });
-      if (res.status === 402) { const d = await res.json().catch(() => ({})); alert(d.error || (en ? 'No credits left.' : '局数已用完。')); router.push('/upgrade'); return; }
-      const d = await res.json();
-      if (!res.ok) { alert(d.error || (en ? 'Error' : '出错了')); return; }
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { alert(d.error || (en ? 'Error' : '出错了')); setResetting(false); return; }
       if (typeof window !== 'undefined') window.location.reload();
-    } catch (e: any) { alert((en ? 'Failed: ' : '失败：') + e.message); }
-    finally { setBusy(false); }
+    } catch (e: any) { alert((en ? 'Failed: ' : '失败：') + e.message); setResetting(false); }
   }
 
   // ===== 大厅 / 出本 =====
@@ -404,9 +403,9 @@ export default function JbsRoom(props: ShellProps) {
         <div className="border-t border-blood/40 px-4 py-3 flex flex-col items-center gap-2 max-w-3xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
           <span className="text-parchment/70 text-sm">{en ? 'The case is closed.' : '本局结束。'}</span>
           {isHost && (
-            <button onClick={replay} disabled={busy}
+            <button onClick={replay} disabled={resetting}
               className="px-5 py-2 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood text-sm disabled:opacity-50">
-              {busy ? (en ? 'Resetting…' : '重置中…') : (en ? '↻ Play again (new script)' : '↻ 再来一局（换新本）')}
+              {resetting ? (en ? 'Resetting…' : '重置中…') : (en ? '↻ Play again (new script)' : '↻ 再来一局（换新本）')}
             </button>
           )}
         </div>

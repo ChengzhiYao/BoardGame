@@ -30,12 +30,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ roomId: room.id });
   }
 
-  if ((players?.length || 0) >= 2) {
-    return NextResponse.json({ error: '房间已满（2/2）' }, { status: 403 });
+  // 容量：剧本杀最多 8 名真人（AI 补满其余），其它模式仍是 2 人。
+  const SEATS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+  const cap = room.mode === 'jbs' ? 8 : 2;
+  if ((players?.length || 0) >= cap) {
+    return NextResponse.json({ error: `房间已满（${cap}/${cap}）` }, { status: 403 });
   }
 
   const taken = new Set(players?.map((p) => p.seat));
-  const seat = taken.has('A') ? 'B' : 'A';
+  const seat = SEATS.slice(0, cap).find((s) => !taken.has(s)) || 'A';
   const { error } = await admin
     .from('players')
     .insert({ room_id: room.id, user_id: user.id, seat, is_online: true });

@@ -273,4 +273,22 @@ create policy jbs_vote_read on jbs_votes for select using (is_room_member(room_i
 do $$ begin alter publication supabase_realtime add table jbs_characters; exception when duplicate_object then null; end $$;
 do $$ begin alter publication supabase_realtime add table jbs_votes; exception when duplicate_object then null; end $$;
 
+-- ---------- 19. 剧本杀 1–8 人：放开座位约束 + 按座位的私密可见性 ----------
+-- 座位从 A/B 扩到 A–H（CoC/真心话仍只用 A/B；剧本杀可容纳最多 8 名真人）。
+alter table players drop constraint if exists players_seat_check;
+alter table players add constraint players_seat_check check (seat in ('A','B','C','D','E','F','G','H'));
+
+-- 消息按座位私密：visibility='seat:X' 只对座位 X 的玩家可见（保留 player_a/player_b 兼容 CoC 旧数据）。
+drop policy if exists messages_member_read on messages;
+create policy messages_member_read on messages for select using (
+  is_admin() or (
+    is_room_member(room_id) and (
+      visibility = 'public'
+      or (visibility = 'player_a' and my_seat(room_id) = 'A')
+      or (visibility = 'player_b' and my_seat(room_id) = 'B')
+      or (visibility like 'seat:%' and my_seat(room_id) = substring(visibility from 6))
+    )
+  )
+);
+
 -- 完成。刷新网页即可。

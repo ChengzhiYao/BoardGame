@@ -98,6 +98,7 @@ ${type === '推理' || type === '恐怖' || type === '阵营' ? '【人人皆有
 export function buildJbsDmPrompt(caseFile: any, act: number, aiNames: string[], realRoster: { seat: string; name: string }[] = [], timing?: { elapsedMin: number; actMin: number }) {
   const realNames = realRoster.map((r) => r.name);
   const seatMap = realRoster.filter((r) => r.seat).map((r) => `${r.seat}座=${r.name}`).join('，') || '（无）';
+  const seatList = realRoster.filter((r) => r.seat).map((r) => r.seat).join('/') || '无';
   const type = caseFile?.type || '推理';
   const t = timing || { elapsedMin: 0, actMin: 6 };
   const acts: { name?: string; goal?: string }[] = Array.isArray(caseFile?.acts) && caseFile.acts.length >= 4 ? caseFile.acts : [];
@@ -115,7 +116,7 @@ ${JSON.stringify(caseFile).slice(0, 9000)}
 
 【幕的推进由系统按真实时间控制，你不要自己跳幕】本幕计划约 **${t.actMin} 分钟**，现已进行 **${t.elapsedMin} 分钟**。系统会在时间到时自动进入下一幕，**你绝不要自己宣布或跳到下一幕**：next_act 一律保持 ${act}，to_vote 一律 false。你的任务是把【第 ${act} 幕】演足——随玩家行动推进剧情、给该给的线索、让相关 AI 角色反应。时间还早就把内容铺充实；每次叙述都带来新进展（新线索/新冲突/新对话），绝不重复上一回合，也绝不原地空聊。
 
-【搜证】玩家搜查/询问/对质时，按隐藏档案里的 evidence 决定能否获得：普通证据较易、关键/隐藏证据需要对的地点或追问，伪证/误导证据会出现但站不住脚。把这次获得的证据写进 evidence_revealed（to: all/A/B，私有线索只给该玩家）。
+【搜证】玩家搜查/询问/对质时，按隐藏档案里的 evidence 决定能否获得：普通证据较易、关键/隐藏证据需要对的地点或追问，伪证/误导证据会出现但站不住脚。把这次获得的证据写进 evidence_revealed（to 取 all 或某个真人座位：${seatList}；私有线索只给该座位玩家）。
 【线索节奏·重要】线索只在玩家**主动搜查/询问/对质、且方向对路**时才给。**绝不要在开场白、转场、或没人去查的回合主动抛线索**；这一回合玩家没有具体查到点子上，evidence_revealed 就**留空**。一次最多给 1 条，别一股脑全倒出来。让玩家自己挖，你不要喂。AI 角色发言里也别替玩家"公布"还没被查到的关键证据。
 【本幕关键线索】每一幕都有一条推动剧情的**关键线索**。当玩家通过搜证/追问真正触及到本幕的关键线索时，把那条 evidence_revealed 的 "key" 设为 true（普通线索 key 为 false）。只有本幕关键线索浮出水面，玩家才被允许提前推进到下一幕——所以不要随便给 key，也不要在玩家还没好好搜证时就送出来。
 
@@ -139,7 +140,7 @@ ${type === '机制' ? '【机制本·账房】你要维护每个角色的资源/
   "narration": "DM 对这次行动/场景的客观叙述（事实，不推理、不剧透）",
   "ai_lines": [ { "name": "AI角色名", "text": "其本人口吻的发言（可撒谎）" } ],
   "evidence_revealed": [ { "name": "证据名", "desc": "玩家看到的描述", "to": "all", "key": false } ],
-  "private_notes": [ { "to": "A", "text": "只有该玩家察觉到的私人信息" } ],
+  "private_notes": [ { "to": "（真人座位之一：${seatList}）", "text": "只有该玩家察觉到的私人信息" } ],
   "resources": [ { "name": "角色名", "items": [ { "label": "资源名", "value": "数值或描述" } ] } ],
   "next_act": ${act},
   "to_vote": false,

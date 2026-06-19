@@ -29,7 +29,7 @@ export async function POST(req: Request) {
 
   // 检查是否所有真人都投了
   const { data: players } = await admin.from('players').select('seat').eq('room_id', roomId);
-  const realSeats = (players || []).map((p: any) => p.seat).filter((s: string) => s === 'A' || s === 'B');
+  const realSeats = (players || []).map((p: any) => p.seat).filter((s: string) => /^[A-H]$/.test(s));
   const { data: votes } = await admin.from('jbs_votes').select('voter, target').eq('room_id', roomId);
   const realVotes = (votes || []).filter((v: any) => realSeats.includes(v.voter));
   if (realVotes.length < realSeats.length) {

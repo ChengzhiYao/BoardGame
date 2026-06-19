@@ -85,12 +85,12 @@ export async function POST(req: Request) {
       }
       for (const ev of out.evidence_revealed || []) {
         if (!ev?.name) continue;
-        const vis = ev.to === 'A' ? 'player_a' : ev.to === 'B' ? 'player_b' : 'public';
+        const vis = /^[A-H]$/.test(String(ev.to)) ? `seat:${ev.to}` : 'public';
         await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: nextAct, content: `🔍 ${ev.name}：${ev.desc || ''}`, visibility: vis, payload: { type: 'jbs_evidence', key: !!ev.key } });
       }
       for (const pn of out.private_notes || []) {
-        if (!pn?.text || !['A', 'B'].includes(pn.to)) continue;
-        await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: nextAct, content: pn.text, visibility: pn.to === 'A' ? 'player_a' : 'player_b', payload: { type: 'private' } });
+        if (!pn?.text || !/^[A-H]$/.test(String(pn.to))) continue;
+        await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: nextAct, content: pn.text, visibility: `seat:${pn.to}`, payload: { type: 'private' } });
       }
       if (Array.isArray(out.resources) && out.resources.length) await admin.from('rooms').update({ jbs_resources: out.resources }).eq('id', roomId);
     }

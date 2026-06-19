@@ -28,7 +28,7 @@ export async function POST(req: Request) {
   if (!chosen) return NextResponse.json({ error: '剧本不存在' }, { status: 400 });
 
   const { data: players } = await admin.from('players').select('id, seat').eq('room_id', roomId);
-  const realSeats = (players || []).map((p: any) => p.seat).filter((s: string) => s === 'A' || s === 'B').sort();
+  const realSeats = (players || []).map((p: any) => p.seat).filter((s: string) => /^[A-H]$/.test(s)).sort();
   const headcount = Math.max(realSeats.length, Math.min(8, Number(chosen.headcount) || 6));
 
   // 原子锁：只有把 phase 从 script/lobby 抢到 locking 的那一个请求能继续，避免多人同时点"选这个"导致重复开本。
@@ -90,7 +90,7 @@ export async function POST(req: Request) {
         + (c.faction ? (en ? `\nFaction: ${c.faction}` : `\n所属阵营：${c.faction}`) : '');
       await admin.from('messages').insert({
         room_id: roomId, sender_type: 'system', turn_no: 0, content: card,
-        visibility: seat === 'A' ? 'player_a' : 'player_b', payload: { type: 'jbs_role' },
+        visibility: `seat:${seat}`, payload: { type: 'jbs_role' },
       });
     }
     // DM 开场白

@@ -41,6 +41,31 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
 
+  // 血染：清空上一局并回到大厅
+  if (room.mode === 'botc') {
+    for (const tbl of ['messages', 'botc_setup', 'botc_players', 'botc_votes', 'botc_night']) {
+      await admin.from(tbl).delete().eq('room_id', roomId);
+    }
+    await admin.from('rooms').update({
+      game_state: 'lobby', botc_phase: null, botc_day: 0, modules_generating: false,
+    }).eq('id', roomId);
+    if (!ent.whitelisted) {
+      await admin.from('profiles').update({ credits: Math.max(0, (ent.credits || 0) - 1) }).eq('user_id', user.id);
+    }
+    return NextResponse.json({ ok: true });
+  }
+
+  // 海龟汤 / 真心话：清空对局回到各自大厅
+  if (room.mode === 'soup' || room.mode === 'td') {
+    await admin.from('messages').delete().eq('room_id', roomId);
+    if (room.mode === 'soup') await admin.from('soup_puzzles').delete().eq('room_id', roomId);
+    await admin.from('rooms').update({ game_state: 'lobby', modules_generating: false }).eq('id', roomId);
+    if (!ent.whitelisted) {
+      await admin.from('profiles').update({ credits: Math.max(0, (ent.credits || 0) - 1) }).eq('user_id', user.id);
+    }
+    return NextResponse.json({ ok: true });
+  }
+
   for (const tbl of ['messages', 'dice_rolls', 'san_logs', 'clues', 'npcs', 'images', 'locations', 'timeline_events', 'characters']) {
     await admin.from(tbl).delete().eq('room_id', roomId);
   }

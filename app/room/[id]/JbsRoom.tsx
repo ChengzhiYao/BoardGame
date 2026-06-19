@@ -197,7 +197,7 @@ export default function JbsRoom(props: ShellProps) {
     setBusy(true);
     try {
       const res = await fetch('/api/rooms/replay', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) });
-      if (res.status === 402) { router.push('/upgrade'); return; }
+      if (res.status === 402) { const d = await res.json().catch(() => ({})); alert(d.error || (en ? 'No credits left.' : '局数已用完。')); router.push('/upgrade'); return; }
       const d = await res.json();
       if (!res.ok) { alert(d.error || (en ? 'Error' : '出错了')); return; }
       router.refresh();

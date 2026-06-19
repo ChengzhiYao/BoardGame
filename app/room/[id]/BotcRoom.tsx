@@ -101,6 +101,10 @@ export default function BotcRoom(props: ShellProps) {
   async function start() { await call('/api/botc/start', { roomId: props.room.id, size, theme: theme.trim() || null }); }
   async function resolveDay() { if (!confirm(en ? 'Tally votes and execute?' : '统计投票并处决？')) return; await call('/api/botc/resolve', { roomId: props.room.id }); }
   async function resolveNight() { if (!confirm(en ? 'Resolve the night?' : '结算今夜（天亮）？')) return; await call('/api/botc/resolve-night', { roomId: props.room.id }); }
+  async function replay() {
+    const d = await call('/api/rooms/replay', { roomId: props.room.id });
+    if (d?.ok) router.refresh();
+  }
   async function sendChat() {
     const c = text.trim(); if (!c || !props.myPlayerId) return;
     setText('');
@@ -187,8 +191,14 @@ export default function BotcRoom(props: ShellProps) {
       </div>
 
       {ended ? (
-        <div className="border-t border-blood/40 px-4 py-3 text-center max-w-3xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
-          <span className="text-parchment/70 text-sm">{en ? 'The game is over. Create a new room to play again.' : '对局结束。回首页创建新房间再来一局。'}</span>
+        <div className="border-t border-blood/40 px-4 py-3 text-center max-w-3xl w-full mx-auto flex flex-col items-center gap-2" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+          <span className="text-parchment/70 text-sm">{en ? 'The game is over.' : '本局结束。'}</span>
+          {isHost && (
+            <button onClick={replay} disabled={busy}
+              className="px-5 py-2 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood text-sm disabled:opacity-50">
+              {busy ? (en ? 'Resetting…' : '重置中…') : (en ? '↻ Play again (new setup)' : '↻ 再来一局（重新发身份）')}
+            </button>
+          )}
         </div>
       ) : night ? (
         <div className="border-t border-eldritch/20 px-4 py-3 space-y-2 max-w-3xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>

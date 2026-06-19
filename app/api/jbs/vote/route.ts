@@ -41,10 +41,22 @@ export async function POST(req: Request) {
   const { data: chars } = await admin.from('jbs_characters').select('name, is_ai').eq('room_id', roomId);
   const aiNames = (chars || []).filter((c: any) => c.is_ai).map((c: any) => c.name);
 
+  // 把整局的讨论/指证过程压成一段文字，让 AI 投票时真的参考玩家说服了什么。
+  const { data: hist } = await admin.from('messages').select('sender_type, content, payload').eq('room_id', roomId).order('created_at', { ascending: true }).limit(400);
+  const discussion = (hist || [])
+    .filter((m: any) => ['kp', 'player'].includes(m.sender_type) && m.payload?.type !== 'jbs_roster' && m.payload?.type !== 'jbs_role')
+    .slice(-40)
+    .map((m: any) => {
+      if (m.payload?.type === 'jbs_ai') return `${m.payload?.name}（AI）：${m.content}`;
+      if (m.sender_type === 'player') return `玩家：${m.content}`;
+      if (m.payload?.type === 'jbs_evidence') return `线索：${m.content}`;
+      return `旁白：${m.content}`;
+    }).join('\n').slice(0, 4000);
+
   await admin.from('rooms').update({ jbs_phase: 'revealing' }).eq('id', roomId);
   try {
     const { data: out, usage } = await callLLMJson<any>({
-      system: buildJbsVotePrompt(kase!.case_file, aiNames, realVotes) + langDirective(room.language),
+      system: buildJbsVotePrompt(kase!.case_file, aiNames, realVotes, discussion) + langDirective(room.language),
       messages: [{ role: 'user', content: '请统计 AI 投票并揭晓真相。' }],
       tier: 'main', temperature: 0.7, maxTokens: 3000, retry: true,
     });

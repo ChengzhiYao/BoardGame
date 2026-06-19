@@ -61,7 +61,7 @@ export async function POST(req: Request) {
       });
       const nudge = goVote
         ? `（幕转场）现在进入第 ${nextAct} 幕「最终指认」。请做一段简短的收束开场：把局势推到摊牌时刻，提示玩家即将进行最终指认，并让相关 AI 角色表态。不要剧透真相，不要替玩家下结论。next_act 保持 ${nextAct}。`
-        : `（幕转场）现在进入第 ${nextAct} 幕。请你**主动**做本幕开场：推动剧情进入新阶段，抛出本幕的新场景/新进展/新线索/新冲突，并让相关 AI 角色自然反应。不要干等玩家先开口。next_act 保持 ${nextAct}。`;
+        : `（幕转场）现在进入第 ${nextAct} 幕。请你**主动**做本幕开场：交代本幕的场景、气氛与局势变化，让相关 AI 角色自然反应、把矛盾往前推。**但不要主动公布任何线索/证据（evidence_revealed 留空）**——线索只在玩家自己搜证时才给。不要干等玩家先开口。next_act 保持 ${nextAct}。`;
       const { data: out, usage } = await callLLMJson<any>({
         system: buildJbsDmPrompt(kase.case_file, nextAct, aiNames, realNames, { elapsedMin: 0, actMin: minutes }) + langDirective(room.language),
         messages: [...base, { role: 'user', content: nudge }],

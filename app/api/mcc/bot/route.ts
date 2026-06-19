@@ -1,7 +1,7 @@
 // MCC · 机器猫单步行动（房主端轮询）：处理 bot 的护身铃 / 出牌 / 抽牌。
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
-import { botAct, useWard } from '@/lib/mcc/engine';
+import { botAct, botReact, useWard } from '@/lib/mcc/engine';
 import { loadState, persist } from '@/lib/mcc/db';
 
 export async function POST(req: Request) {
@@ -17,6 +17,10 @@ export async function POST(req: Request) {
   const state = await loadState(admin, roomId);
   if (!state || state.status !== 'playing') return NextResponse.json({ ok: true });
 
+  if (state.pending?.type === 'react') {
+    botReact(state);
+    await persist(admin, roomId, state); return NextResponse.json({ ok: true, acted: 'react' });
+  }
   if (state.pending?.type === 'ward' && state.bots.includes(state.pending.seat)) {
     useWard(state, state.pending.seat, Math.floor(Math.random() * (state.deck.length + 1)));
     await persist(admin, roomId, state); return NextResponse.json({ ok: true, acted: 'ward' });

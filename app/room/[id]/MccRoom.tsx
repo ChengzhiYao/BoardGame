@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { ShellProps } from './RoomShell';
 import MccCard from './MccCard';
+import { mccSfx } from '@/lib/audio/mccCue';
 
 const META: Record<string, { e: string; zh: string; en: string; d_zh: string; d_en: string }> = {
   curse: { e: '😼', zh: '诅咒猫', en: 'Curse Cat', d_zh: '抽到即出局，除非有护身铃', d_en: 'Drawing it eliminates you unless warded' },
@@ -36,6 +37,7 @@ export default function MccRoom(props: ShellProps) {
   const [aiFill, setAiFill] = useState(true);
   const [totalSeats, setTotalSeats] = useState(4);
   const logRef = useRef<HTMLDivElement>(null);
+  const logLen = useRef<number>(props.mccPublic?.log?.length || 0);
 
   const isHost = props.room.host_user_id === props.userId;
   const mySeat = props.mySeat;
@@ -63,6 +65,29 @@ export default function MccRoom(props: ShellProps) {
 
   useEffect(() => { logRef.current?.scrollTo({ top: logRef.current.scrollHeight }); }, [pub?.log?.length]);
 
+  // 音效：扫描新日志触发
+  useEffect(() => {
+    const logs = pub?.log || [];
+    if (logs.length > logLen.current) {
+      for (const l of logs.slice(logLen.current)) {
+        const m = l.msg || '';
+        if (m.includes('💀')) mccSfx('eliminate');
+        else if (m.includes('🏆')) mccSfx('win');
+        else if (m.includes('🔔')) mccSfx('ward');
+        else if (m.includes('🎴')) mccSfx('draw');
+        else if (m.includes('🃏') || m.includes('🙀') || m.includes('🚫') || m.includes('🪞')) mccSfx('flip');
+      }
+    }
+    logLen.current = logs.length;
+  }, [pub?.log?.length]);
+
+  // 重连：回到页面/标签页时强制同步
+  useEffect(() => {
+    const onFocus = () => router.refresh();
+    window.addEventListener('focus', onFocus); document.addEventListener('visibilitychange', onFocus);
+    return () => { window.removeEventListener('focus', onFocus); document.removeEventListener('visibilitychange', onFocus); };
+  }, [router]);
+
   // 房主端：响应窗口到点自动结算
   useEffect(() => {
     if (!isHost || pub?.pending?.type !== 'react') return;
@@ -76,7 +101,8 @@ export default function MccRoom(props: ShellProps) {
     if (!isHost || !pub || pub.status !== 'playing') return;
     const turnAI = pub.players.find((p: any) => p.seat === pub.turn)?.isAI;
     const wardAI = pub.pending?.type === 'ward' && pub.players.find((p: any) => p.seat === pub.pending.seat)?.isAI;
-    if (!turnAI && !wardAI) return;
+    const reactBots = pub.pending?.type === 'react' && pub.players.some((p: any) => p.isAI);
+    if (!turnAI && !wardAI && !reactBots) return;
     const run = () => { fetch('/api/mcc/bot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) }).catch(() => {}); };
     run(); const id = setInterval(run, 2500);
     return () => clearInterval(id);
@@ -159,11 +185,15 @@ export default function MccRoom(props: ShellProps) {
   }
 
   const turnName = pub.players.find((p: any) => p.seat === pub.turn)?.name;
+  const mePub = pub.players.find((p: any) => p.seat === mySeat);
+  const spectator = !mePub;
+  const meDead = !!mePub && !mePub.alive;
 
   return (
     <main className="h-[100svh] flex flex-col overflow-hidden">
+      {(spectator || meDead) && <div className="px-4 py-1.5 text-center text-xs bg-ink/70 text-parchment/55 border-b border-eldritch/15">{spectator ? (en ? '👁 Spectating (no seat this game)' : '👁 观战中（你不在本局座位）') : (en ? '💀 You are out — spectating' : '💀 你已出局 · 观战中')}</div>}
       <header className="px-4 py-3 border-b border-eldritch/20 flex items-center justify-between gap-2">
-        <span className="font-serif text-parchment text-sm truncate">{en ? 'Midnight Cat Curse' : '午夜猫诅咒'}</span>
+        <span className="font-serif text-parchment text-sm truncate"><span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse mr-1.5 align-middle" />{en ? 'Midnight Cat Curse' : '午夜猫诅咒'}</span>
         <span className="text-xs text-parchment/55">{ended ? (en ? 'Game over' : '对局结束') : (en ? `Deck ${pub.deckCount} · ${myTurn ? 'YOUR TURN' : turnName + '’s turn'}` : `牌堆 ${pub.deckCount} · ${myTurn ? '轮到你' : turnName + ' 的回合'}`)}{pub.turnsToTake > 1 ? ` (×${pub.turnsToTake})` : ''}</span>
       </header>
 
@@ -179,7 +209,7 @@ export default function MccRoom(props: ShellProps) {
       {/* 牌堆 / 弃牌 */}
       <div className="px-4 py-3 flex items-center justify-center gap-6 border-b border-eldritch/10">
         <div className="text-center"><div className="w-16 h-22 rounded-lg bg-gradient-to-b from-eldritch/40 to-ink border border-eldritch/40 flex items-center justify-center text-2xl">🂠</div><div className="text-xs text-parchment/50 mt-1">{en ? 'Deck' : '牌堆'} {pub.deckCount}</div></div>
-        <div className="text-center">{pub.discardTop ? <MccCard card={pub.discardTop} en={en} w={58} /> : <div className="w-14 h-20 rounded-lg bg-fog border border-eldritch/30 flex items-center justify-center text-2xl text-parchment/30">—</div>}<div className="text-xs text-parchment/50 mt-1">{en ? 'Discard' : '弃牌'} {pub.discardCount}</div></div>
+        <div className="text-center">{pub.discardTop ? <div key={pub.discardTop + '-' + pub.discardCount} className="mcc-pop"><MccCard card={pub.discardTop} en={en} w={58} /></div> : <div className="w-14 h-20 rounded-lg bg-fog border border-eldritch/30 flex items-center justify-center text-2xl text-parchment/30">—</div>}<div className="text-xs text-parchment/50 mt-1">{en ? 'Discard' : '弃牌'} {pub.discardCount}</div></div>
       </div>
 
       {/* 日志 */}
@@ -238,7 +268,9 @@ export default function MccRoom(props: ShellProps) {
       {/* 我的手牌 + 操作 */}
       {!ended ? (
         <div className="border-t border-eldritch/20 px-4 py-3 space-y-2 max-w-3xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
-          {pickCard ? (
+          {(spectator || meDead) ? (
+              <div className="text-center text-sm text-parchment/55 py-3">{en ? 'Watching the chaos…' : '围观这场混乱……'}</div>
+            ) : pickCard ? (
             <div className="space-y-2">
               <div className="text-xs text-parchment/60">{en ? `Choose a target for ${cn(pickCard, en)}:` : `为「${cn(pickCard, en)}」选择目标：`}</div>
               <div className="flex gap-2 flex-wrap">
@@ -255,7 +287,7 @@ export default function MccRoom(props: ShellProps) {
                   return (
                     <button key={i} disabled={busy || !usable} title={en ? META[c]?.d_en : META[c]?.d_zh}
                       onClick={() => { if (NEEDS_TARGET.includes(c)) setPickCard(c); else playCard(c); }}
-                      className={`rounded-lg transition ${usable ? 'hover:-translate-y-1 cursor-pointer' : 'opacity-55 cursor-default'}`}>
+                      className={`mcc-deal rounded-lg transition ${usable ? 'hover:-translate-y-1 cursor-pointer' : 'opacity-55 cursor-default'}`}>
                       <MccCard card={c} en={en} w={72} />
                     </button>
                   );

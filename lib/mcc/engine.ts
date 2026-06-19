@@ -19,7 +19,7 @@ export interface State {
   winner: string | null;
   pending: null
     | { type: 'ward'; seat: string }
-    | { type: 'react'; card: Card; by: string; target: string | null; hiss: number; until: number };
+    | { type: 'react'; card: Card; by: string; target: string | null; hiss: number; until: number; passed: string[] };
   log: { msg: string }[];
 }
 
@@ -74,8 +74,12 @@ function eliminate(s: State, seat: string) {
 }
 
 function someoneCanReact(s: State, by: string, card: Card, target: string | null): boolean {
-  for (const p of aliveSeats(s)) { if (p === by || s.bots.includes(p)) continue; if (s.hands[p].includes('hiss')) return true; }
-  if (NEEDS_TARGET.includes(card) && target && !s.bots.includes(target) && s.hands[target]?.includes('mirror')) return true;
+  for (const p of aliveSeats(s)) {
+    if (p === by) continue;
+    if (s.bots.includes(p) && !(NEEDS_TARGET.includes(card) && target === p)) continue; // 机器猫只为针对自己的牌开窗
+    if (s.hands[p].includes('hiss')) return true;
+  }
+  if (NEEDS_TARGET.includes(card) && target && s.hands[target]?.includes('mirror')) return true;
   return false;
 }
 
@@ -124,7 +128,7 @@ export function play(s: State, seat: string, card: Card, target?: string): { ok:
   if (card === 'peek') { L(s, `🕯️ ${nm(s, seat)} 借烛光偷看了牌堆顶。`); return { ok: true, peek: s.deck.slice(-3).reverse() }; }
 
   if (CANCELABLE.includes(card) && someoneCanReact(s, seat, card, tgt)) {
-    s.pending = { type: 'react', card, by: seat, target: tgt, hiss: 0, until: Date.now() + 6000 };
+    s.pending = { type: 'react', card, by: seat, target: tgt, hiss: 0, until: Date.now() + 6000, passed: [] };
     L(s, `🃏 ${nm(s, seat)} 打出「${ZH[card]}」${tgt ? `（指向 ${nm(s, tgt)}）` : ''}——可在数秒内被嘶吼/镜爪响应……`);
     return { ok: true };
   }
@@ -140,7 +144,7 @@ export function react(s: State, seat: string, kind: 'hiss' | 'mirror', newTarget
   if (kind === 'hiss') {
     const i = s.hands[seat].indexOf('hiss'); if (i < 0) return { ok: false, error: '你没有嘶吼牌' };
     s.hands[seat].splice(i, 1); s.discard.push('hiss');
-    pg.hiss += 1; pg.until = Date.now() + 6000;
+    pg.hiss += 1; pg.until = Date.now() + 6000; pg.passed = [];
     L(s, `🙀 ${nm(s, seat)} 发出嘶吼！（当前：${pg.hiss % 2 === 1 ? '该牌将被取消' : '取消被反取消'}）`);
     return { ok: true };
   }
@@ -150,7 +154,7 @@ export function react(s: State, seat: string, kind: 'hiss' | 'mirror', newTarget
     const i = s.hands[seat].indexOf('mirror'); if (i < 0) return { ok: false, error: '你没有镜爪' };
     if (!newTarget || !s.alive[newTarget] || newTarget === pg.by) return { ok: false, error: '请选择有效的新目标' };
     s.hands[seat].splice(i, 1); s.discard.push('mirror');
-    pg.target = newTarget; pg.until = Date.now() + 6000;
+    pg.target = newTarget; pg.until = Date.now() + 6000; pg.passed = [];
     L(s, `🪞 ${nm(s, seat)} 用镜爪把矛头转给了 ${nm(s, newTarget)}！`);
     return { ok: true };
   }
@@ -222,4 +226,40 @@ export function botAct(s: State, seat: string) {
   }
   if (s.pending || s.turn !== seat || s.status !== 'playing') return; // 进入响应窗口 / 回合已转移
   draw(s, seat);
+}
+
+export function humanCanReact(s: State): boolean {
+  if (!s.pending || s.pending.type !== 'react') return false;
+  const pg = s.pending;
+  for (const seat of aliveSeats(s)) { if (seat === pg.by || s.bots.includes(seat)) continue; if (s.hands[seat].includes('hiss')) return true; }
+  if (NEEDS_TARGET.includes(pg.card) && pg.target && !s.bots.includes(pg.target) && s.hands[pg.target]?.includes('mirror')) return true;
+  return false;
+}
+
+// 机器猫在响应窗口的一步决策：会用嘶吼反制（尤其针对自己），偶尔虚张；没人能再响应则直接结算。
+export function botReact(s: State) {
+  if (!s.pending || s.pending.type !== 'react') return;
+  const pg = s.pending;
+  for (const seat of aliveSeats(s)) {
+    if (!s.bots.includes(seat) || seat === pg.by) continue;
+    const targeted = NEEDS_TARGET.includes(pg.card) && pg.target === seat;
+    // 被指定且有镜爪：一半概率把矛头转走
+    if (targeted && s.hands[seat].includes('mirror') && !pg.passed.includes('m:' + seat)) {
+      if (Math.random() < 0.5) { const opps = aliveSeats(s).filter((x) => x !== pg.by && x !== seat); if (opps.length) { react(s, seat, 'mirror', opps[Math.floor(Math.random() * opps.length)]); return; } }
+      pg.passed.push('m:' + seat);
+    }
+    if (pg.passed.includes(seat) || !s.hands[seat].includes('hiss')) { if (!pg.passed.includes(seat)) pg.passed.push(seat); continue; }
+    const willCancel = pg.hiss % 2 === 0;
+    let p = 0.05; // 基础虚张
+    if (targeted && willCancel) p = 0.78;
+    else if (targeted) p = 0.45;
+    else if (willCancel && pg.card === 'hex') p = 0.12;
+    if (Math.random() < p) { react(s, seat, 'hiss'); return; }
+    pg.passed.push(seat);
+  }
+  // 没有真人能响应、且机器猫也都决定不动 → 立即结算，不空等
+  if (!humanCanReact(s)) {
+    const botPending = aliveSeats(s).some((seat) => s.bots.includes(seat) && seat !== pg.by && !pg.passed.includes(seat) && s.hands[seat].includes('hiss'));
+    if (!botPending) resolvePending(s);
+  }
 }

@@ -30,3 +30,11 @@ body {
 *::-webkit-scrollbar-corner {
   background: transparent;
 }
+
+/* 午夜猫诅咒 · 卡面动画 */
+@keyframes mccPop { 0% { transform: scale(.6) rotate(-8deg); opacity: 0; } 70% { transform: scale(1.06) rotate(2deg); } 100% { transform: scale(1) rotate(0); opacity: 1; } }
+.mcc-pop { animation: mccPop .3s cubic-bezier(.2,.8,.3,1.2) both; }
+@keyframes mccDeal { from { transform: translateY(16px) scale(.9); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+.mcc-deal { animation: mccDeal .26s ease-out both; }
+@keyframes mccShake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-2px) rotate(-1deg); } 75% { transform: translateX(2px) rotate(1deg); } }
+.mcc-shake { animation: mccShake .3s ease-in-out; }

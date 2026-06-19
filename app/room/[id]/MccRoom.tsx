@@ -15,6 +15,8 @@ const META: Record<string, { e: string; zh: string; en: string; d_zh: string; d_
   thief: { e: '🍤', zh: '零食小偷', en: 'Treat Thief', d_zh: '随机偷走一名玩家一张牌', d_en: 'Steal a random card from a player' },
   noise: { e: '🔊', zh: '地窖骚动', en: 'Basement Noise', d_zh: '所有人向左手边传一张牌', d_en: 'Everyone passes one card left' },
   lives: { e: '🐈', zh: '九条命', en: 'Nine Lives', d_zh: '从弃牌堆捡回一张牌', d_en: 'Recover one card from the discard' },
+  hiss: { e: '🙀', zh: '嘶吼', en: 'Hiss', d_zh: '在响应窗口取消别人刚打出的牌（可被反取消）', d_en: 'Cancel a just-played card during the reaction window' },
+  mirror: { e: '🪞', zh: '镜爪', en: 'Mirror Paw', d_zh: '被指定为目标时，把矛头转给另一名玩家', d_en: 'When targeted, redirect it to another player' },
 };
 const NEEDS_TARGET = ['swap', 'hex', 'thief'];
 function cn(k: string, en: boolean) { const m = META[k]; return m ? `${m.e} ${en ? m.en : m.zh}` : k; }
@@ -29,6 +31,7 @@ export default function MccRoom(props: ShellProps) {
   const [copied, setCopied] = useState(false);
   const [pickCard, setPickCard] = useState<string>('');
   const [peek, setPeek] = useState<string[] | null>(null);
+  const [mirrorPick, setMirrorPick] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
 
   const isHost = props.room.host_user_id === props.userId;
@@ -57,6 +60,14 @@ export default function MccRoom(props: ShellProps) {
 
   useEffect(() => { logRef.current?.scrollTo({ top: logRef.current.scrollHeight }); }, [pub?.log?.length]);
 
+  // 房主端：响应窗口到点自动结算
+  useEffect(() => {
+    if (!isHost || pub?.pending?.type !== 'react') return;
+    const run = () => { fetch('/api/mcc/resolve', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) }).catch(() => {}); };
+    const id = setInterval(run, 1500);
+    return () => clearInterval(id);
+  }, [isHost, pub?.pending, props.room.id]);
+
   async function call(url: string, body: any) {
     setBusy(true);
     try {
@@ -83,6 +94,7 @@ export default function MccRoom(props: ShellProps) {
     }
   }
   async function useWard(pos: number) { await call('/api/mcc/ward', { roomId: props.room.id, pos }); }
+  async function react(kind: 'hiss' | 'mirror', newTarget?: string) { setMirrorPick(false); await call('/api/mcc/react', { roomId: props.room.id, kind, newTarget }); }
 
   const aliveOthers = (pub?.players || []).filter((p: any) => p.alive && p.seat !== mySeat);
 
@@ -165,6 +177,33 @@ export default function MccRoom(props: ShellProps) {
         </div>
       )}
 
+      {/* 响应窗口：嘶吼 / 镜爪 */}
+      {pub?.pending?.type === 'react' && (() => {
+        const pend = pub.pending; const byName = pub.players.find((p: any) => p.seat === pend.by)?.name; const tgtName = pend.target ? pub.players.find((p: any) => p.seat === pend.target)?.name : null;
+        const myAlive = pub.players.find((p: any) => p.seat === mySeat)?.alive !== false;
+        const canMirror = ['swap', 'hex', 'thief'].includes(pend.card) && pend.target === mySeat && hand.includes('mirror');
+        const others = pub.players.filter((p: any) => p.alive && p.seat !== mySeat && p.seat !== pend.by);
+        return (
+          <div className="px-4 py-3 border-t border-amber-700/40 bg-amber-950/25 max-w-2xl w-full mx-auto text-center space-y-2">
+            <div className="text-sm text-amber-200/90">🃏 {byName} {en ? 'played' : '打出'}「{cn(pend.card, en)}」{tgtName ? (en ? ` \u2192 ${tgtName}` : `（指向 ${tgtName}）`) : ''} · {pend.hiss % 2 === 1 ? (en ? 'will be CANCELED' : '当前将被取消') : (en ? 'will resolve' : '当前将生效')}</div>
+            {myAlive && (
+              <div className="flex gap-2 justify-center flex-wrap">
+                {hand.includes('hiss') && <button onClick={() => react('hiss')} disabled={busy} className="px-3 py-1.5 rounded bg-blood/50 hover:bg-blood/70 border border-blood/50 text-parchment text-sm">🙀 {pend.hiss % 2 === 1 ? (en ? 'Hiss (un-cancel)' : '嘶吼（反取消）') : (en ? 'Hiss (cancel)' : '嘶吼（取消）')}</button>}
+                {canMirror && !mirrorPick && <button onClick={() => setMirrorPick(true)} disabled={busy} className="px-3 py-1.5 rounded bg-eldritch/50 hover:bg-eldritch/70 border border-eldritch/50 text-parchment text-sm">🪞 {en ? 'Mirror Paw' : '镜爪转移'}</button>}
+              </div>
+            )}
+            {mirrorPick && (
+              <div className="flex gap-2 justify-center flex-wrap">
+                <span className="text-xs text-parchment/60 self-center">{en ? 'redirect to:' : '转给：'}</span>
+                {others.map((p: any) => <button key={p.seat} onClick={() => react('mirror', p.seat)} disabled={busy} className="px-2.5 py-1 rounded bg-eldritch/40 border border-eldritch/50 text-parchment text-sm">{p.name}</button>)}
+                <button onClick={() => setMirrorPick(false)} className="px-2.5 py-1 rounded bg-fog border border-parchment/30 text-parchment/60 text-sm">{en ? 'cancel' : '取消'}</button>
+              </div>
+            )}
+            <div className="text-[11px] text-parchment/40">{en ? 'Resolves automatically when the window closes…' : '窗口结束后自动结算……'}</div>
+          </div>
+        );
+      })()}
+
       {/* 我的手牌 + 操作 */}
       {!ended ? (
         <div className="border-t border-eldritch/20 px-4 py-3 space-y-2 max-w-3xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
@@ -181,9 +220,9 @@ export default function MccRoom(props: ShellProps) {
               <div className="flex gap-2 flex-wrap min-h-[2.5rem]">
                 {hand.length === 0 && <span className="text-sm text-parchment/40">{en ? '(no cards)' : '（没有手牌）'}</span>}
                 {hand.map((c, i) => (
-                  <button key={i} disabled={busy || !myTurn || c === 'ward'} title={en ? META[c]?.d_en : META[c]?.d_zh}
+                  <button key={i} disabled={busy || !myTurn || ['ward', 'hiss', 'mirror'].includes(c)} title={en ? META[c]?.d_en : META[c]?.d_zh}
                     onClick={() => { if (NEEDS_TARGET.includes(c)) setPickCard(c); else playCard(c); }}
-                    className={`px-2.5 py-2 rounded-lg border text-sm ${myTurn && c !== 'ward' ? 'bg-fog border-eldritch/40 hover:bg-eldritch/20 text-parchment' : 'bg-ink border-parchment/15 text-parchment/45'}`}>
+                    className={`px-2.5 py-2 rounded-lg border text-sm ${myTurn && !['ward', 'hiss', 'mirror'].includes(c) ? 'bg-fog border-eldritch/40 hover:bg-eldritch/20 text-parchment' : 'bg-ink border-parchment/15 text-parchment/45'}`}>
                     {cn(c, en)}
                   </button>
                 ))}

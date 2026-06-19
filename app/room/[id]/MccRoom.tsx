@@ -208,8 +208,8 @@ export default function MccRoom(props: ShellProps) {
 
       {/* 牌堆 / 弃牌 */}
       <div className="px-4 py-3 flex items-center justify-center gap-6 border-b border-eldritch/10">
-        <div className="text-center"><div className="w-16 h-22 rounded-lg bg-gradient-to-b from-eldritch/40 to-ink border border-eldritch/40 flex items-center justify-center text-2xl">🂠</div><div className="text-xs text-parchment/50 mt-1">{en ? 'Deck' : '牌堆'} {pub.deckCount}</div></div>
-        <div className="text-center">{pub.discardTop ? <div key={pub.discardTop + '-' + pub.discardCount} className="mcc-pop"><MccCard card={pub.discardTop} en={en} w={58} /></div> : <div className="w-14 h-20 rounded-lg bg-fog border border-eldritch/30 flex items-center justify-center text-2xl text-parchment/30">—</div>}<div className="text-xs text-parchment/50 mt-1">{en ? 'Discard' : '弃牌'} {pub.discardCount}</div></div>
+        <div className="text-center"><div className="w-[72px] h-[100px] rounded-xl bg-black border border-white/25 flex items-center justify-center"><div className="w-8 h-12 rounded border border-white/20" /></div><div className="text-xs text-parchment/50 mt-1">{en ? 'Deck' : '牌堆'} {pub.deckCount}</div></div>
+        <div className="text-center">{pub.discardTop ? <div key={pub.discardTop + '-' + pub.discardCount} className="mcc-pop"><MccCard card={pub.discardTop} en={en} w={96} /></div> : <div className="w-14 h-20 rounded-lg bg-fog border border-eldritch/30 flex items-center justify-center text-2xl text-parchment/30">—</div>}<div className="text-xs text-parchment/50 mt-1">{en ? 'Discard' : '弃牌'} {pub.discardCount}</div></div>
       </div>
 
       {/* 日志 */}
@@ -221,7 +221,7 @@ export default function MccRoom(props: ShellProps) {
       {peek && (
         <div className="px-4 py-3 border-t border-amber-700/40 bg-amber-950/30 max-w-2xl w-full mx-auto">
           <div className="text-xs text-amber-300/80 mb-1.5">🕯️ {en ? 'Top of deck (top → down):' : '牌堆顶（从上到下）：'}</div>
-          <div className="flex gap-3">{peek.map((c, i) => <MccCard key={i} card={c} en={en} w={66} />)}</div>
+          <div className="flex gap-3">{peek.map((c, i) => <MccCard key={i} card={c} en={en} w={104} />)}</div>
           <button onClick={() => setPeek(null)} className="mt-2 text-xs text-parchment/50 underline">{en ? 'close' : '收起'}</button>
         </div>
       )}
@@ -288,7 +288,7 @@ export default function MccRoom(props: ShellProps) {
                     <button key={i} disabled={busy || !usable} title={en ? META[c]?.d_en : META[c]?.d_zh}
                       onClick={() => { if (NEEDS_TARGET.includes(c)) setPickCard(c); else playCard(c); }}
                       className={`mcc-deal rounded-lg transition ${usable ? 'hover:-translate-y-1 cursor-pointer' : 'opacity-55 cursor-default'}`}>
-                      <MccCard card={c} en={en} w={72} />
+                      <MccCard card={c} en={en} w={122} />
                     </button>
                   );
                 })}

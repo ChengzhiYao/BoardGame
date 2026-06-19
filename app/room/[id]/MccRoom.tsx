@@ -205,6 +205,25 @@ export default function MccRoom(props: ShellProps) {
     <main className="h-[100svh] flex flex-col overflow-hidden">
       {flashKey > 0 && <div key={flashKey} className="mcc-flash pointer-events-none fixed inset-0 z-[60] bg-red-700" />}
       {armed && <div className="pointer-events-none fixed left-1/2 -translate-x-1/2 z-[55] text-blood text-sm font-medium" style={{ bottom: 300 }}>↑ {en ? 'Release to play' : '松手打出'}</div>}
+      {pickCard && (
+        <div className="fixed inset-0 z-[70] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setPickCard('')}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-2xl border border-white/20 bg-[#0a0a0c] p-5 shadow-2xl">
+            <div className="text-center text-parchment text-base font-serif tracking-wide mb-1">{en ? 'Choose a target' : '选择目标'}</div>
+            <div className="text-center text-xs text-parchment/50 mb-4">「{cn(pickCard, en)}」· {en ? META[pickCard]?.d_en : META[pickCard]?.d_zh}</div>
+            <div className="grid grid-cols-3 gap-3">
+              {aliveOthers.map((p: any) => (
+                <button key={p.seat} onClick={() => playCard(pickCard, p.seat)} disabled={busy}
+                  className="flex flex-col items-center gap-1.5 p-2 rounded-xl border border-white/15 hover:border-blood hover:bg-blood/15 active:bg-blood/25 transition disabled:opacity-50">
+                  <CatHead />
+                  <span className="text-sm text-parchment truncate max-w-full">{p.name}{p.isAI ? ' 🤖' : ''}</span>
+                  <span className="text-[10px] text-parchment/40">{en ? 'seat' : '座位'} {p.seat}</span>
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setPickCard('')} className="mt-4 w-full py-2 rounded-lg bg-fog border border-parchment/25 text-parchment/70 text-sm">{en ? 'Cancel' : '取消'}</button>
+          </div>
+        </div>
+      )}
       {(spectator || meDead) && <div className="px-4 py-1.5 text-center text-xs bg-ink/70 text-parchment/55 border-b border-eldritch/15">{spectator ? (en ? '👁 Spectating (no seat this game)' : '👁 观战中（你不在本局座位）') : (en ? '💀 You are out — spectating' : '💀 你已出局 · 观战中')}</div>}
       <header className="px-4 py-3 border-b border-eldritch/20 flex items-center justify-between gap-2">
         <span className="font-serif text-parchment text-sm truncate"><span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse mr-1.5 align-middle" />{en ? 'Midnight Cat Curse' : '午夜猫诅咒'}</span>
@@ -319,7 +338,7 @@ export default function MccRoom(props: ShellProps) {
         <div className="border-t border-eldritch/20 px-4 py-3 space-y-2 max-w-5xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
           {(spectator || meDead) ? (
               <div className="text-center text-sm text-parchment/55 py-3">{en ? 'Watching the chaos…' : '围观这场混乱……'}</div>
-            ) : pickCard ? (
+            ) : false ? (
             <div className="space-y-2">
               <div className="text-xs text-parchment/60">{en ? `Choose a target for ${cn(pickCard, en)}:` : `为「${cn(pickCard, en)}」选择目标：`}</div>
               <div className="flex gap-2 flex-wrap">
@@ -362,5 +381,22 @@ export default function MccRoom(props: ShellProps) {
         </div>
       )}
     </main>
+  );
+}
+
+function CatHead() {
+  const W = '#ece9e2';
+  return (
+    <svg viewBox="0 0 48 48" style={{ width: 48, height: 48 }}>
+      <circle cx="24" cy="24" r="22" fill="#0c0c10" stroke={W} strokeOpacity="0.35" />
+      <g fill="none" stroke={W} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14 17 L11 8 L20 15" />
+        <path d="M34 17 L37 8 L28 15" />
+        <path d="M12 21 q12 -7 24 0 q2 12 -12 16 q-14 -4 -12 -16 Z" />
+        <path d="M6 25 H15 M33 25 H42" strokeWidth="1" opacity="0.55" />
+      </g>
+      <g fill={W}><circle cx="19" cy="24" r="1.8" /><circle cx="29" cy="24" r="1.8" /></g>
+      <path d="M22 29 l2 1.5 l2 -1.5" fill="none" stroke={W} strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
   );
 }

@@ -39,6 +39,8 @@ export default function MccRoom(props: ShellProps) {
   const [armed, setArmed] = useState(false);
   const [flashKey, setFlashKey] = useState(0);
   const [resetting, setResetting] = useState(false);
+  const [drag, setDrag] = useState<{ card: string; x: number; y: number } | null>(null);
+  const dragRef = useRef<any>(null);
   const touchStartY = useRef(0);
   const armedRef = useRef(false);
   const [aiFill, setAiFill] = useState(true);
@@ -83,6 +85,7 @@ export default function MccRoom(props: ShellProps) {
         else if (m.includes('🔔')) { mccSfx('ward'); setFlashKey((k) => k + 1); }
         else if (m.includes('🎴')) mccSfx('draw');
         else if (m.includes('🃏') || m.includes('🙀') || m.includes('🚫') || m.includes('🪞')) mccSfx('flip');
+        else if (/[🌀🐾🍤🔊🧶🐈🕯️😴]/u.test(m)) mccSfx('flip');
       }
     }
     logLen.current = logs.length;
@@ -147,6 +150,36 @@ export default function MccRoom(props: ShellProps) {
   }
   async function useWard(pos: number) { await call('/api/mcc/ward', { roomId: props.room.id, pos }); }
   async function react(kind: 'hiss' | 'mirror', newTarget?: string) { setMirrorPick(false); await call('/api/mcc/react', { roomId: props.room.id, kind, newTarget }); }
+  function startDrag(e: React.PointerEvent, card: string, usable: boolean) {
+    if (!usable || busy) return;
+    const st: any = { card, sx: e.clientX, sy: e.clientY, dragging: false };
+    dragRef.current = st;
+    const tryPlay = () => { if (busy) return; if (NEEDS_TARGET.includes(card)) setPickCard(card); else playCard(card); };
+    function cleanup() { dragRef.current = null; setDrag(null); window.removeEventListener('pointermove', move as any); window.removeEventListener('pointerup', up as any); window.removeEventListener('pointercancel', up as any); }
+    const move = (ev: PointerEvent) => {
+      const sc = dragRef.current; if (!sc) return;
+      const dx = ev.clientX - sc.sx, dy = ev.clientY - sc.sy;
+      if (!sc.dragging) {
+        if (sc.sy - ev.clientY > 14 && Math.abs(dy) > Math.abs(dx)) { sc.dragging = true; setDrag({ card, x: ev.clientX, y: ev.clientY }); }
+        else if (Math.abs(dx) > 12) { cleanup(); }
+        return;
+      }
+      ev.preventDefault();
+      setDrag({ card, x: ev.clientX, y: ev.clientY });
+    };
+    const up = (ev: PointerEvent) => {
+      const sc = dragRef.current;
+      if (sc) {
+        const dx = ev.clientX - sc.sx, dy = ev.clientY - sc.sy;
+        if (sc.dragging) { if (ev.clientY < window.innerHeight * 0.6) tryPlay(); }
+        else if (Math.abs(dx) < 8 && Math.abs(dy) < 8) tryPlay();
+      }
+      cleanup();
+    };
+    window.addEventListener('pointermove', move as any, { passive: false });
+    window.addEventListener('pointerup', up as any);
+    window.addEventListener('pointercancel', up as any);
+  }
 
   const aliveOthers = (pub?.players || []).filter((p: any) => p.alive && p.seat !== mySeat);
 
@@ -204,6 +237,13 @@ export default function MccRoom(props: ShellProps) {
   return (
     <main className="h-[100svh] flex flex-col overflow-hidden">
       {flashKey > 0 && <div key={flashKey} className="mcc-flash pointer-events-none fixed inset-0 z-[60] bg-red-700" />}
+      {drag && (
+        <>
+          <div className="pointer-events-none fixed inset-x-0 top-0 z-[57]" style={{ height: '60vh', background: 'linear-gradient(to bottom, rgba(178,58,72,0.16), transparent)' }} />
+          <div className="pointer-events-none fixed left-1/2 -translate-x-1/2 z-[58] text-blood text-sm font-medium" style={{ top: 14 }}>↑ {NEEDS_TARGET.includes(drag.card) ? (en ? 'Drag up to pick a target' : '拖到上方 · 选择目标') : (en ? 'Drag up to play' : '拖到上方 · 出牌')}</div>
+          <div className="pointer-events-none fixed z-[59]" style={{ left: drag.x, top: drag.y, transform: 'translate(-50%, -78%) scale(1.05)' }}><MccCard card={drag.card} en={en} w={108} /></div>
+        </>
+      )}
       {armed && <div className="pointer-events-none fixed left-1/2 -translate-x-1/2 z-[55] text-blood text-sm font-medium" style={{ bottom: 300 }}>↑ {en ? 'Release to play' : '松手打出'}</div>}
       {pickCard && (
         <div className="fixed inset-0 z-[70] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setPickCard('')}>
@@ -362,8 +402,8 @@ export default function MccRoom(props: ShellProps) {
                   const mid = (hand.length - 1) / 2;
                   return (
                     <button key={i} title={en ? META[c]?.d_en : META[c]?.d_zh}
-                      onClick={() => { if (!usable || busy) return; if (NEEDS_TARGET.includes(c)) setPickCard(c); else playCard(c); }}
-                      className={`hand-card mcc-deal shrink-0 ${usable ? 'cursor-pointer' : 'opacity-55 cursor-default'}`}>
+                      onPointerDown={(e) => startDrag(e, c, usable)} style={{ touchAction: 'pan-x' }}
+                      className={`hand-card mcc-deal shrink-0 ${usable ? 'cursor-pointer' : 'opacity-55 cursor-default'} ${drag?.card === c ? 'opacity-30' : ''}`}>
                       <div style={{ transform: `rotate(${(i - mid) * 2}deg)`, transformOrigin: 'bottom center' }}>
                         <MccCard card={c} en={en} w={100} />
                       </div>

@@ -19,7 +19,10 @@ export function mccSfx(name: string) {
   switch (name) {
     case 'flip': tone(520, 0, 0.08, 'triangle', 0.13, 720); break;
     case 'draw': tone(300, 0, 0.16, 'sine', 0.14, 560); break;
-    case 'curse': tone(58, 0, 0.9, 'sawtooth', 0.28, 34); tone(120, 0, 0.55, 'square', 0.13); tone(40, 0.12, 0.7, 'sine', 0.2); tone(220, 0, 0.18, 'square', 0.1); break;
+    case 'curse': {
+      try { const a = new Audio('/audio/sfx/monster_growl/monster_growl-2.mp3'); a.volume = audioBus.muted ? 0 : 0.7; a.play().catch(() => {}); } catch {}
+      tone(58, 0, 0.9, 'sawtooth', 0.26, 34); tone(120, 0, 0.55, 'square', 0.12); tone(40, 0.12, 0.7, 'sine', 0.18); break;
+    }
     case 'eliminate': tone(70, 0, 0.6, 'sawtooth', 0.22, 40); tone(300, 0, 0.5, 'triangle', 0.1, 120); break;
     default: break;
   }

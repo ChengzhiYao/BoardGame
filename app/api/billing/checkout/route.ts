@@ -26,7 +26,7 @@ export async function POST(req: Request) {
         price_data: {
           currency: CURRENCY,
           unit_amount: pack.price,
-          product_data: { name: `Call of the Deep · ${pack.label.en}`, description: `+${pack.games} hosting credits (all modes)` },
+          product_data: { name: `MystNight · ${pack.label.en}`, description: `+${pack.games} hosting credits (all modes)` },
         },
       }],
       success_url: `${site}/upgrade?paid=1`,

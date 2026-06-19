@@ -1,105 +1,125 @@
-// 血染（社交推理）说书人提示词：建局 / 夜晚结算 / AI 白天发言 / 投票处决结算。
-// 全部为原创身份体系（规避照搬任何已发行游戏的具名角色）。机制类血染钟楼/狼人杀：
-// 好人阵营（镇民 townsfolk / 外来者 outsider） vs 邪恶阵营（爪牙 minion / 恶魔 demon）。
+// 血染（社交推理）说书人提示词：建局 / 逐角色叫醒的夜晚结算 / AI 白天推理发言 / 投票处决结算。
+// 全部为原创身份体系（规避照搬任何已发行游戏的具名角色）。机制类血染钟楼/狼人杀。
 
 // 4/6/8 人局阵营构成（镇民 / 外来者 / 爪牙 / 恶魔）
 export function botcComposition(size: number) {
-  if (size <= 4) return { townsfolk: 2, outsider: 1, minion: 0, demon: 1 }; // 好3 邪1
-  if (size <= 6) return { townsfolk: 3, outsider: 1, minion: 1, demon: 1 }; // 好4 邪2
-  return { townsfolk: 5, outsider: 1, minion: 1, demon: 1 };                // 8 人：好6 邪2
+  if (size <= 4) return { townsfolk: 2, outsider: 1, minion: 0, demon: 1 };
+  if (size <= 6) return { townsfolk: 3, outsider: 1, minion: 1, demon: 1 };
+  return { townsfolk: 5, outsider: 1, minion: 1, demon: 1 };
+}
+
+// 按夜间行动决定叫醒次序：投毒最先（让信息变假），保护其次，恶魔杀人，再到信息角色，最后无行动。
+export function nightOrderOf(action: string) {
+  return ({ poison: 10, protect: 20, kill: 30, learn: 40, none: 99 } as Record<string, number>)[action] ?? 99;
 }
 
 export function buildBotcSetupPrompt(size: number, theme: string, seats: string[]) {
   const c = botcComposition(size);
   return `你是一名"血染"社交推理游戏的说书人（Storyteller），主持一场类血染钟楼 / 狼人杀的推理对局。请为本局设计一套**完全原创**的身份并分配。
 
-【题材】${theme || '（自由发挥：中式志怪 / 克系 / 蒸汽朋克 / 校园 / 末世等任选其一，给身份起契合题材的名字）'}
+【题材】${theme || '（自由发挥：中式志怪 / 克系 / 蒸汽朋克 / 校园 / 末世任选其一，给身份起契合题材的名字）'}
 【总人数】${size}。阵营构成必须严格为：镇民(townsfolk) ${c.townsfolk}、外来者(outsider) ${c.outsider}、爪牙(minion) ${c.minion}、恶魔(demon) ${c.demon}。
 【真人座位】${seats.join('、') || '（无，全部 AI）'}。其余角色由 AI 扮演。**身份必须随机分配，绝不能让真人一定是好人——真人也可能被分到爪牙或恶魔。**
 
-【身份设计（全部原创，禁止使用任何已发行游戏的具名角色）】
-- 镇民（好人）：拥有"获取信息"或"保护/制约"的善良技能。例：夜里得知与自己相邻者中有几个坏人；验证某人善恶；保护一名玩家当夜不死；得知白天死者的阵营。
-- 外来者（好人但帮倒忙）：善良阵营，但技能/状态会给好人添乱。例：以为自己是镇民其实信息全错；死亡时连累相邻者；容易被验为坏人。
-- 爪牙（邪恶）：辅助恶魔，开局即知道恶魔是谁；有破坏技能。例：每夜使一名玩家中毒（其当夜信息变为假）；封住某人技能；自身验为善良。
-- 恶魔（邪恶）：每夜杀一人；开局即知道所有爪牙是谁，并获得 3 个未入局的好人身份用于伪装。
-- 每个身份配一句可执行、能产出信息或行动的技能描述。
+【身份设计（全部原创，禁止照搬任何已发行游戏的具名角色）】
+- 镇民（好人，night_action=learn 或 protect）：拥有"获取信息"或"保护"的善良技能。例：夜里得知相邻两人里有几个坏人；验一名玩家善恶；保护一名玩家当夜不死；得知白天死者阵营。
+- 外来者（好人但帮倒忙，多为 learn/none）：善良阵营，但技能/状态给好人添乱。例：以为自己是镇民其实信息常错；死亡会连累相邻者。
+- 爪牙（邪恶，常 night_action=poison 或 none）：开局即知道恶魔是谁；破坏技能。例：每夜投毒一人，使其当夜信息变假；或自身验为善良。
+- 恶魔（邪恶，night_action=kill）：每夜杀一人（第一夜不杀）；开局即知道所有爪牙，并得到 3 个未入局好人身份用于伪装。
+- 给每个身份一句**可执行**的技能描述。为每个身份标注 night_action ∈ {kill, poison, protect, learn, none}；learn 的角色另给 learns 字段说明它每夜得知什么。
 
-【胜负】好人：白天投票**处决掉恶魔**即获胜。邪恶：当存活玩家只剩 2 人（且恶魔在其中）或好人已无法翻盘时获胜。
+【胜负】好人：白天投票**处决掉恶魔**即胜。邪恶：当存活玩家只剩 2 人（且恶魔在其中）或好人已无法翻盘时胜。
 
 只输出 JSON（roles 数组长度必须 = ${size}，各 team 数量严格等于上面构成）：
 {
   "theme": "本局题材名",
   "roles": [
-    { "seat": "真人座位字母或 null(AI)", "role": "原创身份名", "team": "townsfolk|outsider|minion|demon", "is_demon": false, "ability": "一句话技能", "first_night_info": "该身份在第一夜私下得知的信息：镇民给真实信息；外来者可能给错误信息；爪牙/恶魔互相告知队友身份与座位；没有则留空" }
+    { "seat": "真人座位字母或 null(AI)", "role": "原创身份名", "team": "townsfolk|outsider|minion|demon", "is_demon": false, "ability": "一句话技能", "night_action": "kill|poison|protect|learn|none", "learns": "(若 learn)每夜得知什么", "first_night_info": "第一夜私下得知：镇民给真信息；外来者可能给错的；爪牙/恶魔互相告知队友身份与座位；无则留空" }
   ],
   "evil_seats": ["邪恶方的座位字母或 AI 身份名列表"],
   "demon_ref": "恶魔的座位字母或其身份名",
   "bluffs": ["3 个未入局的好人身份名（供恶魔伪装）"],
   "opening": "面向全体的公开开场白：营造氛围、宣布天黑请闭眼，绝不泄露任何身份"
 }
-真人座位（${seats.join('、') || '无'}）必须出现在某些 roles 的 seat 字段里；AI 角色 seat 为 null。`;
+真人座位（${seats.join('、') || '无'}）必须出现在某些 roles 的 seat 字段；AI 角色 seat 为 null。`;
 }
 
-function brief(setup: any) {
-  return JSON.stringify({ theme: setup?.theme, roles: setup?.roles, evil_seats: setup?.evil_seats, demon_ref: setup?.demon_ref, bluffs: setup?.bluffs }).slice(0, 6000);
+function core(setup: any) {
+  return JSON.stringify({ theme: setup?.theme, roles: setup?.roles, evil_seats: setup?.evil_seats, demon_ref: setup?.demon_ref, bluffs: setup?.bluffs }).slice(0, 6500);
 }
 
-export function buildBotcNightPrompt(setup: any, day: number, alive: string[], realSeats: string[], transcript: string) {
+// 逐角色叫醒的夜晚结算：按 night_order（投毒→保护→杀人→信息）依次处理，并尊重依赖关系。
+export function buildBotcNightResolvePrompt(setup: any, day: number, alive: string[], realSeats: string[], humanChoices: string, transcript: string) {
   const firstNight = day <= 1;
-  return `你是血染说书人。下面是本局的**隐藏设置（绝密，永不泄露给玩家）**：
-${brief(setup)}
+  return `你是血染说书人，结算第 ${day} 夜。下面是本局**隐藏设置（绝密，永不泄露）**：
+${core(setup)}
 
-现在结算第 ${day} 夜。存活者（座位/名字）：${alive.join('、') || '（无）'}。
-${firstNight ? '【第一夜】恶魔本夜**不杀人**；只处理首夜信息（其实 first_night_info 已在建局时下发，这里只需补充必要的夜间互动信息）。' : '【夜晚】恶魔必须杀一名存活玩家（除非被保护/制约）。被保护者不死。'}
-规则：
-- 被爪牙投毒 / 被封技能的信息角色，本夜得到的信息要给**错误**内容（说书人故意误导）。
-- 给每个有夜间信息的存活角色私下下发其所得；真人座位（${realSeats.join('、') || '无'}）的信息放进 player_private（to 必须是这些座位之一）；AI 角色的信息放进 ai_private 供其白天发言。
-- public_morning 只做天亮播报（宣布谁死了 / 平安夜），绝不泄露身份或真相。
+存活者（座位/名字）：${alive.join('、') || '（无）'}。
+真人玩家本夜提交的能力目标（actor→target）：${humanChoices || '（无；这些角色的目标由你按其阵营私利替其决定，AI 角色同样由你决定）'}。
 
-近期讨论（供你参考氛围与谁可疑）：${transcript || '（无）'}
+【逐角色叫醒：严格按次序处理，尊重依赖】
+1) 先处理所有"投毒/封技能"（poison）：被投毒者本夜的任何信息都要给**错误**内容。
+2) 再处理"保护"（protect）：被保护者本夜不会被杀。
+3) 再处理"恶魔杀人"（kill）：${firstNight ? '第一夜恶魔**不杀人**，跳过。' : '恶魔按其目标杀一人；若该目标被保护则杀人失败（无人死）。'}
+4) 最后处理"信息"（learn）：为每个存活的信息角色生成它本夜所得；**若该角色被投毒，则给假信息**。
+- 真人座位（${realSeats.join('、') || '无'}）的信息放进 player_private（to 必须是这些座位之一）。
+- AI 角色的信息放进 ai_private（who=AI身份名），供其白天推理。
+- public_morning 只做天亮播报（宣布谁死了/平安夜），绝不泄露身份。
+- wake_sequence 按处理次序列出本夜每个被叫醒的角色（仅记录，用于节奏与音效）。
+
+近期讨论（参考氛围）：${transcript || '（无）'}
 
 只输出 JSON：
 {
+  "wake_sequence": [ { "actor": "座位/AI名", "action": "poison|protect|kill|learn", "result": "极简结果(如 投毒A / 保护B / 杀C失败 / D获知信息)" } ],
   "deaths": ["本夜死亡者的座位或 AI 名"],
+  "poisoned": ["本夜被投毒者"],
   "public_morning": "天亮的公开播报",
   "player_private": [ { "to": "真人座位字母", "text": "你昨夜得知……" } ],
-  "ai_private": [ { "who": "AI身份名", "text": "该 AI 私下所知（供其白天发言用）" } ],
-  "poisoned": ["本夜被投毒/受影响者"]
+  "ai_private": [ { "who": "AI身份名", "text": "该 AI 私下所知（供其白天推理）" } ]
 }`;
 }
 
-export function buildBotcDiscussPrompt(setup: any, day: number, alive: string[], aiNames: string[], realSeats: string[], transcript: string) {
+export function buildBotcDiscussPrompt(setup: any, day: number, alive: string[], aiNames: string[], aiNotes: string, transcript: string) {
   return `你是血染说书人，本回合**代所有存活的 AI 玩家**在白天发言。隐藏设置（绝密）：
-${brief(setup)}
+${core(setup)}
 
-第 ${day} 天白天讨论。存活者：${alive.join('、') || '（无）'}。本局 AI 扮演的角色：${aiNames.join('、') || '（无）'}。
-让每个**存活的 AI** 按其阵营与已知信息发言（每个至少 1 句，可你来我往、可点名质疑真人）：
-- 好人方：分享自己夜里得到的信息、互相验证、推理谁是恶魔/爪牙；
-- 邪恶方：撒谎、洗白、嫁祸好人、保护队友，必要时谎称自己是某个好人身份（可用 bluffs 里的身份）；
-- 立场各异、至少有人在撒谎；**绝不暴露真实身份或真相，绝不替真人玩家发言**（真人由本人控制，包括真人邪恶方）。
+第 ${day} 天白天。存活者：${alive.join('、') || '（无）'}。本局存活的 AI 角色：${aiNames.join('、') || '（无）'}。
+各 AI 私下已知的信息（务必据此推理，邪恶方据此协同）：
+${aiNotes || '（暂无额外私密信息）'}
+
+【让每个存活 AI 像真人一样推理，不要空泛附和】
+- 好人方：公开自己夜里得到的信息或验人结果，**点名**支持/质疑某人，指出发言里的**矛盾**（谁的说法对不上、谁在改口），逐步收窄恶魔嫌疑；可软性互验（"如果你是X，那昨晚就该…"）。
+- 邪恶方（恶魔+爪牙）：协同但不露馅——统一口径、轮流把火力引向某个好人、necessary 时谎称自己是 bluffs 里的某个好人身份并给出假信息；被指认时反咬、提供"不在场证明"；绝不主动暴露队友。
+- 立场各异、至少有人在撒谎；不要所有 AI 都怀疑同一个人；每个存活 AI 至少 1 句、可互相交锋、可点名真人。
+- **绝不**暴露真实身份/真相，**绝不**替真人玩家发言（含真人邪恶方，由其本人控制）。
 
 近期对话：${transcript || '（无）'}
 
-只输出 JSON：{ "lines": [ { "name": "AI身份名", "text": "其本人口吻的发言" } ] }`;
+只输出 JSON：{ "lines": [ { "name": "AI身份名", "text": "其本人口吻、带具体理由的发言" } ] }`;
 }
 
-export function buildBotcVotePrompt(setup: any, day: number, alive: string[], humanVotes: string, aiNames: string[], transcript: string) {
+export function buildBotcVotePrompt(setup: any, day: number, alive: string[], humanVotes: string, aiNames: string[], aiNotes: string, transcript: string) {
   return `你是血染说书人，结算第 ${day} 天的处决投票。隐藏设置（绝密）：
-${brief(setup)}
+${core(setup)}
 
 存活者：${alive.join('、') || '（无）'}。真人玩家的指认/投票：${humanVotes || '（无）'}。
-让每个**存活的 AI**（${aiNames.join('、') || '无'}）按其阵营私利投票（指认某存活座位/名字，或 skip 弃票）：好人投最可疑者；邪恶方保护恶魔、把票引向好人，并参考真实讨论调整。
-统计全部票（真人 + AI）：得票最高、且票数达到"存活人数过半"者被处决；平票或未过半则今日无人被处决。
-处决后判断胜负：被处决者是恶魔 → 好人胜（win=good）；若处决后存活人数 ≤ 2 且恶魔仍存活 → 邪恶胜（win=evil）；否则 win=null。
+各 AI 私下已知信息：${aiNotes || '（无）'}。
 
-本局讨论（投票要据此判断，不可无视）：${transcript || '（无）'}
+让每个**存活的 AI**（${aiNames.join('、') || '无'}）基于"自己的私密信息 + 本局讨论 + 自身阵营私利"理性投票（指认某存活座位/名字，或 skip 弃票）：
+- 好人方：投自己**经推理最可能是恶魔/邪恶**的人；若被有力论证说服则改投。
+- 邪恶方：保护恶魔、把票引向好人；但要显得合理，避免暴露协同。
+统计全部票（真人 + AI）：得票最高、且达到"存活人数过半"者被处决；平票或未过半则今日无人被处决。
+处决后判断：被处决者是恶魔 → win=good；若处决后存活 ≤ 2 且恶魔仍存活 → win=evil；否则 win=null。
+
+本局讨论（投票要据此判断）：${transcript || '（无）'}
 
 只输出 JSON：
 {
-  "ai_votes": [ { "voter": "AI名", "target": "座位/名字/skip", "reason": "极简理由" } ],
+  "ai_votes": [ { "voter": "AI名", "target": "座位/名字/skip", "reason": "一句话推理依据" } ],
   "executed": "被处决者的座位或名字，或 null",
   "executed_was_demon": false,
-  "result_text": "公开宣布今日处决结果（可暗示阵营，但真实身份揭晓留到结束）",
+  "result_text": "公开宣布今日处决结果（可暗示，真实身份揭晓留到结束）",
   "win": "good|evil|null"
 }`;
 }

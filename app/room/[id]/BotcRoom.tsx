@@ -2,6 +2,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { playSfx } from '@/lib/audio/sfx';
+import { playBotcCue } from '@/lib/audio/botcCue';
 import type { ShellProps } from './RoomShell';
 
 export default function BotcRoom(props: ShellProps) {
@@ -16,7 +18,10 @@ export default function BotcRoom(props: ShellProps) {
   const [theme, setTheme] = useState('');
   const [roleOpen, setRoleOpen] = useState(true);
   const [myVote, setMyVote] = useState('');
+  const [myNightTarget, setMyNightTarget] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
+  const sfxSeen = useRef<Set<string>>(new Set());
+  const wokeFor = useRef<string>('');
 
   const phase = props.room.botc_phase as string | undefined;
   const day = props.room.botc_day || 0;
@@ -26,7 +31,9 @@ export default function BotcRoom(props: ShellProps) {
   const isHost = props.room.host_user_id === props.userId;
   const meBp = bps.find((p) => p.seat === props.mySeat);
   const iAmAlive = !meBp || meBp.alive;
+  const usedGhost = !!meBp?.used_ghost_vote;
   const roleCard = messages.filter((m) => m.payload?.type === 'botc_role').slice(-1)[0]?.content || '';
+  const myNightAction = messages.filter((m) => m.payload?.type === 'botc_role_action').slice(-1)[0]?.payload?.action || '';
 
   useEffect(() => {
     const ch = supabase.channel(`botc-msgs-${props.room.id}`)
@@ -43,7 +50,24 @@ export default function BotcRoom(props: ShellProps) {
   useEffect(() => { setMessages((prev) => { const ids = new Set(prev.map((m) => m.id)); const add = props.initialMessages.filter((m) => !ids.has(m.id)); return add.length ? [...prev, ...add] : prev; }); }, [props.initialMessages]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
-  // 轮询兜底（被邀请的匿名玩家 realtime 可能被 RLS 过滤）
+  // 音效：新消息携带 payload.sfx 时播放（cue_* 为合成音，其余为素材音）
+  useEffect(() => {
+    for (const m of messages) {
+      const sfx = m.payload?.sfx;
+      if (!Array.isArray(sfx) || sfxSeen.current.has(m.id)) continue;
+      sfxSeen.current.add(m.id);
+      sfx.forEach((k: string) => (typeof k === 'string' && k.startsWith('cue_')) ? playBotcCue(k) : playSfx(k));
+    }
+  }, [messages]);
+
+  // 入夜且自己有夜间能力 → 轻提示音"叫醒"
+  useEffect(() => {
+    if (phase === 'night' && iAmAlive && ['kill', 'poison', 'protect'].includes(myNightAction)) {
+      const key = `${day}`; if (wokeFor.current !== key) { wokeFor.current = key; playBotcCue('cue_wake'); }
+    }
+  }, [phase, day, myNightAction, iAmAlive]);
+
+  // 轮询兜底
   useEffect(() => {
     const tick = async () => {
       if (typeof document !== 'undefined' && document.hidden) return;
@@ -75,20 +99,22 @@ export default function BotcRoom(props: ShellProps) {
     finally { setBusy(false); }
   }
   async function start() { await call('/api/botc/start', { roomId: props.room.id, size, theme: theme.trim() || null }); }
-  async function resolveDay() { if (!confirm(en ? 'Tally votes, execute, and run the night?' : '统计投票、处决并结算今夜？')) return; await call('/api/botc/resolve', { roomId: props.room.id }); }
+  async function resolveDay() { if (!confirm(en ? 'Tally votes and execute?' : '统计投票并处决？')) return; await call('/api/botc/resolve', { roomId: props.room.id }); }
+  async function resolveNight() { if (!confirm(en ? 'Resolve the night?' : '结算今夜（天亮）？')) return; await call('/api/botc/resolve-night', { roomId: props.room.id }); }
   async function sendChat() {
     const c = text.trim(); if (!c || !props.myPlayerId) return;
     setText('');
     await supabase.from('messages').insert({ room_id: props.room.id, sender_type: 'player', sender_player_id: props.myPlayerId, content: c, visibility: 'public', turn_no: day });
   }
-  async function vote(target: string) { setMyVote(target); await call('/api/botc/vote', { roomId: props.room.id, target }); }
+  async function vote(t: string) { setMyVote(t); await call('/api/botc/vote', { roomId: props.room.id, target: t }); }
+  async function nightAct(t: string) { setMyNightTarget(t); await call('/api/botc/night', { roomId: props.room.id, target: t }); }
 
   // ===== 大厅 =====
   if (!phase || phase === 'lobby') {
     return (
       <main className="min-h-[100svh] flex flex-col items-center justify-center gap-6 px-6 text-center">
         <h1 className="text-2xl font-serif text-parchment">{en ? 'Bloodbound' : '血染'} · {props.room.name}</h1>
-        <p className="text-parchment/60 max-w-md">{en ? 'A social-deduction game (like Werewolf / Clocktower). Good (Townsfolk/Outsiders) vs Evil (Minions/Demon). An AI Storyteller hosts and fills empty seats — anyone can be evil. 1–8 real players.' : '社交推理（类狼人杀/血染钟楼）。好人（镇民/外来者）对邪恶（爪牙/恶魔），AI 说书人主持并补满空位——任何人都可能是邪恶方。真人 1～8 人。'}</p>
+        <p className="text-parchment/60 max-w-md">{en ? 'Social deduction (like Werewolf / Clocktower). Good (Townsfolk/Outsiders) vs Evil (Minions/Demon). An AI Storyteller hosts and fills empty seats — anyone can be evil, including you. 1–8 real players.' : '社交推理（类狼人杀/血染钟楼）。好人（镇民/外来者）对邪恶（爪牙/恶魔）。AI 说书人主持并补满空位——任何人都可能是邪恶方，包括你。真人 1～8 人。'}</p>
         <div className="flex flex-col items-center gap-1.5">
           <span className="text-sm text-parchment/50">{en ? `${props.initialPlayers.length} real player(s) joined · AI fills the rest` : `已加入 ${props.initialPlayers.length} 名真人 · 其余由 AI 补位`}</span>
           <div className="flex gap-2 flex-wrap justify-center">
@@ -123,16 +149,19 @@ export default function BotcRoom(props: ShellProps) {
   }
 
   const ended = phase === 'reveal';
+  const night = phase === 'night';
   const aliveTargets = bps.filter((p) => p.alive && p.seat && p.seat !== props.mySeat);
+  const hasNightPower = ['kill', 'poison', 'protect'].includes(myNightAction);
+  const nightLabel = myNightAction === 'kill' ? (en ? 'Kill' : '杀害') : myNightAction === 'poison' ? (en ? 'Poison' : '投毒') : myNightAction === 'protect' ? (en ? 'Protect' : '保护') : '';
+  const canVote = iAmAlive || !usedGhost; // 活人可投；死者保留一张鬼票
 
   return (
-    <main className="h-[100svh] flex flex-col overflow-hidden">
+    <main className={`h-[100svh] flex flex-col overflow-hidden ${night ? 'bg-[#06060c]' : ''}`}>
       <header className="px-4 py-3 border-b border-eldritch/20 flex items-center justify-between">
         <span className="font-serif text-parchment">{en ? 'Bloodbound' : '血染'} · {props.room.name}</span>
-        <span className="text-xs text-parchment/50">{ended ? (en ? 'Game over' : '对局结束') : (en ? `Day ${day} · discuss & vote` : `第 ${day} 天 · 讨论与投票`)}</span>
+        <span className="text-xs text-parchment/50">{ended ? (en ? 'Game over' : '对局结束') : night ? (en ? `🌙 Night ${day}` : `🌙 第 ${day} 夜`) : (en ? `☀ Day ${day} · discuss & vote` : `☀ 第 ${day} 天 · 讨论与投票`)}</span>
       </header>
 
-      {/* 玩家板 */}
       <div className="px-4 py-2 border-b border-eldritch/15 flex gap-1.5 flex-wrap">
         {bps.map((p, i) => (
           <span key={i} className={`text-xs px-2 py-1 rounded-full border ${p.alive ? 'bg-fog border-eldritch/30 text-parchment/80' : 'bg-ink border-parchment/15 text-parchment/30 line-through'}`}>
@@ -141,7 +170,6 @@ export default function BotcRoom(props: ShellProps) {
         ))}
       </div>
 
-      {/* 我的身份卡（置顶可折叠） */}
       {roleCard && (
         <div className="border-b border-blood/25 bg-blood/10">
           <button onClick={() => setRoleOpen((v) => !v)} className="w-full flex items-center justify-between px-4 py-2 text-left">
@@ -153,45 +181,63 @@ export default function BotcRoom(props: ShellProps) {
       )}
 
       <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-3 max-w-3xl w-full mx-auto">
-        {messages.filter((m) => m.payload?.type !== 'botc_role').map((m) => <BotcMsg key={m.id} m={m} mine={m.sender_player_id === props.myPlayerId} en={en} />)}
+        {messages.filter((m) => m.payload?.type !== 'botc_role' && m.payload?.type !== 'botc_role_action').map((m) => <BotcMsg key={m.id} m={m} mine={m.sender_player_id === props.myPlayerId} en={en} />)}
         {busy && <div className="text-center text-parchment/40 italic text-sm">{en ? 'The Storyteller is resolving…' : '说书人结算中……'}</div>}
         <div ref={bottomRef} />
       </div>
 
-      {!ended ? (
+      {ended ? (
+        <div className="border-t border-blood/40 px-4 py-3 text-center max-w-3xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+          <span className="text-parchment/70 text-sm">{en ? 'The game is over. Create a new room to play again.' : '对局结束。回首页创建新房间再来一局。'}</span>
+        </div>
+      ) : night ? (
         <div className="border-t border-eldritch/20 px-4 py-3 space-y-2 max-w-3xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
-          {iAmAlive ? (
-            <>
-              <div className="flex gap-2">
-                <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && sendChat()}
-                  placeholder={en ? 'Speak to the table…' : '公开发言…'} disabled={!props.myPlayerId}
-                  className="flex-1 min-w-0 px-4 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch disabled:opacity-50" />
-                <button onClick={sendChat} disabled={!props.myPlayerId} className="px-4 py-2 rounded bg-eldritch/60 hover:bg-eldritch text-parchment text-sm shrink-0">{en ? 'Say' : '发言'}</button>
-              </div>
-              <div className="flex gap-2 items-center flex-wrap">
-                <span className="text-xs text-parchment/50 shrink-0">{en ? 'Execute:' : '指认处决：'}</span>
-                <select value={myVote} onChange={(e) => e.target.value && vote(e.target.value)} disabled={busy}
-                  className="px-2 py-1.5 rounded bg-fog border border-eldritch/30 text-parchment text-sm">
-                  <option value="">{en ? '— pick —' : '— 选择 —'}</option>
-                  {aliveTargets.map((p) => <option key={p.seat} value={p.seat}>{p.seat}·{p.display_name}</option>)}
-                  <option value="skip">{en ? 'Skip / no vote' : '弃票'}</option>
-                </select>
-                {myVote && <span className="text-xs text-eldritch">{en ? 'voted: ' : '已投：'}{myVote}</span>}
-              </div>
-            </>
+          {iAmAlive && hasNightPower ? (
+            <div className="flex gap-2 items-center flex-wrap">
+              <span className="text-xs text-eldritch shrink-0">🌙 {en ? 'Your night power:' : '你的夜间能力：'} {nightLabel}</span>
+              <select value={myNightTarget} onChange={(e) => e.target.value && nightAct(e.target.value)} disabled={busy}
+                className="px-2 py-1.5 rounded bg-fog border border-eldritch/30 text-parchment text-sm">
+                <option value="">{en ? '— choose target —' : '— 选择目标 —'}</option>
+                {aliveTargets.map((p) => <option key={p.seat} value={p.seat}>{p.seat}·{p.display_name}</option>)}
+              </select>
+              {myNightTarget && <span className="text-xs text-eldritch">{en ? 'chosen: ' : '已选：'}{myNightTarget}</span>}
+            </div>
           ) : (
-            <div className="text-center text-sm text-parchment/50">{en ? 'You are out — you can still watch.' : '你已出局，仍可旁观。'}</div>
+            <div className="text-center text-sm text-parchment/50">{en ? 'Night falls — close your eyes and wait for dawn…' : '夜深了，闭眼等待天亮……'}</div>
           )}
           {isHost && (
+            <button onClick={resolveNight} disabled={busy} className="w-full px-4 py-2 rounded bg-eldritch/60 hover:bg-eldritch text-parchment text-sm disabled:opacity-50">
+              {busy ? (en ? 'Resolving…' : '结算中…') : (en ? 'Dawn ▶ resolve the night' : '天亮 ▶ 结算今夜')}
+            </button>
+          )}
+          {!isHost && <div className="text-center text-[11px] text-parchment/35">{en ? 'The host calls dawn once night actions are in.' : '夜间行动提交后，由房主呼叫天亮。'}</div>}
+        </div>
+      ) : (
+        <div className="border-t border-eldritch/20 px-4 py-3 space-y-2 max-w-3xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+          <div className="flex gap-2">
+            <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && sendChat()}
+              placeholder={iAmAlive ? (en ? 'Speak to the table…' : '公开发言…') : (en ? 'Speak from the grave…' : '亡者发言…')} disabled={!props.myPlayerId}
+              className="flex-1 min-w-0 px-4 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch disabled:opacity-50" />
+            <button onClick={sendChat} disabled={!props.myPlayerId} className="px-4 py-2 rounded bg-eldritch/60 hover:bg-eldritch text-parchment text-sm shrink-0">{en ? 'Say' : '发言'}</button>
+          </div>
+          <div className="flex gap-2 items-center flex-wrap">
+            <span className="text-xs text-parchment/50 shrink-0">{iAmAlive ? (en ? 'Execute:' : '指认处决：') : (en ? '👻 Ghost vote:' : '👻 鬼票：')}</span>
+            {canVote ? (
+              <select value={myVote} onChange={(e) => e.target.value && vote(e.target.value)} disabled={busy}
+                className="px-2 py-1.5 rounded bg-fog border border-eldritch/30 text-parchment text-sm">
+                <option value="">{en ? '— pick —' : '— 选择 —'}</option>
+                {aliveTargets.map((p) => <option key={p.seat} value={p.seat}>{p.seat}·{p.display_name}</option>)}
+                <option value="skip">{en ? 'Skip / no vote' : '弃票'}</option>
+              </select>
+            ) : <span className="text-xs text-parchment/40">{en ? 'ghost vote spent' : '鬼票已用'}</span>}
+            {myVote && <span className="text-xs text-eldritch">{en ? 'voted: ' : '已投：'}{myVote}</span>}
+          </div>
+          {isHost && (
             <button onClick={resolveDay} disabled={busy} className="w-full px-4 py-2 rounded bg-blood/70 hover:bg-blood text-parchment text-sm disabled:opacity-50">
-              {busy ? (en ? 'Resolving…' : '结算中…') : (en ? 'Tally votes → execute → night ▶' : '结算今日（处决 + 入夜）▶')}
+              {busy ? (en ? 'Resolving…' : '结算中…') : (en ? 'Tally votes → execute ▶' : '结算今日（处决）▶')}
             </button>
           )}
           {!isHost && <div className="text-center text-[11px] text-parchment/35">{en ? 'The host advances the day after discussion.' : '讨论后由房主推进当天结算。'}</div>}
-        </div>
-      ) : (
-        <div className="border-t border-blood/40 px-4 py-3 text-center max-w-3xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
-          <span className="text-parchment/70 text-sm">{en ? 'The game is over. Create a new room to play again.' : '对局结束。回首页创建新房间再来一局。'}</span>
         </div>
       )}
     </main>
@@ -211,7 +257,6 @@ function BotcMsg({ m, mine, en }: { m: any; mine: boolean; en: boolean }) {
     </div>
   );
   if (m.sender_type === 'system') return <div className="text-center text-sm text-parchment/50">{m.content}</div>;
-  // 真人发言
   return (
     <div className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
       <span className="text-xs text-parchment/40 mb-1">{mine ? (en ? 'You' : '你') : (en ? 'Player' : '玩家')}</span>

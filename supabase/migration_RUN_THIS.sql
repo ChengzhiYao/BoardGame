@@ -341,4 +341,17 @@ create policy botc_votes_read on botc_votes for select using (is_room_member(roo
 do $$ begin alter publication supabase_realtime add table botc_players; exception when duplicate_object then null; end $$;
 do $$ begin alter publication supabase_realtime add table botc_votes; exception when duplicate_object then null; end $$;
 
+-- 夜间行动（逐角色叫醒：真人对自己能力的目标选择；保密，仅 service_role 可读）
+create table if not exists botc_night (
+  id uuid primary key default gen_random_uuid(),
+  room_id uuid not null references rooms(id) on delete cascade,
+  day int not null,
+  actor text,    -- 座位 A..H
+  action text,   -- kill | poison | protect
+  target text,   -- 目标座位/名字
+  created_at timestamptz not null default now()
+);
+alter table botc_night enable row level security;
+-- 不开放任何 anon/authenticated 读策略：夜间行动保密，仅服务端读写。
+
 -- 完成。刷新网页即可。

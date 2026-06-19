@@ -1,8 +1,8 @@
-// 血染 · 结算白天：统计真人+AI 投票 → 处决 → 判胜负 → 若继续则入夜（进入逐角色叫醒的夜晚阶段）。
+// 血染 · 结算夜晚（逐角色叫醒，按 投毒→保护→杀人→信息 次序）→ 天亮，进入白天。
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { callLLMJson } from '@/lib/llm';
-import { buildBotcVotePrompt } from '@/lib/botc/prompt';
+import { buildBotcNightResolvePrompt } from '@/lib/botc/prompt';
 import { langDirective } from '@/lib/i18n';
 
 export const maxDuration = 60;
@@ -16,7 +16,7 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient();
   const { data: room } = await admin.from('rooms').select('*').eq('id', roomId).maybeSingle();
-  if (!room || room.botc_phase !== 'day') return NextResponse.json({ error: '现在不是白天阶段' }, { status: 409 });
+  if (!room || room.botc_phase !== 'night') return NextResponse.json({ error: '现在不是夜晚阶段' }, { status: 409 });
   const { data: meP } = await admin.from('players').select('id').eq('room_id', roomId).eq('user_id', user.id).maybeSingle();
   if (!meP) return NextResponse.json({ error: '你不在这个房间' }, { status: 403 });
 
@@ -27,30 +27,22 @@ export async function POST(req: Request) {
   try {
     const { data: setupRow } = await admin.from('botc_setup').select('data').eq('room_id', roomId).maybeSingle();
     const setup = setupRow?.data || {}; const roles: any[] = setup.roles || [];
-    const day = room.botc_day || 1;
+    const day = room.botc_day || 2;
     const { data: bps } = await admin.from('botc_players').select('seat, display_name, is_ai, alive').eq('room_id', roomId);
     const aliveBp = (bps || []).filter((p: any) => p.alive);
     const aliveLabels = aliveBp.map((p: any) => p.seat ? `${p.seat}·${p.display_name}` : p.display_name);
-    const aiNames = aliveBp.filter((p: any) => p.is_ai).map((p: any) => p.display_name);
-    const { data: votes } = await admin.from('botc_votes').select('voter, target').eq('room_id', roomId).eq('day', day);
-    const humanVotes = (votes || []).map((v: any) => `${v.voter}→${v.target}`).join('；') || '（无）';
-    const aiNotes = (Array.isArray(setup._notes) ? setup._notes : []).slice(-14).map((n: any) => `第${n.day}夜 ${n.who}：${n.text}`).join('\n');
-    const { data: history } = await admin.from('messages').select('content, payload').eq('room_id', roomId).order('created_at', { ascending: true }).limit(60);
-    const transcript = (history || []).filter((m: any) => m.payload?.type !== 'botc_role' && m.payload?.type !== 'botc_role_action').slice(-24).map((m: any) => m.content).filter(Boolean).join('\n').slice(0, 3500);
+    const realSeats = (bps || []).filter((p: any) => p.seat).map((p: any) => p.seat);
+    const { data: nights } = await admin.from('botc_night').select('actor, action, target').eq('room_id', roomId).eq('day', day);
+    const humanChoices = (nights || []).map((n: any) => `${n.actor}(${n.action})→${n.target}`).join('；') || '（无）';
+    const { data: history } = await admin.from('messages').select('content, payload').eq('room_id', roomId).order('created_at', { ascending: true }).limit(50);
+    const transcript = (history || []).filter((m: any) => m.payload?.type !== 'botc_role' && m.payload?.type !== 'botc_role_action').slice(-16).map((m: any) => m.content).filter(Boolean).join('\n').slice(0, 3000);
 
-    const { data: vout, usage } = await callLLMJson<any>({
-      system: buildBotcVotePrompt(setup, day, aliveLabels, humanVotes, aiNames, aiNotes, transcript) + langDirective(room.language),
-      messages: [{ role: 'user', content: '请统计投票并给出处决与胜负。' }],
-      tier: 'main', temperature: 0.5, maxTokens: 1300,
+    const { data: out, usage } = await callLLMJson<any>({
+      system: buildBotcNightResolvePrompt(setup, day, aliveLabels, realSeats, humanChoices, transcript) + langDirective(room.language),
+      messages: [{ role: 'user', content: '请逐角色结算今夜。' }],
+      tier: 'main', temperature: 0.7, maxTokens: 1500,
     });
     await admin.from('api_usage').insert({ room_id: roomId, kind: 'llm_main', model: usage.model, prompt_tokens: usage.promptTokens, completion_tokens: usage.completionTokens, latency_ms: usage.latencyMs });
-
-    for (const av of (vout.ai_votes || [])) {
-      if (!av?.voter) continue;
-      await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: day, content: `🗳️ ${av.voter} → ${av.target || 'skip'}${av.reason ? `（${av.reason}）` : ''}`, payload: { type: 'botc_vote' } });
-    }
-    const executed = vout.executed && vout.executed !== 'null' ? String(vout.executed) : null;
-    if (vout.result_text) await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', turn_no: day, content: vout.result_text, payload: { type: 'botc_st', sfx: executed ? ['cue_execution'] : [] } });
 
     const markDead = async (ref: string) => {
       if (!ref) return;
@@ -58,8 +50,20 @@ export async function POST(req: Request) {
       if (seat) await admin.from('botc_players').update({ alive: false }).eq('room_id', roomId).eq('seat', seat);
       else await admin.from('botc_players').update({ alive: false }).eq('room_id', roomId).eq('display_name', ref);
     };
-    if (executed) await markDead(executed);
+    for (const d of (out.deaths || [])) await markDead(String(d));
+    const deaths = (out.deaths || []).length;
+    if (out.public_morning) await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', turn_no: day, content: out.public_morning, payload: { type: 'botc_st', sfx: deaths ? ['cue_dawn', 'cue_death'] : ['cue_dawn'] } });
+    for (const pn of (out.player_private || [])) {
+      if (!pn?.text || !/^[A-H]$/.test(String(pn.to))) continue;
+      await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: day, content: pn.text, visibility: `seat:${pn.to}`, payload: { type: 'botc_private' } });
+    }
+    // 把 AI 私密信息与中毒情况记进 setup，供 AI 白天推理
+    const notes = Array.isArray(setup._notes) ? setup._notes : [];
+    for (const a of (out.ai_private || [])) { if (a?.who && a?.text) notes.push({ day, who: a.who, text: a.text }); }
+    if (Array.isArray(out.poisoned) && out.poisoned.length) notes.push({ day, who: '说书人', text: `本夜中毒/受影响：${out.poisoned.join('、')}` });
+    await admin.from('botc_setup').update({ data: { ...setup, _notes: notes.slice(-40) } }).eq('room_id', roomId);
 
+    // 夜后胜负判定
     const after = (await admin.from('botc_players').select('seat, display_name, alive').eq('room_id', roomId)).data || [];
     const demonRole = roles.find((r: any) => r.is_demon || r.team === 'demon');
     const demonKey = demonRole ? (demonRole.seat || demonRole.role) : null;
@@ -70,20 +74,17 @@ export async function POST(req: Request) {
 
     if (win) {
       const reveal = roles.map((r: any) => `${r.seat || r.role}：「${r.role}」 · ${r.team === 'demon' ? '恶魔' : r.team === 'minion' ? '爪牙' : r.team === 'outsider' ? '外来者' : '镇民'}`).join('\n');
-      const winText = win === 'good' ? (en ? '🟦 GOOD wins — the Demon is dead.' : '🟦 好人胜利 —— 恶魔已伏诛。') : (en ? '🟥 EVIL wins.' : '🟥 邪恶胜利。');
-      await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', turn_no: day, content: `${winText}\n\n${en ? 'Roles revealed:' : '身份揭晓：'}\n${reveal}`, payload: { type: 'botc_reveal', sfx: ['cue_reveal'] } });
+      const winText = win === 'good' ? (en ? '🟦 GOOD wins.' : '🟦 好人胜利。') : (en ? '🟥 EVIL wins.' : '🟥 邪恶胜利。');
+      await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', turn_no: day, content: `${winText}\n\n${en ? 'Roles:' : '身份揭晓：'}\n${reveal}`, payload: { type: 'botc_reveal', sfx: ['cue_reveal'] } });
       await admin.from('rooms').update({ botc_phase: 'reveal', game_state: 'ended', modules_generating: false }).eq('id', roomId);
       return NextResponse.json({ ok: true, win });
     }
 
-    // 入夜：进入逐角色叫醒的夜晚阶段
-    const nextDay = day + 1;
-    await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', turn_no: nextDay, content: en ? `🌙 Night ${nextDay} falls. Players with night powers, take your actions.` : `🌙 第 ${nextDay} 夜降临，天黑请闭眼。拥有夜间能力的玩家请行动。`, payload: { type: 'botc_st', sfx: ['cue_nightfall'] } });
-    await admin.from('rooms').update({ botc_phase: 'night', botc_day: nextDay, modules_generating: false }).eq('id', roomId);
-    return NextResponse.json({ ok: true, night: nextDay });
+    await admin.from('rooms').update({ botc_phase: 'day', modules_generating: false }).eq('id', roomId);
+    return NextResponse.json({ ok: true });
   } catch (e: any) {
     await admin.from('rooms').update({ modules_generating: false }).eq('id', roomId);
-    await admin.from('error_logs').insert({ room_id: roomId, scope: 'llm', message: '血染白天结算:' + e.message });
-    return NextResponse.json({ error: '结算失败：' + e.message }, { status: 500 });
+    await admin.from('error_logs').insert({ room_id: roomId, scope: 'llm', message: '血染夜晚:' + e.message });
+    return NextResponse.json({ error: '夜晚结算失败：' + e.message }, { status: 500 });
   }
 }

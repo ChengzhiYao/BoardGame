@@ -336,23 +336,19 @@ export default function MccRoom(props: ShellProps) {
                   {en ? 'Draw a card ▶' : '抽一张牌 ▶'}
                 </button>
               </div>
-              <div className="flex items-end overflow-x-auto pt-20 pb-1 px-2">
+              <div className="flex items-end gap-2 overflow-x-auto pt-20 pb-2 px-2" style={{ WebkitOverflowScrolling: 'touch' }}>
                 {hand.length === 0 && <span className="text-sm text-parchment/40 self-center">{en ? '(no cards)' : '（没有手牌）'}</span>}
                 {hand.map((c, i) => {
                   const usable = myTurn && !['ward', 'hiss', 'mirror'].includes(c);
                   const mid = (hand.length - 1) / 2;
-                  const tryPlay = () => { if (!usable || busy) return; if (NEEDS_TARGET.includes(c)) setPickCard(c); else playCard(c); };
                   return (
-                    <div key={i} className={`hand-card mcc-deal shrink-0 ${preview === i ? 'active' : ''}`} style={{ marginLeft: i ? -(hand.length > 8 ? 50 : 32) : 0, zIndex: i, touchAction: 'pan-x' }}
-                      onMouseEnter={() => setPreview(i)} onMouseLeave={() => setPreview((p) => (p === i ? null : p))}
-                      onClick={tryPlay}
-                      onTouchStart={(e) => { setPreview(i); touchStartY.current = e.touches[0].clientY; armedRef.current = false; setArmed(false); }}
-                      onTouchMove={(e) => { const a = (touchStartY.current - e.touches[0].clientY) > 60 && usable; armedRef.current = a; setArmed(a); }}
-                      onTouchEnd={() => { if (armedRef.current) tryPlay(); setPreview(null); setArmed(false); armedRef.current = false; }}>
-                      <div style={{ transform: `rotate(${(i - mid) * 2.6}deg)`, transformOrigin: 'bottom center' }} className={usable ? 'cursor-pointer' : 'opacity-55'}>
-                        <MccCard card={c} en={en} w={116} />
+                    <button key={i} title={en ? META[c]?.d_en : META[c]?.d_zh}
+                      onClick={() => { if (!usable || busy) return; if (NEEDS_TARGET.includes(c)) setPickCard(c); else playCard(c); }}
+                      className={`hand-card mcc-deal shrink-0 ${usable ? 'cursor-pointer' : 'opacity-55 cursor-default'}`}>
+                      <div style={{ transform: `rotate(${(i - mid) * 2}deg)`, transformOrigin: 'bottom center' }}>
+                        <MccCard card={c} en={en} w={112} />
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>

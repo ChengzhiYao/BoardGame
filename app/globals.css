@@ -43,4 +43,4 @@ body {
 @keyframes mccFlash { 0% { opacity: 0; } 12% { opacity: .5; } 100% { opacity: 0; } }
 .mcc-flash { animation: mccFlash .7s ease-out forwards; }
 .hand-card { transition: transform .16s ease; }
-.hand-card:hover { transform: translateY(-22px) scale(1.07); z-index: 50 !important; }
+.hand-card:hover, .hand-card.active { transform: translateY(-30px) scale(1.5); z-index: 50 !important; }

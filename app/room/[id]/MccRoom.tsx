@@ -126,7 +126,7 @@ export default function MccRoom(props: ShellProps) {
     finally { setBusy(false); }
   }
   async function start() { await call('/api/mcc/start', { roomId: props.room.id, aiFill, total: totalSeats }); }
-  async function replay() { await call('/api/rooms/replay', { roomId: props.room.id }); }
+  async function replay() { const d = await call('/api/rooms/replay', { roomId: props.room.id }); if (d?.ok && typeof window !== 'undefined') window.location.reload(); }
   async function playCard(card: string, target?: string) {
     setPickCard('');
     const d = await call('/api/mcc/play', { roomId: props.room.id, card, target });
@@ -195,12 +195,7 @@ export default function MccRoom(props: ShellProps) {
   return (
     <main className="h-[100svh] flex flex-col overflow-hidden">
       {flashKey > 0 && <div key={flashKey} className="mcc-flash pointer-events-none fixed inset-0 z-[60] bg-red-700" />}
-      {preview != null && hand[preview] && (
-        <div className="pointer-events-none fixed left-1/2 -translate-x-1/2 z-40" style={{ bottom: 200 }}>
-          <div className={armed ? 'rounded-xl ring-2 ring-blood' : ''}><MccCard card={hand[preview]} en={en} w={196} /></div>
-          {armed && <div className="text-center text-xs mt-1 text-blood">{en ? 'Release to play ▲' : '松手打出 ▲'}</div>}
-        </div>
-      )}
+      {armed && <div className="pointer-events-none fixed left-1/2 -translate-x-1/2 z-[55] text-blood text-sm font-medium" style={{ bottom: 300 }}>↑ {en ? 'Release to play' : '松手打出'}</div>}
       {(spectator || meDead) && <div className="px-4 py-1.5 text-center text-xs bg-ink/70 text-parchment/55 border-b border-eldritch/15">{spectator ? (en ? '👁 Spectating (no seat this game)' : '👁 观战中（你不在本局座位）') : (en ? '💀 You are out — spectating' : '💀 你已出局 · 观战中')}</div>}
       <header className="px-4 py-3 border-b border-eldritch/20 flex items-center justify-between gap-2">
         <span className="font-serif text-parchment text-sm truncate"><span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse mr-1.5 align-middle" />{en ? 'Midnight Cat Curse' : '午夜猫诅咒'}</span>
@@ -332,14 +327,14 @@ export default function MccRoom(props: ShellProps) {
                   {en ? 'Draw a card ▶' : '抽一张牌 ▶'}
                 </button>
               </div>
-              <div className="flex items-end overflow-x-auto pt-9 pb-1 pl-2">
+              <div className="flex items-end justify-center pt-16 pb-1">
                 {hand.length === 0 && <span className="text-sm text-parchment/40 self-center">{en ? '(no cards)' : '（没有手牌）'}</span>}
                 {hand.map((c, i) => {
                   const usable = myTurn && !['ward', 'hiss', 'mirror'].includes(c);
                   const mid = (hand.length - 1) / 2;
                   const tryPlay = () => { if (!usable || busy) return; if (NEEDS_TARGET.includes(c)) setPickCard(c); else playCard(c); };
                   return (
-                    <div key={i} className="hand-card mcc-deal shrink-0" style={{ marginLeft: i ? -30 : 0, zIndex: i, touchAction: 'pan-x' }}
+                    <div key={i} className={`hand-card mcc-deal shrink-0 ${preview === i ? 'active' : ''}`} style={{ marginLeft: i ? -(hand.length > 8 ? 50 : 32) : 0, zIndex: i, touchAction: 'pan-x' }}
                       onMouseEnter={() => setPreview(i)} onMouseLeave={() => setPreview((p) => (p === i ? null : p))}
                       onClick={tryPlay}
                       onTouchStart={(e) => { setPreview(i); touchStartY.current = e.touches[0].clientY; armedRef.current = false; setArmed(false); }}

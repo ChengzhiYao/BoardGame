@@ -200,7 +200,7 @@ export default function JbsRoom(props: ShellProps) {
       if (res.status === 402) { const d = await res.json().catch(() => ({})); alert(d.error || (en ? 'No credits left.' : '局数已用完。')); router.push('/upgrade'); return; }
       const d = await res.json();
       if (!res.ok) { alert(d.error || (en ? 'Error' : '出错了')); return; }
-      router.refresh();
+      if (typeof window !== 'undefined') window.location.reload();
     } catch (e: any) { alert((en ? 'Failed: ' : '失败：') + e.message); }
     finally { setBusy(false); }
   }

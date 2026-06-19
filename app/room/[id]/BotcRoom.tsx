@@ -110,7 +110,7 @@ export default function BotcRoom(props: ShellProps) {
     finally { setBusy(false); }
   }
   async function start() { await call('/api/botc/start', { roomId: props.room.id, size, theme: theme.trim() || null }); }
-  async function replay() { const d = await call('/api/rooms/replay', { roomId: props.room.id }); if (d?.ok) router.refresh(); }
+  async function replay() { const d = await call('/api/rooms/replay', { roomId: props.room.id }); if (d?.ok && typeof window !== 'undefined') window.location.reload(); }
   async function passTurn() { const d = await call('/api/botc/pass', { roomId: props.room.id }); if (d?.ok) router.refresh(); }
   async function resolveDay() { if (!confirm(en ? 'Tally votes and execute?' : '统计投票并处决？')) return; await call('/api/botc/resolve', { roomId: props.room.id }); }
   async function resolveNight() { if (!confirm(en ? 'Resolve the night?' : '结算今夜（天亮）？')) return; await call('/api/botc/resolve-night', { roomId: props.room.id }); }

@@ -42,7 +42,7 @@ export function newGame(players: { seat: string; name: string; bot?: boolean }[]
   const hands: Record<string, Card[]> = {}; const alive: Record<string, boolean> = {};
   for (const s of seats) { alive[s] = true; hands[s] = ['ward', ...pool.splice(0, 5)]; }
   const deck: Card[] = [...pool];
-  for (let i = 0; i < Math.max(0, 6 - N); i++) deck.push('ward');
+  deck.push('ward'); // 仅 1 张备用护身铃（每人开局已各持 1 张）
   for (let i = 0; i < N - 1; i++) deck.push('curse');
   shuffle(deck);
   const bots = players.filter((p) => p.bot).map((p) => p.seat);

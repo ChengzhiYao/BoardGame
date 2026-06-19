@@ -80,7 +80,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, win });
     }
 
-    await admin.from('rooms').update({ botc_phase: 'day', modules_generating: false }).eq('id', roomId);
+    const firstAlive = after.filter((p: any) => p.alive).map((p: any) => p.seat).sort()[0] || null;
+    await admin.from('rooms').update({ botc_phase: 'day', waiting_for: firstAlive, modules_generating: false }).eq('id', roomId);
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     await admin.from('rooms').update({ modules_generating: false }).eq('id', roomId);

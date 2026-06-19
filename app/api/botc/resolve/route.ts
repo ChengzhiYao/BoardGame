@@ -16,7 +16,7 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient();
   const { data: room } = await admin.from('rooms').select('*').eq('id', roomId).maybeSingle();
-  if (!room || room.botc_phase !== 'day') return NextResponse.json({ error: '现在不是白天阶段' }, { status: 409 });
+  if (!room || room.botc_phase !== 'vote') return NextResponse.json({ error: '现在不是投票阶段' }, { status: 409 });
   const { data: meP } = await admin.from('players').select('id').eq('room_id', roomId).eq('user_id', user.id).maybeSingle();
   if (!meP) return NextResponse.json({ error: '你不在这个房间' }, { status: 403 });
 
@@ -79,7 +79,7 @@ export async function POST(req: Request) {
     // 入夜：进入逐角色叫醒的夜晚阶段
     const nextDay = day + 1;
     await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', turn_no: nextDay, content: en ? `🌙 Night ${nextDay} falls. Players with night powers, take your actions.` : `🌙 第 ${nextDay} 夜降临，天黑请闭眼。拥有夜间能力的玩家请行动。`, payload: { type: 'botc_st', sfx: ['cue_nightfall'] } });
-    await admin.from('rooms').update({ botc_phase: 'night', botc_day: nextDay, modules_generating: false }).eq('id', roomId);
+    await admin.from('rooms').update({ botc_phase: 'night', botc_day: nextDay, waiting_for: null, modules_generating: false }).eq('id', roomId);
     return NextResponse.json({ ok: true, night: nextDay });
   } catch (e: any) {
     await admin.from('rooms').update({ modules_generating: false }).eq('id', roomId);

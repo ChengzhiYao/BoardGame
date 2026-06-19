@@ -11,7 +11,7 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient();
   const { data: room } = await admin.from('rooms').select('botc_day, botc_phase, language').eq('id', roomId).maybeSingle();
-  if (!room || room.botc_phase !== 'day') return NextResponse.json({ error: '现在不是投票阶段' }, { status: 409 });
+  if (!room || room.botc_phase !== 'vote') return NextResponse.json({ error: '现在不是投票阶段' }, { status: 409 });
   const { data: meP } = await admin.from('players').select('seat').eq('room_id', roomId).eq('user_id', user.id).maybeSingle();
   if (!meP) return NextResponse.json({ error: '你不在这个房间' }, { status: 403 });
   const { data: mine } = await admin.from('botc_players').select('alive, used_ghost_vote').eq('room_id', roomId).eq('seat', meP.seat).maybeSingle();

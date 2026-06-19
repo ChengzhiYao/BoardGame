@@ -90,7 +90,8 @@ export async function POST(req: Request) {
     for (let i = manifest.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [manifest[i], manifest[j]] = [manifest[j], manifest[i]]; }
     await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: 0, content: (en ? 'Roles in play this game:\n' : '本局会出现的身份：\n') + manifest.map((m: any) => `· ${m.role}（${teamCn(m.team)}）：${m.ability || ''}`).join('\n'), payload: { type: 'botc_manifest', roles: manifest } });
     await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', turn_no: 1, content: cf.opening || (en ? 'Night falls… and dawn breaks on Day 1. Discuss.' : '夜幕降临……第 1 天天亮了，请开始讨论。'), payload: { type: 'botc_st', sfx: ['cue_nightfall'] } });
-    await admin.from('rooms').update({ game_state: 'playing', botc_phase: 'day', botc_day: 1, botc_size: finalSize, modules_generating: false }).eq('id', roomId);
+    const firstSeat = rows.map((r: any) => r.seat).sort()[0] || 'A';
+    await admin.from('rooms').update({ game_state: 'playing', botc_phase: 'day', botc_day: 1, botc_size: finalSize, waiting_for: firstSeat, modules_generating: false }).eq('id', roomId);
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     await admin.from('rooms').update({ botc_phase: 'lobby', modules_generating: false }).eq('id', roomId);

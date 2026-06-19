@@ -295,4 +295,50 @@ create policy messages_member_read on messages for select using (
 alter table clues drop constraint if exists clues_visible_to_check;
 alter table clues add constraint clues_visible_to_check check (visible_to in ('all','A','B','C','D','E','F','G','H'));
 
+-- ---------- 21. 血染模式（社交推理，类狼人杀；AI 说书人 + AI 补位；4/6/8 人局，真人 1~8，真人也可为邪恶方）----------
+-- rooms.mode 现可为 coc | soup | td | jbs | botc
+alter table rooms add column if not exists botc_phase text;                  -- lobby|day|reveal
+alter table rooms add column if not exists botc_day int not null default 0;  -- 第几天
+alter table rooms add column if not exists botc_size int not null default 6; -- 本局总人数 4/6/8
+
+-- 隐藏设置（全部身份/阵营/恶魔/中毒/胜负，仅 service_role 可读写）
+create table if not exists botc_setup (
+  room_id uuid primary key references rooms(id) on delete cascade,
+  data jsonb not null,
+  created_at timestamptz not null default now()
+);
+alter table botc_setup enable row level security;
+-- 不开放 anon/authenticated 策略：含全部隐藏身份，仅服务端读写。
+
+-- 公开玩家板（仅座位/昵称/存活，不含身份；房间成员可读）
+create table if not exists botc_players (
+  id uuid primary key default gen_random_uuid(),
+  room_id uuid not null references rooms(id) on delete cascade,
+  seat text,                 -- A..H；AI 为 null
+  display_name text,
+  is_ai boolean not null default false,
+  alive boolean not null default true,
+  used_ghost_vote boolean not null default false,
+  created_at timestamptz not null default now()
+);
+alter table botc_players enable row level security;
+drop policy if exists botc_players_read on botc_players;
+create policy botc_players_read on botc_players for select using (is_room_member(room_id) or is_admin());
+
+-- 提名/投票（每天一轮）
+create table if not exists botc_votes (
+  id uuid primary key default gen_random_uuid(),
+  room_id uuid not null references rooms(id) on delete cascade,
+  day int not null default 1,
+  voter text,    -- 座位（A..H）或 AI 角色名
+  target text,   -- 被指认的座位/名字；'skip' 表示弃票
+  created_at timestamptz not null default now()
+);
+alter table botc_votes enable row level security;
+drop policy if exists botc_votes_read on botc_votes;
+create policy botc_votes_read on botc_votes for select using (is_room_member(room_id) or is_admin());
+
+do $$ begin alter publication supabase_realtime add table botc_players; exception when duplicate_object then null; end $$;
+do $$ begin alter publication supabase_realtime add table botc_votes; exception when duplicate_object then null; end $$;
+
 -- 完成。刷新网页即可。

@@ -32,7 +32,7 @@ export async function POST(req: Request) {
 
   // 容量：剧本杀最多 8 名真人（AI 补满其余），其它模式仍是 2 人。
   const SEATS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-  const cap = room.mode === 'jbs' ? 8 : room.mode === 'coc' ? 6 : 2;
+  const cap = (room.mode === 'jbs' || room.mode === 'botc') ? 8 : room.mode === 'coc' ? 6 : 2;
   if ((players?.length || 0) >= cap) {
     return NextResponse.json({ error: `房间已满（${cap}/${cap}）` }, { status: 403 });
   }

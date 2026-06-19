@@ -80,12 +80,19 @@ export default async function RoomPage({ params }: { params: { id: string } }) {
     jbsCharacters = r.data || [];
   }
 
+  let botcPlayers: any[] = [];
+  if (room.mode === 'botc') {
+    const r = await supabase.from('botc_players').select('seat, display_name, is_ai, alive, used_ghost_vote').eq('room_id', params.id);
+    botcPlayers = r.data || [];
+  }
+
   const me = (players || []).find((p) => p.user_id === user.id);
   const site = process.env.NEXT_PUBLIC_SITE_URL || '';
 
   return (
     <RoomShell
       caseQuality={caseQuality}
+      botcPlayers={botcPlayers}
       soupSurface={(soup as any)?.surface || ''}
       room={room}
       initialPlayers={players || []}

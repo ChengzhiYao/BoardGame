@@ -80,11 +80,11 @@ export type Character = {
   scores: Scores; hpMax: number; hp: number; tempHp: number; ac: number; speed: number;
   profBonus: number; skills: string[]; saveProf: Ability[]; attacks: Attack[]; cantrips: Attack[];
   spellSlots: Record<number, number>; spellSlotsMax: Record<number, number>; spellDc: number; spellAtk: number;
-  conditions: string[]; deathSaves: { ok: number; fail: number }; inspiration: boolean; gold: number; knownSpells: string[]; potions: number; alive: boolean;
+  conditions: string[]; deathSaves: { ok: number; fail: number }; inspiration: boolean; gold: number; knownSpells: string[]; potions: number; rage?: boolean; secondWindUsed?: boolean; statuses?: { name: string; rounds: number }[]; alive: boolean;
 };
-export type Monster = { id: string; name: string; ac: number; hp: number; hpMax: number; attackBonus: number; damage: string; toHitName?: string; conditions: string[]; alive: boolean };
+export type Monster = { id: string; name: string; ac: number; hp: number; hpMax: number; attackBonus: number; damage: string; toHitName?: string; special?: string; conditions: string[]; statuses?: { name: string; rounds: number }[]; alive: boolean };
 export type Combatant = { ref: string; init: number; isPlayer: boolean };
-export type Combat = { active: boolean; round: number; order: Combatant[]; turnIdx: number; monsters: Monster[] } | null;
+export type Combat = { active: boolean; round: number; order: Combatant[]; turnIdx: number; monsters: Monster[]; boss?: boolean } | null;
 export type LogEntry = { msg: string; kind?: string };
 export type State = {
   phase: 'lobby' | 'creation' | 'explore' | 'combat' | 'ended';
@@ -114,7 +114,7 @@ export function buildCharacter(opts: { seat: string; name: string; race: string;
     skills, saveProf: cdef.saves, attacks: cdef.startAttacks.map((a) => ({ ...a })), cantrips: (cdef.cantrips || []).map((a) => ({ ...a })),
     spellSlots: { ...slots }, spellSlotsMax: { ...slots }, spellDc: 8 + pb + castMod, spellAtk: pb + castMod,
     conditions: [], deathSaves: { ok: 0, fail: 0 }, inspiration: false, gold: 15,
-    knownSpells: (cdef.caster && cdef.caster !== 'none') ? (CLASS_SPELLS[opts.cls] || []) : [], potions: 2, alive: true,
+    knownSpells: (cdef.caster && cdef.caster !== 'none') ? (CLASS_SPELLS[opts.cls] || []) : [], potions: 2, rage: false, secondWindUsed: false, statuses: [], alive: true,
   };
 }
 
@@ -142,14 +142,15 @@ export function savingThrow(c: Character, a: Ability, dc: number, adv: 0 | 1 | -
 }
 
 // ---------- 战斗 ----------
-export function startCombat(s: State, monsters: Monster[]) {
+export function startCombat(s: State, monsters: Monster[], boss = false) {
   const order: Combatant[] = [];
-  for (const seat of s.seats) { const c = s.chars[seat]; if (c && c.alive) order.push({ ref: seat, init: rollDie(20) + mod(c.scores.dex), isPlayer: true }); }
-  for (const m of monsters) { m.conditions = m.conditions || []; m.alive = m.hp > 0; order.push({ ref: m.id, init: rollDie(20) + (m.attackBonus >= 4 ? 2 : 1), isPlayer: false }); }
+  for (const seat of s.seats) { const c = s.chars[seat]; if (c && c.alive) { c.rage = false; c.statuses = []; order.push({ ref: seat, init: rollDie(20) + mod(c.scores.dex), isPlayer: true }); } }
+  for (const m of monsters) { m.conditions = m.conditions || []; m.statuses = m.statuses || []; m.alive = m.hp > 0; order.push({ ref: m.id, init: rollDie(20) + (m.attackBonus >= 4 ? 2 : 1), isPlayer: false }); }
   order.sort((a, b) => b.init - a.init);
-  s.combat = { active: true, round: 1, order, turnIdx: 0, monsters };
+  s.combat = { active: true, round: 1, order, turnIdx: 0, monsters, boss: !!boss };
   s.phase = 'combat';
-  L(s, `⚔️ 战斗开始！先攻顺序：${order.map((o) => refName(s, o.ref) + '(' + o.init + ')').join(' → ')}`, 'combat');
+  L(s, `⚔️ ${boss ? '【BOSS战】' : ''}战斗开始！先攻顺序：${order.map((o) => refName(s, o.ref) + '(' + o.init + ')').join(' → ')}`, 'combat');
+  processCurrent(s);
 }
 
 export function refName(s: State, ref: string): string {
@@ -167,15 +168,19 @@ export function currentActor(s: State): Combatant | null {
 export function playerAttack(s: State, seat: string, weaponIdx: number, targetId: string): { ok: boolean; error?: string } {
   if (!s.combat?.active) return { ok: false, error: '现在不是战斗' };
   const cur = currentActor(s); if (!cur || cur.ref !== seat) return { ok: false, error: '还没轮到你' };
-  const c = s.chars[seat]; if (!c || !c.alive) return { ok: false, error: '你无法行动' };
+  const c = s.chars[seat]; if (!c || !c.alive || c.hp <= 0) return { ok: false, error: '你无法行动' };
   const atk = c.attacks[weaponIdx] || c.attacks[0]; if (!atk) return { ok: false, error: '没有可用武器' };
   const m = s.combat.monsters.find((x) => x.id === targetId); if (!m || !m.alive) return { ok: false, error: '目标无效' };
   const bonus = mod(c.scores[atk.ability]) + c.profBonus;
-  const r = d20(0); const hit = r.roll === 20 || (r.roll !== 1 && r.roll + bonus >= m.ac);
-  if (!hit) { L(s, `🗡️ ${c.name} 用${atk.name}攻击 ${m.name}：d20(${r.roll})+${bonus}=${r.roll + bonus} vs AC${m.ac} —— 未命中。`, 'attack'); endTurn(s); return { ok: true }; }
+  const dis: 0 | -1 = (hasStatus(c, '中毒') || hasStatus(c, '恐惧')) ? -1 : 0;
+  const r = d20(dis); const hit = r.roll === 20 || (r.roll !== 1 && r.roll + bonus >= m.ac);
+  if (!hit) { L(s, `🗡️ ${c.name} 用${atk.name}攻击 ${m.name}：d20(${r.roll})+${bonus}=${r.roll + bonus} vs AC${m.ac}${dis ? '（劣势）' : ''} —— 未命中。`, 'attack'); endTurn(s); return { ok: true }; }
   const dmg = rollDice(atk.damage); let total = dmg.total + mod(c.scores[atk.ability]); if (r.roll === 20) total += rollDice(atk.damage).total;
+  let extra = '';
+  if (c.cls === 'rogue') { const sd = Math.ceil(c.level / 2); let sa = 0; for (let i = 0; i < sd; i++) sa += rollDie(6); total += sa; extra += ` +偷袭${sa}`; }
+  if (c.rage && atk.ability === 'str') { total += 2; extra += ' +狂暴2'; }
   total = Math.max(1, total); m.hp = Math.max(0, m.hp - total);
-  L(s, `🗡️ ${c.name} 用${atk.name}${r.roll === 20 ? '【重击】' : ''}命中 ${m.name}，造成 ${total} 点${atk.type}伤害（${m.hp}/${m.hpMax}）。`, 'attack');
+  L(s, `🗡️ ${c.name} 用${atk.name}${r.roll === 20 ? '【重击】' : ''}命中 ${m.name}，造成 ${total} 点${atk.type}伤害${extra}（${m.hp}/${m.hpMax}）。`, 'attack');
   if (m.hp <= 0) { m.alive = false; L(s, `💀 ${m.name} 倒下了！`, 'kill'); }
   endTurn(s); return { ok: true };
 }
@@ -205,38 +210,86 @@ export function playerDodgeOrHelp(s: State, seat: string, kind: string): { ok: b
   endTurn(s); return { ok: true };
 }
 
-// 推进回合：跳过死亡者；轮到怪物则自动行动；战斗结束则结算。
-export function endTurn(s: State): void {
-  if (!s.combat?.active) return;
-  const cb = s.combat;
-  for (let guard = 0; guard < 50; guard++) {
-    cb.turnIdx++;
-    if (cb.turnIdx >= cb.order.length) { cb.turnIdx = 0; cb.round++; L(s, `—— 第 ${cb.round} 轮 ——`, 'combat'); }
-    if (checkCombatEnd(s)) return;
-    const actor = cb.order[cb.turnIdx];
-    if (!actor || !refAlive(s, actor.ref)) continue; // 跳过倒下者
-    if (actor.isPlayer) return; // 轮到真人，等待输入
-    monsterTurn(s, actor.ref); // 怪物自动
-    if (checkCombatEnd(s)) return;
+// ---------- 状态异常 ----------
+function statusList(t: any): { name: string; rounds: number }[] { t.statuses = t.statuses || []; return t.statuses; }
+function addStatus(t: any, name: string, rounds: number) { const l = statusList(t); const e = l.find((x) => x.name === name); if (e) e.rounds = Math.max(e.rounds, rounds); else l.push({ name, rounds }); }
+function hasStatus(t: any, name: string): boolean { return statusList(t).some((x) => x.name === name); }
+
+// 回合开始：结算中毒伤害/眩晕并递减状态。返回 'skip' 表示该回合被跳过。
+function startTurnStatuses(s: State, ref: string): 'skip' | 'act' {
+  const isChar = !!s.chars[ref];
+  const t: any = isChar ? s.chars[ref] : s.combat?.monsters.find((x) => x.id === ref);
+  if (!t) return 'act';
+  const l = statusList(t); if (!l.length) return 'act';
+  if (hasStatus(t, '中毒')) {
+    const dmg = rollDie(4); t.hp = Math.max(0, t.hp - dmg);
+    L(s, `🤢 ${t.name} 中毒，受到 ${dmg} 点毒素伤害（${t.hp}/${t.hpMax}）。`, 'attack');
+    if (t.hp <= 0) { if (isChar) { t.conditions = Array.from(new Set([...(t.conditions || []), '倒地濒死'])); L(s, `🩸 ${t.name} 毒发倒地！`, 'down'); } else { t.alive = false; L(s, `💀 ${t.name} 毒发身亡！`, 'kill'); } }
   }
+  const skip = hasStatus(t, '眩晕');
+  if (skip) L(s, `💫 ${t.name} 处于眩晕，跳过这一回合。`, 'combat');
+  t.statuses = l.map((x) => ({ name: x.name, rounds: x.rounds - 1 })).filter((x) => x.rounds > 0);
+  return skip ? 'skip' : 'act';
+}
+
+function advanceIdx(s: State) { const cb = s.combat!; cb.turnIdx++; if (cb.turnIdx >= cb.order.length) { cb.turnIdx = 0; cb.round++; L(s, `—— 第 ${cb.round} 轮 ——`, 'combat'); } }
+
+// 从当前行动者开始：跳过倒下/眩晕者，怪物自动行动，停在可行动的真人上。
+function processCurrent(s: State): void {
+  if (!s.combat?.active) return;
+  for (let g = 0; g < 80; g++) {
+    if (checkCombatEnd(s)) return;
+    const actor = s.combat.order[s.combat.turnIdx];
+    if (!actor || !refAlive(s, actor.ref)) { advanceIdx(s); continue; }
+    const st = startTurnStatuses(s, actor.ref);
+    if (checkCombatEnd(s)) return;
+    if (st === 'skip') { advanceIdx(s); continue; }
+    if (actor.isPlayer) return; // 等待真人输入
+    monsterTurn(s, actor.ref);
+    advanceIdx(s);
+  }
+}
+
+export function endTurn(s: State): void { if (!s.combat?.active) return; advanceIdx(s); processCurrent(s); }
+
+// 野蛮人狂暴 / 战士二次呼吸（附赠动作，不结束回合）
+export function toggleRage(s: State, seat: string): { ok: boolean; error?: string } {
+  const cur = currentActor(s); if (!cur || cur.ref !== seat) return { ok: false, error: '还没轮到你' };
+  const c = s.chars[seat]; if (!c || c.cls !== 'barbarian') return { ok: false, error: '只有野蛮人能狂暴' };
+  if (c.rage) return { ok: false, error: '已在狂暴中' };
+  c.rage = true; L(s, `🪓 ${c.name} 进入狂暴！（近战伤害+2，受到伤害减半）`, 'combat'); return { ok: true };
+}
+export function secondWind(s: State, seat: string): { ok: boolean; error?: string } {
+  const cur = currentActor(s); if (!cur || cur.ref !== seat) return { ok: false, error: '还没轮到你' };
+  const c = s.chars[seat]; if (!c || c.cls !== 'fighter') return { ok: false, error: '只有战士能二次呼吸' };
+  if (c.secondWindUsed) return { ok: false, error: '本次休整已用过' };
+  const heal = rollDie(10) + c.level; c.secondWindUsed = true; c.hp = Math.min(c.hpMax, c.hp + heal);
+  L(s, `💨 ${c.name} 二次呼吸，恢复 ${heal} 点（${c.hp}/${c.hpMax}）。`, 'rest'); return { ok: true };
 }
 
 function monsterTurn(s: State, id: string) {
   const cb = s.combat!; const m = cb.monsters.find((x) => x.id === id); if (!m || !m.alive) return;
-  const targets = s.seats.map((seat) => s.chars[seat]).filter((c) => c && c.alive);
+  const targets = s.seats.map((seat) => s.chars[seat]).filter((c) => c && c.alive && c.hp > 0);
   if (!targets.length) return;
   const target = targets.sort((a, b) => a.hp - b.hp)[0]; // 咬最弱的
   const r = d20(0); const hit = r.roll === 20 || (r.roll !== 1 && r.roll + m.attackBonus >= target.ac);
   if (!hit) { L(s, `👹 ${m.name} 攻击 ${target.name}：${r.roll}+${m.attackBonus} vs AC${target.ac} —— 未命中。`, 'attack'); return; }
   const dmg = rollDice(m.damage); let total = dmg.total; if (r.roll === 20) total += rollDice(m.damage).total; total = Math.max(1, total);
   applyDamageToChar(s, target, total, m.name, r.roll === 20);
+  const sp = String(m.special || '');
+  if (sp && target.alive && target.hp > 0) {
+    if (sp.includes('poison') || sp.includes('毒')) { addStatus(target, '中毒', 2); L(s, `🤢 ${target.name} 中毒了！`, 'down'); }
+    else if (sp.includes('stun') || sp.includes('paral') || sp.includes('眩') || sp.includes('麻')) { if (Math.random() < 0.5) { addStatus(target, '眩晕', 1); L(s, `💫 ${target.name} 被打晕了！`, 'down'); } }
+    else if (sp.includes('fear') || sp.includes('恐')) { addStatus(target, '恐惧', 2); L(s, `😱 ${target.name} 陷入恐惧！`, 'down'); }
+  }
 }
 
 function applyDamageToChar(s: State, c: Character, amount: number, source: string, crit: boolean) {
   let dmg = amount;
+  if (c.rage) dmg = Math.ceil(dmg / 2);
   if (c.tempHp > 0) { const used = Math.min(c.tempHp, dmg); c.tempHp -= used; dmg -= used; }
   c.hp = Math.max(0, c.hp - dmg);
-  L(s, `👹 ${source} ${crit ? '【重击】' : ''}命中 ${c.name}，造成 ${amount} 点伤害（${c.hp}/${c.hpMax}）。`, 'attack');
+  L(s, `👹 ${source} ${crit ? '【重击】' : ''}命中 ${c.name}，造成 ${dmg} 点伤害${c.rage ? '（狂暴减半）' : ''}（${c.hp}/${c.hpMax}）。`, 'attack');
   if (c.hp <= 0) { c.hp = 0; c.conditions = Array.from(new Set([...c.conditions, '倒地濒死'])); L(s, `🩸 ${c.name} 倒地，开始死亡豁免！`, 'down'); }
 }
 
@@ -256,21 +309,29 @@ export function deathSave(s: State, seat: string): { ok: boolean; error?: string
 
 export function checkCombatEnd(s: State): boolean {
   if (!s.combat?.active) return false;
+  const boss = !!s.combat.boss;
   const monstersUp = s.combat.monsters.some((m) => m.alive);
   const heroesUp = s.seats.some((seat) => s.chars[seat]?.alive && s.chars[seat].hp > 0);
-  if (!monstersUp) { L(s, `🎉 敌人全部被击败！`, 'win'); s.xpAward += s.combat.monsters.reduce((a, m) => a + Math.max(25, m.hpMax * 5), 0); endCombat(s, 'win'); return true; }
+  if (!monstersUp) {
+    L(s, `🎉 敌人全部被击败！`, 'win');
+    s.xpAward += s.combat.monsters.reduce((a, m) => a + Math.max(25, m.hpMax * 5), 0) * (boss ? 2 : 1);
+    const gold = rollDice('2d6').total * (boss ? 5 : 2); const drops: string[] = [];
+    for (const seat of s.seats) { const c = s.chars[seat]; if (!c?.alive) continue; c.gold += gold; if (Math.random() < (boss ? 0.85 : 0.3)) { c.potions += 1; drops.push(c.name); } }
+    L(s, `💰 战利品：每人 +${gold} 金币${drops.length ? `；${drops.join('、')} 各拾得 1 瓶治疗药水` : ''}。`, 'win');
+    endCombat(s, 'win'); return true;
+  }
   if (!heroesUp) { L(s, `💀 全队倒下……`, 'loss'); endCombat(s, 'loss'); return true; }
   return false;
 }
-function endCombat(s: State, _r: string) { if (s.combat) s.combat.active = false; s.phase = 'explore'; }
+function endCombat(s: State, _r: string) { if (s.combat) s.combat.active = false; for (const seat of s.seats) { const c = s.chars[seat]; if (c) { c.rage = false; c.statuses = []; } } s.phase = 'explore'; }
 
 // ---------- 休整 / 升级 ----------
 export function shortRest(s: State) {
-  for (const seat of s.seats) { const c = s.chars[seat]; if (!c?.alive) continue; const heal = Math.floor(c.hpMax / 4) + mod(c.scores.con); c.hp = Math.min(c.hpMax, c.hp + Math.max(1, heal)); }
+  for (const seat of s.seats) { const c = s.chars[seat]; if (!c?.alive) continue; const heal = Math.floor(c.hpMax / 4) + mod(c.scores.con); c.hp = Math.min(c.hpMax, c.hp + Math.max(1, heal)); c.secondWindUsed = false; }
   L(s, `🏕️ 全队短休，恢复部分生命。`, 'rest');
 }
 export function longRest(s: State) {
-  for (const seat of s.seats) { const c = s.chars[seat]; if (!c) continue; if (!c.alive && c.conditions.includes('死亡')) continue; c.hp = c.hpMax; c.tempHp = 0; c.conditions = c.conditions.filter((x) => x === '死亡'); c.deathSaves = { ok: 0, fail: 0 }; c.spellSlots = { ...c.spellSlotsMax }; }
+  for (const seat of s.seats) { const c = s.chars[seat]; if (!c) continue; if (!c.alive && c.conditions.includes('死亡')) continue; c.hp = c.hpMax; c.tempHp = 0; c.conditions = c.conditions.filter((x) => x === '死亡'); c.deathSaves = { ok: 0, fail: 0 }; c.spellSlots = { ...c.spellSlotsMax }; c.secondWindUsed = false; c.statuses = []; }
   L(s, `🌙 全队长休，生命与法术位回满。`, 'rest');
 }
 export function awardAndMaybeLevel(s: State): void {
@@ -301,7 +362,7 @@ export function newGame(theme: string, seats: string[], names: Record<string, st
 export function publicView(s: State) {
   return {
     phase: s.phase, theme: s.theme, scene: s.scene, quest: s.quest, seats: s.seats,
-    chars: s.chars, combat: s.combat ? { active: s.combat.active, round: s.combat.round, turnIdx: s.combat.turnIdx, order: s.combat.order, monsters: s.combat.monsters, current: currentActor(s)?.ref || null } : null,
+    chars: s.chars, combat: s.combat ? { active: s.combat.active, round: s.combat.round, turnIdx: s.combat.turnIdx, order: s.combat.order, monsters: s.combat.monsters, boss: !!s.combat.boss, current: currentActor(s)?.ref || null } : null,
     log: s.log.slice(-30), logSeq: s.logSeq,
   };
 }
@@ -315,7 +376,7 @@ export function sanitizeMonsters(arr: any[]): Monster[] {
     id: `m${i + 1}`, name: String(m?.name || `敌人${i + 1}`).slice(0, 24),
     ac: clampInt(m?.ac, 8, 20, 12), hpMax: clampInt(m?.hp, 3, 80, 8), hp: clampInt(m?.hp, 3, 80, 8),
     attackBonus: clampInt(m?.attackBonus, 0, 10, 3), damage: /^\d+d\d+([+-]\d+)?$/.test(String(m?.damage || '')) ? String(m.damage) : '1d6+1',
-    conditions: [], alive: true,
+    special: typeof m?.special === 'string' ? m.special : '', conditions: [], statuses: [], alive: true,
   }));
 }
 

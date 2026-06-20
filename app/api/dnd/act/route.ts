@@ -55,7 +55,7 @@ export async function POST(req: Request) {
     } else if (kind === 'combat') {
       pushLog(s, adj.narration || '敌人扑了上来！', 'dm');
       const monsters = sanitizeMonsters(adj.monsters);
-      if (monsters.length) startCombat(s, monsters);
+      if (monsters.length) startCombat(s, monsters, !!adj.boss);
     } else if (kind === 'rest') {
       pushLog(s, adj.narration || '你们停下休整。', 'dm');
       if (adj.rest === 'long') longRest(s); else shortRest(s);

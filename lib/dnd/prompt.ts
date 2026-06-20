@@ -28,7 +28,7 @@ export function buildDndActPrompt(scene: string, quest: string, party: string, r
 请把它裁定为下列之一并只输出 JSON：
 - 需要技能检定（潜行/察觉/游说/运动/奥秘/调查 等）→ kind="check"，给 skill（用英文键：perception/stealth/persuasion/athletics/arcana/investigation/insight/deception/intimidation/acrobatics/sleight/survival/nature/history/religion/medicine/animal/performance）与合理 dc(5~20)，并**分别**写好 success 与 fail 两段叙事。
 - 纯角色扮演/对话/观察、无需检定 → kind="social"，写 narration。
-- 行动触发战斗 → kind="combat"，写 narration（敌人登场），并给 monsters 数组（每个：name 名称, ac 10~17, hp 5~40, attackBonus 2~7, damage 如 "1d6+2"）。1~4 个敌人，强度匹配 ${partySafe(party)} 人小队。
+- 行动触发战斗 → kind="combat"，写 narration（敌人登场），并给 monsters 数组（每个：name 名称, ac 10~17, hp 5~40, attackBonus 2~7, damage 如 "1d6+2", special 可选="poison|stun|fear" 或留空表示特殊攻击）。1~4 个敌人，强度匹配 ${partySafe(party)} 人小队。若是高潮 Boss 战，设 boss=true 并给 1 个更强的单体（hp 40~90, ac 14~18, special 可填）。
 - 玩家想休息 → kind="rest"，rest 取 "short" 或 "long"，写 narration。
 - 任务目标已明确达成、或队伍彻底失败/放弃 → kind="end"，victory 取 true/false，epilogue 写 2~4 句收束尾声。仅在剧情确实该结束时才用。
 叙事用${en ? 'English' : '中文'}、第二人称、2~4 句，不替玩家做决定。
@@ -39,7 +39,8 @@ export function buildDndActPrompt(scene: string, quest: string, party: string, r
   "success": "(check时)成功叙事",
   "fail": "(check时)失败叙事",
   "narration": "(social/combat/rest时)叙事",
-  "monsters": [ { "name": "哥布林", "ac": 13, "hp": 7, "attackBonus": 4, "damage": "1d6+2" } ],
+  "monsters": [ { "name": "哥布林", "ac": 13, "hp": 7, "attackBonus": 4, "damage": "1d6+2", "special": "" } ],
+  "boss": false,
   "rest": "short|long",
   "victory": true,
   "epilogue": "(end时)结局尾声"

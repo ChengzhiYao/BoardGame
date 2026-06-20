@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { RACES, CLASSES, BACKGROUNDS, ABILITIES, ABILITY_CN, STANDARD_ARRAY, mod } from '@/lib/dnd/engine';
 import type { ShellProps } from './RoomShell';
+import { dndSfx, setDndBgm, stopDndBgm, setDndMuted } from '@/lib/audio/dndCue';
 
 const inviteUrl = (p: ShellProps) => `${typeof window !== 'undefined' ? window.location.origin : (p.siteUrl || '')}/join/${p.inviteToken}`;
 
@@ -17,6 +18,8 @@ export default function DndRoom(props: ShellProps) {
   const [busy, setBusy] = useState(false);
   const inFlight = useRef(false);
   const logRef = useRef<HTMLDivElement>(null);
+  const sfxSeq = useRef<number>(props.dndPublic?.logSeq || 0);
+  const [muted, setMuted] = useState(false);
   const [theme, setTheme] = useState('');
   const [action, setAction] = useState('');
   const [aim, setAim] = useState<{ kind: 'attack' | 'cast'; idx: number } | null>(null);
@@ -31,6 +34,35 @@ export default function DndRoom(props: ShellProps) {
   }, [props.room.id, supabase, router]);
 
   useEffect(() => { logRef.current?.scrollTo({ top: logRef.current.scrollHeight }); }, [pub?.logSeq]);
+
+  // BGM 随阶段切换；离开房间停止
+  useEffect(() => {
+    const ph = pub?.phase || props.room.dnd_phase || 'lobby';
+    if (ph === 'combat') setDndBgm('combat');
+    else if (ph === 'explore' || ph === 'creation') setDndBgm('explore');
+    else stopDndBgm();
+    return () => { /* keep playing across refresh */ };
+  }, [pub?.phase, props.room.dnd_phase]);
+  useEffect(() => () => stopDndBgm(), []);
+
+  // 战斗音效：扫描新日志（用真实总数 logSeq）
+  useEffect(() => {
+    const total = pub?.logSeq ?? 0;
+    const logs = pub?.log || [];
+    if (total > sfxSeq.current) {
+      const newCount = Math.min(total - sfxSeq.current, logs.length);
+      for (const l of logs.slice(logs.length - newCount)) {
+        const m = String(l?.msg || '');
+        if (m.includes('💀') || m.includes('⚰️')) dndSfx('death');
+        else if (m.includes('⭐')) dndSfx('level');
+        else if (m.includes('✨')) dndSfx('spell');
+        else if (m.includes('🗡️')) dndSfx(m.includes('未命中') ? 'miss' : 'hit');
+        else if (m.includes('👹') && m.includes('命中') && !m.includes('未命中')) dndSfx('hurt');
+      }
+    }
+    sfxSeq.current = total;
+  }, [pub?.logSeq]);
+
 
   async function call(url: string, body: any) {
     if (inFlight.current) return null;
@@ -81,6 +113,7 @@ export default function DndRoom(props: ShellProps) {
         <div className="text-xs text-eldritch truncate">📜 {pub.quest || (en ? 'Adventure' : '冒险')}</div>
         <div className="text-[11px] text-parchment/50 truncate">{pub.scene}</div>
       </div>
+      <button onClick={() => { const nm = !muted; setMuted(nm); setDndMuted(nm); if (!nm) { const ph = pub?.phase || 'explore'; setDndBgm(ph === 'combat' ? 'combat' : 'explore'); } }} className="text-[11px] text-parchment/40 hover:text-parchment shrink-0 mr-2">{muted ? '🔇' : '🔊'}</button>
       <span className="text-[11px] text-parchment/50 shrink-0">{phase === 'combat' ? (en ? `⚔️ Combat · R${combat?.round}` : `⚔️ 战斗 · 第${combat?.round}轮`) : phase === 'creation' ? (en ? '🛠️ Create' : '🛠️ 建卡') : phase === 'explore' ? (en ? '🗺️ Explore' : '🗺️ 探索') : ''}</span>
     </div>
   );

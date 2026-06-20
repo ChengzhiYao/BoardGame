@@ -304,3 +304,16 @@ export function publicView(s: State) {
     log: s.log.slice(-30), logSeq: s.logSeq,
   };
 }
+
+// ---------- 路由用辅助 ----------
+export function pushLog(s: State, msg: string, kind?: string) { s.log.push({ msg, kind }); s.logSeq = (s.logSeq || 0) + 1; }
+export function clampInt(v: any, lo: number, hi: number, dflt: number) { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : dflt; }
+export function sanitizeMonsters(arr: any[]): Monster[] {
+  if (!Array.isArray(arr)) return [];
+  return arr.slice(0, 6).map((m, i) => ({
+    id: `m${i + 1}`, name: String(m?.name || `敌人${i + 1}`).slice(0, 24),
+    ac: clampInt(m?.ac, 8, 20, 12), hpMax: clampInt(m?.hp, 3, 80, 8), hp: clampInt(m?.hp, 3, 80, 8),
+    attackBonus: clampInt(m?.attackBonus, 0, 10, 3), damage: /^\d+d\d+([+-]\d+)?$/.test(String(m?.damage || '')) ? String(m.damage) : '1d6+1',
+    conditions: [], alive: true,
+  }));
+}

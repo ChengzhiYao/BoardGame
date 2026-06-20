@@ -2,6 +2,7 @@
 import { redirect } from 'next/navigation';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import RoomShell from './RoomShell';
+import { publicView as dndPublicView } from '@/lib/dnd/engine';
 
 export default async function RoomPage({ params }: { params: { id: string } }) {
   const supabase = createServerClient();
@@ -98,6 +99,12 @@ export default async function RoomPage({ params }: { params: { id: string } }) {
     }
   }
 
+  let dndPublic: any = null;
+  if (room.mode === 'dnd') {
+    const dr = await supabase.from('dnd_state').select('state').eq('room_id', params.id).maybeSingle();
+    dndPublic = (dr.data as any)?.state ? dndPublicView((dr.data as any).state) : null;
+  }
+
   const me = (players || []).find((p) => p.user_id === user.id);
   const site = process.env.NEXT_PUBLIC_SITE_URL || '';
 
@@ -107,6 +114,7 @@ export default async function RoomPage({ params }: { params: { id: string } }) {
       botcPlayers={botcPlayers}
       mccPublic={mccPublic}
       mccHand={mccHand}
+      dndPublic={dndPublic}
       soupSurface={(soup as any)?.surface || ''}
       room={room}
       initialPlayers={players || []}

@@ -48,6 +48,13 @@ export async function POST(req: Request) {
     await charge();
     return NextResponse.json({ ok: true });
   }
+  if (room.mode === 'dnd') {
+    await admin.from('messages').delete().eq('room_id', roomId);
+    await admin.from('dnd_state').delete().eq('room_id', roomId);
+    await admin.from('rooms').update({ game_state: 'lobby', dnd_phase: 'lobby', modules_generating: false }).eq('id', roomId);
+    await charge();
+    return NextResponse.json({ ok: true });
+  }
   if (room.mode === 'soup' || room.mode === 'td') {
     await admin.from('messages').delete().eq('room_id', roomId);
     if (room.mode === 'soup') await admin.from('soup_puzzles').delete().eq('room_id', roomId);

@@ -11,6 +11,7 @@ import TDRoom from './TDRoom';
 import JbsRoom from './JbsRoom';
 import BotcRoom from './BotcRoom';
 import MccRoom from './MccRoom';
+import DndRoom from './DndRoom';
 import AudioManager from './AudioManager';
 
 const EN = (l?: string) => l === 'en';
@@ -53,6 +54,7 @@ export type ShellProps = {
   botcPlayers?: any[];
   mccPublic?: any;
   mccHand?: string[];
+  dndPublic?: any;
 };
 
 export default function RoomShell(props: ShellProps) {
@@ -104,6 +106,7 @@ export default function RoomShell(props: ShellProps) {
   if (props.room.mode === 'jbs') return (<><AudioManager state={jbsAudioState(props.room)} /><JbsRoom {...props} /></>);
   if (props.room.mode === 'botc') return <BotcRoom {...props} />;
   if (props.room.mode === 'mcc') return <MccRoom {...props} />;
+  if (props.room.mode === 'dnd') return <DndRoom {...props} />;
 
   const state = props.room.game_state || 'lobby';
   const audioState = audioStateFor(props.room);

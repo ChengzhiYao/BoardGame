@@ -10,7 +10,7 @@ export function botcComposition(size: number) {
 
 // 按夜间行动决定叫醒次序：投毒最先（让信息变假），保护其次，恶魔杀人，再到信息角色，最后无行动。
 export function nightOrderOf(action: string) {
-  return ({ poison: 10, protect: 20, kill: 30, learn: 40, none: 99 } as Record<string, number>)[action] ?? 99;
+  return ({ poison: 10, protect: 20, kill: 30, inspect: 40, learn: 40, none: 99 } as Record<string, number>)[action] ?? 99;
 }
 
 export function buildBotcSetupPrompt(size: number, theme: string, seats: string[]) {
@@ -27,7 +27,7 @@ export function buildBotcSetupPrompt(size: number, theme: string, seats: string[
 - 爪牙（邪恶，常 night_action=poison 或 none）：开局即知道恶魔是谁；破坏技能。例：每夜投毒一人，使其当夜信息变假；或自身验为善良。
 - 恶魔（邪恶，night_action=kill）：每夜杀一人（第一夜不杀）；开局即知道所有爪牙，并得到 3 个未入局好人身份用于伪装。
 - 为每个 AI 角色起一个普通**公开化名**（name 字段，契合题材的人名，**绝不能等于其隐藏身份名**），玩家板只显示化名，身份保密。
-- 给每个身份一句**可执行**的技能描述。为每个身份标注 night_action ∈ {kill, poison, protect, learn, none}；learn 的角色另给 learns 字段说明它每夜得知什么。
+- 给每个身份一句**可执行**的技能描述。为每个身份标注 night_action ∈ {kill, poison, protect, inspect, learn, none}；**每夜主动选一名玩家查验/调查的一律用 inspect**；learn 的角色另给 learns 字段说明它每夜得知什么。
 
 【胜负】好人：白天投票**处决掉恶魔**即胜。邪恶：当存活玩家只剩 2 人（且恶魔在其中）或好人已无法翻盘时胜。
 

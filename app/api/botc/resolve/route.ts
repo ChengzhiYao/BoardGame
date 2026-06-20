@@ -78,6 +78,17 @@ export async function POST(req: Request) {
 
     // 入夜：进入逐角色叫醒的夜晚阶段
     const nextDay = day + 1;
+    // 自愈：给有主动夜间技能（含 inspect 查验）却漏发"夜间行动标签"的座位补发，
+    // 修复在本次更新之前开的局——否则这些玩家夜里看不到行动 UI。
+    try {
+      const ACT = ['kill', 'poison', 'protect', 'inspect'];
+      const { data: existRA } = await admin.from('messages').select('visibility').eq('room_id', roomId).contains('payload', { type: 'botc_role_action' });
+      const haveSeat = new Set((existRA || []).map((m: any) => String(m.visibility || '').replace('seat:', '')));
+      for (const r of roles) {
+        if (!r.seat || !ACT.includes(r.night_action) || haveSeat.has(r.seat)) continue;
+        await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: 0, content: '', visibility: `seat:${r.seat}`, payload: { type: 'botc_role_action', action: r.night_action } });
+      }
+    } catch {}
     await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', turn_no: nextDay, content: en ? `🌙 Night ${nextDay} falls. Players with night powers, take your actions.` : `🌙 第 ${nextDay} 夜降临，天黑请闭眼。拥有夜间能力的玩家请行动。`, payload: { type: 'botc_st', sfx: ['cue_nightfall'] } });
     await admin.from('rooms').update({ botc_phase: 'night', botc_day: nextDay, waiting_for: null, modules_generating: false }).eq('id', roomId);
     return NextResponse.json({ ok: true, night: nextDay });

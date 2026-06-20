@@ -72,14 +72,14 @@ export async function POST(req: Request) {
     await admin.from('botc_setup').insert({ room_id: roomId, data: { ...cf, roles, _notes: [] } });
 
     const en = room.language === 'en';
-    const actLabel = (a: string) => a === 'kill' ? (en ? 'each night, kill one player' : '每夜杀一名玩家') : a === 'poison' ? (en ? 'each night, poison one player (their info turns false)' : '每夜投毒一名玩家（其信息变假）') : a === 'protect' ? (en ? 'each night, protect one player from death' : '每夜保护一名玩家免于死亡') : '';
+    const actLabel = (a: string) => a === 'kill' ? (en ? 'each night, kill one player' : '每夜杀一名玩家') : a === 'poison' ? (en ? 'each night, poison one player (their info turns false)' : '每夜投毒一名玩家（其信息变假）') : a === 'protect' ? (en ? 'each night, protect one player from death' : '每夜保护一名玩家免于死亡') : a === 'inspect' ? (en ? 'each night, investigate one player and learn something about them' : '每夜查验一名玩家，获知关于其的信息') : '';
     for (const r of roles) {
       if (!r.seat) continue;
       const team = r.team === 'demon' ? (en ? 'Demon (Evil)' : '恶魔（邪恶）') : r.team === 'minion' ? (en ? 'Minion (Evil)' : '爪牙（邪恶）') : r.team === 'outsider' ? (en ? 'Outsider (Good)' : '外来者（善良）') : (en ? 'Townsfolk (Good)' : '镇民（善良）');
-      const nightLine = ['kill', 'poison', 'protect'].includes(r.night_action) ? (en ? `\nNight power: ${actLabel(r.night_action)}` : `\n夜间能力：${actLabel(r.night_action)}`) : '';
+      const nightLine = ['kill', 'poison', 'protect', 'inspect'].includes(r.night_action) ? (en ? `\nNight power: ${actLabel(r.night_action)}` : `\n夜间能力：${actLabel(r.night_action)}`) : '';
       const card = (en ? `Your role: 「${r.role}」 · ${team}\nAbility: ${r.ability || ''}` : `你的身份：「${r.role}」 · ${team}\n技能：${r.ability || ''}`) + nightLine + (r.first_night_info ? (en ? `\nNight 1 you learn: ${r.first_night_info}` : `\n首夜得知：${r.first_night_info}`) : '');
       await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: 0, content: card, visibility: `seat:${r.seat}`, payload: { type: 'botc_role' } });
-      if (['kill', 'poison', 'protect'].includes(r.night_action)) {
+      if (['kill', 'poison', 'protect', 'inspect'].includes(r.night_action)) {
         await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: 0, content: '', visibility: `seat:${r.seat}`, payload: { type: 'botc_role_action', action: r.night_action } });
       }
     }

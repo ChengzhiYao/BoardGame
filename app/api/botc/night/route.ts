@@ -1,4 +1,4 @@
-// 血染 · 夜间行动：拥有主动夜间能力（kill/poison/protect）的真人选择目标（保密）。
+// 血染 · 夜间行动：拥有主动夜间能力（kill/poison/protect/inspect）的真人选择目标（保密）。inspect 的查验结果于天亮结算时私下送达。
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 
@@ -20,7 +20,7 @@ export async function POST(req: Request) {
   const { data: setupRow } = await admin.from('botc_setup').select('data').eq('room_id', roomId).maybeSingle();
   const myRole = (setupRow?.data?.roles || []).find((r: any) => r.seat === meP.seat);
   const action = myRole?.night_action;
-  if (!['kill', 'poison', 'protect'].includes(action)) return NextResponse.json({ error: '你没有主动夜间能力。' }, { status: 409 });
+  if (!['kill', 'poison', 'protect', 'inspect'].includes(action)) return NextResponse.json({ error: '你没有主动夜间能力。' }, { status: 409 });
 
   await admin.from('botc_night').delete().eq('room_id', roomId).eq('day', room.botc_day).eq('actor', meP.seat);
   await admin.from('botc_night').insert({ room_id: roomId, day: room.botc_day, actor: meP.seat, action, target });

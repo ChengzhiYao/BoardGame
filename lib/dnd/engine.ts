@@ -90,7 +90,7 @@ export type LogEntry = { msg: string; kind?: string };
 export type State = {
   phase: 'lobby' | 'creation' | 'explore' | 'combat' | 'ended';
   theme: string; scene: string; chars: Record<string, Character>; seats: string[];
-  combat: Combat; log: LogEntry[]; logSeq: number; quest: string; xpAward: number; safe: boolean;
+  combat: Combat; log: LogEntry[]; logSeq: number; quest: string; xpAward: number; safe: boolean; options?: string[];
 };
 
 function L(s: State, msg: string, kind?: string) { s.log.push({ msg, kind }); s.logSeq = (s.logSeq || 0) + 1; }
@@ -365,13 +365,13 @@ function levelUp(s: State, c: Character) {
 
 // ---------- 快照（给前端；目前全队信息共享，怪物 HP 也展示） ----------
 export function newGame(theme: string, seats: string[], names: Record<string, string>): State {
-  const s: State = { phase: 'creation', theme: theme || '', scene: '', chars: {}, seats: [...seats], combat: null, log: [], logSeq: 0, quest: '', xpAward: 0, safe: false };
+  const s: State = { phase: 'creation', theme: theme || '', scene: '', chars: {}, seats: [...seats], combat: null, log: [], logSeq: 0, quest: '', xpAward: 0, safe: false, options: [] };
   L(s, `🎲 一支冒险小队集结。请各自创建角色。`, 'sys');
   return s;
 }
 export function publicView(s: State) {
   return {
-    phase: s.phase, theme: s.theme, scene: s.scene, quest: s.quest, seats: s.seats, safe: !!s.safe,
+    phase: s.phase, theme: s.theme, scene: s.scene, quest: s.quest, seats: s.seats, safe: !!s.safe, options: s.options || [],
     chars: s.chars, combat: s.combat ? { active: s.combat.active, round: s.combat.round, turnIdx: s.combat.turnIdx, order: s.combat.order, monsters: s.combat.monsters, boss: !!s.combat.boss, env: s.combat.env || '', current: currentActor(s)?.ref || null } : null,
     log: s.log.slice(-30), logSeq: s.logSeq,
   };

@@ -47,6 +47,7 @@ export async function POST(req: Request) {
     if (s.phase !== 'explore' || s.combat?.active) return { ok: false, error: '状态已变化' };
     pushLog(s, `🗨️ ${c.name}：${String(action).slice(0, 300)}`, 'act');
     if (typeof adj?.safe === 'boolean') s.safe = adj.safe;
+    if (Array.isArray(adj?.options)) s.options = adj.options.slice(0, 4).map((x: any) => String(x));
     if (adj?.scene_update) s.scene = String(adj.scene_update).slice(0, 80);
     if (adj?.quest_update) s.quest = String(adj.quest_update).slice(0, 120);
     const kind = adj?.kind;

@@ -27,6 +27,7 @@ export default function DndRoom(props: ShellProps) {
   const [resetting, setResetting] = useState(false);
   const [sheet, setSheet] = useState(false);
   const [shop, setShop] = useState(false);
+  const [mtab, setMtab] = useState<'story' | 'party' | 'world'>('story');
 
   useEffect(() => {
     const ch = supabase.channel(`dnd-${props.room.id}`)
@@ -157,159 +158,158 @@ export default function DndRoom(props: ShellProps) {
     );
   }
 
-  // ---------------- shared frame ----------------
-  const HeaderBar = (
-    <>
-    <div className="px-4 py-2 border-b border-eldritch/20 bg-ink/40 flex items-center justify-between gap-2 text-left">
-      <div className="min-w-0">
-        <div className="text-xs text-eldritch truncate">📜 {pub.quest || (en ? 'Adventure' : '冒险')}</div>
-        <div className="text-[11px] truncate"><span className={pub.safe ? 'text-green-400' : 'text-amber-400'}>{pub.safe ? (en ? '🏕️ Safe' : '🏕️ 安全') : (en ? '⚠️ Danger' : '⚠️ 危险')}</span>{pub.scene ? <span className="text-parchment/50"> · {pub.scene}</span> : null}</div>
-      </div>
-      {myChar && <button onClick={() => setSheet(true)} className="text-xs px-2 py-1 rounded bg-eldritch/30 text-parchment shrink-0">{en ? 'Sheet' : '角色卡'}</button>}
-      <span className="text-[11px] text-parchment/50 shrink-0">{phase === 'combat' ? (en ? `⚔️ Combat · R${combat?.round}` : `⚔️ 战斗 · 第${combat?.round}轮`) : phase === 'creation' ? (en ? '🛠️ Create' : '🛠️ 建卡') : phase === 'explore' ? (en ? '🗺️ Explore' : '🗺️ 探索') : ''}</span>
-    </div>
-    {sheet && myChar && <CharSheet c={myChar} en={en} onClose={() => setSheet(false)} />}
-    <AudioManager state={dndAudioState} />
-    </>
-  );
-
-  const Party = (
-    <div className="flex gap-2 overflow-x-auto px-3 py-2 border-b border-eldritch/15">
-      {pub.seats.map((seat: string) => {
-        const c = pub.chars?.[seat]; if (!c) return <div key={seat} className="shrink-0 text-[11px] text-parchment/30 px-2 py-1 rounded border border-dashed border-parchment/15">{seat}·{en ? 'creating…' : '建卡中'}</div>;
-        const pct = Math.max(0, Math.round((c.hp / c.hpMax) * 100));
-        const turnNow = combat?.active && combat.current === seat;
-        return (
-          <div key={seat} className={`shrink-0 w-32 rounded-lg border px-2 py-1.5 ${turnNow ? 'border-blood bg-blood/15' : 'border-eldritch/25 bg-fog/60'} ${!c.alive ? 'opacity-40' : ''}`}>
-            <div className="flex items-center gap-1.5">{c.avatar ? <img src={c.avatar} alt="" className="w-6 h-6 rounded-full object-cover border border-eldritch/30 shrink-0" /> : null}<span className="text-xs text-parchment truncate flex-1">{seat === mySeat ? '★ ' : ''}{c.name}</span><span className="text-[10px] text-parchment/50 shrink-0">AC{c.ac}</span></div>
-            <div className="text-[10px] text-parchment/45 truncate">{RACES[c.race]?.cn}{CLASSES[c.cls]?.cn} Lv{c.level}</div>
-            <div className="h-1.5 rounded bg-ink mt-1 overflow-hidden"><div className={`h-full ${pct > 50 ? 'bg-green-600' : pct > 25 ? 'bg-amber-500' : 'bg-blood'}`} style={{ width: `${pct}%` }} /></div>
-            <div className="text-[10px] text-parchment/50 mt-0.5">HP {c.hp}/{c.hpMax}{c.rage ? ' · 🪓' : ''}{(c.statuses || []).length ? ` · ${c.statuses.map((x: any) => x.name).join('/')}` : ''}{c.conditions?.length ? ` · ${c.conditions.join('/')}` : ''}</div>
-          </div>
-        );
-      })}
-    </div>
-  );
-
-  const Log = (
-    <div ref={logRef} className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 space-y-2.5 max-w-3xl w-full mx-auto">
-      {(pub.log || []).map((l: any, i: number) => <LogLine key={i} l={l} myName={myChar?.name} />)}
-    </div>
-  );
-
-  // ---------------- CREATION ----------------
-  if (phase === 'creation') {
-    return (
-      <main className="h-[100svh] flex flex-col">
-        {HeaderBar}{Party}
-        <div className="flex-1 overflow-y-auto">
-          {Log}
-          {!myChar ? <CharBuilder en={en} onSubmit={createChar} busy={busy} /> :
-            <div className="text-center text-sm text-parchment/60 py-4">{en ? 'Your hero is ready. Waiting for the party…' : '你的英雄已就绪，等待队伍集结……'}</div>}
-        </div>
-        {isHost && <div className="border-t border-eldritch/20 p-3" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
-          <button onClick={() => call('/api/dnd/begin', { roomId: props.room.id })} disabled={busy} className="w-full py-2.5 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-50">{en ? 'Begin the adventure →' : '开始冒险 →'}</button>
-        </div>}
-      </main>
-    );
-  }
-
-  // ---------------- EXPLORE / COMBAT / ENDED ----------------
+  // ---------------- DASHBOARD (creation / explore / combat / ended) ----------------
   const aliveMonsters = (combat?.monsters || []).filter((m: any) => m.alive);
+  const phaseLabel = phase === 'combat' ? (en ? `Combat · R${combat?.round}` : `战斗·第${combat?.round}轮`) : phase === 'creation' ? (en ? 'Create' : '建卡') : phase === 'ended' ? (en ? 'Ended' : '结束') : (en ? 'Explore' : '探索');
+  const foeName = (ref: string) => pub.chars?.[ref]?.name || combat?.monsters.find((m: any) => m.id === ref)?.name || '…';
+
+  const ActionArea = (
+    <div className="border-t border-eldritch/20 px-3 sm:px-4 py-3 space-y-2 shrink-0" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+      {phase === 'creation' && (!myChar
+        ? <CharBuilder en={en} onSubmit={createChar} busy={busy} />
+        : <div className="space-y-2 text-center">
+            <div className="text-sm text-parchment/60">{en ? 'Your hero is ready. Waiting for the party…' : '你的英雄已就绪，等待队伍集结……'}</div>
+            {isHost && <button onClick={() => call('/api/dnd/begin', { roomId: props.room.id })} disabled={busy} className="w-full py-2.5 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-50">{en ? 'Begin the adventure →' : '开始冒险 →'}</button>}
+          </div>)}
+
+      {phase === 'combat' && combat?.active && (myTurn ? (myChar?.hp > 0 ? (
+        <div className="space-y-1.5">
+          {aim && <div className="text-[11px] text-blood text-center">{aim.target === 'ally' ? (en ? 'Pick an ally below ↓' : '点下方队友 ↓') : (en ? 'Pick an enemy ↓' : '点下方敌人 ↓')} <button onClick={() => setAim(null)} className="underline ml-1">{en ? 'cancel' : '取消'}</button></div>}
+          <div className="flex gap-1.5 overflow-x-auto pb-1">
+            {aliveMonsters.map((m: any) => { const targetable = aim?.target === 'enemy'; return (
+              <button key={m.id} disabled={!targetable || busy} onClick={() => dispatchAim(m.id)} className={`shrink-0 rounded-lg border px-2 py-1 text-left ${targetable ? 'border-blood bg-blood/15 animate-pulse' : 'border-eldritch/25 bg-fog/50'}`}>
+                <div className="text-xs text-parchment">👹 {m.name}</div><div className="text-[10px] text-parchment/50">HP {m.hp}/{m.hpMax}·AC{m.ac}</div>
+              </button>); })}
+            {aim?.target === 'ally' && pub.seats.map((seat: string) => { const ac = pub.chars?.[seat]; if (!ac || !ac.alive) return null; return <button key={seat} onClick={() => { call('/api/dnd/combat', { roomId: props.room.id, action: 'spell', spellKey: aim.spellKey, targetId: seat }); setAim(null); }} disabled={busy} className="shrink-0 px-2.5 py-1.5 rounded bg-green-900/40 border border-green-700/50 text-parchment text-sm">💚 {ac.name} <span className="text-[10px] text-parchment/50">{ac.hp}/{ac.hpMax}</span></button>; })}
+          </div>
+          <div className="flex gap-1.5 flex-wrap">
+            {(myChar.attacks || []).map((a: any, i: number) => <button key={'w' + i} onClick={() => setAim({ mode: 'attack', idx: i, target: 'enemy' })} disabled={busy} className="px-2.5 py-1.5 rounded bg-fog border border-eldritch/40 text-parchment text-sm">🗡️ {a.name}</button>)}
+            {(myChar.cantrips || []).map((a: any, i: number) => <button key={'c' + i} onClick={() => setAim({ mode: 'cast', idx: i, target: 'enemy' })} disabled={busy} className="px-2.5 py-1.5 rounded bg-eldritch/30 border border-eldritch/40 text-parchment text-sm">✨ {a.name}</button>)}
+            {(myChar.knownSpells || []).map((k: string) => { const sp = SPELLS[k]; if (!sp) return null; const slots = myChar.spellSlots?.[sp.level] || 0; return <button key={'s' + k} disabled={busy || slots <= 0} onClick={() => setAim({ mode: 'spell', spellKey: k, target: sp.target })} className="px-2.5 py-1.5 rounded bg-purple-900/40 border border-purple-600/50 text-parchment text-sm disabled:opacity-40">🔮 {sp.cn}<span className="text-[10px] text-parchment/50"> {slots}</span></button>; })}
+            {myChar.cls === 'barbarian' && !myChar.rage && <button onClick={() => call('/api/dnd/combat', { roomId: props.room.id, action: 'rage' })} disabled={busy} className="px-2.5 py-1.5 rounded bg-orange-900/40 border border-orange-600/50 text-parchment text-sm">🪓 {en ? 'Rage' : '狂暴'}</button>}
+            {myChar.cls === 'fighter' && !myChar.secondWindUsed && <button onClick={() => call('/api/dnd/combat', { roomId: props.room.id, action: 'secondwind' })} disabled={busy} className="px-2.5 py-1.5 rounded bg-amber-900/40 border border-amber-600/50 text-parchment text-sm">💨 {en ? 'Second Wind' : '二次呼吸'}</button>}
+            {myChar.potions > 0 && <button onClick={() => call('/api/dnd/combat', { roomId: props.room.id, action: 'potion' })} disabled={busy} className="px-2.5 py-1.5 rounded bg-red-900/40 border border-red-700/50 text-parchment text-sm">🧪 {en ? 'Potion' : '药水'} {myChar.potions}</button>}
+            <button onClick={() => call('/api/dnd/combat', { roomId: props.room.id, action: 'dodge' })} disabled={busy} className="px-2.5 py-1.5 rounded bg-fog border border-parchment/25 text-parchment/70 text-sm">🛡️ {en ? 'Dodge' : '闪避'}</button>
+            <button onClick={() => { if (confirm(en ? 'Flee the battle?' : '撤退脱离战斗？')) call('/api/dnd/combat', { roomId: props.room.id, action: 'flee' }); }} disabled={busy} className="px-2.5 py-1.5 rounded bg-fog border border-parchment/20 text-parchment/50 text-sm">🏃 {en ? 'Flee' : '撤退'}</button>
+          </div>
+        </div>
+      ) : <button onClick={() => call('/api/dnd/combat', { roomId: props.room.id, action: 'death' })} disabled={busy} className="w-full py-2 rounded bg-blood/40 border border-blood text-parchment text-sm">🩸 {en ? 'Roll death save' : '掷死亡豁免'}</button>
+      ) : <div className="text-center text-xs text-parchment/45">{en ? `Waiting for ${foeName(combat.current)}…` : `等待 ${foeName(combat.current)} 行动…`}</div>)}
+
+      {phase === 'explore' && (!myChar
+        ? <CharBuilder en={en} onSubmit={createChar} busy={busy} />
+        : <>
+            {Array.isArray(pub.options) && pub.options.length > 0 && (
+              <div className="grid gap-1.5">
+                {pub.options.map((o: string, i: number) => <button key={i} onClick={() => call('/api/dnd/act', { roomId: props.room.id, action: o })} disabled={busy} className="text-left px-3 py-2 rounded bg-ink/60 hover:bg-eldritch/25 border border-eldritch/30 text-parchment/90 text-sm disabled:opacity-40"><span className="text-eldritch mr-2">{'ABCDEF'[i] || '·'}.</span>{o}</button>)}
+                <div className="text-[11px] text-parchment/40">{en ? 'Or type any free action below.' : '或在下方自由输入任何行动。'}</div>
+              </div>
+            )}
+            <div className="flex gap-2">
+              <input value={action} onChange={(e) => setAction(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && action.trim()) { call('/api/dnd/act', { roomId: props.room.id, action }); setAction(''); } }} placeholder={en ? 'Describe your action…' : '描述你的行动……'} className="flex-1 min-w-0 px-3 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none text-sm" />
+              <button onClick={() => { if (action.trim()) { call('/api/dnd/act', { roomId: props.room.id, action }); setAction(''); } }} disabled={busy} className="px-4 py-2 rounded bg-blood/80 hover:bg-blood text-parchment text-sm border border-blood disabled:opacity-50">{busy ? '…' : (en ? 'Act' : '行动')}</button>
+            </div>
+            <div className="flex gap-2 justify-center flex-wrap">
+              {myChar.potions > 0 && <button onClick={() => call('/api/dnd/item', { roomId: props.room.id })} disabled={busy} className="px-3 py-1 rounded bg-red-900/40 border border-red-700/50 text-parchment/80 text-xs">🧪 {en ? 'Potion' : '药水'} {myChar.potions}</button>}
+              {pub.safe && <button onClick={() => call('/api/dnd/item', { roomId: props.room.id, action: 'buy' })} disabled={busy || (myChar.gold || 0) < 25} className="px-3 py-1 rounded bg-fog border border-eldritch/25 text-parchment/70 text-xs disabled:opacity-40">🧪 {en ? 'Buy potion' : '买药水(25金)'}</button>}
+              {pub.safe && <button onClick={() => setShop((v) => !v)} className="px-3 py-1 rounded bg-fog border border-eldritch/25 text-parchment/70 text-xs">🛒 {en ? 'Shop' : '商店'} · {myChar.gold || 0}💰</button>}
+              {isHost && <>
+                {pub.safe && <button onClick={() => call('/api/dnd/rest', { roomId: props.room.id, kind: 'short' })} disabled={busy} className="px-3 py-1 rounded bg-fog border border-eldritch/25 text-parchment/70 text-xs">🏕️ {en ? 'Short rest' : '短休'}</button>}
+                {pub.safe && <button onClick={() => call('/api/dnd/rest', { roomId: props.room.id, kind: 'long' })} disabled={busy} className="px-3 py-1 rounded bg-fog border border-eldritch/25 text-parchment/70 text-xs">🌙 {en ? 'Long rest' : '长休'}</button>}
+                <button onClick={() => { if (confirm(en ? 'End the adventure?' : '结束本场冒险？')) call('/api/dnd/end', { roomId: props.room.id }); }} disabled={busy} className="px-3 py-1 rounded bg-fog border border-parchment/20 text-parchment/50 text-xs">🏁 {en ? 'End' : '结束冒险'}</button>
+              </>}
+            </div>
+            {!pub.safe && <div className="text-center text-[11px] text-parchment/40">{en ? '⚠️ Dangerous area — shop & rest only in towns/camps (pack items still usable).' : '⚠️ 危险区域：到城镇/营地才能购物与休整（背包里已有的东西仍可使用）'}</div>}
+            {shop && pub.safe && (
+              <div className="rounded-lg bg-ink/40 border border-eldritch/20 p-2 space-y-1.5 text-[11px]">
+                <div className="text-parchment/50">{en ? 'Weapons' : '武器'}</div>
+                <div className="flex gap-1.5 flex-wrap">{Object.entries(WEAPONS).map(([k, w]: any) => { const owned = (myChar.attacks || []).some((a: any) => a.name === w.cn); return <button key={k} disabled={busy || owned || (myChar.gold || 0) < w.cost} onClick={() => call('/api/dnd/item', { roomId: props.room.id, action: 'buygear', kind: 'weapon', key: k })} className="px-2 py-1 rounded bg-fog border border-eldritch/30 text-parchment/80 disabled:opacity-40">{w.cn} {w.damage}·{w.cost}💰{owned ? '✓' : ''}</button>; })}</div>
+                <div className="text-parchment/50">{en ? 'Armor & Shield' : '护甲与盾'}</div>
+                <div className="flex gap-1.5 flex-wrap">{Object.entries(ARMORS).map(([k, a]: any) => <button key={k} disabled={busy || (myChar.armorBonus || 0) >= a.bonus || (myChar.gold || 0) < a.cost} onClick={() => call('/api/dnd/item', { roomId: props.room.id, action: 'buygear', kind: 'armor', key: k })} className="px-2 py-1 rounded bg-fog border border-eldritch/30 text-parchment/80 disabled:opacity-40">{a.cn} +{a.bonus}AC·{a.cost}💰</button>)}<button disabled={busy || myChar.shield || (myChar.gold || 0) < 15} onClick={() => call('/api/dnd/item', { roomId: props.room.id, action: 'buygear', kind: 'shield' })} className="px-2 py-1 rounded bg-fog border border-eldritch/30 text-parchment/80 disabled:opacity-40">{en ? 'Shield' : '盾牌'} +2AC·15💰{myChar.shield ? '✓' : ''}</button></div>
+              </div>
+            )}
+            {pub.safe && (pub.seats || []).some((seat: string) => pub.chars?.[seat]?.alive === false) && (
+              <div className="flex gap-1.5 flex-wrap justify-center">{pub.seats.filter((seat: string) => pub.chars?.[seat]?.alive === false).map((seat: string) => <button key={seat} disabled={busy || (myChar.gold || 0) < 100} onClick={() => call('/api/dnd/item', { roomId: props.room.id, action: 'revive', targetSeat: seat })} className="px-3 py-1 rounded bg-fog border border-eldritch/25 text-parchment/70 text-xs disabled:opacity-40">⛪ {en ? 'Revive' : '复活'} {pub.chars[seat].name} (100💰)</button>)}</div>
+            )}
+          </>)}
+
+      {phase === 'ended' && <div className="text-center space-y-2"><div className="text-sm text-parchment/70">{en ? 'The adventure has ended.' : '本场冒险已落幕。'}</div>{isHost && <button onClick={replay} disabled={resetting} className="px-5 py-2 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood text-sm disabled:opacity-50">{resetting ? (en ? 'Resetting…' : '重置中…') : (en ? '↻ New adventure' : '↻ 再来一局')}</button>}</div>}
+    </div>
+  );
+
   return (
-    <main className="h-[100svh] flex flex-col">
-      {HeaderBar}{Party}{Log}
-
-      {phase === 'combat' && combat?.active && (
-        <div className="border-t border-eldritch/20 px-3 py-2 space-y-2" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
-          <div className="flex gap-1.5 overflow-x-auto">
-            {combat.order.map((o: any) => <span key={o.ref} className={`shrink-0 text-[11px] px-2 py-0.5 rounded-full border ${o.ref === combat.current ? 'bg-blood/30 border-blood text-parchment' : 'border-eldritch/25 text-parchment/50'}`}>{o.init} {pub.chars?.[o.ref]?.name || combat.monsters.find((m: any) => m.id === o.ref)?.name}</span>)}
-          </div>
-          {combat.env && <div className="text-[11px] text-parchment/45 text-center">🌫️ {combat.env}</div>}
-          <div className="flex gap-2 overflow-x-auto">
-            {aliveMonsters.map((m: any) => { const targetable = aim?.target === 'enemy' && myTurn; return (
-              <button key={m.id} disabled={!targetable || busy} onClick={() => dispatchAim(m.id)}
-                className={`shrink-0 rounded-lg border px-2 py-1 text-left ${targetable ? 'border-blood bg-blood/15 animate-pulse' : 'border-eldritch/25 bg-fog/50'}`}>
-                <div className="text-xs text-parchment">👹 {m.name}</div>
-                <div className="text-[10px] text-parchment/50">HP {m.hp}/{m.hpMax} · AC{m.ac}</div>
-              </button>
-            ); })}
-          </div>
-          {myTurn ? (
-            myChar?.hp > 0 ? (
-              <div className="space-y-1.5">
-                {aim && <div className="text-[11px] text-blood text-center">{aim.target === 'ally' ? (en ? 'Pick an ally to heal ↑' : '点上方队友 ↑') : (en ? 'Pick an enemy ↑' : '点上方敌人 ↑')} <button onClick={() => setAim(null)} className="underline ml-1">{en ? 'cancel' : '取消'}</button></div>}
-                {aim?.target === 'ally' && (
-                  <div className="flex gap-1.5 flex-wrap justify-center">
-                    {pub.seats.map((seat: string) => { const ac = pub.chars?.[seat]; if (!ac || !ac.alive) return null; return <button key={seat} onClick={() => { call('/api/dnd/combat', { roomId: props.room.id, action: 'spell', spellKey: aim.spellKey, targetId: seat }); setAim(null); }} disabled={busy} className="px-2.5 py-1.5 rounded bg-green-900/40 border border-green-700/50 text-parchment text-sm">💚 {ac.name} <span className="text-[10px] text-parchment/50">{ac.hp}/{ac.hpMax}</span></button>; })}
-                  </div>
-                )}
-                <div className="flex gap-1.5 flex-wrap">
-                  {(myChar.attacks || []).map((a: any, i: number) => <button key={'w' + i} onClick={() => setAim({ mode: 'attack', idx: i, target: 'enemy' })} disabled={busy} className="px-2.5 py-1.5 rounded bg-fog border border-eldritch/40 text-parchment text-sm">🗡️ {a.name}</button>)}
-                  {(myChar.cantrips || []).map((a: any, i: number) => <button key={'c' + i} onClick={() => setAim({ mode: 'cast', idx: i, target: 'enemy' })} disabled={busy} className="px-2.5 py-1.5 rounded bg-eldritch/30 border border-eldritch/40 text-parchment text-sm">✨ {a.name}</button>)}
-                  {(myChar.knownSpells || []).map((k: string) => { const sp = SPELLS[k]; if (!sp) return null; const slots = myChar.spellSlots?.[sp.level] || 0; return <button key={'s' + k} disabled={busy || slots <= 0} onClick={() => setAim({ mode: 'spell', spellKey: k, target: sp.target })} className="px-2.5 py-1.5 rounded bg-purple-900/40 border border-purple-600/50 text-parchment text-sm disabled:opacity-40">🔮 {sp.cn}<span className="text-[10px] text-parchment/50"> {slots}</span></button>; })}
-                  {myChar.cls === 'barbarian' && !myChar.rage && <button onClick={() => call('/api/dnd/combat', { roomId: props.room.id, action: 'rage' })} disabled={busy} className="px-2.5 py-1.5 rounded bg-orange-900/40 border border-orange-600/50 text-parchment text-sm">🪓 {en ? 'Rage' : '狂暴'}</button>}
-                  {myChar.cls === 'fighter' && !myChar.secondWindUsed && <button onClick={() => call('/api/dnd/combat', { roomId: props.room.id, action: 'secondwind' })} disabled={busy} className="px-2.5 py-1.5 rounded bg-amber-900/40 border border-amber-600/50 text-parchment text-sm">💨 {en ? 'Second Wind' : '二次呼吸'}</button>}
-                  {myChar.potions > 0 && <button onClick={() => call('/api/dnd/combat', { roomId: props.room.id, action: 'potion' })} disabled={busy} className="px-2.5 py-1.5 rounded bg-red-900/40 border border-red-700/50 text-parchment text-sm">🧪 {en ? 'Potion' : '药水'} {myChar.potions}</button>}
-                  <button onClick={() => call('/api/dnd/combat', { roomId: props.room.id, action: 'dodge' })} disabled={busy} className="px-2.5 py-1.5 rounded bg-fog border border-parchment/25 text-parchment/70 text-sm">🛡️ {en ? 'Dodge' : '闪避'}</button>
-                  <button onClick={() => { if (confirm(en ? 'Flee the battle?' : '撤退脱离战斗？')) call('/api/dnd/combat', { roomId: props.room.id, action: 'flee' }); }} disabled={busy} className="px-2.5 py-1.5 rounded bg-fog border border-parchment/20 text-parchment/50 text-sm">🏃 {en ? 'Flee' : '撤退'}</button>
-                </div>
-              </div>
-            ) : <button onClick={() => call('/api/dnd/combat', { roomId: props.room.id, action: 'death' })} disabled={busy} className="w-full py-2 rounded bg-blood/40 border border-blood text-parchment text-sm">🩸 {en ? 'Roll death save' : '掷死亡豁免'}</button>
-          ) : <div className="text-center text-xs text-parchment/45">{en ? `Waiting for ${pub.chars?.[combat.current]?.name || combat.monsters.find((m: any) => m.id === combat.current)?.name || '…'}` : `等待 ${pub.chars?.[combat.current]?.name || combat.monsters.find((m: any) => m.id === combat.current)?.name || '…'} 行动`}</div>}
+    <main className="h-[100svh] flex flex-col overflow-hidden">
+      <div className="flex items-center justify-between gap-2 px-4 py-2 text-xs border-b border-eldritch/10">
+        <div className="min-w-0 truncate text-eldritch">📜 {pub.quest || (en ? 'Adventure' : '冒险')}</div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className={pub.safe ? 'text-green-400' : 'text-amber-400'}>{pub.safe ? (en ? '🏕️ Safe' : '🏕️ 安全') : (en ? '⚠️ Danger' : '⚠️ 危险')}{pub.scene ? <span className="text-parchment/50"> · {pub.scene}</span> : null}</span>
+          <span className="text-parchment/40 hidden sm:inline">{phaseLabel}</span>
+          {myChar && <button onClick={() => setSheet(true)} className="text-xs px-2 py-1 rounded bg-eldritch/30 text-parchment">{en ? 'Sheet' : '角色卡'}</button>}
         </div>
-      )}
+      </div>
 
-      {phase === 'ended' && (
-        <div className="border-t border-eldritch/20 px-4 py-4 text-center space-y-3" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
-          <div className="text-sm text-parchment/70">{en ? 'The adventure has ended.' : '本场冒险已落幕。'}</div>
-          {isHost && <button onClick={replay} disabled={resetting} className="px-5 py-2 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood text-sm disabled:opacity-50">{resetting ? (en ? 'Resetting…' : '重置中…') : (en ? '↻ New adventure' : '↻ 再来一局')}</button>}
-        </div>
-      )}
+      <div className="lg:hidden flex border-b border-eldritch/15 text-sm">
+        {(['story', 'party', 'world'] as const).map((k) => <button key={k} onClick={() => setMtab(k)} className={`flex-1 py-2.5 ${mtab === k ? 'bg-blood/25 text-parchment border-b-2 border-blood' : 'text-parchment/50'}`}>{k === 'story' ? (en ? 'Story' : '剧情') : k === 'party' ? (en ? 'Party' : '队伍') : (en ? 'World' : '场景')}</button>)}
+      </div>
 
-      {phase === 'explore' && (
-        <div className="border-t border-eldritch/20 px-3 py-2 space-y-2" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
-          {!myChar ? <CharBuilder en={en} onSubmit={createChar} busy={busy} /> : (
-            <>
-              <div className="flex gap-2">
-                <input value={action} onChange={(e) => setAction(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && action.trim()) { call('/api/dnd/act', { roomId: props.room.id, action }); setAction(''); } }}
-                  placeholder={en ? 'Describe your action…' : '描述你的行动……'} className="flex-1 px-3 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none text-sm" />
-                <button onClick={() => { if (action.trim()) { call('/api/dnd/act', { roomId: props.room.id, action }); setAction(''); } }} disabled={busy} className="px-4 py-2 rounded bg-eldritch/60 hover:bg-eldritch text-parchment text-sm disabled:opacity-50">{busy ? '…' : (en ? 'Act' : '行动')}</button>
-              </div>
-              <div className="flex gap-2 justify-center flex-wrap">
-                {myChar.potions > 0 && <button onClick={() => call('/api/dnd/item', { roomId: props.room.id })} disabled={busy} className="px-3 py-1 rounded bg-red-900/40 border border-red-700/50 text-parchment/80 text-xs">🧪 {en ? 'Potion' : '药水'} {myChar.potions}</button>}
-                {pub.safe && <button onClick={() => call('/api/dnd/item', { roomId: props.room.id, action: 'buy' })} disabled={busy || (myChar.gold || 0) < 25} className="px-3 py-1 rounded bg-fog border border-eldritch/25 text-parchment/70 text-xs disabled:opacity-40">🧪 {en ? 'Buy potion (25g)' : '买药水(25金)'}</button>}
-                {pub.safe && <button onClick={() => setShop((v) => !v)} className="px-3 py-1 rounded bg-fog border border-eldritch/25 text-parchment/70 text-xs">🛒 {en ? 'Shop' : '商店'} · {myChar.gold || 0}💰</button>}
-                {isHost && <>
-                  {pub.safe && <button onClick={() => call('/api/dnd/rest', { roomId: props.room.id, kind: 'short' })} disabled={busy} className="px-3 py-1 rounded bg-fog border border-eldritch/25 text-parchment/70 text-xs">🏕️ {en ? 'Short rest' : '短休'}</button>}
-                  {pub.safe && <button onClick={() => call('/api/dnd/rest', { roomId: props.room.id, kind: 'long' })} disabled={busy} className="px-3 py-1 rounded bg-fog border border-eldritch/25 text-parchment/70 text-xs">🌙 {en ? 'Long rest' : '长休'}</button>}
-                  <button onClick={() => { if (confirm(en ? 'End the adventure?' : '结束本场冒险？')) call('/api/dnd/end', { roomId: props.room.id }); }} disabled={busy} className="px-3 py-1 rounded bg-fog border border-parchment/20 text-parchment/50 text-xs">🏁 {en ? 'End' : '结束冒险'}</button>
-                </>}
-              </div>
-              {!pub.safe && <div className="text-center text-[11px] text-parchment/40">{en ? '⚠️ Dangerous area — find a town/camp to shop or rest (you can still use what is in your pack).' : '⚠️ 危险区域：到城镇/营地才能购物与休整（背包里已有的东西仍可使用）'}</div>}
-              {shop && pub.safe && (
-                <div className="rounded-lg bg-ink/40 border border-eldritch/20 p-2 space-y-1.5 text-[11px]">
-                  <div className="text-parchment/50">{en ? 'Weapons' : '武器'}</div>
-                  <div className="flex gap-1.5 flex-wrap">
-                    {Object.entries(WEAPONS).map(([k, w]: any) => { const owned = (myChar.attacks || []).some((a: any) => a.name === w.cn); return <button key={k} disabled={busy || owned || (myChar.gold || 0) < w.cost} onClick={() => call('/api/dnd/item', { roomId: props.room.id, action: 'buygear', kind: 'weapon', key: k })} className="px-2 py-1 rounded bg-fog border border-eldritch/30 text-parchment/80 disabled:opacity-40">{w.cn} {w.damage}·{w.cost}💰{owned ? '✓' : ''}</button>; })}
-                  </div>
-                  <div className="text-parchment/50">{en ? 'Armor & Shield' : '护甲与盾'}</div>
-                  <div className="flex gap-1.5 flex-wrap">
-                    {Object.entries(ARMORS).map(([k, a]: any) => <button key={k} disabled={busy || (myChar.armorBonus || 0) >= a.bonus || (myChar.gold || 0) < a.cost} onClick={() => call('/api/dnd/item', { roomId: props.room.id, action: 'buygear', kind: 'armor', key: k })} className="px-2 py-1 rounded bg-fog border border-eldritch/30 text-parchment/80 disabled:opacity-40">{a.cn} +{a.bonus}AC·{a.cost}💰</button>)}
-                    <button disabled={busy || myChar.shield || (myChar.gold || 0) < 15} onClick={() => call('/api/dnd/item', { roomId: props.room.id, action: 'buygear', kind: 'shield' })} className="px-2 py-1 rounded bg-fog border border-eldritch/30 text-parchment/80 disabled:opacity-40">{en ? 'Shield' : '盾牌'} +2AC·15💰{myChar.shield ? '✓' : ''}</button>
-                  </div>
-                </div>
-              )}
-              {pub.safe && (pub.seats || []).some((seat: string) => pub.chars?.[seat]?.alive === false) && (
-                <div className="flex gap-1.5 flex-wrap justify-center">
-                  {pub.seats.filter((seat: string) => pub.chars?.[seat]?.alive === false).map((seat: string) => <button key={seat} disabled={busy || (myChar.gold || 0) < 100} onClick={() => call('/api/dnd/item', { roomId: props.room.id, action: 'revive', targetSeat: seat })} className="px-3 py-1 rounded bg-fog border border-eldritch/25 text-parchment/70 text-xs disabled:opacity-40">⛪ {en ? 'Revive' : '复活'} {pub.chars[seat].name} (100💰)</button>)}
-                </div>
-              )}
-            </>
+      <div className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-[260px_1fr_300px] overflow-hidden">
+        <aside className={`border-r border-eldritch/15 p-3 space-y-3 overflow-y-auto min-h-0 lg:block ${mtab === 'party' ? 'block flex-1' : 'hidden'}`}>
+          {pub.seats.map((seat: string) => <DndCharCard key={seat} seat={seat} c={pub.chars?.[seat]} me={seat === mySeat} turnNow={!!(combat?.active && combat.current === seat)} en={en} />)}
+        </aside>
+
+        <section className={`flex-col overflow-hidden min-h-0 lg:flex ${mtab === 'story' ? 'flex flex-1' : 'hidden'}`}>
+          <div ref={logRef} className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 py-4 space-y-2.5">
+            {(pub.log || []).map((l: any, i: number) => <LogLine key={i} l={l} myName={myChar?.name} />)}
+          </div>
+          {ActionArea}
+        </section>
+
+        <aside className={`border-l border-eldritch/15 p-3 space-y-3 overflow-y-auto min-h-0 lg:block ${mtab === 'world' ? 'block flex-1' : 'hidden'}`}>
+          <Panel title={en ? 'Scene' : '场景'}>
+            <div className="text-sm text-parchment/80">{pub.scene || '—'}</div>
+            <div className={`text-xs mt-1 ${pub.safe ? 'text-green-400' : 'text-amber-400'}`}>{pub.safe ? (en ? '🏕️ Safe haven' : '🏕️ 安全区域') : (en ? '⚠️ Dangerous' : '⚠️ 危险区域')}</div>
+            {combat?.env && <div className="text-xs text-parchment/50 mt-1">🌫️ {combat.env}</div>}
+          </Panel>
+          <Panel title={en ? 'Quest' : '任务'}><div className="text-sm text-parchment/75">{pub.quest || '—'}</div></Panel>
+          {phase === 'combat' && combat && (
+            <Panel title={en ? 'Initiative & Foes' : '先攻 / 敌人'}>
+              <div className="flex flex-wrap gap-1 mb-2">{combat.order.map((o: any) => <span key={o.ref} className={`text-[11px] px-2 py-0.5 rounded-full border ${o.ref === combat.current ? 'bg-blood/30 border-blood text-parchment' : 'border-eldritch/25 text-parchment/50'}`}>{o.init} {foeName(o.ref)}</span>)}</div>
+              <div className="space-y-1.5">{aliveMonsters.map((m: any) => <div key={m.id} className="rounded-lg border border-eldritch/25 bg-fog/50 px-2 py-1"><div className="text-xs text-parchment flex justify-between">👹 {m.name}<span className="text-[10px] text-parchment/50">AC{m.ac}</span></div><div className="h-1.5 rounded bg-ink mt-0.5 overflow-hidden"><div className="h-full bg-blood" style={{ width: `${Math.max(0, Math.round((m.hp / m.hpMax) * 100))}%` }} /></div><div className="text-[10px] text-parchment/50">HP {m.hp}/{m.hpMax}{(m.statuses || []).length ? ` · ${m.statuses.map((x: any) => x.name).join('/')}` : ''}</div></div>)}</div>
+            </Panel>
           )}
-        </div>
-      )}
+        </aside>
+      </div>
+      <AudioManager state={dndAudioState} />
+      {sheet && myChar && <CharSheet c={myChar} en={en} onClose={() => setSheet(false)} />}
     </main>
+  );
+}
+
+function Panel({ title, children }: { title: string; children: any }) {
+  return <div><div className="text-xs text-eldritch/80 mb-1.5 border-b border-eldritch/15 pb-1">{title}</div><div>{children}</div></div>;
+}
+
+function DndCharCard({ seat, c, me, turnNow, en }: { seat: string; c: any; me: boolean; turnNow: boolean; en: boolean }) {
+  if (!c) return <div className="p-3 rounded-lg bg-fog border border-dashed border-parchment/15 text-xs text-parchment/40">{seat} · {en ? 'creating…' : '建卡中'}</div>;
+  const pct = Math.max(0, Math.round((c.hp / c.hpMax) * 100));
+  const slot = Object.keys(c.spellSlotsMax || {}).sort().map((lv) => `${lv}环${c.spellSlots?.[lv] || 0}/${c.spellSlotsMax[lv]}`).join(' ');
+  return (
+    <div className={`p-3 rounded-lg bg-fog border ${turnNow ? 'border-blood bg-blood/10' : me ? 'border-eldritch/50' : 'border-eldritch/25'} ${!c.alive ? 'opacity-50' : ''}`}>
+      <div className="flex items-center gap-2 mb-2">
+        <div className="w-10 h-10 rounded-full overflow-hidden border border-eldritch/30 bg-ink flex items-center justify-center shrink-0">{c.avatar ? <img src={c.avatar} alt="" className="w-full h-full object-cover" /> : <span className="text-parchment/30 text-xs">{seat}</span>}</div>
+        <div className="min-w-0 flex-1"><div className="font-serif text-parchment text-sm truncate">{me ? '★ ' : ''}{c.name}</div><div className="text-[11px] text-parchment/50 truncate">{RACES[c.race]?.cn}{CLASSES[c.cls]?.cn} Lv{c.level}</div></div>
+        <span className="text-xs text-parchment/60 shrink-0">AC {c.ac}</span>
+      </div>
+      <div className="space-y-1.5 text-xs text-parchment/70">
+        <div><div className="flex justify-between text-[10px] text-parchment/50"><span>HP</span><span>{c.hp}/{c.hpMax}</span></div><div className="h-1.5 rounded bg-ink overflow-hidden"><div className={`h-full ${pct > 50 ? 'bg-green-600' : pct > 25 ? 'bg-amber-500' : 'bg-blood'}`} style={{ width: `${pct}%` }} /></div></div>
+        <div className="grid grid-cols-6 gap-0.5 text-center text-[10px]">{ABILITIES.map((a) => <div key={a}><div className="text-parchment/40">{ABILITY_CN[a]}</div><div className="text-parchment/80">{mod(c.scores[a]) >= 0 ? '+' : ''}{mod(c.scores[a])}</div></div>)}</div>
+        <div><span className="text-parchment/40">{en ? 'Weapons: ' : '武器：'}</span>{(c.attacks || []).map((a: any) => a.name).join('、') || '—'}</div>
+        <div><span className="text-parchment/40">{en ? 'Armor: ' : '护甲：'}</span>{c.armorBonus ? `+${c.armorBonus}AC` : (en ? 'none' : '无甲')}{c.shield ? ` · ${en ? 'Shield' : '盾'}` : ''}</div>
+        {slot && <div><span className="text-parchment/40">{en ? 'Slots: ' : '法术位：'}</span>{slot}</div>}
+        <div><span className="text-parchment/40">{en ? 'Pack: ' : '背包：'}</span>🧪×{c.potions} · 💰{c.gold}</div>
+        {(c.statuses?.length || c.conditions?.length || c.rage) ? <div className="text-blood/80">{c.rage ? '🪓狂暴 ' : ''}{[...(c.statuses || []).map((x: any) => x.name), ...(c.conditions || [])].join('/')}</div> : null}
+      </div>
+    </div>
   );
 }
 

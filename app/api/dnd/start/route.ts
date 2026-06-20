@@ -40,6 +40,7 @@ export async function POST(req: Request) {
     await admin.from('api_usage').insert({ room_id: roomId, kind: 'llm_main', model: usage.model, prompt_tokens: usage.promptTokens, completion_tokens: usage.completionTokens, latency_ms: usage.latencyMs });
     state.scene = op.scene || (room.language === 'en' ? 'A frontier outpost' : '边境哨站');
     state.quest = op.quest || '';
+    state.options = Array.isArray(op.options) ? op.options.slice(0, 4).map((x: any) => String(x)) : [];
     state.log.push({ msg: `📜 任务：${state.quest}`, kind: 'sys' }); state.logSeq++;
     if (op.opening) { state.log.push({ msg: op.opening, kind: 'dm' }); state.logSeq++; }
     await persist(admin, roomId, state);

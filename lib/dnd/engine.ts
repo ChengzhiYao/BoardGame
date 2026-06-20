@@ -326,11 +326,16 @@ export function checkCombatEnd(s: State): boolean {
   if (!heroesUp) { L(s, `💀 全队倒下……`, 'loss'); endCombat(s, 'loss'); return true; }
   return false;
 }
-function endCombat(s: State, _r: string) { if (s.combat) s.combat.active = false; for (const seat of s.seats) { const c = s.chars[seat]; if (c) { c.rage = false; c.statuses = []; } } s.phase = 'explore'; }
+function endCombat(s: State, r: string) {
+  if (s.combat) s.combat.active = false;
+  for (const seat of s.seats) { const c = s.chars[seat]; if (c) { c.rage = false; c.statuses = []; } }
+  if (r === 'loss') { s.phase = 'ended'; L(s, '☠️ 队伍全员倒下，冒险以失败告终。', 'loss'); }
+  else { s.phase = 'explore'; }
+}
 
 // ---------- 休整 / 升级 ----------
 export function shortRest(s: State) {
-  for (const seat of s.seats) { const c = s.chars[seat]; if (!c?.alive) continue; const heal = Math.floor(c.hpMax / 4) + mod(c.scores.con); c.hp = Math.min(c.hpMax, c.hp + Math.max(1, heal)); c.secondWindUsed = false; }
+  for (const seat of s.seats) { const c = s.chars[seat]; if (!c?.alive) continue; const heal = Math.floor(c.hpMax / 4) + mod(c.scores.con); c.hp = Math.min(c.hpMax, c.hp + Math.max(1, heal)); c.secondWindUsed = false; if (c.hp > 0) { c.conditions = c.conditions.filter((x) => x !== '倒地濒死'); c.deathSaves = { ok: 0, fail: 0 }; } }
   L(s, `🏕️ 全队短休，恢复部分生命。`, 'rest');
 }
 export function longRest(s: State) {
@@ -435,6 +440,7 @@ export function usePotion(s: State, seat: string): { ok: boolean; error?: string
   if (c.hp <= 0) return { ok: false, error: '昏迷时无法自饮药水' };
   if (c.potions <= 0) return { ok: false, error: '没有治疗药水了' };
   c.potions -= 1; const heal = rollDice('2d4').total + 2; c.hp = Math.min(c.hpMax, c.hp + heal);
+  if (c.hp > 0) { c.conditions = c.conditions.filter((x) => x !== '倒地濒死'); c.deathSaves = { ok: 0, fail: 0 }; }
   pushLog(s, `🧪 ${c.name} 饮下治疗药水，恢复 ${heal} 点（${c.hp}/${c.hpMax}）。`, 'rest');
   return { ok: true };
 }

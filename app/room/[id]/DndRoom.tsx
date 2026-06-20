@@ -197,10 +197,8 @@ export default function DndRoom(props: ShellProps) {
   );
 
   const Log = (
-    <div ref={logRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-1.5">
-      {(pub.log || []).map((l: any, i: number) => (
-        <div key={i} className={`text-sm leading-snug ${l.kind === 'dm' ? 'text-parchment/90' : l.kind === 'roll' ? 'text-eldritch' : l.kind === 'act' ? 'text-amber-200/80' : ['kill', 'win', 'level', 'up'].includes(l.kind) ? 'text-green-400' : ['down', 'death', 'loss'].includes(l.kind) ? 'text-blood' : l.kind === 'attack' || l.kind === 'spell' || l.kind === 'combat' ? 'text-parchment/70' : 'text-parchment/55'}`}>{l.msg}</div>
-      ))}
+    <div ref={logRef} className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 space-y-2.5 max-w-3xl w-full mx-auto">
+      {(pub.log || []).map((l: any, i: number) => <LogLine key={i} l={l} myName={myChar?.name} />)}
     </div>
   );
 
@@ -404,4 +402,47 @@ function CharSheet({ c, en, onClose }: { c: any; en: boolean; onClose: () => voi
 
 function Stat({ l, v }: { l: string; v: any }) {
   return <div className="rounded bg-ink/40 py-1"><div className="text-[10px] text-parchment/50">{l}</div><div className="text-sm text-parchment">{v}</div></div>;
+}
+
+function LogLine({ l, myName }: { l: any; myName?: string }) {
+  const k = l.kind || '';
+  const msg = String(l.msg || '');
+  // 玩家行动：聊天气泡（自己的靠右高亮）
+  if (k === 'act') {
+    const body = msg.replace(/^🗨️\s*/, '');
+    const i = body.indexOf('：');
+    const name = i > 0 ? body.slice(0, i) : '';
+    const text = i > 0 ? body.slice(i + 1) : body;
+    const mine = !!myName && name === myName;
+    return (
+      <div className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+        <div className={`max-w-[82%] rounded-2xl px-3 py-1.5 border ${mine ? 'rounded-br-sm bg-eldritch/20 border-eldritch/40' : 'rounded-bl-sm bg-fog/70 border-eldritch/20'}`}>
+          {name && <div className="text-[10px] text-eldritch/80 mb-0.5">{name}</div>}
+          <div className="text-sm text-parchment/95 leading-snug">{text}</div>
+        </div>
+      </div>
+    );
+  }
+  // DM 旁白：左侧书签 + 散文
+  if (k === 'dm') {
+    return (
+      <div className="flex gap-2 pl-0.5">
+        <span className="text-eldritch/50 text-xs pt-0.5 shrink-0">📖</span>
+        <div className="text-sm text-parchment/80 leading-relaxed">{msg}</div>
+      </div>
+    );
+  }
+  // 大事件横幅
+  if (['kill', 'win', 'level', 'up'].includes(k)) {
+    return <div className="text-center"><span className="inline-block px-3 py-0.5 rounded-full bg-green-900/30 border border-green-700/40 text-green-300 text-xs">{msg}</span></div>;
+  }
+  if (['down', 'death', 'loss'].includes(k)) {
+    return <div className="text-center"><span className="inline-block px-3 py-0.5 rounded-full bg-blood/25 border border-blood/40 text-blood text-xs">{msg}</span></div>;
+  }
+  // 骰子 / 战斗结算：低调的等宽系统行
+  if (['roll', 'attack', 'spell', 'combat'].includes(k)) {
+    return <div className="text-center text-[12px] text-parchment/45 leading-snug">{msg}</div>;
+  }
+  // 系统 / 休整 / 其它
+  return <div className="text-center text-[11px] text-parchment/40">{msg}</div>;
 }

@@ -430,3 +430,6 @@ alter table jbs_objectives enable row level security;
 drop policy if exists jbs_obj_read on jbs_objectives;
 create policy jbs_obj_read on jbs_objectives for select using (seat = my_seat(room_id) or is_admin());
 do $$ begin alter publication supabase_realtime add table jbs_objectives; exception when duplicate_object then null; end $$;
+
+-- ---------- D&D：冒险选项（像 CoC/剧本杀那样先三选一 + 自定义） ----------
+alter table rooms add column if not exists dnd_options jsonb;

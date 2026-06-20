@@ -53,3 +53,12 @@ function partySafe(party: string) { return (party.match(/·/g) || []).length || 
 
 export const RACE_KEYS = Object.keys(RACES);
 export const CLASS_KEYS = Object.keys(CLASSES);
+
+// 生成 3 个原创冒险供玩家挑选（只给玩家可见的引子，不剧透）。custom 为玩家自定义方向。
+export function buildDndQuestsPrompt(custom: string, partySize: number, lang?: string) {
+  const en = lang === 'en';
+  return `你是资深龙与地下城（D&D 5e）地下城主。为 ${partySize} 人小队设计 **3 个风格迥异**的原创单元冒险，供玩家挑选。${custom ? `\n玩家的自定义要求（务必至少有一个选项贴合，最好贯穿世界观/敌人/反派/基调）：${custom}` : '\n题材自由：经典剑与魔法、黑暗诡奇、海上奇幻、地底迷城、政治阴谋、废土魔法等，三个尽量不同。'}
+每个冒险给：title 冒险名、setting 一句话背景与地点、hook 一句话开场钩子、tone 基调（如 英雄史诗 / 黑暗诡奇 / 诙谐冒险）、threat 主要威胁或反派一句话、length 预计时长。
+只输出 JSON（恰好 3 个，语言：${en ? 'English' : '中文'}）：
+{ "quests": [ { "title": "", "setting": "", "hook": "", "tone": "", "threat": "", "length": "" } ] }`;
+}

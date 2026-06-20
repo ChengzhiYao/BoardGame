@@ -21,6 +21,7 @@ export default function DndRoom(props: ShellProps) {
   const sfxSeq = useRef<number>(props.dndPublic?.logSeq || 0);
   const [muted, setMuted] = useState(false);
   const [theme, setTheme] = useState('');
+  const [customQuest, setCustomQuest] = useState('');
   const [action, setAction] = useState('');
   const [aim, setAim] = useState<{ mode: 'attack' | 'cast' | 'spell'; idx?: number; spellKey?: string; target: 'enemy' | 'ally' } | null>(null);
   const [resetting, setResetting] = useState(false);
@@ -94,29 +95,65 @@ export default function DndRoom(props: ShellProps) {
       if (typeof window !== 'undefined') window.location.reload();
     } catch (e: any) { alert((en ? 'Failed: ' : '失败：') + e.message); setResetting(false); }
   }
+  function startWith(q: any, customText?: string) {
+    const theme2 = q ? `《${q.title}》｜${q.setting}｜钩子：${q.hook}｜威胁：${q.threat}｜基调：${q.tone}` : String(customText || '').trim();
+    call('/api/dnd/start', { roomId: props.room.id, theme: theme2 });
+  }
 
   const phase: string = pub?.phase || props.room.dnd_phase || 'lobby';
   const myChar = pub?.chars?.[mySeat];
   const combat = pub?.combat;
   const myTurn = combat?.active && combat.current === mySeat;
 
-  // ---------------- LOBBY ----------------
-  if (!pub || phase === 'lobby' || phase === 'locking') {
-    const generating = props.room.dnd_phase === 'locking' || props.room.modules_generating;
+  // ---------------- LOBBY / 选择冒险 ----------------
+  if (!pub) {
+    const phaseR = props.room.dnd_phase || 'lobby';
+    const opts: any[] = Array.isArray(props.room.dnd_options) ? props.room.dnd_options : [];
+    const generating = props.room.modules_generating || phaseR === 'locking';
+
+    if (phaseR === 'select' && opts.length && !generating) {
+      return (
+        <main className="min-h-[100svh] flex flex-col items-center gap-4 px-5 py-8 text-center overflow-y-auto">
+          <h1 className="text-2xl font-serif text-parchment">⚔️ {en ? 'Choose your adventure' : '选择一场冒险'}</h1>
+          {!isHost && <p className="text-parchment/50 text-sm">{en ? 'The host is choosing…' : '由房主挑选（你可以围观）'}</p>}
+          <div className="grid sm:grid-cols-3 gap-3 w-full max-w-4xl">
+            {opts.map((q: any) => (
+              <div key={q.id} className="rounded-xl bg-fog/70 border border-eldritch/30 p-3 text-left flex flex-col gap-1.5">
+                <div className="text-parchment font-serif text-sm">{q.title}</div>
+                <div className="text-[11px] text-eldritch/80">{q.tone}{q.length ? ' · ' + q.length : ''}</div>
+                <div className="text-[12px] text-parchment/70">{q.setting}</div>
+                <div className="text-[12px] text-parchment/55">🪝 {q.hook}</div>
+                <div className="text-[12px] text-blood/80">☠ {q.threat}</div>
+                {isHost && <button onClick={() => startWith(q)} disabled={busy} className="mt-1 py-1.5 rounded bg-blood/80 hover:bg-blood text-parchment text-sm border border-blood disabled:opacity-50">{en ? 'Pick this →' : '选这个 →'}</button>}
+              </div>
+            ))}
+          </div>
+          {isHost && (
+            <div className="w-full max-w-md rounded-xl bg-fog/50 border border-eldritch/25 p-3 text-left flex flex-col gap-2">
+              <div className="text-sm text-parchment/80">🛠️ {en ? 'Or build a custom adventure' : '或自定义一场（详细设定）'}</div>
+              <textarea value={customQuest} onChange={(e) => setCustomQuest(e.target.value)} rows={3} placeholder={en ? 'World, races/monsters, villain, tone, goal…' : '世界观、种族/魔族、反派、基调、目标……写得越细越好'} className="w-full px-3 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none text-sm" />
+              <button onClick={() => { if (customQuest.trim()) startWith(null, customQuest); }} disabled={busy || !customQuest.trim()} className="py-1.5 rounded bg-eldritch/60 hover:bg-eldritch text-parchment text-sm disabled:opacity-50">{en ? 'Start custom →' : '用这个开始 →'}</button>
+              <button onClick={() => call('/api/dnd/quests', { roomId: props.room.id, custom: theme })} disabled={busy} className="text-xs text-parchment/45 hover:text-parchment self-start">↻ {en ? 'Reroll options' : '换一批选项'}</button>
+            </div>
+          )}
+        </main>
+      );
+    }
+
+    if (generating) {
+      return <main className="min-h-[100svh] flex items-center justify-center px-6 text-center"><p className="text-parchment/60">{en ? 'The DM is preparing…' : '地下城主正在备场……'}</p></main>;
+    }
+
     return (
       <main className="min-h-[100svh] flex flex-col items-center justify-center gap-5 px-6 text-center">
         <h1 className="text-3xl font-serif text-parchment">⚔️ {en ? 'Dungeons & Dragons' : '龙与地下城'}</h1>
         <p className="text-parchment/60 max-w-md">{en ? 'An AI Dungeon Master runs an original quest. Build a hero, roll the dice, survive.' : 'AI 地下城主带你跑一场原创冒险——建个英雄，掷骰子，活下去。'}</p>
         {isHost ? (
           <div className="flex flex-col items-center gap-3 w-full max-w-sm">
-            <input value={theme} onChange={(e) => setTheme(e.target.value)} placeholder={en ? 'Theme (optional): haunted crypt, sky pirates…' : '题材（可选）：闹鬼地穴、天空海盗…'}
-              className="w-full px-4 py-3 rounded bg-fog border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none" />
-            <button onClick={() => call('/api/dnd/start', { roomId: props.room.id, theme })} disabled={busy || generating}
-              className="px-6 py-3 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-50">
-              {generating ? (en ? 'The DM is preparing…' : '地下城主正在备场…') : (en ? 'Begin the quest →' : '开启冒险 →')}
-            </button>
+            <input value={theme} onChange={(e) => setTheme(e.target.value)} placeholder={en ? 'Direction (optional): world, monsters, villain…' : '方向（可选）：世界观 / 魔族 / 反派 / 基调…'} className="w-full px-4 py-3 rounded bg-fog border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none" />
+            <button onClick={() => call('/api/dnd/quests', { roomId: props.room.id, custom: theme })} disabled={busy} className="px-6 py-3 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-50">{en ? 'Generate 3 adventures →' : '生成 3 个冒险 →'}</button>
           </div>
-        ) : <p className="text-parchment/50">{generating ? (en ? 'The DM is preparing…' : '地下城主正在备场…') : (en ? 'Waiting for the host to begin…' : '等待房主开场…')}</p>}
+        ) : <p className="text-parchment/50">{en ? 'Waiting for the host…' : '等待房主开场…'}</p>}
         <div className="flex flex-col items-center gap-2 w-full max-w-sm">
           <code className="text-xs px-3 py-2 rounded bg-fog border border-eldritch/30 text-eldritch break-all w-full">{inviteUrl(props)}</code>
           <button onClick={() => navigator.clipboard.writeText(inviteUrl(props))} className="px-4 py-1.5 rounded bg-eldritch/50 text-parchment text-sm">{en ? 'Copy invite' : '复制邀请链接'}</button>

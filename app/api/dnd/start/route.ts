@@ -20,9 +20,9 @@ export async function POST(req: Request) {
   const { data: room } = await admin.from('rooms').select('host_user_id, language, dnd_phase').eq('id', roomId).maybeSingle();
   if (!room) return NextResponse.json({ error: '房间不存在' }, { status: 404 });
   if (room.host_user_id !== user.id) return NextResponse.json({ error: '只有房主可以开场' }, { status: 403 });
-  if (room.dnd_phase && !['lobby'].includes(room.dnd_phase)) return NextResponse.json({ ok: true, already: true });
+  if (room.dnd_phase && !['lobby', 'select'].includes(room.dnd_phase)) return NextResponse.json({ ok: true, already: true });
 
-  const { data: claimed } = await admin.from('rooms').update({ dnd_phase: 'locking', modules_generating: true }).eq('id', roomId).or('dnd_phase.is.null,dnd_phase.eq.lobby').select('id');
+  const { data: claimed } = await admin.from('rooms').update({ dnd_phase: 'locking', modules_generating: true }).eq('id', roomId).or('dnd_phase.is.null,dnd_phase.eq.lobby,dnd_phase.eq.select').select('id');
   if (!claimed || !claimed.length) return NextResponse.json({ ok: true, already: true });
 
   try {

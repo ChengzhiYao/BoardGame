@@ -51,7 +51,7 @@ export async function POST(req: Request) {
   if (room.mode === 'dnd') {
     await admin.from('messages').delete().eq('room_id', roomId);
     await admin.from('dnd_state').delete().eq('room_id', roomId);
-    await admin.from('rooms').update({ game_state: 'lobby', dnd_phase: 'lobby', modules_generating: false }).eq('id', roomId);
+    await admin.from('rooms').update({ game_state: 'lobby', dnd_phase: 'lobby', dnd_options: null, modules_generating: false }).eq('id', roomId);
     await charge();
     return NextResponse.json({ ok: true });
   }

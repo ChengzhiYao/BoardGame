@@ -184,10 +184,10 @@ function AccountBadge({ t }: { t: (k: string, v?: any) => string }) {
   useEffect(() => { load(); }, []);
   if (!s) return null;
   return (
-    <div className="fixed top-3 right-3 z-20 text-xs">
+    <div className="fixed top-3 right-3 z-20 text-xs max-w-[58vw]">
       {s.loggedIn ? (
-        <div className="flex items-center gap-2 rounded-full bg-fog/80 border border-eldritch/30 px-3 py-1.5 text-parchment/80 backdrop-blur">
-          <span className="truncate max-w-[150px]" title={s.email}>{s.email}</span>
+        <div className="flex items-center gap-1.5 sm:gap-2 rounded-full bg-fog/80 border border-eldritch/30 px-2.5 py-1.5 text-parchment/80 backdrop-blur min-w-0">
+          <span className="truncate max-w-[28vw] sm:max-w-[150px] min-w-0" title={s.email}>{s.email}</span>
           <span className="text-eldritch shrink-0">{s.whitelisted ? t('free_forever') : `${s.credits} ${t('credits_left')}`}</span>
           <button onClick={async () => { await signOut(); load(); }} className="text-parchment/40 hover:text-parchment underline shrink-0">{t('logout')}</button>
         </div>

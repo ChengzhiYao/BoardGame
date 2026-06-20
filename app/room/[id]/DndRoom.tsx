@@ -170,7 +170,7 @@ export default function DndRoom(props: ShellProps) {
 
   const spellEffect = (sp: any) => sp ? (sp.kind === 'heal' ? (en ? `Heal ${sp.dice}+mod` : `治疗 ${sp.dice}+调整值`) : sp.kind === 'status' ? (en ? `Save or ${sp.status}` : `豁免失败则【${sp.status}】`) : sp.kind === 'missile' ? (en ? `3 darts ${sp.dice} each, auto-hit` : `三发各 ${sp.dice}，自动命中`) : (en ? `${sp.dice} ${sp.save ? 'save half' : 'on hit'}` : `${sp.dice}${sp.save ? '，豁免半伤' : '，命中伤害'}`)) : '';
   const aimDesc = !aim ? '' : aim.mode === 'attack' ? `${myChar?.attacks?.[aim.idx!]?.name}：${myChar?.attacks?.[aim.idx!]?.damage} ${myChar?.attacks?.[aim.idx!]?.type}${en ? '' : '伤害'}` : aim.mode === 'cast' ? `${myChar?.cantrips?.[aim.idx!]?.name}：${myChar?.cantrips?.[aim.idx!]?.damage} ${myChar?.cantrips?.[aim.idx!]?.type}` : aim.mode === 'spell' ? `${SPELLS[aim.spellKey!]?.cn}（${SPELLS[aim.spellKey!]?.level}${en ? '-lvl' : '环'}）：${spellEffect(SPELLS[aim.spellKey!])}` : '';
-  const combatControls = (
+  const combatControls = myChar ? (
     <div className="space-y-1.5">
       <div className="text-[11px] text-parchment/40 text-center">{en ? '💡 Pick a weapon/spell then tap a target; or dodge / flee / drink a potion.' : '💡 先点武器或法术，再点目标进攻；也可以闪避 / 撤退 / 喝药水。'}</div>
       {aim && <div className="text-center space-y-0.5"><div className="text-[11px] text-eldritch">{aimDesc}</div><div className="text-[11px] text-blood">{aim.target === 'ally' ? (en ? 'Pick an ally below ↓' : '点下方队友 ↓') : (en ? 'Pick an enemy below ↓' : '点下方敌人 ↓')} <button onClick={() => setAim(null)} className="underline ml-1">{en ? 'cancel' : '取消'}</button></div></div>}
@@ -192,7 +192,7 @@ export default function DndRoom(props: ShellProps) {
         <button onClick={() => { if (confirm(en ? 'Flee the battle?' : '撤退脱离战斗？')) call('/api/dnd/combat', { roomId: props.room.id, action: 'flee' }); }} disabled={busy} className="px-2.5 py-1.5 rounded bg-fog border border-parchment/20 text-parchment/50 text-sm">🏃 {en ? 'Flee' : '撤退'}</button>
       </div>
     </div>
-  );
+  ) : null;
 
   const bottomBar = (
     <div className="border-t border-eldritch/20 px-3 sm:px-4 py-3 space-y-2 shrink-0" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>

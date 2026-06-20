@@ -30,6 +30,7 @@ export function buildDndActPrompt(scene: string, quest: string, party: string, r
 - 纯角色扮演/对话/观察、无需检定 → kind="social"，写 narration。
 - 行动触发战斗 → kind="combat"，写 narration（敌人登场），并给 monsters 数组（每个：name 名称, ac 10~17, hp 5~40, attackBonus 2~7, damage 如 "1d6+2"）。1~4 个敌人，强度匹配 ${partySafe(party)} 人小队。
 - 玩家想休息 → kind="rest"，rest 取 "short" 或 "long"，写 narration。
+- 任务目标已明确达成、或队伍彻底失败/放弃 → kind="end"，victory 取 true/false，epilogue 写 2~4 句收束尾声。仅在剧情确实该结束时才用。
 叙事用${en ? 'English' : '中文'}、第二人称、2~4 句，不替玩家做决定。
 {
   "kind": "check|social|combat|rest",
@@ -39,7 +40,9 @@ export function buildDndActPrompt(scene: string, quest: string, party: string, r
   "fail": "(check时)失败叙事",
   "narration": "(social/combat/rest时)叙事",
   "monsters": [ { "name": "哥布林", "ac": 13, "hp": 7, "attackBonus": 4, "damage": "1d6+2" } ],
-  "rest": "short|long"
+  "rest": "short|long",
+  "victory": true,
+  "epilogue": "(end时)结局尾声"
 }`;
 }
 function partySafe(party: string) { return (party.match(/·/g) || []).length || 1; }

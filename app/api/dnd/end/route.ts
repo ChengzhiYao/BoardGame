@@ -1,0 +1,19 @@
+// D&D · 房主结束本场冒险。
+import { NextResponse } from 'next/server';
+import { createServerClient, createAdminClient } from '@/lib/supabase/server';
+import { endAdventure } from '@/lib/dnd/engine';
+import { mutateState } from '@/lib/dnd/db';
+
+export async function POST(req: Request) {
+  const supabase = createServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: '未登录' }, { status: 401 });
+  const { roomId } = await req.json().catch(() => ({} as any));
+  if (!roomId) return NextResponse.json({ error: '缺少参数' }, { status: 400 });
+  const admin = createAdminClient();
+  const { data: room } = await admin.from('rooms').select('host_user_id').eq('id', roomId).maybeSingle();
+  if (!room || room.host_user_id !== user.id) return NextResponse.json({ error: '只有房主可以结束冒险' }, { status: 403 });
+  const out = await mutateState(admin, roomId, (s) => { endAdventure(s, '冒险在此画下句点。', true); return { ok: true }; });
+  if (!out.ok) return NextResponse.json({ error: out.error }, { status: 409 });
+  return NextResponse.json({ ok: true });
+}

@@ -1,14 +1,14 @@
 // D&D · 战斗行动：攻击 / 施法 / 闪避 / 死亡豁免。引擎确定性结算，怪物自动行动。
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
-import { playerAttack, playerCastDamage, playerDodgeOrHelp, deathSave, awardAndMaybeLevel, currentActor } from '@/lib/dnd/engine';
+import { playerAttack, playerCastDamage, playerCastSpell, usePotion, playerDodgeOrHelp, deathSave, awardAndMaybeLevel, currentActor, endTurn } from '@/lib/dnd/engine';
 import { mutateState } from '@/lib/dnd/db';
 
 export async function POST(req: Request) {
   const supabase = createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: '未登录' }, { status: 401 });
-  const { roomId, action, weaponIdx, cantripIdx, targetId } = await req.json().catch(() => ({} as any));
+  const { roomId, action, weaponIdx, cantripIdx, spellKey, targetId } = await req.json().catch(() => ({} as any));
   if (!roomId || !action) return NextResponse.json({ error: '缺少参数' }, { status: 400 });
 
   const admin = createAdminClient();
@@ -22,6 +22,8 @@ export async function POST(req: Request) {
     let r: { ok: boolean; error?: string };
     if (action === 'attack') r = playerAttack(s, me.seat, Number(weaponIdx) || 0, String(targetId || ''));
     else if (action === 'cast') r = playerCastDamage(s, me.seat, Number(cantripIdx) || 0, String(targetId || ''));
+    else if (action === 'spell') r = playerCastSpell(s, me.seat, String(spellKey || ''), String(targetId || ''));
+    else if (action === 'potion') { r = usePotion(s, me.seat); if (r.ok) endTurn(s); }
     else if (action === 'dodge') r = playerDodgeOrHelp(s, me.seat, 'dodge');
     else if (action === 'death') r = deathSave(s, me.seat);
     else r = { ok: false, error: '未知战斗行动' };

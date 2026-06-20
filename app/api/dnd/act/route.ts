@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { callLLMJson } from '@/lib/llm';
-import { skillCheck, startCombat, shortRest, longRest, sanitizeMonsters, clampInt, pushLog, RACES, CLASSES, SKILLS } from '@/lib/dnd/engine';
+import { skillCheck, startCombat, shortRest, longRest, sanitizeMonsters, clampInt, pushLog, endAdventure, RACES, CLASSES, SKILLS } from '@/lib/dnd/engine';
 import { loadState, mutateState } from '@/lib/dnd/db';
 import { buildDndActPrompt } from '@/lib/dnd/prompt';
 import { langDirective } from '@/lib/i18n';
@@ -59,6 +59,9 @@ export async function POST(req: Request) {
     } else if (kind === 'rest') {
       pushLog(s, adj.narration || '你们停下休整。', 'dm');
       if (adj.rest === 'long') longRest(s); else shortRest(s);
+    } else if (kind === 'end') {
+      if (adj.narration) pushLog(s, adj.narration, 'dm');
+      endAdventure(s, adj.epilogue || adj.narration || '', adj.victory !== false);
     } else {
       pushLog(s, adj.narration || '……', 'dm');
     }

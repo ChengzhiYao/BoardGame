@@ -80,7 +80,7 @@ export type Character = {
   scores: Scores; hpMax: number; hp: number; tempHp: number; ac: number; speed: number;
   profBonus: number; skills: string[]; saveProf: Ability[]; attacks: Attack[]; cantrips: Attack[];
   spellSlots: Record<number, number>; spellSlotsMax: Record<number, number>; spellDc: number; spellAtk: number;
-  conditions: string[]; deathSaves: { ok: number; fail: number }; inspiration: boolean; gold: number; alive: boolean;
+  conditions: string[]; deathSaves: { ok: number; fail: number }; inspiration: boolean; gold: number; knownSpells: string[]; potions: number; alive: boolean;
 };
 export type Monster = { id: string; name: string; ac: number; hp: number; hpMax: number; attackBonus: number; damage: string; toHitName?: string; conditions: string[]; alive: boolean };
 export type Combatant = { ref: string; init: number; isPlayer: boolean };
@@ -113,7 +113,8 @@ export function buildCharacter(opts: { seat: string; name: string; race: string;
     scores, hpMax, hp: hpMax, tempHp: 0, ac, speed: race.speed, profBonus: pb,
     skills, saveProf: cdef.saves, attacks: cdef.startAttacks.map((a) => ({ ...a })), cantrips: (cdef.cantrips || []).map((a) => ({ ...a })),
     spellSlots: { ...slots }, spellSlotsMax: { ...slots }, spellDc: 8 + pb + castMod, spellAtk: pb + castMod,
-    conditions: [], deathSaves: { ok: 0, fail: 0 }, inspiration: false, gold: 15, alive: true,
+    conditions: [], deathSaves: { ok: 0, fail: 0 }, inspiration: false, gold: 15,
+    knownSpells: (cdef.caster && cdef.caster !== 'none') ? (CLASS_SPELLS[opts.cls] || []) : [], potions: 2, alive: true,
   };
 }
 
@@ -316,4 +317,52 @@ export function sanitizeMonsters(arr: any[]): Monster[] {
     attackBonus: clampInt(m?.attackBonus, 0, 10, 3), damage: /^\d+d\d+([+-]\d+)?$/.test(String(m?.damage || '')) ? String(m.damage) : '1d6+1',
     conditions: [], alive: true,
   }));
+}
+
+// ---------- 法术与药水 ----------
+export type Spell = { key: string; cn: string; level: number; kind: 'heal' | 'damage' | 'missile'; target: 'ally' | 'enemy'; dice: string; save?: Ability };
+export const SPELLS: Record<string, Spell> = {
+  cure: { key: 'cure', cn: '治疗术', level: 1, kind: 'heal', target: 'ally', dice: '1d8' },
+  guidingbolt: { key: 'guidingbolt', cn: '指引之箭', level: 1, kind: 'damage', target: 'enemy', dice: '4d6' },
+  magicmissile: { key: 'magicmissile', cn: '魔法飞弹', level: 1, kind: 'missile', target: 'enemy', dice: '1d4+1' },
+  burning: { key: 'burning', cn: '燃烧之手', level: 1, kind: 'damage', target: 'enemy', dice: '3d6', save: 'dex' },
+};
+const CLASS_SPELLS: Record<string, string[]> = { cleric: ['cure', 'guidingbolt'], wizard: ['magicmissile', 'burning'], ranger: ['cure'] };
+
+export function playerCastSpell(s: State, seat: string, spellKey: string, targetRef: string): { ok: boolean; error?: string } {
+  if (!s.combat?.active) return { ok: false, error: '现在不是战斗' };
+  const cur = currentActor(s); if (!cur || cur.ref !== seat) return { ok: false, error: '还没轮到你' };
+  const c = s.chars[seat]; if (!c || !c.alive || c.hp <= 0) return { ok: false, error: '你无法施法' };
+  const sp = SPELLS[spellKey]; if (!sp || !c.knownSpells.includes(spellKey)) return { ok: false, error: '你不会这个法术' };
+  if ((c.spellSlots[sp.level] || 0) <= 0) return { ok: false, error: `没有 ${sp.level} 环法术位了` };
+  c.spellSlots[sp.level] -= 1;
+  const castMod = c.spellAtk - c.profBonus;
+  if (sp.kind === 'heal') {
+    const t = s.chars[targetRef]; if (!t || !t.alive) return { ok: false, error: '治疗目标无效' };
+    const wasDown = t.hp <= 0; const heal = Math.max(1, rollDice(sp.dice).total + castMod);
+    t.hp = Math.min(t.hpMax, t.hp + heal);
+    if (wasDown) { t.conditions = t.conditions.filter((x) => x !== '倒地濒死'); t.deathSaves = { ok: 0, fail: 0 }; }
+    pushLog(s, `✨ ${c.name} 施放${sp.cn}，治疗 ${t.name} ${heal} 点${wasDown ? '并将其救醒' : ''}（${t.hp}/${t.hpMax}）。`, 'spell');
+  } else {
+    const m = s.combat.monsters.find((x) => x.id === targetRef); if (!m || !m.alive) return { ok: false, error: '目标无效' };
+    if (sp.kind === 'missile') { let total = 0; for (let i = 0; i < 3; i++) total += rollDice(sp.dice).total; m.hp = Math.max(0, m.hp - total); pushLog(s, `✨ ${c.name} 的${sp.cn}三发齐射命中 ${m.name}，共 ${total} 点力场伤害（${m.hp}/${m.hpMax}）。`, 'spell'); }
+    else if (sp.save) { const save = rollDie(20) + 2; const dmg = rollDice(sp.dice).total; const total = save >= c.spellDc ? Math.floor(dmg / 2) : dmg; m.hp = Math.max(0, m.hp - total); pushLog(s, `✨ ${c.name} 施放${sp.cn}，${m.name} ${ABILITY_CN[sp.save]}豁免(${save} vs DC${c.spellDc})${save >= c.spellDc ? '成功半伤' : '失败'}，受 ${total} 点伤害（${m.hp}/${m.hpMax}）。`, 'spell'); }
+    else { const r = d20(0); const hit = r.roll === 20 || (r.roll !== 1 && r.roll + c.spellAtk >= m.ac); if (!hit) { pushLog(s, `✨ ${c.name} 的${sp.cn}未命中（${r.roll}+${c.spellAtk} vs AC${m.ac}）。`, 'spell'); endTurn(s); return { ok: true }; } let total = rollDice(sp.dice).total; if (r.roll === 20) total += rollDice(sp.dice).total; m.hp = Math.max(0, m.hp - total); pushLog(s, `✨ ${c.name} 的${sp.cn}${r.roll === 20 ? '【暴击】' : ''}命中 ${m.name}，${total} 点伤害（${m.hp}/${m.hpMax}）。`, 'spell'); }
+    if (m.hp <= 0) { m.alive = false; pushLog(s, `💀 ${m.name} 倒下了！`, 'kill'); }
+  }
+  endTurn(s); return { ok: true };
+}
+
+export function usePotion(s: State, seat: string): { ok: boolean; error?: string } {
+  const c = s.chars[seat]; if (!c || !c.alive) return { ok: false, error: '无法使用' };
+  if (c.hp <= 0) return { ok: false, error: '昏迷时无法自饮药水' };
+  if (c.potions <= 0) return { ok: false, error: '没有治疗药水了' };
+  c.potions -= 1; const heal = rollDice('2d4').total + 2; c.hp = Math.min(c.hpMax, c.hp + heal);
+  pushLog(s, `🧪 ${c.name} 饮下治疗药水，恢复 ${heal} 点（${c.hp}/${c.hpMax}）。`, 'rest');
+  return { ok: true };
+}
+
+export function endAdventure(s: State, epilogue: string, victory: boolean) {
+  s.phase = 'ended'; s.combat = null;
+  pushLog(s, (victory ? '🏆 ' : '☠️ ') + (epilogue || (victory ? '冒险圆满落幕。' : '冒险以失败告终。')), victory ? 'win' : 'loss');
 }

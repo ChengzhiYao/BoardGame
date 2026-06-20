@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { RACES, CLASSES, BACKGROUNDS, ABILITIES, ABILITY_CN, STANDARD_ARRAY, mod } from '@/lib/dnd/engine';
+import { RACES, CLASSES, BACKGROUNDS, ABILITIES, ABILITY_CN, STANDARD_ARRAY, SPELLS, mod } from '@/lib/dnd/engine';
 import type { ShellProps } from './RoomShell';
 import { dndSfx, setDndBgm, stopDndBgm, setDndMuted } from '@/lib/audio/dndCue';
 
@@ -22,7 +22,8 @@ export default function DndRoom(props: ShellProps) {
   const [muted, setMuted] = useState(false);
   const [theme, setTheme] = useState('');
   const [action, setAction] = useState('');
-  const [aim, setAim] = useState<{ kind: 'attack' | 'cast'; idx: number } | null>(null);
+  const [aim, setAim] = useState<{ mode: 'attack' | 'cast' | 'spell'; idx?: number; spellKey?: string; target: 'enemy' | 'ally' } | null>(null);
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     const ch = supabase.channel(`dnd-${props.room.id}`)
@@ -74,6 +75,22 @@ export default function DndRoom(props: ShellProps) {
       router.refresh(); return d;
     } catch (e: any) { alert((en ? 'Failed: ' : '失败：') + e.message); return null; }
     finally { inFlight.current = false; setBusy(false); }
+  }
+
+  function dispatchAim(monsterId: string) {
+    if (!aim) return;
+    const body: any = { roomId: props.room.id, targetId: monsterId };
+    if (aim.mode === 'attack') { body.action = 'attack'; body.weaponIdx = aim.idx; }
+    else if (aim.mode === 'cast') { body.action = 'cast'; body.cantripIdx = aim.idx; }
+    else if (aim.mode === 'spell') { body.action = 'spell'; body.spellKey = aim.spellKey; }
+    call('/api/dnd/combat', body); setAim(null);
+  }
+  async function replay() {
+    setResetting(true);
+    try { const res = await fetch('/api/rooms/replay', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) });
+      const d = await res.json().catch(() => ({})); if (!res.ok) { alert(d.error || (en ? 'Error' : '出错了')); setResetting(false); return; }
+      if (typeof window !== 'undefined') window.location.reload();
+    } catch (e: any) { alert((en ? 'Failed: ' : '失败：') + e.message); setResetting(false); }
   }
 
   const phase: string = pub?.phase || props.room.dnd_phase || 'lobby';
@@ -173,26 +190,40 @@ export default function DndRoom(props: ShellProps) {
             {combat.order.map((o: any) => <span key={o.ref} className={`shrink-0 text-[11px] px-2 py-0.5 rounded-full border ${o.ref === combat.current ? 'bg-blood/30 border-blood text-parchment' : 'border-eldritch/25 text-parchment/50'}`}>{o.init} {pub.chars?.[o.ref]?.name || combat.monsters.find((m: any) => m.id === o.ref)?.name}</span>)}
           </div>
           <div className="flex gap-2 overflow-x-auto">
-            {aliveMonsters.map((m: any) => (
-              <button key={m.id} disabled={!aim || !myTurn || busy} onClick={() => { if (aim) { call('/api/dnd/combat', { roomId: props.room.id, action: aim.kind === 'cast' ? 'cast' : 'attack', weaponIdx: aim.idx, cantripIdx: aim.idx, targetId: m.id }); setAim(null); } }}
-                className={`shrink-0 rounded-lg border px-2 py-1 text-left ${aim && myTurn ? 'border-blood bg-blood/15 animate-pulse' : 'border-eldritch/25 bg-fog/50'}`}>
+            {aliveMonsters.map((m: any) => { const targetable = aim?.target === 'enemy' && myTurn; return (
+              <button key={m.id} disabled={!targetable || busy} onClick={() => dispatchAim(m.id)}
+                className={`shrink-0 rounded-lg border px-2 py-1 text-left ${targetable ? 'border-blood bg-blood/15 animate-pulse' : 'border-eldritch/25 bg-fog/50'}`}>
                 <div className="text-xs text-parchment">👹 {m.name}</div>
                 <div className="text-[10px] text-parchment/50">HP {m.hp}/{m.hpMax} · AC{m.ac}</div>
               </button>
-            ))}
+            ); })}
           </div>
           {myTurn ? (
             myChar?.hp > 0 ? (
               <div className="space-y-1.5">
-                {aim && <div className="text-[11px] text-blood text-center">{en ? 'Pick a target above ↑' : '点上方的敌人作为目标 ↑'} <button onClick={() => setAim(null)} className="underline ml-1">{en ? 'cancel' : '取消'}</button></div>}
+                {aim && <div className="text-[11px] text-blood text-center">{aim.target === 'ally' ? (en ? 'Pick an ally to heal ↑' : '点上方队友 ↑') : (en ? 'Pick an enemy ↑' : '点上方敌人 ↑')} <button onClick={() => setAim(null)} className="underline ml-1">{en ? 'cancel' : '取消'}</button></div>}
+                {aim?.target === 'ally' && (
+                  <div className="flex gap-1.5 flex-wrap justify-center">
+                    {pub.seats.map((seat: string) => { const ac = pub.chars?.[seat]; if (!ac || !ac.alive) return null; return <button key={seat} onClick={() => { call('/api/dnd/combat', { roomId: props.room.id, action: 'spell', spellKey: aim.spellKey, targetId: seat }); setAim(null); }} disabled={busy} className="px-2.5 py-1.5 rounded bg-green-900/40 border border-green-700/50 text-parchment text-sm">💚 {ac.name} <span className="text-[10px] text-parchment/50">{ac.hp}/{ac.hpMax}</span></button>; })}
+                  </div>
+                )}
                 <div className="flex gap-1.5 flex-wrap">
-                  {(myChar.attacks || []).map((a: any, i: number) => <button key={'w' + i} onClick={() => setAim({ kind: 'attack', idx: i })} disabled={busy} className="px-2.5 py-1.5 rounded bg-fog border border-eldritch/40 text-parchment text-sm">🗡️ {a.name}</button>)}
-                  {(myChar.cantrips || []).map((a: any, i: number) => <button key={'c' + i} onClick={() => setAim({ kind: 'cast', idx: i })} disabled={busy} className="px-2.5 py-1.5 rounded bg-eldritch/30 border border-eldritch/40 text-parchment text-sm">✨ {a.name}</button>)}
+                  {(myChar.attacks || []).map((a: any, i: number) => <button key={'w' + i} onClick={() => setAim({ mode: 'attack', idx: i, target: 'enemy' })} disabled={busy} className="px-2.5 py-1.5 rounded bg-fog border border-eldritch/40 text-parchment text-sm">🗡️ {a.name}</button>)}
+                  {(myChar.cantrips || []).map((a: any, i: number) => <button key={'c' + i} onClick={() => setAim({ mode: 'cast', idx: i, target: 'enemy' })} disabled={busy} className="px-2.5 py-1.5 rounded bg-eldritch/30 border border-eldritch/40 text-parchment text-sm">✨ {a.name}</button>)}
+                  {(myChar.knownSpells || []).map((k: string) => { const sp = SPELLS[k]; if (!sp) return null; const slots = myChar.spellSlots?.[sp.level] || 0; return <button key={'s' + k} disabled={busy || slots <= 0} onClick={() => setAim({ mode: 'spell', spellKey: k, target: sp.target })} className="px-2.5 py-1.5 rounded bg-purple-900/40 border border-purple-600/50 text-parchment text-sm disabled:opacity-40">🔮 {sp.cn}<span className="text-[10px] text-parchment/50"> {slots}</span></button>; })}
+                  {myChar.potions > 0 && <button onClick={() => call('/api/dnd/combat', { roomId: props.room.id, action: 'potion' })} disabled={busy} className="px-2.5 py-1.5 rounded bg-red-900/40 border border-red-700/50 text-parchment text-sm">🧪 {en ? 'Potion' : '药水'} {myChar.potions}</button>}
                   <button onClick={() => call('/api/dnd/combat', { roomId: props.room.id, action: 'dodge' })} disabled={busy} className="px-2.5 py-1.5 rounded bg-fog border border-parchment/25 text-parchment/70 text-sm">🛡️ {en ? 'Dodge' : '闪避'}</button>
                 </div>
               </div>
             ) : <button onClick={() => call('/api/dnd/combat', { roomId: props.room.id, action: 'death' })} disabled={busy} className="w-full py-2 rounded bg-blood/40 border border-blood text-parchment text-sm">🩸 {en ? 'Roll death save' : '掷死亡豁免'}</button>
           ) : <div className="text-center text-xs text-parchment/45">{en ? `Waiting for ${pub.chars?.[combat.current]?.name || combat.monsters.find((m: any) => m.id === combat.current)?.name || '…'}` : `等待 ${pub.chars?.[combat.current]?.name || combat.monsters.find((m: any) => m.id === combat.current)?.name || '…'} 行动`}</div>}
+        </div>
+      )}
+
+      {phase === 'ended' && (
+        <div className="border-t border-eldritch/20 px-4 py-4 text-center space-y-3" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+          <div className="text-sm text-parchment/70">{en ? 'The adventure has ended.' : '本场冒险已落幕。'}</div>
+          {isHost && <button onClick={replay} disabled={resetting} className="px-5 py-2 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood text-sm disabled:opacity-50">{resetting ? (en ? 'Resetting…' : '重置中…') : (en ? '↻ New adventure' : '↻ 再来一局')}</button>}
         </div>
       )}
 
@@ -205,10 +236,14 @@ export default function DndRoom(props: ShellProps) {
                   placeholder={en ? 'Describe your action…' : '描述你的行动……'} className="flex-1 px-3 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none text-sm" />
                 <button onClick={() => { if (action.trim()) { call('/api/dnd/act', { roomId: props.room.id, action }); setAction(''); } }} disabled={busy} className="px-4 py-2 rounded bg-eldritch/60 hover:bg-eldritch text-parchment text-sm disabled:opacity-50">{busy ? '…' : (en ? 'Act' : '行动')}</button>
               </div>
-              {isHost && <div className="flex gap-2 justify-center">
-                <button onClick={() => call('/api/dnd/rest', { roomId: props.room.id, kind: 'short' })} disabled={busy} className="px-3 py-1 rounded bg-fog border border-eldritch/25 text-parchment/70 text-xs">🏕️ {en ? 'Short rest' : '短休'}</button>
-                <button onClick={() => call('/api/dnd/rest', { roomId: props.room.id, kind: 'long' })} disabled={busy} className="px-3 py-1 rounded bg-fog border border-eldritch/25 text-parchment/70 text-xs">🌙 {en ? 'Long rest' : '长休'}</button>
-              </div>}
+              <div className="flex gap-2 justify-center flex-wrap">
+                {myChar.potions > 0 && <button onClick={() => call('/api/dnd/item', { roomId: props.room.id })} disabled={busy} className="px-3 py-1 rounded bg-red-900/40 border border-red-700/50 text-parchment/80 text-xs">🧪 {en ? 'Potion' : '药水'} {myChar.potions}</button>}
+                {isHost && <>
+                  <button onClick={() => call('/api/dnd/rest', { roomId: props.room.id, kind: 'short' })} disabled={busy} className="px-3 py-1 rounded bg-fog border border-eldritch/25 text-parchment/70 text-xs">🏕️ {en ? 'Short rest' : '短休'}</button>
+                  <button onClick={() => call('/api/dnd/rest', { roomId: props.room.id, kind: 'long' })} disabled={busy} className="px-3 py-1 rounded bg-fog border border-eldritch/25 text-parchment/70 text-xs">🌙 {en ? 'Long rest' : '长休'}</button>
+                  <button onClick={() => { if (confirm(en ? 'End the adventure?' : '结束本场冒险？')) call('/api/dnd/end', { roomId: props.room.id }); }} disabled={busy} className="px-3 py-1 rounded bg-fog border border-parchment/20 text-parchment/50 text-xs">🏁 {en ? 'End' : '结束冒险'}</button>
+                </>}
+              </div>
             </>
           )}
         </div>

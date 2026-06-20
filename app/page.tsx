@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ensureSession, signInWithGoogle, signOut } from '@/lib/auth';
 import { tr, getClientLang, setClientLang, type Lang } from '@/lib/i18n';
@@ -13,6 +13,10 @@ export default function Home() {
   const [gameMode, setGameMode] = useState<'coc' | 'soup' | 'td' | 'jbs' | 'botc' | 'mcc'>('coc');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const [showPromo, setShowPromo] = useState(false);
+  const promoAudio = useRef<HTMLAudioElement | null>(null);
+  function openPromo() { setShowPromo(true); try { const a = new Audio('/audio/veil-of-night/loop1.ogg'); a.loop = true; a.volume = 0.5; a.play().catch(() => {}); promoAudio.current = a; } catch {} }
+  function closePromo() { setShowPromo(false); try { promoAudio.current?.pause(); promoAudio.current = null; } catch {} }
   useEffect(() => { setLang(getClientLang()); }, []);
   const t = tr(lang);
 
@@ -70,6 +74,7 @@ export default function Home() {
       <AccountBadge t={t} />
       <h1 className="text-4xl md:text-5xl font-serif tracking-wide text-parchment">{t('home_title')}</h1>
       <p className="max-w-md text-parchment/70 leading-relaxed">{t('home_tagline')}</p>
+      <button onClick={openPromo} className="text-sm px-4 py-1.5 rounded-full border border-eldritch/40 text-parchment/80 hover:bg-eldritch/20 transition">▶ {lang === 'en' ? 'Watch the trailer' : '观看宣传片'}</button>
 
       <input
         value={name}
@@ -119,6 +124,15 @@ export default function Home() {
       {err && <p className="text-blood text-sm">{err}</p>}
       <a href="/upgrade" className="text-parchment/40 hover:text-parchment text-sm underline">{t('home_upgrade_link')}</a>
       <AdminPanel lang={lang} />
+      {showPromo && (
+        <div className="fixed inset-0 z-50 bg-black flex flex-col">
+          <div className="flex items-center justify-between px-4 py-2 bg-ink/80 border-b border-eldritch/30">
+            <span className="text-parchment/70 text-sm font-serif">MystNight {lang === 'en' ? '· Trailer' : '· 宣传片'}</span>
+            <button onClick={closePromo} className="text-parchment/70 hover:text-parchment text-sm px-3 py-1 rounded border border-eldritch/40">{lang === 'en' ? 'Close ✕' : '关闭 ✕'}</button>
+          </div>
+          <iframe src="/promo.html" title="MystNight Trailer" className="flex-1 w-full border-0" />
+        </div>
+      )}
     </main>
   );
 }

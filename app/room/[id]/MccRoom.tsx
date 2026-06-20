@@ -171,7 +171,7 @@ export default function MccRoom(props: ShellProps) {
     if (!usable || busy) return;
     const st: any = { card, sx: e.clientX, sy: e.clientY, dragging: false };
     dragRef.current = st;
-    const tryPlay = () => { if (busy) return; if (NEEDS_TARGET.includes(card)) setPickCard(card); else playCard(card); };
+    const tryPlay = () => { if (busy) return; if (NEEDS_TARGET.includes(card)) { if (aliveOthers.length === 1) playCard(card, aliveOthers[0].seat); else setPickCard(card); } else playCard(card); };
     function cleanup() { dragRef.current = null; setDrag(null); window.removeEventListener('pointermove', move as any); window.removeEventListener('pointerup', up as any); window.removeEventListener('pointercancel', up as any); }
     const move = (ev: PointerEvent) => {
       const sc = dragRef.current; if (!sc) return;
@@ -257,7 +257,7 @@ export default function MccRoom(props: ShellProps) {
       {drag && (
         <>
           <div className="pointer-events-none fixed inset-x-0 top-0 z-[57]" style={{ height: '60vh', background: 'linear-gradient(to bottom, rgba(178,58,72,0.16), transparent)' }} />
-          <div className="pointer-events-none fixed left-1/2 -translate-x-1/2 z-[58] text-blood text-sm font-medium" style={{ top: 14 }}>↑ {NEEDS_TARGET.includes(drag.card) ? (en ? 'Drag up to pick a target' : '拖到上方 · 选择目标') : (en ? 'Drag up to play' : '拖到上方 · 出牌')}</div>
+          <div className="pointer-events-none fixed left-1/2 -translate-x-1/2 z-[58] text-blood text-sm font-medium" style={{ top: 14 }}>↑ {NEEDS_TARGET.includes(drag.card) && aliveOthers.length > 1 ? (en ? 'Drag up to pick a target' : '拖到上方 · 选择目标') : (en ? 'Drag up to play' : '拖到上方 · 出牌')}</div>
           <div className="pointer-events-none fixed z-[59]" style={{ left: drag.x, top: drag.y, transform: 'translate(-50%, -78%) scale(1.05)' }}><MccCard card={drag.card} en={en} w={108} /></div>
         </>
       )}

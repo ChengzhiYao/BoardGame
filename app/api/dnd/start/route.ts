@@ -4,7 +4,7 @@ import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { callLLMJson } from '@/lib/llm';
 import { newGame } from '@/lib/dnd/engine';
 import { persist } from '@/lib/dnd/db';
-import { buildDndOpeningPrompt } from '@/lib/dnd/prompt';
+import { buildDndBlueprintPrompt } from '@/lib/dnd/prompt';
 import { langDirective } from '@/lib/i18n';
 
 export const maxDuration = 60;
@@ -34,13 +34,14 @@ export async function POST(req: Request) {
 
     const state = newGame(theme || '', seats, names);
     const { data: op, usage } = await callLLMJson<any>({
-      system: buildDndOpeningPrompt(theme || '', seats.length, room.language) + langDirective(room.language),
-      messages: [{ role: 'user', content: '生成本场冒险与开场。' }], tier: 'main', temperature: 0.85, maxTokens: 900,
+      system: buildDndBlueprintPrompt(theme || '', seats.length, room.language) + langDirective(room.language),
+      messages: [{ role: 'user', content: '生成本场冒险蓝图与开场。' }], tier: 'main', temperature: 0.85, maxTokens: 2000,
     });
     await admin.from('api_usage').insert({ room_id: roomId, kind: 'llm_main', model: usage.model, prompt_tokens: usage.promptTokens, completion_tokens: usage.completionTokens, latency_ms: usage.latencyMs });
     state.scene = op.scene || (room.language === 'en' ? 'A frontier outpost' : '边境哨站');
     state.quest = op.quest || '';
     state.options = Array.isArray(op.options) ? op.options.slice(0, 4).map((x: any) => String(x)) : [];
+    state.blueprint = { villain: op.villain, acts: op.acts, npcs: op.npcs, locations: op.locations, encounters: op.encounters, twist: op.twist, climax: op.climax, rewards: op.rewards };
     state.log.push({ msg: `📜 任务：${state.quest}`, kind: 'sys' }); state.logSeq++;
     if (op.opening) { state.log.push({ msg: op.opening, kind: 'dm' }); state.logSeq++; }
     await persist(admin, roomId, state);

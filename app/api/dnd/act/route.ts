@@ -33,7 +33,7 @@ export async function POST(req: Request) {
   let adj: any;
   try {
     const { data, usage } = await callLLMJson<any>({
-      system: buildDndActPrompt(s0.scene, s0.quest, party, recent, char.name, String(action).slice(0, 300), room?.language) + langDirective(room?.language),
+      system: buildDndActPrompt(s0.scene, s0.quest, party, recent, char.name, String(action).slice(0, 300), room?.language, s0.blueprint) + langDirective(room?.language),
       messages: [{ role: 'user', content: '裁定该行动。' }], tier: 'main', temperature: 0.7, maxTokens: 700,
     });
     adj = data;

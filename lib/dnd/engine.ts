@@ -90,7 +90,7 @@ export type LogEntry = { msg: string; kind?: string };
 export type State = {
   phase: 'lobby' | 'creation' | 'explore' | 'combat' | 'ended';
   theme: string; scene: string; chars: Record<string, Character>; seats: string[];
-  combat: Combat; log: LogEntry[]; logSeq: number; quest: string; xpAward: number; safe: boolean; options?: string[];
+  combat: Combat; log: LogEntry[]; logSeq: number; quest: string; xpAward: number; safe: boolean; options?: string[]; blueprint?: any;
 };
 
 function L(s: State, msg: string, kind?: string) { s.log.push({ msg, kind }); s.logSeq = (s.logSeq || 0) + 1; }

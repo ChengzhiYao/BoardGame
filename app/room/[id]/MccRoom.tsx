@@ -47,7 +47,7 @@ export default function MccRoom(props: ShellProps) {
   const [aiFill, setAiFill] = useState(true);
   const [totalSeats, setTotalSeats] = useState(4);
   const logRef = useRef<HTMLDivElement>(null);
-  const logLen = useRef<number>(props.mccPublic?.log?.length || 0);
+  const logLen = useRef<number>(props.mccPublic?.logSeq ?? (props.mccPublic?.log?.length || 0));
 
   const isHost = props.room.host_user_id === props.userId;
   const mySeat = props.mySeat;
@@ -73,13 +73,16 @@ export default function MccRoom(props: ShellProps) {
     return () => clearInterval(id);
   }, [router]);
 
-  useEffect(() => { logRef.current?.scrollTo({ top: logRef.current.scrollHeight }); }, [pub?.log?.length]);
+  useEffect(() => { logRef.current?.scrollTo({ top: logRef.current.scrollHeight }); }, [pub?.logSeq]);
 
-  // 音效：扫描新日志触发
+  // 音效：扫描新日志触发。注意 pub.log 只是"最后 20 条"的滑动窗口，
+  // 必须用真实总数 logSeq 判断新增，否则过了 20 条后所有音效都不再响。
   useEffect(() => {
     const logs = pub?.log || [];
-    if (logs.length > logLen.current) {
-      for (const l of logs.slice(logLen.current)) {
+    const total = (pub?.logSeq ?? logs.length) as number;
+    if (total > logLen.current) {
+      const newCount = Math.min(total - logLen.current, logs.length);
+      for (const l of logs.slice(logs.length - newCount)) {
         const m = l.msg || '';
         if (m.includes('💀')) { mccSfx('eliminate'); setFlashKey((k) => k + 1); }
         else if (m.includes('🏆')) mccSfx('win');
@@ -91,8 +94,8 @@ export default function MccRoom(props: ShellProps) {
         else if (/[🐾🍤🔊🧶🐈🕯️😴]/u.test(m)) mccSfx('flip');
       }
     }
-    logLen.current = logs.length;
-  }, [pub?.log?.length]);
+    logLen.current = total;
+  }, [pub?.logSeq]);
 
   // 重连：回到页面/标签页时强制同步
   useEffect(() => {
@@ -365,7 +368,7 @@ export default function MccRoom(props: ShellProps) {
         const pend = pub.pending; const byName = pub.players.find((p: any) => p.seat === pend.by)?.name; const tgtName = pend.target ? pub.players.find((p: any) => p.seat === pend.target)?.name : null;
         const myAlive = pub.players.find((p: any) => p.seat === mySeat)?.alive !== false;
         const canMirror = ['swap', 'hex', 'thief'].includes(pend.card) && pend.target === mySeat && hand.includes('mirror');
-        const others = pub.players.filter((p: any) => p.alive && p.seat !== mySeat && p.seat !== pend.by);
+        const others = pub.players.filter((p: any) => p.alive && p.seat !== mySeat);
         return (
           <div className="px-4 py-2 border-t border-amber-700/40 bg-amber-950/25 max-w-2xl w-full mx-auto text-center space-y-1">
             <div className="text-sm text-amber-200/90">🃏 {byName} {en ? 'played' : '打出'}「{cn(pend.card, en)}」{tgtName ? (en ? ` \u2192 ${tgtName}` : `（指向 ${tgtName}）`) : ''} · {pend.hiss % 2 === 1 ? (en ? 'will be CANCELED' : '当前将被取消') : (en ? 'will resolve' : '当前将生效')}</div>

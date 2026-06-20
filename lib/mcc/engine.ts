@@ -154,7 +154,7 @@ export function react(s: State, seat: string, kind: 'hiss' | 'mirror', newTarget
     if (!NEEDS_TARGET.includes(pg.card)) return { ok: false, error: '这张牌没有目标可转移' };
     if (seat !== pg.target) return { ok: false, error: '只有被指定的目标可以用镜爪' };
     const i = s.hands[seat].indexOf('mirror'); if (i < 0) return { ok: false, error: '你没有镜爪' };
-    if (!newTarget || !s.alive[newTarget] || newTarget === pg.by) return { ok: false, error: '请选择有效的新目标' };
+    if (!newTarget || !s.alive[newTarget] || newTarget === seat) return { ok: false, error: '请选择有效的新目标' };
     s.hands[seat].splice(i, 1); s.discard.push('mirror');
     pg.target = newTarget; pg.until = Date.now() + 8000; pg.passed = [];
     L(s, `🪞 ${nm(s, seat)} 用镜爪把矛头转给了 ${nm(s, newTarget)}！`);
@@ -205,7 +205,7 @@ export function publicView(s: State) {
     deckCount: s.deck.length, discardTop: s.discard[s.discard.length - 1] || null, discardCount: s.discard.length, discard: s.discard, feed: s.feed.slice(-24),
     winner: s.winner, pending: pend,
     players: s.seats.map((seat) => ({ seat, name: s.names[seat], alive: s.alive[seat], handCount: s.hands[seat].length, isAI: s.bots.includes(seat) })),
-    log: s.log.slice(-20),
+    log: s.log.slice(-20), logSeq: s.log.length,
   };
 }
 export function handRows(s: State) { return s.seats.map((seat) => ({ seat, cards: s.hands[seat] })); }
@@ -247,7 +247,7 @@ export function botReact(s: State) {
     const targeted = NEEDS_TARGET.includes(pg.card) && pg.target === seat;
     // 被指定且有镜爪：一半概率把矛头转走
     if (targeted && s.hands[seat].includes('mirror') && !pg.passed.includes('m:' + seat)) {
-      if (Math.random() < 0.5) { const opps = aliveSeats(s).filter((x) => x !== pg.by && x !== seat); if (opps.length) { react(s, seat, 'mirror', opps[Math.floor(Math.random() * opps.length)]); return; } }
+      if (Math.random() < 0.5) { const opps = aliveSeats(s).filter((x) => x !== seat); if (opps.length) { react(s, seat, 'mirror', opps[Math.floor(Math.random() * opps.length)]); return; } }
       pg.passed.push('m:' + seat);
     }
     if (pg.passed.includes(seat) || !s.hands[seat].includes('hiss')) { if (!pg.passed.includes(seat)) pg.passed.push(seat); continue; }

@@ -1,5 +1,6 @@
 import './globals.css';
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
+import InstallPWA from './InstallPWA';
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.mystnight.com';
 const TITLE = '谜夜 · MystNight';
@@ -9,6 +10,12 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE),
   title: TITLE,
   description: DESC,
+  applicationName: 'MystNight',
+  appleWebApp: {
+    capable: true,
+    title: 'MystNight',
+    statusBarStyle: 'black-translucent',
+  },
   openGraph: {
     title: TITLE,
     description: DESC,
@@ -23,10 +30,17 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  themeColor: '#0c1116',
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh">
-      <body>{children}</body>
+      <body>
+        <InstallPWA />
+        {children}
+      </body>
     </html>
   );
 }

@@ -80,7 +80,7 @@ export type Character = {
   scores: Scores; hpMax: number; hp: number; tempHp: number; ac: number; speed: number;
   profBonus: number; skills: string[]; saveProf: Ability[]; attacks: Attack[]; cantrips: Attack[];
   spellSlots: Record<number, number>; spellSlotsMax: Record<number, number>; spellDc: number; spellAtk: number;
-  baseAc: number; armorBonus: number; shield: boolean;
+  baseAc: number; armorBonus: number; shield: boolean; avatar?: string;
   conditions: string[]; deathSaves: { ok: number; fail: number }; inspiration: boolean; gold: number; knownSpells: string[]; potions: number; rage?: boolean; secondWindUsed?: boolean; statuses?: { name: string; rounds: number }[]; alive: boolean;
 };
 export type Monster = { id: string; name: string; ac: number; hp: number; hpMax: number; attackBonus: number; damage: string; toHitName?: string; special?: string; conditions: string[]; statuses?: { name: string; rounds: number }[]; alive: boolean };

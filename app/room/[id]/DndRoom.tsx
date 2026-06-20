@@ -99,6 +99,10 @@ export default function DndRoom(props: ShellProps) {
     const theme2 = q ? `《${q.title}》｜${q.setting}｜钩子：${q.hook}｜威胁：${q.threat}｜基调：${q.tone}` : String(customText || '').trim();
     call('/api/dnd/start', { roomId: props.room.id, theme: theme2 });
   }
+  async function createChar(b: any) {
+    const d = await call('/api/dnd/character', { roomId: props.room.id, ...b });
+    if (d) fetch('/api/dnd/portrait', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) }).then(() => router.refresh()).catch(() => {});
+  }
 
   const phase: string = pub?.phase || props.room.dnd_phase || 'lobby';
   const myChar = pub?.chars?.[mySeat];
@@ -186,7 +190,7 @@ export default function DndRoom(props: ShellProps) {
         const turnNow = combat?.active && combat.current === seat;
         return (
           <div key={seat} className={`shrink-0 w-32 rounded-lg border px-2 py-1.5 ${turnNow ? 'border-blood bg-blood/15' : 'border-eldritch/25 bg-fog/60'} ${!c.alive ? 'opacity-40' : ''}`}>
-            <div className="flex items-center justify-between"><span className="text-xs text-parchment truncate">{seat === mySeat ? '★ ' : ''}{c.name}</span><span className="text-[10px] text-parchment/50">AC{c.ac}</span></div>
+            <div className="flex items-center gap-1.5">{c.avatar ? <img src={c.avatar} alt="" className="w-6 h-6 rounded-full object-cover border border-eldritch/30 shrink-0" /> : null}<span className="text-xs text-parchment truncate flex-1">{seat === mySeat ? '★ ' : ''}{c.name}</span><span className="text-[10px] text-parchment/50 shrink-0">AC{c.ac}</span></div>
             <div className="text-[10px] text-parchment/45 truncate">{RACES[c.race]?.cn}{CLASSES[c.cls]?.cn} Lv{c.level}</div>
             <div className="h-1.5 rounded bg-ink mt-1 overflow-hidden"><div className={`h-full ${pct > 50 ? 'bg-green-600' : pct > 25 ? 'bg-amber-500' : 'bg-blood'}`} style={{ width: `${pct}%` }} /></div>
             <div className="text-[10px] text-parchment/50 mt-0.5">HP {c.hp}/{c.hpMax}{c.rage ? ' · 🪓' : ''}{(c.statuses || []).length ? ` · ${c.statuses.map((x: any) => x.name).join('/')}` : ''}{c.conditions?.length ? ` · ${c.conditions.join('/')}` : ''}</div>
@@ -209,7 +213,7 @@ export default function DndRoom(props: ShellProps) {
         {HeaderBar}{Party}
         <div className="flex-1 overflow-y-auto">
           {Log}
-          {!myChar ? <CharBuilder en={en} onSubmit={(b) => call('/api/dnd/character', { roomId: props.room.id, ...b })} busy={busy} /> :
+          {!myChar ? <CharBuilder en={en} onSubmit={createChar} busy={busy} /> :
             <div className="text-center text-sm text-parchment/60 py-4">{en ? 'Your hero is ready. Waiting for the party…' : '你的英雄已就绪，等待队伍集结……'}</div>}
         </div>
         {isHost && <div className="border-t border-eldritch/20 p-3" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
@@ -274,7 +278,7 @@ export default function DndRoom(props: ShellProps) {
 
       {phase === 'explore' && (
         <div className="border-t border-eldritch/20 px-3 py-2 space-y-2" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
-          {!myChar ? <CharBuilder en={en} onSubmit={(b) => call('/api/dnd/character', { roomId: props.room.id, ...b })} busy={busy} /> : (
+          {!myChar ? <CharBuilder en={en} onSubmit={createChar} busy={busy} /> : (
             <>
               <div className="flex gap-2">
                 <input value={action} onChange={(e) => setAction(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && action.trim()) { call('/api/dnd/act', { roomId: props.room.id, action }); setAction(''); } }}
@@ -368,12 +372,15 @@ function CharSheet({ c, en, onClose }: { c: any; en: boolean; onClose: () => voi
   return (
     <div className="fixed inset-0 z-[80] bg-black/80 backdrop-blur-sm flex items-center justify-center p-3" onClick={onClose}>
       <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md max-h-[88vh] overflow-y-auto rounded-xl bg-fog border border-eldritch/40 p-4 text-left space-y-3">
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="text-lg text-parchment font-serif">{c.name}</div>
-            <div className="text-xs text-parchment/60">{RACES[c.race]?.cn}{CLASSES[c.cls]?.cn} · Lv{c.level} · XP {c.xp}</div>
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            {c.avatar && <img src={c.avatar} alt="" className="w-12 h-12 rounded-lg object-cover border border-eldritch/30 shrink-0" />}
+            <div className="min-w-0">
+              <div className="text-lg text-parchment font-serif truncate">{c.name}</div>
+              <div className="text-xs text-parchment/60">{RACES[c.race]?.cn}{CLASSES[c.cls]?.cn} · Lv{c.level} · XP {c.xp}</div>
+            </div>
           </div>
-          <button onClick={onClose} className="text-parchment/50 hover:text-parchment text-lg leading-none">✕</button>
+          <button onClick={onClose} className="text-parchment/50 hover:text-parchment text-lg leading-none shrink-0">✕</button>
         </div>
         <div className="grid grid-cols-4 gap-2 text-center">
           <Stat l="HP" v={`${c.hp}/${c.hpMax}`} /><Stat l="AC" v={c.ac} /><Stat l={en ? 'Speed' : '速度'} v={c.speed} /><Stat l={en ? 'Prof' : '熟练'} v={sgn(c.profBonus)} />

@@ -114,3 +114,11 @@ export function buildImagePrompt(type: string, subject: string, era?: string, th
   const fn = TYPE_TEMPLATES[(type as ImageType)] || TYPE_TEMPLATES.scene_image;
   return `${fn(subject || '一处不安的场景')} ${eraStyle(era)} ${artStyleFor(theme)}`;
 }
+
+// 龙与地下城英雄肖像：写实奇幻插画，装备贴合职业。
+export function buildDndPortraitPrompt(subject: string, theme?: string): string {
+  return `奇幻角色半身肖像：${subject}。单人，正面略侧，神情可辨，深色中性背景。`
+    + `${theme ? `世界观/基调：${String(theme).slice(0, 90)}。` : ''}`
+    + `龙与地下城风格的写实奇幻插画/绘画质感，盔甲、法袍、武器等装备须贴合其种族与职业；`
+    + `电影感光影、细腻笔触，整体协调；画面无文字、无水印、无边框、无 UI 元素。`;
+}

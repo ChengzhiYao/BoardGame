@@ -4,7 +4,8 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { RACES, CLASSES, BACKGROUNDS, ABILITIES, ABILITY_CN, SKILLS, STANDARD_ARRAY, SPELLS, WEAPONS, ARMORS, mod } from '@/lib/dnd/engine';
 import type { ShellProps } from './RoomShell';
-import { dndSfx, setDndBgm, stopDndBgm, setDndMuted } from '@/lib/audio/dndCue';
+import { dndSfx } from '@/lib/audio/dndCue';
+import AudioManager from './AudioManager';
 
 const inviteUrl = (p: ShellProps) => `${typeof window !== 'undefined' ? window.location.origin : (p.siteUrl || '')}/join/${p.inviteToken}`;
 
@@ -19,7 +20,6 @@ export default function DndRoom(props: ShellProps) {
   const inFlight = useRef(false);
   const logRef = useRef<HTMLDivElement>(null);
   const sfxSeq = useRef<number>(props.dndPublic?.logSeq || 0);
-  const [muted, setMuted] = useState(false);
   const [theme, setTheme] = useState('');
   const [customQuest, setCustomQuest] = useState('');
   const [action, setAction] = useState('');
@@ -38,16 +38,6 @@ export default function DndRoom(props: ShellProps) {
   }, [props.room.id, supabase, router]);
 
   useEffect(() => { logRef.current?.scrollTo({ top: logRef.current.scrollHeight }); }, [pub?.logSeq]);
-
-  // BGM 随阶段切换；离开房间停止
-  useEffect(() => {
-    const ph = pub?.phase || props.room.dnd_phase || 'lobby';
-    if (ph === 'combat') setDndBgm(pub?.combat?.boss ? 'boss' : 'combat');
-    else if (ph === 'explore' || ph === 'creation') setDndBgm('explore');
-    else stopDndBgm();
-    return () => { /* keep playing across refresh */ };
-  }, [pub?.phase, props.room.dnd_phase]);
-  useEffect(() => () => stopDndBgm(), []);
 
   // 战斗音效：扫描新日志（用真实总数 logSeq）
   useEffect(() => {
@@ -108,6 +98,7 @@ export default function DndRoom(props: ShellProps) {
   const myChar = pub?.chars?.[mySeat];
   const combat = pub?.combat;
   const myTurn = combat?.active && combat.current === mySeat;
+  const dndAudioState = phase === 'combat' ? (combat?.boss ? 'DND_BOSS' : 'DND_COMBAT') : phase === 'ended' ? 'GOOD_ENDING' : 'DND_EXPLORE';
 
   // ---------------- LOBBY / 选择冒险 ----------------
   if (!pub) {
@@ -174,11 +165,11 @@ export default function DndRoom(props: ShellProps) {
         <div className="text-xs text-eldritch truncate">📜 {pub.quest || (en ? 'Adventure' : '冒险')}</div>
         <div className="text-[11px] truncate"><span className={pub.safe ? 'text-green-400' : 'text-amber-400'}>{pub.safe ? (en ? '🏕️ Safe' : '🏕️ 安全') : (en ? '⚠️ Danger' : '⚠️ 危险')}</span>{pub.scene ? <span className="text-parchment/50"> · {pub.scene}</span> : null}</div>
       </div>
-      {myChar && <button onClick={() => setSheet(true)} className="text-[12px] text-parchment/50 hover:text-parchment shrink-0 mr-1">📋</button>}
-      <button onClick={() => { const nm = !muted; setMuted(nm); setDndMuted(nm); if (!nm) { const ph = pub?.phase || 'explore'; setDndBgm(ph === 'combat' ? (pub?.combat?.boss ? 'boss' : 'combat') : 'explore'); } }} className="text-[12px] text-parchment/40 hover:text-parchment shrink-0 mr-2">{muted ? '🔇' : '🔊'}</button>
+      {myChar && <button onClick={() => setSheet(true)} className="text-xs px-2 py-1 rounded bg-eldritch/30 text-parchment shrink-0">{en ? 'Sheet' : '角色卡'}</button>}
       <span className="text-[11px] text-parchment/50 shrink-0">{phase === 'combat' ? (en ? `⚔️ Combat · R${combat?.round}` : `⚔️ 战斗 · 第${combat?.round}轮`) : phase === 'creation' ? (en ? '🛠️ Create' : '🛠️ 建卡') : phase === 'explore' ? (en ? '🗺️ Explore' : '🗺️ 探索') : ''}</span>
     </div>
     {sheet && myChar && <CharSheet c={myChar} en={en} onClose={() => setSheet(false)} />}
+    <AudioManager state={dndAudioState} />
     </>
   );
 

@@ -5,7 +5,8 @@ export type AudioCategory =
   | 'MENU' | 'CHARACTER_CREATION' | 'EXPLORATION_SAFE' | 'EXPLORATION_DANGEROUS'
   | 'HIDDEN_CLUE' | 'PARANORMAL_EVENT' | 'MONSTER_REVEAL' | 'CHASE_SEQUENCE'
   | 'COMBAT' | 'INVESTIGATION_BREAKTHROUGH' | 'RITUAL_DISCOVERY' | 'FINAL_CONFRONTATION'
-  | 'COSMIC_HORROR' | 'GOOD_ENDING' | 'BITTERSWEET_ENDING' | 'BAD_ENDING' | 'TRUTH_REVEAL';
+  | 'COSMIC_HORROR' | 'GOOD_ENDING' | 'BITTERSWEET_ENDING' | 'BAD_ENDING' | 'TRUTH_REVEAL'
+  | 'DND_EXPLORE' | 'DND_COMBAT' | 'DND_BOSS';
 
 const A = '/audio';
 export const AUDIO_MAP: Record<AudioCategory, string[]> = {
@@ -26,6 +27,9 @@ export const AUDIO_MAP: Record<AudioCategory, string[]> = {
   BITTERSWEET_ENDING: [`${A}/minds-eye/out.ogg`, `${A}/veil-of-night/out.ogg`],
   BAD_ENDING: [`${A}/somethings-wrong/out.ogg`, `${A}/mental-vortex/loop1.ogg`],
   TRUTH_REVEAL: [`${A}/minds-eye/loop3.ogg`, `${A}/fredelig-sinn/out.ogg`],
+  DND_EXPLORE: [`${A}/dnd/explore.mp3`],
+  DND_COMBAT: [`${A}/dnd/combat.mp3`],
+  DND_BOSS: [`${A}/dnd/boss.mp3`],
 };
 
 // 单次播放（不循环），放完自动回到之前的循环床乐

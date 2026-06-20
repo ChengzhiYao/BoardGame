@@ -80,7 +80,7 @@ export type Character = {
   scores: Scores; hpMax: number; hp: number; tempHp: number; ac: number; speed: number;
   profBonus: number; skills: string[]; saveProf: Ability[]; attacks: Attack[]; cantrips: Attack[];
   spellSlots: Record<number, number>; spellSlotsMax: Record<number, number>; spellDc: number; spellAtk: number;
-  baseAc: number; armorBonus: number; shield: boolean; avatar?: string;
+  baseAc: number; armorBonus: number; shield: boolean; equipped?: number; avatar?: string;
   conditions: string[]; deathSaves: { ok: number; fail: number }; inspiration: boolean; gold: number; knownSpells: string[]; potions: number; rage?: boolean; secondWindUsed?: boolean; statuses?: { name: string; rounds: number }[]; alive: boolean;
 };
 export type Monster = { id: string; name: string; ac: number; hp: number; hpMax: number; attackBonus: number; damage: string; toHitName?: string; special?: string; conditions: string[]; statuses?: { name: string; rounds: number }[]; alive: boolean };
@@ -115,7 +115,7 @@ export function buildCharacter(opts: { seat: string; name: string; race: string;
     skills, saveProf: cdef.saves, attacks: cdef.startAttacks.map((a) => ({ ...a })), cantrips: (cdef.cantrips || []).map((a) => ({ ...a })),
     spellSlots: { ...slots }, spellSlotsMax: { ...slots }, spellDc: 8 + pb + castMod, spellAtk: pb + castMod,
     conditions: [], deathSaves: { ok: 0, fail: 0 }, inspiration: false, gold: 15,
-    knownSpells: (cdef.caster && cdef.caster !== 'none') ? (CLASS_SPELLS[opts.cls] || []) : [], potions: 2, rage: false, secondWindUsed: false, statuses: [], alive: true,
+    knownSpells: (cdef.caster && cdef.caster !== 'none') ? (CLASS_SPELLS[opts.cls] || []) : [], potions: 2, equipped: 0, rage: false, secondWindUsed: false, statuses: [], alive: true,
   };
 }
 
@@ -509,6 +509,15 @@ export function buyGear(s: State, seat: string, kind: string, key: string): { ok
     pushLog(s, `🛡️ ${c.name} 装备盾牌（AC ${c.ac}，剩 ${c.gold} 金）。`, 'rest'); return { ok: true };
   }
   return { ok: false, error: '未知物品' };
+}
+
+export function equipWeapon(s: State, seat: string, idx: number): { ok: boolean; error?: string } {
+  const c = s.chars[seat]; if (!c) return { ok: false, error: '无角色' };
+  if (idx < 0 || idx >= c.attacks.length) return { ok: false, error: '没有这件武器' };
+  if (c.equipped === idx) return { ok: false, error: '已经持握这把武器' };
+  c.equipped = idx;
+  pushLog(s, `🗡️ ${c.name} 改为持握 ${c.attacks[idx].name}。`, 'rest');
+  return { ok: true };
 }
 
 export function reviveAlly(s: State, seat: string, targetSeat: string): { ok: boolean; error?: string } {

@@ -170,6 +170,7 @@ export default function DndRoom(props: ShellProps) {
 
   const combatControls = (
     <div className="space-y-1.5">
+      <div className="text-[11px] text-parchment/40 text-center">{en ? '💡 Pick a weapon/spell then tap a target; or dodge / flee / drink a potion.' : '💡 先点武器或法术，再点目标进攻；也可以闪避 / 撤退 / 喝药水。'}</div>
       {aim && <div className="text-[11px] text-blood text-center">{aim.target === 'ally' ? (en ? 'Pick an ally below ↓' : '点下方队友 ↓') : (en ? 'Pick an enemy below ↓' : '点下方敌人 ↓')} <button onClick={() => setAim(null)} className="underline ml-1">{en ? 'cancel' : '取消'}</button></div>}
       <div className="flex gap-1.5 overflow-x-auto pb-1">
         {aliveMonsters.map((m: any) => { const targetable = aim?.target === 'enemy'; return (
@@ -178,7 +179,7 @@ export default function DndRoom(props: ShellProps) {
         {aim?.target === 'ally' && pub.seats.map((seat: string) => { const ac = pub.chars?.[seat]; if (!ac || !ac.alive) return null; return <button key={seat} onClick={() => { call('/api/dnd/combat', { roomId: props.room.id, action: 'spell', spellKey: aim.spellKey, targetId: seat }); setAim(null); }} disabled={busy} className="shrink-0 px-2.5 py-1.5 rounded bg-green-900/40 border border-green-700/50 text-parchment text-sm">💚 {ac.name} <span className="text-[10px] text-parchment/50">{ac.hp}/{ac.hpMax}</span></button>; })}
       </div>
       <div className="flex gap-1.5 flex-wrap">
-        {(myChar.attacks || []).map((a: any, i: number) => <button key={'w' + i} onClick={() => setAim({ mode: 'attack', idx: i, target: 'enemy' })} disabled={busy} className="px-2.5 py-1.5 rounded bg-fog border border-eldritch/40 text-parchment text-sm">🗡️ {a.name}</button>)}
+        {myChar.attacks?.[myChar.equipped || 0] && <button onClick={() => setAim({ mode: 'attack', idx: myChar.equipped || 0, target: 'enemy' })} disabled={busy} className="px-2.5 py-1.5 rounded bg-fog border border-eldritch/40 text-parchment text-sm">🗡️ {myChar.attacks[myChar.equipped || 0].name}</button>}
         {(myChar.cantrips || []).map((a: any, i: number) => <button key={'c' + i} onClick={() => setAim({ mode: 'cast', idx: i, target: 'enemy' })} disabled={busy} className="px-2.5 py-1.5 rounded bg-eldritch/30 border border-eldritch/40 text-parchment text-sm">✨ {a.name}</button>)}
         {(myChar.knownSpells || []).map((k: string) => { const sp = SPELLS[k]; if (!sp) return null; const slots = myChar.spellSlots?.[sp.level] || 0; return <button key={'s' + k} disabled={busy || slots <= 0} onClick={() => setAim({ mode: 'spell', spellKey: k, target: sp.target })} className="px-2.5 py-1.5 rounded bg-purple-900/40 border border-purple-600/50 text-parchment text-sm disabled:opacity-40">🔮 {sp.cn}<span className="text-[10px] text-parchment/50"> {slots}</span></button>; })}
         {myChar.cls === 'barbarian' && !myChar.rage && <button onClick={() => call('/api/dnd/combat', { roomId: props.room.id, action: 'rage' })} disabled={busy} className="px-2.5 py-1.5 rounded bg-orange-900/40 border border-orange-600/50 text-parchment text-sm">🪓 {en ? 'Rage' : '狂暴'}</button>}
@@ -211,6 +212,7 @@ export default function DndRoom(props: ShellProps) {
               <button onClick={() => submitExplore('talk')} disabled={busy || !action.trim()} className="flex-1 px-3 py-2 rounded bg-fog border border-eldritch/40 text-parchment text-sm hover:bg-eldritch/20 disabled:opacity-50">{en ? 'Speak' : '对话'}</button>
               <button onClick={() => submitExplore('act')} disabled={busy || !action.trim()} className="flex-1 px-4 py-2 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-50">{busy ? '…' : (en ? 'Submit action' : '提交行动')}</button>
             </div>
+            <div className="text-[11px] text-parchment/40 text-center">{pub.safe ? (en ? '💡 Safe here — restock, shop and rest on the right. Or investigate, talk, move…' : '💡 这里安全——可在右侧补给/购物/休整；也可搜查、交谈、移动…') : (en ? '💡 Describe anything: search, talk, sneak, fight, flee… or pick an option above.' : '💡 描述任何行动：搜查、交谈、潜行、战斗、逃跑…或点上方选项。')}</div>
           </div>)}
 
       {phase === 'ended' && <div className="text-center space-y-2"><div className="text-sm text-parchment/70">{en ? 'The adventure has ended.' : '本场冒险已落幕。'}</div>{isHost && <button onClick={replay} disabled={resetting} className="px-5 py-2 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood text-sm disabled:opacity-50">{resetting ? (en ? 'Resetting…' : '重置中…') : (en ? '↻ New adventure' : '↻ 再来一局')}</button>}</div>}
@@ -239,7 +241,7 @@ export default function DndRoom(props: ShellProps) {
           </div>
           {leftView === 'party'
             ? pub.seats.map((seat: string) => <DndCharCard key={seat} seat={seat} c={pub.chars?.[seat]} me={seat === mySeat} turnNow={!!(combat?.active && combat.current === seat)} en={en} />)
-            : <Backpack c={myChar} en={en} busy={busy} onUsePotion={!combat?.active && myChar?.potions > 0 ? () => call('/api/dnd/item', { roomId: props.room.id }) : null} />}
+            : <Backpack c={myChar} en={en} busy={busy} onUsePotion={!combat?.active && myChar?.potions > 0 ? () => call('/api/dnd/item', { roomId: props.room.id }) : null} onEquip={(idx: number) => call('/api/dnd/item', { roomId: props.room.id, action: 'equip', weaponIdx: idx })} />}
         </aside>
 
         <section className={`flex-col overflow-hidden min-h-0 lg:flex ${mtab === 'story' ? 'flex flex-1' : 'hidden'}`}>
@@ -311,7 +313,7 @@ function DndCharCard({ seat, c, me, turnNow, en }: { seat: string; c: any; me: b
       <div className="space-y-1.5 text-xs text-parchment/70">
         <div><div className="flex justify-between text-[10px] text-parchment/50"><span>HP</span><span>{c.hp}/{c.hpMax}</span></div><div className="h-1.5 rounded bg-ink overflow-hidden"><div className={`h-full ${pct > 50 ? 'bg-green-600' : pct > 25 ? 'bg-amber-500' : 'bg-blood'}`} style={{ width: `${pct}%` }} /></div></div>
         <div className="grid grid-cols-6 gap-0.5 text-center text-[10px]">{ABILITIES.map((a) => <div key={a}><div className="text-parchment/40">{ABILITY_CN[a]}</div><div className="text-parchment/80">{mod(c.scores[a]) >= 0 ? '+' : ''}{mod(c.scores[a])}</div></div>)}</div>
-        <div><span className="text-parchment/40">{en ? 'Weapons: ' : '武器：'}</span>{(c.attacks || []).map((a: any) => a.name).join('、') || '—'}</div>
+        <div><span className="text-parchment/40">{en ? 'Wielding: ' : '持握：'}</span>{c.attacks?.[c.equipped || 0]?.name || '—'}{(c.attacks || []).length > 1 ? <span className="text-parchment/40">{en ? ` (+${c.attacks.length - 1} in pack)` : `（背包还有 ${c.attacks.length - 1} 把）`}</span> : null}</div>
         <div><span className="text-parchment/40">{en ? 'Armor: ' : '护甲：'}</span>{c.armorBonus ? `+${c.armorBonus}AC` : (en ? 'none' : '无甲')}{c.shield ? ` · ${en ? 'Shield' : '盾'}` : ''}</div>
         {slot && <div><span className="text-parchment/40">{en ? 'Slots: ' : '法术位：'}</span>{slot}</div>}
         <div><span className="text-parchment/40">{en ? 'Pack: ' : '背包：'}</span>🧪×{c.potions} · 💰{c.gold}</div>
@@ -489,14 +491,14 @@ function ItemRow({ icon, name, desc, action }: { icon: string; name: string; des
   );
 }
 
-function Backpack({ c, en, busy, onUsePotion }: { c: any; en: boolean; busy: boolean; onUsePotion: (() => void) | null }) {
+function Backpack({ c, en, busy, onUsePotion, onEquip }: { c: any; en: boolean; busy: boolean; onUsePotion: (() => void) | null; onEquip: (idx: number) => void }) {
   if (!c) return <div className="text-xs text-parchment/40">{en ? 'No character yet' : '尚无角色'}</div>;
   return (
     <div className="space-y-2 text-sm">
       <div className="text-xs text-eldritch/80 border-b border-eldritch/15 pb-1">{en ? 'Backpack' : '背包'} · 💰 {c.gold}</div>
       {c.potions > 0 && <ItemRow icon="🧪" name={`${en ? 'Healing Potion' : '治疗药水'} ×${c.potions}`} desc={en ? 'Restores 2d4+2 HP. Usable in or out of combat.' : '饮用恢复 2d4+2 生命，战斗内外皆可。'} action={onUsePotion ? { label: en ? 'Use' : '喝', onClick: onUsePotion, disabled: busy } : null} />}
-      <div className="text-xs text-parchment/50 pt-1">{en ? 'Weapons' : '武器'}</div>
-      {(c.attacks || []).map((a: any, i: number) => <ItemRow key={'w' + i} icon="🗡️" name={a.name} desc={`${en ? 'Damage' : '伤害'} ${a.damage} · ${a.type}（${ABILITY_CN[a.ability as keyof typeof ABILITY_CN] || a.ability}）`} />)}
+      <div className="text-xs text-parchment/50 pt-1">{en ? 'Weapons (wield one)' : '武器（一次持握一把）'}</div>
+      {(c.attacks || []).map((a: any, i: number) => { const eq = (c.equipped || 0) === i; return <ItemRow key={'w' + i} icon={eq ? '🗡️' : '·'} name={`${a.name}${eq ? (en ? ' (wielding)' : '（持握中）') : ''}`} desc={`${en ? 'Damage' : '伤害'} ${a.damage} · ${a.type}（${ABILITY_CN[a.ability as keyof typeof ABILITY_CN] || a.ability}）`} action={eq ? null : { label: en ? 'Wield' : '装备', onClick: () => onEquip(i), disabled: busy }} />; })}
       <div className="text-xs text-parchment/50 pt-1">{en ? 'Armor' : '护甲'}</div>
       <ItemRow icon="🛡️" name={c.armorBonus ? `+${c.armorBonus} AC` : (en ? 'No armor' : '无甲')} desc={`${en ? 'Current AC' : '当前护甲等级'} ${c.ac}${c.shield ? ` · ${en ? 'Shield +2' : '盾牌 +2'}` : ''}`} />
       {((c.cantrips || []).length + (c.knownSpells || []).length) > 0 && <>

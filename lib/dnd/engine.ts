@@ -451,12 +451,19 @@ export function endAdventure(s: State, epilogue: string, victory: boolean) {
 }
 
 // ---------- 脱离战斗 / 购物 ----------
+export function fleeDC(s: State): number { return 10 + (s.combat?.monsters.filter((m) => m.alive).length || 0); }
 export function fleeCombat(s: State, seat: string): { ok: boolean; error?: string } {
   if (!s.combat?.active) return { ok: false, error: '现在不是战斗' };
   const cur = currentActor(s); if (!cur || cur.ref !== seat) return { ok: false, error: '还没轮到你' };
-  pushLog(s, `🏃 ${s.chars[seat]?.name} 招呼全队撤退，你们脱离了战斗。`, 'combat');
+  const c = s.chars[seat]; if (!c) return { ok: false, error: '无角色' };
+  const dc = fleeDC(s); const r = d20(0); const total = r.roll + mod(c.scores.dex);
+  if (r.roll !== 20 && (r.roll === 1 || total < dc)) {
+    pushLog(s, `🏃 ${c.name} 试图脱离战斗（d20(${r.roll})+${mod(c.scores.dex)}=${total} vs DC${dc}）——被缠住，没能挣脱！`, 'combat');
+    endTurn(s); return { ok: true };
+  }
+  pushLog(s, `🏃 ${c.name} 成功脱离战斗（${total} vs DC${dc}），全队撤退。`, 'combat');
   s.combat.active = false;
-  for (const st of s.seats) { const c = s.chars[st]; if (c) { c.rage = false; c.statuses = []; } }
+  for (const st of s.seats) { const ch = s.chars[st]; if (ch) { ch.rage = false; ch.statuses = []; } }
   s.phase = 'explore';
   return { ok: true };
 }

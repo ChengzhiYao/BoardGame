@@ -170,6 +170,15 @@ export default function DndRoom(props: ShellProps) {
 
   const spellEffect = (sp: any) => sp ? (sp.kind === 'heal' ? (en ? `Heal ${sp.dice}+mod` : `治疗 ${sp.dice}+调整值`) : sp.kind === 'status' ? (en ? `Save or ${sp.status}` : `豁免失败则【${sp.status}】`) : sp.kind === 'missile' ? (en ? `3 darts ${sp.dice} each, auto-hit` : `三发各 ${sp.dice}，自动命中`) : (en ? `${sp.dice} ${sp.save ? 'save half' : 'on hit'}` : `${sp.dice}${sp.save ? '，豁免半伤' : '，命中伤害'}`)) : '';
   const aimDesc = !aim ? '' : aim.mode === 'attack' ? `${myChar?.attacks?.[aim.idx!]?.name}：${myChar?.attacks?.[aim.idx!]?.damage} ${myChar?.attacks?.[aim.idx!]?.type}${en ? '' : '伤害'}` : aim.mode === 'cast' ? `${myChar?.cantrips?.[aim.idx!]?.name}：${myChar?.cantrips?.[aim.idx!]?.damage} ${myChar?.cantrips?.[aim.idx!]?.type}` : aim.mode === 'spell' ? `${SPELLS[aim.spellKey!]?.cn}（${SPELLS[aim.spellKey!]?.level}${en ? '-lvl' : '环'}）：${spellEffect(SPELLS[aim.spellKey!])}` : '';
+  const dexMod = mod(myChar?.scores?.dex ?? 10);
+  const fleeChance = Math.round(Math.max(5, Math.min(95, ((21 - ((10 + aliveMonsters.length) - dexMod)) / 20) * 100)));
+  const actCard = (k: string, icon: string, name: string, detail: string, onClick: () => void, opts?: { sel?: boolean; disabled?: boolean; tone?: string }) => (
+    <button key={k} onClick={onClick} disabled={opts?.disabled || busy} className={`shrink-0 w-[88px] rounded-xl border px-1.5 py-2 flex flex-col items-center gap-1 transition ${opts?.sel ? 'border-blood bg-blood/20' : `border-eldritch/30 ${opts?.tone || 'bg-fog/60'} hover:bg-eldritch/15`} disabled:opacity-35`}>
+      <DndIcon name={icon} className="w-6 h-6 text-parchment" />
+      <span className="text-[12px] text-parchment leading-none text-center">{name}</span>
+      <span className="text-[9px] text-parchment/50 leading-tight text-center">{detail}</span>
+    </button>
+  );
   const combatControls = myChar ? (
     <div className="space-y-1.5">
       <div className="text-[11px] text-parchment/40 text-center">{en ? '💡 Pick a weapon/spell then tap a target; or dodge / flee / drink a potion.' : '💡 先点武器或法术，再点目标进攻；也可以闪避 / 撤退 / 喝药水。'}</div>
@@ -177,19 +186,19 @@ export default function DndRoom(props: ShellProps) {
       <div className="flex gap-1.5 overflow-x-auto pb-1">
         {aliveMonsters.map((m: any) => { const targetable = aim?.target === 'enemy'; return (
           <button key={m.id} disabled={!targetable || busy} onClick={() => dispatchAim(m.id)} className={`shrink-0 rounded-lg border px-2 py-1 text-left ${targetable ? 'border-blood bg-blood/15 animate-pulse' : 'border-eldritch/25 bg-fog/50'}`}>
-            <div className="text-xs text-parchment">👿 {m.name}</div><div className="text-[10px] text-parchment/50">HP {m.hp}/{m.hpMax}·AC{m.ac}</div></button>); })}
+            <div className="text-xs text-parchment flex items-center gap-1"><DndIcon name="monster" className="w-4 h-4 text-red-400" /> {m.name}</div><div className="h-1 rounded bg-ink mt-1 w-28 overflow-hidden"><div className="h-full bg-blood" style={{ width: `${Math.max(0, Math.round((m.hp / m.hpMax) * 100))}%` }} /></div><div className="text-[10px] text-parchment/50 mt-0.5">HP {m.hp}/{m.hpMax} · AC{m.ac}</div></button>); })}
         {aim?.target === 'ally' && pub.seats.map((seat: string) => { const ac = pub.chars?.[seat]; if (!ac || !ac.alive) return null; return <button key={seat} onClick={() => { call('/api/dnd/combat', { roomId: props.room.id, action: 'spell', spellKey: aim.spellKey, targetId: seat }); setAim(null); }} disabled={busy} className="shrink-0 px-2.5 py-1.5 rounded bg-green-900/40 border border-green-700/50 text-parchment text-sm">💚 {ac.name} <span className="text-[10px] text-parchment/50">{ac.hp}/{ac.hpMax}</span></button>; })}
       </div>
-      <div className="flex gap-1.5 flex-wrap">
-        {myChar.attacks?.[myChar.equipped || 0] && <button title={`${myChar.attacks[myChar.equipped || 0].damage} ${myChar.attacks[myChar.equipped || 0].type}`} onClick={() => setAim({ mode: 'attack', idx: myChar.equipped || 0, target: 'enemy' })} disabled={busy} className="px-2.5 py-1.5 rounded bg-fog border border-eldritch/40 text-parchment text-sm">🗡️ {myChar.attacks[myChar.equipped || 0].name}</button>}
-        {(myChar.attacks || []).length > 1 && <button title={en ? 'Switch weapon (free)' : '切换持握武器（自由动作）'} onClick={() => call('/api/dnd/item', { roomId: props.room.id, action: 'equip', weaponIdx: ((myChar.equipped || 0) + 1) % myChar.attacks.length })} disabled={busy} className="px-2.5 py-1.5 rounded bg-fog border border-parchment/25 text-parchment/70 text-sm">🔄 {en ? 'Swap' : '换武器'}</button>}
-        {(myChar.cantrips || []).map((a: any, i: number) => <button key={'c' + i} title={`${en ? 'Cantrip' : '戏法'} · ${a.damage} ${a.type}`} onClick={() => setAim({ mode: 'cast', idx: i, target: 'enemy' })} disabled={busy} className="px-2.5 py-1.5 rounded bg-eldritch/30 border border-eldritch/40 text-parchment text-sm">✨ {a.name}</button>)}
-        {(myChar.knownSpells || []).map((k: string) => { const sp = SPELLS[k]; if (!sp) return null; const slots = myChar.spellSlots?.[sp.level] || 0; return <button key={'s' + k} title={`${sp.level}${en ? '-lvl' : '环'} · ${spellEffect(sp)}`} disabled={busy || slots <= 0} onClick={() => setAim({ mode: 'spell', spellKey: k, target: sp.target })} className="px-2.5 py-1.5 rounded bg-purple-900/40 border border-purple-600/50 text-parchment text-sm disabled:opacity-40">🔮 {sp.cn}<span className="text-[10px] text-parchment/50"> {slots}</span></button>; })}
-        {myChar.cls === 'barbarian' && !myChar.rage && <button onClick={() => call('/api/dnd/combat', { roomId: props.room.id, action: 'rage' })} disabled={busy} className="px-2.5 py-1.5 rounded bg-orange-900/40 border border-orange-600/50 text-parchment text-sm">🪓 {en ? 'Rage' : '狂暴'}</button>}
-        {myChar.cls === 'fighter' && !myChar.secondWindUsed && <button onClick={() => call('/api/dnd/combat', { roomId: props.room.id, action: 'secondwind' })} disabled={busy} className="px-2.5 py-1.5 rounded bg-amber-900/40 border border-amber-600/50 text-parchment text-sm">💨 {en ? 'Second Wind' : '二次呼吸'}</button>}
-        {myChar.potions > 0 && <button onClick={() => call('/api/dnd/combat', { roomId: props.room.id, action: 'potion' })} disabled={busy} className="px-2.5 py-1.5 rounded bg-red-900/40 border border-red-700/50 text-parchment text-sm">🧪 {en ? 'Potion' : '药水'} {myChar.potions}</button>}
-        <button onClick={() => call('/api/dnd/combat', { roomId: props.room.id, action: 'dodge' })} disabled={busy} className="px-2.5 py-1.5 rounded bg-fog border border-parchment/25 text-parchment/70 text-sm">🛡️ {en ? 'Dodge' : '闪避'}</button>
-        <button onClick={() => { if (confirm(en ? 'Flee the battle?' : '撤退脱离战斗？')) call('/api/dnd/combat', { roomId: props.room.id, action: 'flee' }); }} disabled={busy} className="px-2.5 py-1.5 rounded bg-fog border border-parchment/20 text-parchment/50 text-sm">🏃 {en ? 'Flee' : '撤退'}</button>
+      <div className="flex gap-2 flex-wrap">
+        {myChar.attacks?.[myChar.equipped || 0] && actCard('atk', myChar.attacks[myChar.equipped || 0].ability === 'dex' ? 'crossbow' : 'sword', myChar.attacks[myChar.equipped || 0].name, `${myChar.attacks[myChar.equipped || 0].damage} ${myChar.attacks[myChar.equipped || 0].type}`, () => setAim({ mode: 'attack', idx: myChar.equipped || 0, target: 'enemy' }), { sel: aim?.mode === 'attack' })}
+        {(myChar.attacks || []).length > 1 && actCard('swap', 'swap', en ? 'Swap' : '换武器', en ? 'switch' : '切换持握', () => call('/api/dnd/item', { roomId: props.room.id, action: 'equip', weaponIdx: ((myChar.equipped || 0) + 1) % myChar.attacks.length }))}
+        {(myChar.cantrips || []).map((a: any, i: number) => actCard('ct' + i, 'spark', a.name, `${a.damage} ${a.type}`, () => setAim({ mode: 'cast', idx: i, target: 'enemy' }), { sel: aim?.mode === 'cast' && aim.idx === i }))}
+        {(myChar.knownSpells || []).map((k: string) => { const sp = SPELLS[k]; if (!sp) return null; const slots = myChar.spellSlots?.[sp.level] || 0; return actCard('sp' + k, 'wand', sp.cn, `${sp.level}${en ? 'lv' : '环'} · ${en ? 'left' : '剩'}${slots}`, () => setAim({ mode: 'spell', spellKey: k, target: sp.target }), { sel: aim?.mode === 'spell' && aim.spellKey === k, disabled: slots <= 0 }); })}
+        {myChar.cls === 'barbarian' && !myChar.rage && actCard('rage', 'flame', en ? 'Rage' : '狂暴', en ? '+2 dmg · resist' : '伤害+2·减伤', () => call('/api/dnd/combat', { roomId: props.room.id, action: 'rage' }))}
+        {myChar.cls === 'fighter' && !myChar.secondWindUsed && actCard('sw', 'heart', en ? '2nd Wind' : '二次呼吸', en ? 'heal 1d10+lv' : '回1d10+级', () => call('/api/dnd/combat', { roomId: props.room.id, action: 'secondwind' }))}
+        {myChar.potions > 0 && actCard('pot', 'potion', `${en ? 'Potion' : '药水'} ${myChar.potions}`, en ? 'heal 2d4+2' : '回2d4+2', () => call('/api/dnd/combat', { roomId: props.room.id, action: 'potion' }))}
+        {actCard('dodge', 'shield', en ? 'Dodge' : '闪避', en ? 'foes disadv.' : '攻击者劣势', () => call('/api/dnd/combat', { roomId: props.room.id, action: 'dodge' }))}
+        {actCard('flee', 'flee', en ? 'Flee' : '撤退', `${en ? 'escape' : '成功率'} ~${fleeChance}%`, () => { if (confirm(en ? 'Try to flee?' : '尝试撤退脱离战斗？')) call('/api/dnd/combat', { roomId: props.room.id, action: 'flee' }); })}
       </div>
     </div>
   ) : null;
@@ -521,4 +530,21 @@ function Backpack({ c, en, busy, onUsePotion, onEquip }: { c: any; en: boolean; 
       </>}
     </div>
   );
+}
+
+function DndIcon({ name, className }: { name: string; className?: string }) {
+  const paths: Record<string, any> = {
+    sword: <><path d="M14 4l6 6-8 8" /><path d="M16.5 6.5 8 15" /><path d="M7 16l-3 3v-3l3-3 3 3-3 3" /></>,
+    crossbow: <><path d="M4 7h16" /><path d="M12 7v11" /><path d="M5 7l3.5 4M19 7l-3.5 4" /><circle cx="12" cy="18.5" r="1.3" /></>,
+    swap: <><path d="M6 9h11l-3-3" /><path d="M18 15H7l3 3" /></>,
+    spark: <path d="M12 3l1.7 5.3L19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7z" />,
+    wand: <><path d="M5 19l9-9" /><path d="M16.5 3.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" /></>,
+    flame: <path d="M12 3c2.4 3.3 4.4 4.6 4.4 8.4a4.4 4.4 0 1 1-8.8 0c0-1.9 1-3.1 2.1-4.1.1 1.2.7 2.1 1.4 2.1.8 0 1.5-1.6.9-6.4z" />,
+    heart: <><path d="M12 20S4 15 4 9.6A3.6 3.6 0 0 1 12 7a3.6 3.6 0 0 1 8 2.6C20 15 12 20 12 20z" /><path d="M7.5 12h2l1-2 2 4 1-2h2.5" /></>,
+    potion: <><path d="M9 3h6M10 3v4l-3.4 7.6A3 3 0 0 0 9.3 19h5.4a3 3 0 0 0 2.7-4.4L14 7V3" /><path d="M7.6 14h8.8" /></>,
+    shield: <path d="M12 3l7 3v5c0 4.6-3 7.6-7 9.6-4-2-7-5-7-9.6V6z" />,
+    flee: <><path d="M4 12h10" /><path d="M11 8l4 4-4 4" /><path d="M19 5v14" /></>,
+    monster: <><path d="M5 11c0-3.3 3.1-6 7-6s7 2.7 7 6c0 3.7-3.1 7-7 7s-7-3.3-7-7z" /><path d="M9.2 5 7.6 2M14.8 5l1.6-3" /><circle cx="9.6" cy="11" r="1.1" /><circle cx="14.4" cy="11" r="1.1" /><path d="M9.5 15l1.2 1 1.3-1 1.3 1 1.2-1" /></>,
+  };
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className={className}>{paths[name] || paths.sword}</svg>;
 }

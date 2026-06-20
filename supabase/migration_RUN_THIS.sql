@@ -397,3 +397,16 @@ do $$ begin alter publication supabase_realtime add table mcc_hands; exception w
 -- 玩家开着房间页时每分钟更新 last_active；超过 5 分钟无人 → 后台自动把房间设为 ended。
 alter table rooms add column if not exists last_active timestamptz not null default now();
 create index if not exists idx_rooms_last_active on rooms (game_state, last_active);
+
+-- ---------- 龙与地下城（D&D）模式 ----------
+-- 单张共享状态表：队伍角色卡 / 场景 / 战斗（先攻、怪物 HP/AC）/ 日志。成员可读，服务端（route）写。
+alter table rooms add column if not exists dnd_phase text; -- lobby|creation|explore|combat|ended
+create table if not exists dnd_state (
+  room_id uuid primary key references rooms(id) on delete cascade,
+  state jsonb not null,
+  updated_at timestamptz not null default now()
+);
+alter table dnd_state enable row level security;
+drop policy if exists dnd_state_read on dnd_state;
+create policy dnd_state_read on dnd_state for select using (is_room_member(room_id) or is_admin());
+do $$ begin alter publication supabase_realtime add table dnd_state; exception when duplicate_object then null; end $$;

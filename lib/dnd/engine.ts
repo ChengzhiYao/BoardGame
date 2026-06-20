@@ -1,0 +1,306 @@
+// 龙与地下城（D&D 5e-lite）确定性规则引擎。所有数值机制都在这里算，AI 只负责叙事与生成怪物数值。
+// 设计同 MCC：纯函数 + 整份 state，路由用乐观锁串行写回。
+
+export type Ability = 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha';
+export const ABILITIES: Ability[] = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
+export const ABILITY_CN: Record<Ability, string> = { str: '力量', dex: '敏捷', con: '体质', int: '智力', wis: '感知', cha: '魅力' };
+
+export type Scores = Record<Ability, number>;
+
+export const SKILLS: Record<string, { ability: Ability; cn: string }> = {
+  acrobatics: { ability: 'dex', cn: '杂技' }, animal: { ability: 'wis', cn: '驯兽' }, arcana: { ability: 'int', cn: '奥秘' },
+  athletics: { ability: 'str', cn: '运动' }, deception: { ability: 'cha', cn: '欺瞒' }, history: { ability: 'int', cn: '历史' },
+  insight: { ability: 'wis', cn: '洞悉' }, intimidation: { ability: 'cha', cn: '威吓' }, investigation: { ability: 'int', cn: '调查' },
+  medicine: { ability: 'wis', cn: '医药' }, nature: { ability: 'int', cn: '自然' }, perception: { ability: 'wis', cn: '察觉' },
+  performance: { ability: 'cha', cn: '表演' }, persuasion: { ability: 'cha', cn: '游说' }, religion: { ability: 'int', cn: '宗教' },
+  sleight: { ability: 'dex', cn: '巧手' }, stealth: { ability: 'dex', cn: '隐匿' }, survival: { ability: 'wis', cn: '生存' },
+};
+
+export const RACES: Record<string, { cn: string; mods: Partial<Scores>; speed: number; traits: string }> = {
+  human: { cn: '人类', mods: { str: 1, dex: 1, con: 1, int: 1, wis: 1, cha: 1 }, speed: 30, traits: '通用、适应力强' },
+  elf: { cn: '精灵', mods: { dex: 2, int: 1 }, speed: 30, traits: '黑暗视觉、敏锐感官、魅惑免疫' },
+  dwarf: { cn: '矮人', mods: { con: 2, str: 1 }, speed: 25, traits: '黑暗视觉、毒素抗性、坚韧' },
+  halfling: { cn: '半身人', mods: { dex: 2, cha: 1 }, speed: 25, traits: '幸运、勇敢、灵活' },
+  halforc: { cn: '半兽人', mods: { str: 2, con: 1 }, speed: 30, traits: '黑暗视觉、不屈、凶蛮攻击' },
+  tiefling: { cn: '提夫林', mods: { cha: 2, int: 1 }, speed: 30, traits: '黑暗视觉、火焰抗性、地狱血脉' },
+};
+
+type ClassDef = {
+  cn: string; hd: number; primary: Ability; saves: Ability[]; skillCount: number; skillList: string[];
+  caster?: 'full' | 'half' | 'none'; castAbility?: Ability;
+  startAttacks: { name: string; ability: Ability; damage: string; type: string }[];
+  cantrips?: { name: string; ability: Ability; damage: string; type: string; save?: Ability }[];
+  features: string;
+};
+
+export const CLASSES: Record<string, ClassDef> = {
+  fighter: { cn: '战士', hd: 10, primary: 'str', saves: ['str', 'con'], skillCount: 2, skillList: ['athletics', 'intimidation', 'perception', 'survival', 'history', 'insight'], caster: 'none',
+    startAttacks: [{ name: '长剑', ability: 'str', damage: '1d8', type: '挥砍' }, { name: '重弩', ability: 'dex', damage: '1d10', type: '穿刺' }], features: '战斗风格、二次呼吸、第3级行动如潮' },
+  rogue: { cn: '游荡者', hd: 8, primary: 'dex', saves: ['dex', 'int'], skillCount: 4, skillList: ['acrobatics', 'stealth', 'sleight', 'deception', 'perception', 'investigation', 'persuasion', 'insight'], caster: 'none',
+    startAttacks: [{ name: '短剑', ability: 'dex', damage: '1d6', type: '穿刺' }, { name: '短弓', ability: 'dex', damage: '1d6', type: '穿刺' }], features: '偷袭（额外1d6）、熟练专精、第2级灵巧行动' },
+  wizard: { cn: '法师', hd: 6, primary: 'int', saves: ['int', 'wis'], skillCount: 2, skillList: ['arcana', 'history', 'investigation', 'medicine', 'religion', 'insight'], caster: 'full', castAbility: 'int',
+    startAttacks: [{ name: '法杖', ability: 'str', damage: '1d6', type: '钝击' }], cantrips: [{ name: '火焰箭', ability: 'int', damage: '1d10', type: '火焰' }, { name: '冷冻射线', ability: 'int', damage: '1d8', type: '寒冷' }], features: '法术书、奥术回复' },
+  cleric: { cn: '牧师', hd: 8, primary: 'wis', saves: ['wis', 'cha'], skillCount: 2, skillList: ['medicine', 'religion', 'insight', 'persuasion', 'history'], caster: 'full', castAbility: 'wis',
+    startAttacks: [{ name: '硬头锤', ability: 'str', damage: '1d6', type: '钝击' }], cantrips: [{ name: '圣火术', ability: 'wis', damage: '1d8', type: '光耀', save: 'dex' }], features: '神术领域、引导神力' },
+  ranger: { cn: '游侠', hd: 10, primary: 'dex', saves: ['str', 'dex'], skillCount: 3, skillList: ['animal', 'athletics', 'perception', 'stealth', 'survival', 'nature', 'investigation'], caster: 'half', castAbility: 'wis',
+    startAttacks: [{ name: '长弓', ability: 'dex', damage: '1d8', type: '穿刺' }, { name: '双短剑', ability: 'dex', damage: '1d6', type: '穿刺' }], features: '宿敌、自然探索者' },
+  barbarian: { cn: '野蛮人', hd: 12, primary: 'str', saves: ['str', 'con'], skillCount: 2, skillList: ['athletics', 'intimidation', 'perception', 'survival', 'animal', 'nature'], caster: 'none',
+    startAttacks: [{ name: '巨斧', ability: 'str', damage: '1d12', type: '挥砍' }, { name: '手斧', ability: 'str', damage: '1d6', type: '挥砍' }], features: '狂暴（伤害+2、抗性）、不羁防御' },
+};
+
+export const BACKGROUNDS: Record<string, { cn: string; skills: string[] }> = {
+  acolyte: { cn: '侍僧', skills: ['insight', 'religion'] }, soldier: { cn: '士兵', skills: ['athletics', 'intimidation'] },
+  criminal: { cn: '罪犯', skills: ['deception', 'stealth'] }, sage: { cn: '学者', skills: ['arcana', 'history'] },
+  folkhero: { cn: '平民英雄', skills: ['animal', 'survival'] }, noble: { cn: '贵族', skills: ['history', 'persuasion'] },
+};
+
+export const STANDARD_ARRAY = [15, 14, 13, 12, 10, 8];
+
+// ---------- 基础数学 ----------
+export const mod = (score: number) => Math.floor((score - 10) / 2);
+export const profBonus = (level: number) => 2 + Math.floor((Math.max(1, level) - 1) / 4);
+export function rollDie(sides: number) { return 1 + Math.floor(Math.random() * sides); }
+export function rollDice(expr: string): { total: number; rolls: number[]; mod: number } {
+  // "2d6+3" / "1d8" / "1d10-1"
+  const m = /^(\d+)d(\d+)([+-]\d+)?$/i.exec(expr.replace(/\s/g, ''));
+  if (!m) return { total: 0, rolls: [], mod: 0 };
+  const n = +m[1], s = +m[2], b = m[3] ? +m[3] : 0;
+  const rolls = Array.from({ length: n }, () => rollDie(s));
+  return { total: rolls.reduce((a, c) => a + c, 0) + b, rolls, mod: b };
+}
+export function d20(adv: 0 | 1 | -1 = 0): { roll: number; rolls: number[] } {
+  const a = rollDie(20); if (adv === 0) return { roll: a, rolls: [a] };
+  const b = rollDie(20); return { roll: adv === 1 ? Math.max(a, b) : Math.min(a, b), rolls: [a, b] };
+}
+
+// ---------- 类型 ----------
+export type Attack = { name: string; ability: Ability; damage: string; type: string; save?: Ability };
+export type Character = {
+  seat: string; name: string; race: string; cls: string; background: string; level: number; xp: number;
+  scores: Scores; hpMax: number; hp: number; tempHp: number; ac: number; speed: number;
+  profBonus: number; skills: string[]; saveProf: Ability[]; attacks: Attack[]; cantrips: Attack[];
+  spellSlots: Record<number, number>; spellSlotsMax: Record<number, number>; spellDc: number; spellAtk: number;
+  conditions: string[]; deathSaves: { ok: number; fail: number }; inspiration: boolean; gold: number; alive: boolean;
+};
+export type Monster = { id: string; name: string; ac: number; hp: number; hpMax: number; attackBonus: number; damage: string; toHitName?: string; conditions: string[]; alive: boolean };
+export type Combatant = { ref: string; init: number; isPlayer: boolean };
+export type Combat = { active: boolean; round: number; order: Combatant[]; turnIdx: number; monsters: Monster[] } | null;
+export type LogEntry = { msg: string; kind?: string };
+export type State = {
+  phase: 'lobby' | 'creation' | 'explore' | 'combat' | 'ended';
+  theme: string; scene: string; chars: Record<string, Character>; seats: string[];
+  combat: Combat; log: LogEntry[]; logSeq: number; quest: string; xpAward: number;
+};
+
+function L(s: State, msg: string, kind?: string) { s.log.push({ msg, kind }); s.logSeq = (s.logSeq || 0) + 1; }
+
+// ---------- 建卡 ----------
+export function buildCharacter(opts: { seat: string; name: string; race: string; cls: string; background: string; baseScores: Scores; extraSkills?: string[] }): Character {
+  const race = RACES[opts.race] || RACES.human;
+  const cdef = CLASSES[opts.cls] || CLASSES.fighter;
+  const bg = BACKGROUNDS[opts.background] || BACKGROUNDS.soldier;
+  const scores: Scores = { ...opts.baseScores };
+  for (const a of ABILITIES) scores[a] = (scores[a] || 8) + (race.mods[a] || 0);
+  const level = 1; const pb = profBonus(level);
+  const conMod = mod(scores.con);
+  const hpMax = cdef.hd + conMod;
+  const ac = 10 + mod(scores.dex); // 无甲基础；装备由 AI 叙事，简化
+  const skills = Array.from(new Set([...(bg.skills || []), ...((opts.extraSkills && opts.extraSkills.length ? opts.extraSkills : cdef.skillList.slice(0, cdef.skillCount)))]));
+  const castMod = cdef.castAbility ? mod(scores[cdef.castAbility]) : 0;
+  const slots = casterSlots(cdef.caster || 'none', level);
+  return {
+    seat: opts.seat, name: opts.name, race: opts.race, cls: opts.cls, background: opts.background, level, xp: 0,
+    scores, hpMax, hp: hpMax, tempHp: 0, ac, speed: race.speed, profBonus: pb,
+    skills, saveProf: cdef.saves, attacks: cdef.startAttacks.map((a) => ({ ...a })), cantrips: (cdef.cantrips || []).map((a) => ({ ...a })),
+    spellSlots: { ...slots }, spellSlotsMax: { ...slots }, spellDc: 8 + pb + castMod, spellAtk: pb + castMod,
+    conditions: [], deathSaves: { ok: 0, fail: 0 }, inspiration: false, gold: 15, alive: true,
+  };
+}
+
+function casterSlots(caster: string, level: number): Record<number, number> {
+  if (caster === 'none') return {};
+  if (caster === 'full') { // 简化：法师/牧师按等级给 1 环位
+    const t: Record<number, number> = {}; t[1] = level >= 1 ? 2 : 0; if (level >= 3) t[2] = 2; if (level >= 5) t[3] = 2; return t;
+  }
+  if (caster === 'half') { const t: Record<number, number> = {}; if (level >= 2) t[1] = 2; if (level >= 5) t[2] = 2; return t; }
+  return {};
+}
+
+// ---------- 检定 ----------
+export function abilityScore(c: Character, a: Ability) { return mod(c.scores[a]); }
+export function skillCheck(c: Character, skill: string, dc: number, adv: 0 | 1 | -1 = 0) {
+  const sk = SKILLS[skill]; const ability = sk?.ability || 'dex';
+  const prof = c.skills.includes(skill) ? c.profBonus : 0;
+  const r = d20(adv); const total = r.roll + mod(c.scores[ability]) + prof;
+  return { roll: r.roll, rolls: r.rolls, bonus: mod(c.scores[ability]) + prof, total, dc, success: total >= dc, crit: r.roll === 20, fumble: r.roll === 1, ability, skillCn: sk?.cn || skill };
+}
+export function savingThrow(c: Character, a: Ability, dc: number, adv: 0 | 1 | -1 = 0) {
+  const prof = c.saveProf.includes(a) ? c.profBonus : 0;
+  const r = d20(adv); const total = r.roll + mod(c.scores[a]) + prof;
+  return { roll: r.roll, total, bonus: mod(c.scores[a]) + prof, dc, success: total >= dc };
+}
+
+// ---------- 战斗 ----------
+export function startCombat(s: State, monsters: Monster[]) {
+  const order: Combatant[] = [];
+  for (const seat of s.seats) { const c = s.chars[seat]; if (c && c.alive) order.push({ ref: seat, init: rollDie(20) + mod(c.scores.dex), isPlayer: true }); }
+  for (const m of monsters) { m.conditions = m.conditions || []; m.alive = m.hp > 0; order.push({ ref: m.id, init: rollDie(20) + (m.attackBonus >= 4 ? 2 : 1), isPlayer: false }); }
+  order.sort((a, b) => b.init - a.init);
+  s.combat = { active: true, round: 1, order, turnIdx: 0, monsters };
+  s.phase = 'combat';
+  L(s, `⚔️ 战斗开始！先攻顺序：${order.map((o) => refName(s, o.ref) + '(' + o.init + ')').join(' → ')}`, 'combat');
+}
+
+export function refName(s: State, ref: string): string {
+  if (s.chars[ref]) return s.chars[ref].name;
+  const m = s.combat?.monsters.find((x) => x.id === ref); return m ? m.name : ref;
+}
+function refAlive(s: State, ref: string): boolean {
+  if (s.chars[ref]) return s.chars[ref].alive;
+  const m = s.combat?.monsters.find((x) => x.id === ref); return !!m && m.alive;
+}
+export function currentActor(s: State): Combatant | null {
+  if (!s.combat || !s.combat.active) return null; return s.combat.order[s.combat.turnIdx] || null;
+}
+
+export function playerAttack(s: State, seat: string, weaponIdx: number, targetId: string): { ok: boolean; error?: string } {
+  if (!s.combat?.active) return { ok: false, error: '现在不是战斗' };
+  const cur = currentActor(s); if (!cur || cur.ref !== seat) return { ok: false, error: '还没轮到你' };
+  const c = s.chars[seat]; if (!c || !c.alive) return { ok: false, error: '你无法行动' };
+  const atk = c.attacks[weaponIdx] || c.attacks[0]; if (!atk) return { ok: false, error: '没有可用武器' };
+  const m = s.combat.monsters.find((x) => x.id === targetId); if (!m || !m.alive) return { ok: false, error: '目标无效' };
+  const bonus = mod(c.scores[atk.ability]) + c.profBonus;
+  const r = d20(0); const hit = r.roll === 20 || (r.roll !== 1 && r.roll + bonus >= m.ac);
+  if (!hit) { L(s, `🗡️ ${c.name} 用${atk.name}攻击 ${m.name}：d20(${r.roll})+${bonus}=${r.roll + bonus} vs AC${m.ac} —— 未命中。`, 'attack'); endTurn(s); return { ok: true }; }
+  const dmg = rollDice(atk.damage); let total = dmg.total + mod(c.scores[atk.ability]); if (r.roll === 20) total += rollDice(atk.damage).total;
+  total = Math.max(1, total); m.hp = Math.max(0, m.hp - total);
+  L(s, `🗡️ ${c.name} 用${atk.name}${r.roll === 20 ? '【重击】' : ''}命中 ${m.name}，造成 ${total} 点${atk.type}伤害（${m.hp}/${m.hpMax}）。`, 'attack');
+  if (m.hp <= 0) { m.alive = false; L(s, `💀 ${m.name} 倒下了！`, 'kill'); }
+  endTurn(s); return { ok: true };
+}
+
+export function playerCastDamage(s: State, seat: string, cantripIdx: number, targetId: string): { ok: boolean; error?: string } {
+  if (!s.combat?.active) return { ok: false, error: '现在不是战斗' };
+  const cur = currentActor(s); if (!cur || cur.ref !== seat) return { ok: false, error: '还没轮到你' };
+  const c = s.chars[seat]; if (!c || !c.alive) return { ok: false, error: '你无法行动' };
+  const sp = c.cantrips[cantripIdx]; if (!sp) return { ok: false, error: '没有可用法术' };
+  const m = s.combat.monsters.find((x) => x.id === targetId); if (!m || !m.alive) return { ok: false, error: '目标无效' };
+  if (sp.save) { // 豁免类法术：怪物 dex 豁免，简化为 d20+2 vs spellDc
+    const save = rollDie(20) + 2; const dmg = rollDice(sp.damage); const total = save >= c.spellDc ? Math.floor(dmg.total / 2) : dmg.total;
+    m.hp = Math.max(0, m.hp - total); L(s, `✨ ${c.name} 施放${sp.name}，${m.name} 豁免(${save} vs DC${c.spellDc})${save >= c.spellDc ? '成功，半伤' : '失败'}，受 ${total} 点${sp.type}伤害（${m.hp}/${m.hpMax}）。`, 'spell');
+  } else {
+    const bonus = c.spellAtk; const r = d20(0); const hit = r.roll === 20 || (r.roll !== 1 && r.roll + bonus >= m.ac);
+    if (!hit) { L(s, `✨ ${c.name} 的${sp.name}射偏了（${r.roll}+${bonus} vs AC${m.ac}）。`, 'spell'); endTurn(s); return { ok: true }; }
+    let total = rollDice(sp.damage).total; if (r.roll === 20) total += rollDice(sp.damage).total; m.hp = Math.max(0, m.hp - total);
+    L(s, `✨ ${c.name} 的${sp.name}${r.roll === 20 ? '【暴击】' : ''}击中 ${m.name}，${total} 点${sp.type}伤害（${m.hp}/${m.hpMax}）。`, 'spell');
+  }
+  if (m.hp <= 0) { m.alive = false; L(s, `💀 ${m.name} 倒下了！`, 'kill'); }
+  endTurn(s); return { ok: true };
+}
+
+export function playerDodgeOrHelp(s: State, seat: string, kind: string): { ok: boolean; error?: string } {
+  const cur = currentActor(s); if (!cur || cur.ref !== seat) return { ok: false, error: '还没轮到你' };
+  L(s, `🛡️ ${s.chars[seat]?.name} 选择${kind === 'dodge' ? '闪避' : '戒备'}。`, 'combat');
+  endTurn(s); return { ok: true };
+}
+
+// 推进回合：跳过死亡者；轮到怪物则自动行动；战斗结束则结算。
+export function endTurn(s: State): void {
+  if (!s.combat?.active) return;
+  const cb = s.combat;
+  for (let guard = 0; guard < 50; guard++) {
+    cb.turnIdx++;
+    if (cb.turnIdx >= cb.order.length) { cb.turnIdx = 0; cb.round++; L(s, `—— 第 ${cb.round} 轮 ——`, 'combat'); }
+    if (checkCombatEnd(s)) return;
+    const actor = cb.order[cb.turnIdx];
+    if (!actor || !refAlive(s, actor.ref)) continue; // 跳过倒下者
+    if (actor.isPlayer) return; // 轮到真人，等待输入
+    monsterTurn(s, actor.ref); // 怪物自动
+    if (checkCombatEnd(s)) return;
+  }
+}
+
+function monsterTurn(s: State, id: string) {
+  const cb = s.combat!; const m = cb.monsters.find((x) => x.id === id); if (!m || !m.alive) return;
+  const targets = s.seats.map((seat) => s.chars[seat]).filter((c) => c && c.alive);
+  if (!targets.length) return;
+  const target = targets.sort((a, b) => a.hp - b.hp)[0]; // 咬最弱的
+  const r = d20(0); const hit = r.roll === 20 || (r.roll !== 1 && r.roll + m.attackBonus >= target.ac);
+  if (!hit) { L(s, `👹 ${m.name} 攻击 ${target.name}：${r.roll}+${m.attackBonus} vs AC${target.ac} —— 未命中。`, 'attack'); return; }
+  const dmg = rollDice(m.damage); let total = dmg.total; if (r.roll === 20) total += rollDice(m.damage).total; total = Math.max(1, total);
+  applyDamageToChar(s, target, total, m.name, r.roll === 20);
+}
+
+function applyDamageToChar(s: State, c: Character, amount: number, source: string, crit: boolean) {
+  let dmg = amount;
+  if (c.tempHp > 0) { const used = Math.min(c.tempHp, dmg); c.tempHp -= used; dmg -= used; }
+  c.hp = Math.max(0, c.hp - dmg);
+  L(s, `👹 ${source} ${crit ? '【重击】' : ''}命中 ${c.name}，造成 ${amount} 点伤害（${c.hp}/${c.hpMax}）。`, 'attack');
+  if (c.hp <= 0) { c.hp = 0; c.conditions = Array.from(new Set([...c.conditions, '倒地濒死'])); L(s, `🩸 ${c.name} 倒地，开始死亡豁免！`, 'down'); }
+}
+
+// 濒死角色的死亡豁免（每轮轮到其回合时由路由调用）
+export function deathSave(s: State, seat: string): { ok: boolean; error?: string } {
+  const c = s.chars[seat]; if (!c) return { ok: false, error: '无此角色' };
+  if (c.hp > 0 || !c.alive) return { ok: false, error: '无需死亡豁免' };
+  const r = rollDie(20);
+  if (r === 20) { c.hp = 1; c.deathSaves = { ok: 0, fail: 0 }; c.conditions = c.conditions.filter((x) => x !== '倒地濒死'); L(s, `✨ ${c.name} 死亡豁免掷出20，奇迹般以1点生命苏醒！`, 'up'); }
+  else if (r === 1) { c.deathSaves.fail += 2; L(s, `☠️ ${c.name} 死亡豁免大失败（双倍失败）。`, 'down'); }
+  else if (r >= 10) { c.deathSaves.ok += 1; L(s, `${c.name} 死亡豁免成功（${c.deathSaves.ok}/3）。`, 'down'); }
+  else { c.deathSaves.fail += 1; L(s, `${c.name} 死亡豁免失败（${c.deathSaves.fail}/3）。`, 'down'); }
+  if (c.deathSaves.ok >= 3) { c.deathSaves = { ok: 0, fail: 0 }; c.conditions = c.conditions.filter((x) => x !== '倒地濒死'); L(s, `${c.name} 稳定下来（昏迷但存活）。`, 'down'); }
+  if (c.deathSaves.fail >= 3) { c.alive = false; c.conditions = ['死亡']; L(s, `⚰️ ${c.name} 死亡。`, 'death'); }
+  endTurn(s); return { ok: true };
+}
+
+export function checkCombatEnd(s: State): boolean {
+  if (!s.combat?.active) return false;
+  const monstersUp = s.combat.monsters.some((m) => m.alive);
+  const heroesUp = s.seats.some((seat) => s.chars[seat]?.alive && s.chars[seat].hp > 0);
+  if (!monstersUp) { L(s, `🎉 敌人全部被击败！`, 'win'); s.xpAward += s.combat.monsters.reduce((a, m) => a + Math.max(25, m.hpMax * 5), 0); endCombat(s, 'win'); return true; }
+  if (!heroesUp) { L(s, `💀 全队倒下……`, 'loss'); endCombat(s, 'loss'); return true; }
+  return false;
+}
+function endCombat(s: State, _r: string) { if (s.combat) s.combat.active = false; s.phase = 'explore'; }
+
+// ---------- 休整 / 升级 ----------
+export function shortRest(s: State) {
+  for (const seat of s.seats) { const c = s.chars[seat]; if (!c?.alive) continue; const heal = Math.floor(c.hpMax / 4) + mod(c.scores.con); c.hp = Math.min(c.hpMax, c.hp + Math.max(1, heal)); }
+  L(s, `🏕️ 全队短休，恢复部分生命。`, 'rest');
+}
+export function longRest(s: State) {
+  for (const seat of s.seats) { const c = s.chars[seat]; if (!c) continue; if (!c.alive && c.conditions.includes('死亡')) continue; c.hp = c.hpMax; c.tempHp = 0; c.conditions = c.conditions.filter((x) => x === '死亡'); c.deathSaves = { ok: 0, fail: 0 }; c.spellSlots = { ...c.spellSlotsMax }; }
+  L(s, `🌙 全队长休，生命与法术位回满。`, 'rest');
+}
+export function awardAndMaybeLevel(s: State): void {
+  if (s.xpAward <= 0) return;
+  const per = Math.floor(s.xpAward / Math.max(1, s.seats.length));
+  for (const seat of s.seats) { const c = s.chars[seat]; if (!c?.alive) continue; c.xp += per; }
+  s.xpAward = 0;
+  // 简化升级：每 300*level XP 升一级
+  for (const seat of s.seats) { const c = s.chars[seat]; if (!c?.alive) continue;
+    while (c.xp >= 300 * c.level) { c.xp -= 300 * c.level; levelUp(s, c); }
+  }
+}
+function levelUp(s: State, c: Character) {
+  c.level += 1; c.profBonus = profBonus(c.level);
+  const cdef = CLASSES[c.cls]; const hd = cdef?.hd || 8;
+  const gain = Math.max(1, Math.floor(hd / 2) + 1 + mod(c.scores.con)); c.hpMax += gain; c.hp += gain;
+  c.spellSlotsMax = casterSlots(cdef?.caster || 'none', c.level); c.spellSlots = { ...c.spellSlotsMax };
+  const castMod = cdef?.castAbility ? mod(c.scores[cdef.castAbility]) : 0; c.spellDc = 8 + c.profBonus + castMod; c.spellAtk = c.profBonus + castMod;
+  L(s, `⭐ ${c.name} 升至 ${c.level} 级！（HP +${gain}，熟练 +${c.profBonus}）`, 'level');
+}
+
+// ---------- 快照（给前端；目前全队信息共享，怪物 HP 也展示） ----------
+export function newGame(theme: string, seats: string[], names: Record<string, string>): State {
+  const s: State = { phase: 'creation', theme: theme || '', scene: '', chars: {}, seats: [...seats], combat: null, log: [], logSeq: 0, quest: '', xpAward: 0 };
+  L(s, `🎲 一支冒险小队集结。请各自创建角色。`, 'sys');
+  return s;
+}
+export function publicView(s: State) {
+  return {
+    phase: s.phase, theme: s.theme, scene: s.scene, quest: s.quest, seats: s.seats,
+    chars: s.chars, combat: s.combat ? { active: s.combat.active, round: s.combat.round, turnIdx: s.combat.turnIdx, order: s.combat.order, monsters: s.combat.monsters, current: currentActor(s)?.ref || null } : null,
+    log: s.log.slice(-30), logSeq: s.logSeq,
+  };
+}

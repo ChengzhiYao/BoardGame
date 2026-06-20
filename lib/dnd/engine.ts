@@ -80,11 +80,12 @@ export type Character = {
   scores: Scores; hpMax: number; hp: number; tempHp: number; ac: number; speed: number;
   profBonus: number; skills: string[]; saveProf: Ability[]; attacks: Attack[]; cantrips: Attack[];
   spellSlots: Record<number, number>; spellSlotsMax: Record<number, number>; spellDc: number; spellAtk: number;
+  baseAc: number; armorBonus: number; shield: boolean;
   conditions: string[]; deathSaves: { ok: number; fail: number }; inspiration: boolean; gold: number; knownSpells: string[]; potions: number; rage?: boolean; secondWindUsed?: boolean; statuses?: { name: string; rounds: number }[]; alive: boolean;
 };
 export type Monster = { id: string; name: string; ac: number; hp: number; hpMax: number; attackBonus: number; damage: string; toHitName?: string; special?: string; conditions: string[]; statuses?: { name: string; rounds: number }[]; alive: boolean };
 export type Combatant = { ref: string; init: number; isPlayer: boolean };
-export type Combat = { active: boolean; round: number; order: Combatant[]; turnIdx: number; monsters: Monster[]; boss?: boolean } | null;
+export type Combat = { active: boolean; round: number; order: Combatant[]; turnIdx: number; monsters: Monster[]; boss?: boolean; env?: string } | null;
 export type LogEntry = { msg: string; kind?: string };
 export type State = {
   phase: 'lobby' | 'creation' | 'explore' | 'combat' | 'ended';
@@ -110,7 +111,7 @@ export function buildCharacter(opts: { seat: string; name: string; race: string;
   const slots = casterSlots(cdef.caster || 'none', level);
   return {
     seat: opts.seat, name: opts.name, race: opts.race, cls: opts.cls, background: opts.background, level, xp: 0,
-    scores, hpMax, hp: hpMax, tempHp: 0, ac, speed: race.speed, profBonus: pb,
+    scores, hpMax, hp: hpMax, tempHp: 0, ac, baseAc: ac, armorBonus: 0, shield: false, speed: race.speed, profBonus: pb,
     skills, saveProf: cdef.saves, attacks: cdef.startAttacks.map((a) => ({ ...a })), cantrips: (cdef.cantrips || []).map((a) => ({ ...a })),
     spellSlots: { ...slots }, spellSlotsMax: { ...slots }, spellDc: 8 + pb + castMod, spellAtk: pb + castMod,
     conditions: [], deathSaves: { ok: 0, fail: 0 }, inspiration: false, gold: 15,
@@ -204,9 +205,10 @@ export function playerCastDamage(s: State, seat: string, cantripIdx: number, tar
   endTurn(s); return { ok: true };
 }
 
-export function playerDodgeOrHelp(s: State, seat: string, kind: string): { ok: boolean; error?: string } {
+export function playerDodgeOrHelp(s: State, seat: string, _kind: string): { ok: boolean; error?: string } {
   const cur = currentActor(s); if (!cur || cur.ref !== seat) return { ok: false, error: '还没轮到你' };
-  L(s, `🛡️ ${s.chars[seat]?.name} 选择${kind === 'dodge' ? '闪避' : '戒备'}。`, 'combat');
+  const c = s.chars[seat]; if (c) addStatus(c, '闪避', 1);
+  L(s, `🛡️ ${c?.name} 进入防御姿态（攻击者劣势，直到你下个回合）。`, 'combat');
   endTurn(s); return { ok: true };
 }
 
@@ -272,7 +274,8 @@ function monsterTurn(s: State, id: string) {
   const targets = s.seats.map((seat) => s.chars[seat]).filter((c) => c && c.alive && c.hp > 0);
   if (!targets.length) return;
   const target = targets.sort((a, b) => a.hp - b.hp)[0]; // 咬最弱的
-  const r = d20(0); const hit = r.roll === 20 || (r.roll !== 1 && r.roll + m.attackBonus >= target.ac);
+  const dadv: 0 | -1 = hasStatus(target, '闪避') ? -1 : 0;
+  const r = d20(dadv); const hit = r.roll === 20 || (r.roll !== 1 && r.roll + m.attackBonus >= target.ac);
   if (!hit) { L(s, `👹 ${m.name} 攻击 ${target.name}：${r.roll}+${m.attackBonus} vs AC${target.ac} —— 未命中。`, 'attack'); return; }
   const dmg = rollDice(m.damage); let total = dmg.total; if (r.roll === 20) total += rollDice(m.damage).total; total = Math.max(1, total);
   applyDamageToChar(s, target, total, m.name, r.roll === 20);
@@ -350,6 +353,8 @@ function levelUp(s: State, c: Character) {
   const gain = Math.max(1, Math.floor(hd / 2) + 1 + mod(c.scores.con)); c.hpMax += gain; c.hp += gain;
   c.spellSlotsMax = casterSlots(cdef?.caster || 'none', c.level); c.spellSlots = { ...c.spellSlotsMax };
   const castMod = cdef?.castAbility ? mod(c.scores[cdef.castAbility]) : 0; c.spellDc = 8 + c.profBonus + castMod; c.spellAtk = c.profBonus + castMod;
+  const learn = (LEVELUP_SPELLS[c.cls] || {})[c.level] || [];
+  for (const k of learn) { if (!c.knownSpells.includes(k)) { c.knownSpells.push(k); L(s, `📖 ${c.name} 习得新法术：${SPELLS[k]?.cn || k}！`, 'level'); } }
   L(s, `⭐ ${c.name} 升至 ${c.level} 级！（HP +${gain}，熟练 +${c.profBonus}）`, 'level');
 }
 
@@ -362,7 +367,7 @@ export function newGame(theme: string, seats: string[], names: Record<string, st
 export function publicView(s: State) {
   return {
     phase: s.phase, theme: s.theme, scene: s.scene, quest: s.quest, seats: s.seats,
-    chars: s.chars, combat: s.combat ? { active: s.combat.active, round: s.combat.round, turnIdx: s.combat.turnIdx, order: s.combat.order, monsters: s.combat.monsters, boss: !!s.combat.boss, current: currentActor(s)?.ref || null } : null,
+    chars: s.chars, combat: s.combat ? { active: s.combat.active, round: s.combat.round, turnIdx: s.combat.turnIdx, order: s.combat.order, monsters: s.combat.monsters, boss: !!s.combat.boss, env: s.combat.env || '', current: currentActor(s)?.ref || null } : null,
     log: s.log.slice(-30), logSeq: s.logSeq,
   };
 }
@@ -381,14 +386,19 @@ export function sanitizeMonsters(arr: any[]): Monster[] {
 }
 
 // ---------- 法术与药水 ----------
-export type Spell = { key: string; cn: string; level: number; kind: 'heal' | 'damage' | 'missile'; target: 'ally' | 'enemy'; dice: string; save?: Ability };
+export type Spell = { key: string; cn: string; level: number; kind: 'heal' | 'damage' | 'missile' | 'status'; target: 'ally' | 'enemy'; dice: string; save?: Ability; status?: string; rounds?: number };
 export const SPELLS: Record<string, Spell> = {
   cure: { key: 'cure', cn: '治疗术', level: 1, kind: 'heal', target: 'ally', dice: '1d8' },
   guidingbolt: { key: 'guidingbolt', cn: '指引之箭', level: 1, kind: 'damage', target: 'enemy', dice: '4d6' },
   magicmissile: { key: 'magicmissile', cn: '魔法飞弹', level: 1, kind: 'missile', target: 'enemy', dice: '1d4+1' },
   burning: { key: 'burning', cn: '燃烧之手', level: 1, kind: 'damage', target: 'enemy', dice: '3d6', save: 'dex' },
+  frighten: { key: 'frighten', cn: '威慑术', level: 1, kind: 'status', target: 'enemy', dice: '', status: '恐惧', rounds: 2 },
+  scorch: { key: 'scorch', cn: '灼热射线', level: 2, kind: 'damage', target: 'enemy', dice: '6d6' },
+  spiritweapon: { key: 'spiritweapon', cn: '灵体武器', level: 2, kind: 'damage', target: 'enemy', dice: '2d8' },
+  hold: { key: 'hold', cn: '人类定身术', level: 2, kind: 'status', target: 'enemy', dice: '', status: '眩晕', rounds: 1 },
 };
-const CLASS_SPELLS: Record<string, string[]> = { cleric: ['cure', 'guidingbolt'], wizard: ['magicmissile', 'burning'], ranger: ['cure'] };
+const CLASS_SPELLS: Record<string, string[]> = { cleric: ['cure', 'guidingbolt', 'frighten'], wizard: ['magicmissile', 'burning', 'frighten'], ranger: ['cure'] };
+const LEVELUP_SPELLS: Record<string, Record<number, string[]>> = { wizard: { 3: ['scorch', 'hold'] }, cleric: { 3: ['spiritweapon', 'hold'] }, ranger: { 3: ['frighten'] } };
 
 export function playerCastSpell(s: State, seat: string, spellKey: string, targetRef: string): { ok: boolean; error?: string } {
   if (!s.combat?.active) return { ok: false, error: '现在不是战斗' };
@@ -406,6 +416,12 @@ export function playerCastSpell(s: State, seat: string, spellKey: string, target
     pushLog(s, `✨ ${c.name} 施放${sp.cn}，治疗 ${t.name} ${heal} 点${wasDown ? '并将其救醒' : ''}（${t.hp}/${t.hpMax}）。`, 'spell');
   } else {
     const m = s.combat.monsters.find((x) => x.id === targetRef); if (!m || !m.alive) return { ok: false, error: '目标无效' };
+    if (sp.kind === 'status') {
+      const save = rollDie(20) + 2;
+      if (save >= c.spellDc) pushLog(s, `✨ ${c.name} 施放${sp.cn}，但 ${m.name} 豁免成功(${save} vs DC${c.spellDc})，抵抗了效果。`, 'spell');
+      else { addStatus(m, sp.status || '眩晕', sp.rounds || 2); pushLog(s, `✨ ${c.name} 施放${sp.cn}，${m.name} 豁免失败，陷入【${sp.status || '眩晕'}】！`, 'spell'); }
+      endTurn(s); return { ok: true };
+    }
     if (sp.kind === 'missile') { let total = 0; for (let i = 0; i < 3; i++) total += rollDice(sp.dice).total; m.hp = Math.max(0, m.hp - total); pushLog(s, `✨ ${c.name} 的${sp.cn}三发齐射命中 ${m.name}，共 ${total} 点力场伤害（${m.hp}/${m.hpMax}）。`, 'spell'); }
     else if (sp.save) { const save = rollDie(20) + 2; const dmg = rollDice(sp.dice).total; const total = save >= c.spellDc ? Math.floor(dmg / 2) : dmg; m.hp = Math.max(0, m.hp - total); pushLog(s, `✨ ${c.name} 施放${sp.cn}，${m.name} ${ABILITY_CN[sp.save]}豁免(${save} vs DC${c.spellDc})${save >= c.spellDc ? '成功半伤' : '失败'}，受 ${total} 点伤害（${m.hp}/${m.hpMax}）。`, 'spell'); }
     else { const r = d20(0); const hit = r.roll === 20 || (r.roll !== 1 && r.roll + c.spellAtk >= m.ac); if (!hit) { pushLog(s, `✨ ${c.name} 的${sp.cn}未命中（${r.roll}+${c.spellAtk} vs AC${m.ac}）。`, 'spell'); endTurn(s); return { ok: true }; } let total = rollDice(sp.dice).total; if (r.roll === 20) total += rollDice(sp.dice).total; m.hp = Math.max(0, m.hp - total); pushLog(s, `✨ ${c.name} 的${sp.cn}${r.roll === 20 ? '【暴击】' : ''}命中 ${m.name}，${total} 点伤害（${m.hp}/${m.hpMax}）。`, 'spell'); }
@@ -445,4 +461,56 @@ export function buyPotion(s: State, seat: string): { ok: boolean; error?: string
   c.gold -= POTION_COST; c.potions += 1;
   pushLog(s, `🛒 ${c.name} 花 ${POTION_COST} 金币购入一瓶治疗药水（剩 ${c.gold} 金）。`, 'rest');
   return { ok: true };
+}
+
+// ---------- 装备 / 商店 / 复活 ----------
+export const WEAPONS: Record<string, { cn: string; ability: Ability; damage: string; type: string; cost: number }> = {
+  greatsword: { cn: '巨剑', ability: 'str', damage: '2d6', type: '挥砍', cost: 50 },
+  battleaxe: { cn: '战斧', ability: 'str', damage: '1d8', type: '挥砍', cost: 30 },
+  warhammer: { cn: '战锤', ability: 'str', damage: '1d8', type: '钝击', cost: 30 },
+  rapier: { cn: '刺剑', ability: 'dex', damage: '1d8', type: '穿刺', cost: 40 },
+  longbow: { cn: '长弓', ability: 'dex', damage: '1d8', type: '穿刺', cost: 40 },
+  dagger: { cn: '匕首', ability: 'dex', damage: '1d4', type: '穿刺', cost: 8 },
+};
+export const ARMORS: Record<string, { cn: string; bonus: number; cost: number }> = {
+  leather: { cn: '皮甲', bonus: 1, cost: 20 }, chain: { cn: '链甲', bonus: 3, cost: 75 }, plate: { cn: '板甲', bonus: 5, cost: 200 },
+};
+export const SHIELD_COST = 15;
+export const REVIVE_COST = 100;
+
+function recomputeAc(c: Character) { c.ac = (c.baseAc || 10) + (c.armorBonus || 0) + (c.shield ? 2 : 0); }
+
+export function buyGear(s: State, seat: string, kind: string, key: string): { ok: boolean; error?: string } {
+  const c = s.chars[seat]; if (!c) return { ok: false, error: '无角色' };
+  if (kind === 'weapon') {
+    const w = WEAPONS[key]; if (!w) return { ok: false, error: '没有这件武器' };
+    if (c.attacks.some((a) => a.name === w.cn)) return { ok: false, error: '你已拥有该武器' };
+    if (c.gold < w.cost) return { ok: false, error: `金币不足（需 ${w.cost}）` };
+    c.gold -= w.cost; c.attacks.push({ name: w.cn, ability: w.ability, damage: w.damage, type: w.type });
+    pushLog(s, `🗡️ ${c.name} 购入${w.cn}（剩 ${c.gold} 金）。`, 'rest'); return { ok: true };
+  }
+  if (kind === 'armor') {
+    const a = ARMORS[key]; if (!a) return { ok: false, error: '没有这件护甲' };
+    if ((c.armorBonus || 0) >= a.bonus) return { ok: false, error: '你已有同级或更好的护甲' };
+    if (c.gold < a.cost) return { ok: false, error: `金币不足（需 ${a.cost}）` };
+    c.gold -= a.cost; c.armorBonus = a.bonus; recomputeAc(c);
+    pushLog(s, `🛡️ ${c.name} 穿上${a.cn}（AC ${c.ac}，剩 ${c.gold} 金）。`, 'rest'); return { ok: true };
+  }
+  if (kind === 'shield') {
+    if (c.shield) return { ok: false, error: '你已有盾牌' };
+    if (c.gold < SHIELD_COST) return { ok: false, error: `金币不足（需 ${SHIELD_COST}）` };
+    c.gold -= SHIELD_COST; c.shield = true; recomputeAc(c);
+    pushLog(s, `🛡️ ${c.name} 装备盾牌（AC ${c.ac}，剩 ${c.gold} 金）。`, 'rest'); return { ok: true };
+  }
+  return { ok: false, error: '未知物品' };
+}
+
+export function reviveAlly(s: State, seat: string, targetSeat: string): { ok: boolean; error?: string } {
+  if (s.combat?.active) return { ok: false, error: '战斗中无法复活' };
+  const r = s.chars[seat]; const t = s.chars[targetSeat];
+  if (!r || !t) return { ok: false, error: '目标无效' };
+  if (t.alive) return { ok: false, error: '该队友还活着' };
+  if (r.gold < REVIVE_COST) return { ok: false, error: `金币不足（需 ${REVIVE_COST}）` };
+  r.gold -= REVIVE_COST; t.alive = true; t.hp = Math.max(1, Math.floor(t.hpMax / 2)); t.conditions = []; t.deathSaves = { ok: 0, fail: 0 }; t.statuses = [];
+  pushLog(s, `⛪ ${r.name} 花 ${REVIVE_COST} 金币在神殿将 ${t.name} 复活（${t.hp}/${t.hpMax}）。`, 'up'); return { ok: true };
 }

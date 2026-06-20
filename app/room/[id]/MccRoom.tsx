@@ -375,7 +375,7 @@ export default function MccRoom(props: ShellProps) {
             {myAlive && (
               <div className="flex gap-2 justify-center flex-wrap">
                 {hand.includes('hiss') && <button onClick={() => react('hiss')} disabled={busy} className="px-3 py-1.5 rounded bg-blood/50 hover:bg-blood/70 border border-blood/50 text-parchment text-sm">🙀 {pend.hiss % 2 === 1 ? (en ? 'Hiss (un-cancel)' : '嘶吼（反取消）') : (en ? 'Hiss (cancel)' : '嘶吼（取消）')}</button>}
-                {canMirror && !mirrorPick && <button onClick={() => setMirrorPick(true)} disabled={busy} className="px-3 py-1.5 rounded bg-eldritch/50 hover:bg-eldritch/70 border border-eldritch/50 text-parchment text-sm">🪞 {en ? 'Mirror Paw' : '镜爪转移'}</button>}
+                {canMirror && !mirrorPick && <button onClick={() => { if (others.length === 1) react('mirror', others[0].seat); else setMirrorPick(true); }} disabled={busy} className="px-3 py-1.5 rounded bg-eldritch/50 hover:bg-eldritch/70 border border-eldritch/50 text-parchment text-sm">🪞 {en ? 'Mirror Paw' : '镜爪转移'}</button>}
               </div>
             )}
             {mirrorPick && (

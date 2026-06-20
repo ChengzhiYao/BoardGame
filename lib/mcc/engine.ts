@@ -156,8 +156,12 @@ export function react(s: State, seat: string, kind: 'hiss' | 'mirror', newTarget
     const i = s.hands[seat].indexOf('mirror'); if (i < 0) return { ok: false, error: '你没有镜爪' };
     if (!newTarget || !s.alive[newTarget] || newTarget === seat) return { ok: false, error: '请选择有效的新目标' };
     s.hands[seat].splice(i, 1); s.discard.push('mirror');
-    pg.target = newTarget; pg.until = Date.now() + 8000; pg.passed = [];
-    L(s, `🪞 ${nm(s, seat)} 用镜爪把矛头转给了 ${nm(s, newTarget)}！`);
+    // 反弹：thief/swap 这类"出牌者获益"的牌，镜爪让使用者成为新的行动者（你来偷/换），新目标承受；
+    // hex（连走两轮的惩罚）没有获益者，只把惩罚转移到新目标。
+    if (pg.card === 'thief' || pg.card === 'swap') { pg.by = seat; pg.target = newTarget; }
+    else { pg.target = newTarget; }
+    pg.until = Date.now() + 8000; pg.passed = [];
+    L(s, `🪞 ${nm(s, seat)} 用镜爪反弹，矛头转向 ${nm(s, newTarget)}！`);
     return { ok: true };
   }
   return { ok: false, error: '未知响应' };

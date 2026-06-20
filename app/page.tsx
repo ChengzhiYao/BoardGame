@@ -140,15 +140,19 @@ export default function Home() {
 function AdminPanel({ lang }: { lang: Lang }) {
   const en = lang === 'en';
   const [s, setS] = useState<any | null>(null);
+  const [min, setMin] = useState(false);
   async function load() {
     try { const r = await fetch('/api/admin/stats'); if (r.ok) setS(await r.json()); else setS(null); }
     catch { setS(null); }
   }
   useEffect(() => { load(); const id = setInterval(load, 15000); return () => clearInterval(id); }, []);
   if (!s) return null;
+  if (min) return (
+    <button onClick={() => setMin(false)} title="Admin" className="fixed bottom-3 left-3 z-30 w-8 h-8 rounded-full bg-fog/90 border border-eldritch/30 text-eldritch text-sm flex items-center justify-center backdrop-blur">📊</button>
+  );
   return (
-    <div className="fixed bottom-3 left-3 z-30 rounded-lg bg-fog/90 border border-eldritch/30 px-3 py-2 text-xs text-parchment/80 backdrop-blur space-y-0.5 text-left">
-      <div className="text-eldritch font-medium">● Admin · live</div>
+    <div className="fixed bottom-3 left-3 z-30 rounded-lg bg-fog/90 border border-eldritch/30 px-3 py-2 text-xs text-parchment/80 backdrop-blur space-y-0.5 text-left max-w-[78vw]">
+      <div className="flex items-center justify-between gap-3"><span className="text-eldritch font-medium">● Admin · live</span><button onClick={() => setMin(true)} className="text-parchment/50 hover:text-parchment text-base leading-none px-1">–</button></div>
       <div>🟢 {en ? 'Online' : '在线'} <span className="text-parchment">{s.activePlayers}</span> · {en ? 'active rooms' : '活跃房间'} <span className="text-parchment">{s.activeRooms}</span></div>
       <div>{en ? 'Users' : '历史玩家'} {s.distinctUsers} · {en ? 'played' : '已玩'} {s.gamesPlayed} · {en ? 'finished' : '完成'} {s.gamesFinished}</div>
       <div>{en ? 'Today' : '今日'}: {en ? 'new games' : '新局'} {s.roomsToday} · {en ? 'new players' : '新玩家'} {s.playersToday}</div>

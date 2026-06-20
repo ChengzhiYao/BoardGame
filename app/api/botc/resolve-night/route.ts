@@ -53,9 +53,32 @@ export async function POST(req: Request) {
     for (const d of (out.deaths || [])) await markDead(String(d));
     const deaths = (out.deaths || []).length;
     if (out.public_morning) await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', turn_no: day, content: out.public_morning, payload: { type: 'botc_st', sfx: deaths ? ['cue_dawn', 'cue_death'] : ['cue_dawn'] } });
+    // 查验（inspect）结果代码确定性给出：按玩家实际选择的目标查其真实阵营，避免 LLM 把座位/名字搞混。
+    const toSeatRef = (ref: string): string | null => {
+      const x = String(ref || '').trim(); if (!x) return null;
+      if (/^[A-H]$/.test(x)) return x;
+      const head = x.split('·')[0]; if (/^[A-H]$/.test(head)) return head;
+      const p = (bps || []).find((b: any) => b.display_name === x); return p?.seat || null;
+    };
+    const labelOfSeat = (seat: string) => { const p = (bps || []).find((b: any) => b.seat === seat); return p ? `${seat}·${p.display_name}` : seat; };
+    const teamOfSeat = (seat: string) => { const r = roles.find((x: any) => x.seat === seat); return r?.team; };
+    const humanInspects = (nights || []).filter((n: any) => n.action === 'inspect' && /^[A-H]$/.test(String(n.actor)));
+    const inspectSeats = new Set(humanInspects.map((n: any) => String(n.actor)));
+    const poisonedSet = new Set((Array.isArray(out.poisoned) ? out.poisoned : []).map((x: any) => String(x)));
+    const isPoisoned = (seat: string) => poisonedSet.has(seat) || [...poisonedSet].some((v) => String(v).startsWith(seat + '·'));
+    // 真人非查验私密信息照常由 LLM 给（learn 等）；查验座位跳过 LLM，改用确定性结果。
     for (const pn of (out.player_private || [])) {
-      if (!pn?.text || !/^[A-H]$/.test(String(pn.to))) continue;
+      if (!pn?.text || !/^[A-H]$/.test(String(pn.to)) || inspectSeats.has(String(pn.to))) continue;
       await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: day, content: pn.text, visibility: `seat:${pn.to}`, payload: { type: 'botc_private' } });
+    }
+    for (const n of humanInspects) {
+      const tSeat = toSeatRef(String(n.target)); if (!tSeat) continue;
+      const team = teamOfSeat(tSeat);
+      let evil = team === 'minion' || team === 'demon';
+      if (isPoisoned(String(n.actor))) evil = !evil; // 中毒：情报为假
+      const verdict = evil ? (en ? 'EVIL' : '邪恶阵营') : (en ? 'GOOD' : '善良阵营');
+      const text = en ? `🔍 You investigated ${labelOfSeat(tSeat)} last night — result: 【${verdict}】.` : `🔍 你昨夜查验了 ${labelOfSeat(tSeat)} —— 结果：【${verdict}】。`;
+      await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: day, content: text, visibility: `seat:${n.actor}`, payload: { type: 'botc_private' } });
     }
     // 把 AI 私密信息与中毒情况记进 setup，供 AI 白天推理
     const notes = Array.isArray(setup._notes) ? setup._notes : [];

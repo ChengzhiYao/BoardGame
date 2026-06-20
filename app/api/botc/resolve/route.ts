@@ -49,8 +49,28 @@ export async function POST(req: Request) {
       if (!av?.voter) continue;
       await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: day, content: `🗳️ ${av.voter} → ${av.target || 'skip'}${av.reason ? `（${av.reason}）` : ''}`, payload: { type: 'botc_vote' } });
     }
-    const executed = vout.executed && vout.executed !== 'null' ? String(vout.executed) : null;
-    if (vout.result_text) await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', turn_no: day, content: vout.result_text, payload: { type: 'botc_st', sfx: executed ? ['cue_execution'] : [] } });
+    // 计票（代码权威，绝不让 LLM 决定谁死）：真人票来自数据库，AI 投给谁由 LLM 决定，统一按"过半"处决。
+    const toSeat = (ref: string): string | null => {
+      const x = String(ref || '').trim(); if (!x) return null;
+      if (/^[A-H]$/.test(x)) return x;
+      const head = x.split('·')[0]; if (/^[A-H]$/.test(head)) return head;
+      const p = (bps || []).find((b: any) => b.display_name === x); return p?.seat || null;
+    };
+    const labelOfSeat = (seat: string) => { const p = (bps || []).find((b: any) => b.seat === seat); return p ? `${seat}·${p.display_name}` : seat; };
+    const allVotes: { voter: string; target: string }[] = [];
+    for (const v of (votes || [])) allVotes.push({ voter: String(v.voter), target: String(v.target || 'skip') });
+    for (const av of (vout.ai_votes || [])) { if (av?.voter) allVotes.push({ voter: String(av.voter), target: String(av.target || 'skip') }); }
+    const tally: Record<string, number> = {};
+    for (const v of allVotes) { if (v.target.toLowerCase() === 'skip') continue; const t = toSeat(v.target); if (t) tally[t] = (tally[t] || 0) + 1; }
+    let executedSeat: string | null = null; let top = 0; let tie = false;
+    for (const [seat, c] of Object.entries(tally)) { if (c > top) { top = c; executedSeat = seat; tie = false; } else if (c === top) tie = true; }
+    const aliveN = aliveBp.length; const threshold = Math.ceil(aliveN / 2);
+    if (!executedSeat || tie || top < threshold) executedSeat = null;
+    const tallyStr = Object.entries(tally).sort((a, b) => b[1] - a[1]).map(([seat, c]) => `${labelOfSeat(seat)} ${c}`).join('、') || (en ? 'no votes' : '无人投票');
+    const execText = executedSeat
+      ? (en ? `🗳 Tally: ${tallyStr} (alive ${aliveN}, majority needs ${threshold}). Executed: ${labelOfSeat(executedSeat)}.` : `🗳 计票：${tallyStr}（存活 ${aliveN}，过半需 ${threshold} 票）。今日处决：${labelOfSeat(executedSeat)}。`)
+      : (en ? `🗳 Tally: ${tallyStr} (alive ${aliveN}, majority needs ${threshold}). No execution (tie or below threshold).` : `🗳 计票：${tallyStr}（存活 ${aliveN}，过半需 ${threshold} 票）。票数不过半或平票，今日无人被处决。`);
+    await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', turn_no: day, content: execText, payload: { type: 'botc_st', sfx: executedSeat ? ['cue_execution'] : [] } });
 
     const markDead = async (ref: string) => {
       if (!ref) return;
@@ -58,7 +78,7 @@ export async function POST(req: Request) {
       if (seat) await admin.from('botc_players').update({ alive: false }).eq('room_id', roomId).eq('seat', seat);
       else await admin.from('botc_players').update({ alive: false }).eq('room_id', roomId).eq('display_name', ref);
     };
-    if (executed) await markDead(executed);
+    if (executedSeat) await markDead(executedSeat);
 
     const after = (await admin.from('botc_players').select('seat, display_name, alive').eq('room_id', roomId)).data || [];
     const demonRole = roles.find((r: any) => r.is_demon || r.team === 'demon');

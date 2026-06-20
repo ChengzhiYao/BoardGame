@@ -69,7 +69,7 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center gap-7 px-6 text-center">
+    <main className="min-h-screen flex flex-col items-center justify-start sm:justify-center gap-5 sm:gap-7 px-6 pt-24 pb-12 sm:pt-12 text-center">
       <LangToggle lang={lang} onChange={switchLang} />
       <AccountBadge t={t} />
       <h1 className="text-4xl md:text-5xl font-serif tracking-wide text-parchment">{t('home_title')}</h1>

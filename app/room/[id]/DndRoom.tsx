@@ -250,7 +250,7 @@ export default function DndRoom(props: ShellProps) {
         <section className={`flex-col overflow-hidden min-h-0 lg:flex ${mtab === 'story' ? 'flex flex-1' : 'hidden'}`}>
           <div ref={logRef} className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 py-4 space-y-2.5">
             {(pub.log || []).map((l: any, i: number) => <LogLine key={i} l={l} myName={myChar?.name} en={en} />)}
-            {phase === 'explore' && myChar && Array.isArray(pub.options) && pub.options.length > 0 && <DndGuide scene={pub.scene} quest={pub.quest} options={pub.options} mySeat={mySeat} en={en} disabled={busy} onPick={(o: string) => call('/api/dnd/act', { roomId: props.room.id, action: o })} />}
+            {phase === 'explore' && myChar && Array.isArray(pub.options) && pub.options.length > 0 && <DndGuide scene={pub.scene} quest={pub.quest} options={pub.options} mySeat={mySeat} en={en} disabled={busy} onPick={(o: string) => setAction(o)} />}
           </div>
           {bottomBar}
         </section>
@@ -474,16 +474,16 @@ function DndGuide({ scene, quest, options, mySeat, disabled, onPick, en }: { sce
   const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
   return (
     <div className="mx-auto max-w-2xl mt-1 rounded-lg border border-eldritch/40 bg-fog/60 p-4 space-y-3">
-      <div className="grid sm:grid-cols-2 gap-x-4 gap-y-1 text-sm">
+      <div className="space-y-1 text-sm">
         {scene && <div><span className="text-eldritch text-xs">【{en ? 'Location' : '你的位置'}】</span><span className="text-parchment/90"> {scene}</span></div>}
         {quest && <div><span className="text-eldritch text-xs">【{en ? 'Goal' : '你的目标'}】</span><span className="text-parchment/90"> {quest}</span></div>}
       </div>
       <div className="space-y-2">
-        <div className="text-eldritch text-xs">【{en ? `You (${mySeat}) can` : `你（${mySeat}）可以选择`}】</div>
-        <div className="grid gap-2">
-          {options.map((o: string, i: number) => <button key={i} onClick={() => onPick(o)} disabled={disabled} className="text-left px-3 py-2 rounded bg-ink/60 hover:bg-eldritch/25 border border-eldritch/30 text-parchment/90 text-sm disabled:opacity-40"><span className="text-eldritch mr-2">{letters[i] || '·'}.</span>{o}</button>)}
+        <div className="text-eldritch text-xs">{en ? '💡 Ideas (tap to fill the box — edit, then submit yourself)' : '💡 行动提示（点一下只是填进下方输入框，你可以改写后再提交）'}</div>
+        <div className="grid gap-1.5">
+          {options.map((o: string, i: number) => <button key={i} onClick={() => onPick(o)} disabled={disabled} className="text-left px-3 py-1.5 rounded bg-ink/40 hover:bg-eldritch/15 border border-dashed border-eldritch/25 text-parchment/70 text-sm disabled:opacity-40"><span className="text-eldritch/70 mr-2">{letters[i] || '·'}.</span>{o}</button>)}
         </div>
-        <div className="text-[11px] text-parchment/40">{en ? 'Or type any free action below.' : '或在下方输入框「自由行动」，做任何你想做的事。'}</div>
+        <div className="text-[11px] text-parchment/40">{en ? 'These are only hints — describe and submit your own action below.' : '以上仅供参考——请在下方自己描述并提交你的行动。'}</div>
       </div>
     </div>
   );

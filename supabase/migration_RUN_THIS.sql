@@ -392,3 +392,8 @@ do $$ begin alter publication supabase_realtime add table mcc_public; exception 
 do $$ begin alter publication supabase_realtime add table mcc_hands; exception when duplicate_object then null; end $$;
 
 -- 完成。刷新网页即可。
+
+-- ---------- 自动关闭闲置房间：心跳列 ----------
+-- 玩家开着房间页时每分钟更新 last_active；超过 5 分钟无人 → 后台自动把房间设为 ended。
+alter table rooms add column if not exists last_active timestamptz not null default now();
+create index if not exists idx_rooms_last_active on rooms (game_state, last_active);

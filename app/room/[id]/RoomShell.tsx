@@ -81,6 +81,24 @@ export default function RoomShell(props: ShellProps) {
     };
   }, [props.room.id, supabase, router]);
 
+  // 心跳：开着房间页时每分钟上报活跃，供后台自动关闭闲置房间使用
+  useEffect(() => {
+    let stop = false;
+    const ping = () => {
+      if (stop || (typeof document !== 'undefined' && document.visibilityState === 'hidden')) return;
+      fetch('/api/rooms/heartbeat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomId: props.room.id }),
+      }).catch(() => {});
+    };
+    ping();
+    const id = setInterval(ping, 60000);
+    const onVis = () => { if (document.visibilityState === 'visible') ping(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { stop = true; clearInterval(id); document.removeEventListener('visibilitychange', onVis); };
+  }, [props.room.id]);
+
   if (props.room.mode === 'soup') return <SoupRoom {...props} />;
   if (props.room.mode === 'td') return <TDRoom {...props} />;
   if (props.room.mode === 'jbs') return (<><AudioManager state={jbsAudioState(props.room)} /><JbsRoom {...props} /></>);

@@ -1,7 +1,7 @@
 // D&D · 战斗行动：攻击 / 施法 / 闪避 / 死亡豁免。引擎确定性结算，怪物自动行动。
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
-import { playerAttack, playerCastDamage, playerCastSpell, usePotion, playerDodgeOrHelp, deathSave, awardAndMaybeLevel, currentActor, endTurn, toggleRage, secondWind, pushLog } from '@/lib/dnd/engine';
+import { playerAttack, playerCastDamage, playerCastSpell, usePotion, playerDodgeOrHelp, deathSave, awardAndMaybeLevel, currentActor, endTurn, toggleRage, secondWind, fleeCombat, pushLog } from '@/lib/dnd/engine';
 import { loadState, mutateState as mutate2 } from '@/lib/dnd/db';
 import { callLLMJson } from '@/lib/llm';
 import { langDirective } from '@/lib/i18n';
@@ -32,6 +32,7 @@ export async function POST(req: Request) {
     else if (action === 'potion') { r = usePotion(s, me.seat); if (r.ok) endTurn(s); }
     else if (action === 'rage') r = toggleRage(s, me.seat);
     else if (action === 'secondwind') r = secondWind(s, me.seat);
+    else if (action === 'flee') r = fleeCombat(s, me.seat);
     else if (action === 'dodge') r = playerDodgeOrHelp(s, me.seat, 'dodge');
     else if (action === 'death') r = deathSave(s, me.seat);
     else r = { ok: false, error: '未知战斗行动' };

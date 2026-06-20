@@ -427,3 +427,22 @@ export function endAdventure(s: State, epilogue: string, victory: boolean) {
   s.phase = 'ended'; s.combat = null;
   pushLog(s, (victory ? '🏆 ' : '☠️ ') + (epilogue || (victory ? '冒险圆满落幕。' : '冒险以失败告终。')), victory ? 'win' : 'loss');
 }
+
+// ---------- 脱离战斗 / 购物 ----------
+export function fleeCombat(s: State, seat: string): { ok: boolean; error?: string } {
+  if (!s.combat?.active) return { ok: false, error: '现在不是战斗' };
+  const cur = currentActor(s); if (!cur || cur.ref !== seat) return { ok: false, error: '还没轮到你' };
+  pushLog(s, `🏃 ${s.chars[seat]?.name} 招呼全队撤退，你们脱离了战斗。`, 'combat');
+  s.combat.active = false;
+  for (const st of s.seats) { const c = s.chars[st]; if (c) { c.rage = false; c.statuses = []; } }
+  s.phase = 'explore';
+  return { ok: true };
+}
+export const POTION_COST = 25;
+export function buyPotion(s: State, seat: string): { ok: boolean; error?: string } {
+  const c = s.chars[seat]; if (!c) return { ok: false, error: '无角色' };
+  if (c.gold < POTION_COST) return { ok: false, error: `金币不足（需 ${POTION_COST}，你有 ${c.gold}）` };
+  c.gold -= POTION_COST; c.potions += 1;
+  pushLog(s, `🛒 ${c.name} 花 ${POTION_COST} 金币购入一瓶治疗药水（剩 ${c.gold} 金）。`, 'rest');
+  return { ok: true };
+}

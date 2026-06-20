@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { RACES, CLASSES, BACKGROUNDS, ABILITIES, ABILITY_CN, STANDARD_ARRAY, SPELLS, mod } from '@/lib/dnd/engine';
+import { RACES, CLASSES, BACKGROUNDS, ABILITIES, ABILITY_CN, SKILLS, STANDARD_ARRAY, SPELLS, mod } from '@/lib/dnd/engine';
 import type { ShellProps } from './RoomShell';
 import { dndSfx, setDndBgm, stopDndBgm, setDndMuted } from '@/lib/audio/dndCue';
 
@@ -24,6 +24,7 @@ export default function DndRoom(props: ShellProps) {
   const [action, setAction] = useState('');
   const [aim, setAim] = useState<{ mode: 'attack' | 'cast' | 'spell'; idx?: number; spellKey?: string; target: 'enemy' | 'ally' } | null>(null);
   const [resetting, setResetting] = useState(false);
+  const [sheet, setSheet] = useState(false);
 
   useEffect(() => {
     const ch = supabase.channel(`dnd-${props.room.id}`)
@@ -125,14 +126,18 @@ export default function DndRoom(props: ShellProps) {
 
   // ---------------- shared frame ----------------
   const HeaderBar = (
+    <>
     <div className="px-4 py-2 border-b border-eldritch/20 bg-ink/40 flex items-center justify-between gap-2 text-left">
       <div className="min-w-0">
         <div className="text-xs text-eldritch truncate">📜 {pub.quest || (en ? 'Adventure' : '冒险')}</div>
         <div className="text-[11px] text-parchment/50 truncate">{pub.scene}</div>
       </div>
-      <button onClick={() => { const nm = !muted; setMuted(nm); setDndMuted(nm); if (!nm) { const ph = pub?.phase || 'explore'; setDndBgm(ph === 'combat' ? (pub?.combat?.boss ? 'boss' : 'combat') : 'explore'); } }} className="text-[11px] text-parchment/40 hover:text-parchment shrink-0 mr-2">{muted ? '🔇' : '🔊'}</button>
+      {myChar && <button onClick={() => setSheet(true)} className="text-[12px] text-parchment/50 hover:text-parchment shrink-0 mr-1">📋</button>}
+      <button onClick={() => { const nm = !muted; setMuted(nm); setDndMuted(nm); if (!nm) { const ph = pub?.phase || 'explore'; setDndBgm(ph === 'combat' ? (pub?.combat?.boss ? 'boss' : 'combat') : 'explore'); } }} className="text-[12px] text-parchment/40 hover:text-parchment shrink-0 mr-2">{muted ? '🔇' : '🔊'}</button>
       <span className="text-[11px] text-parchment/50 shrink-0">{phase === 'combat' ? (en ? `⚔️ Combat · R${combat?.round}` : `⚔️ 战斗 · 第${combat?.round}轮`) : phase === 'creation' ? (en ? '🛠️ Create' : '🛠️ 建卡') : phase === 'explore' ? (en ? '🗺️ Explore' : '🗺️ 探索') : ''}</span>
     </div>
+    {sheet && myChar && <CharSheet c={myChar} en={en} onClose={() => setSheet(false)} />}
+    </>
   );
 
   const Party = (
@@ -215,6 +220,7 @@ export default function DndRoom(props: ShellProps) {
                   {myChar.cls === 'fighter' && !myChar.secondWindUsed && <button onClick={() => call('/api/dnd/combat', { roomId: props.room.id, action: 'secondwind' })} disabled={busy} className="px-2.5 py-1.5 rounded bg-amber-900/40 border border-amber-600/50 text-parchment text-sm">💨 {en ? 'Second Wind' : '二次呼吸'}</button>}
                   {myChar.potions > 0 && <button onClick={() => call('/api/dnd/combat', { roomId: props.room.id, action: 'potion' })} disabled={busy} className="px-2.5 py-1.5 rounded bg-red-900/40 border border-red-700/50 text-parchment text-sm">🧪 {en ? 'Potion' : '药水'} {myChar.potions}</button>}
                   <button onClick={() => call('/api/dnd/combat', { roomId: props.room.id, action: 'dodge' })} disabled={busy} className="px-2.5 py-1.5 rounded bg-fog border border-parchment/25 text-parchment/70 text-sm">🛡️ {en ? 'Dodge' : '闪避'}</button>
+                  <button onClick={() => { if (confirm(en ? 'Flee the battle?' : '撤退脱离战斗？')) call('/api/dnd/combat', { roomId: props.room.id, action: 'flee' }); }} disabled={busy} className="px-2.5 py-1.5 rounded bg-fog border border-parchment/20 text-parchment/50 text-sm">🏃 {en ? 'Flee' : '撤退'}</button>
                 </div>
               </div>
             ) : <button onClick={() => call('/api/dnd/combat', { roomId: props.room.id, action: 'death' })} disabled={busy} className="w-full py-2 rounded bg-blood/40 border border-blood text-parchment text-sm">🩸 {en ? 'Roll death save' : '掷死亡豁免'}</button>
@@ -240,6 +246,7 @@ export default function DndRoom(props: ShellProps) {
               </div>
               <div className="flex gap-2 justify-center flex-wrap">
                 {myChar.potions > 0 && <button onClick={() => call('/api/dnd/item', { roomId: props.room.id })} disabled={busy} className="px-3 py-1 rounded bg-red-900/40 border border-red-700/50 text-parchment/80 text-xs">🧪 {en ? 'Potion' : '药水'} {myChar.potions}</button>}
+                <button onClick={() => call('/api/dnd/item', { roomId: props.room.id, action: 'buy' })} disabled={busy || (myChar.gold || 0) < 25} className="px-3 py-1 rounded bg-fog border border-eldritch/25 text-parchment/70 text-xs disabled:opacity-40">🛒 {en ? 'Buy potion (25g)' : '买药水(25金)'} · {myChar.gold || 0}💰</button>
                 {isHost && <>
                   <button onClick={() => call('/api/dnd/rest', { roomId: props.room.id, kind: 'short' })} disabled={busy} className="px-3 py-1 rounded bg-fog border border-eldritch/25 text-parchment/70 text-xs">🏕️ {en ? 'Short rest' : '短休'}</button>
                   <button onClick={() => call('/api/dnd/rest', { roomId: props.room.id, kind: 'long' })} disabled={busy} className="px-3 py-1 rounded bg-fog border border-eldritch/25 text-parchment/70 text-xs">🌙 {en ? 'Long rest' : '长休'}</button>
@@ -296,4 +303,47 @@ function Sel({ label, value, onChange, opts }: { label: string; value: string; o
       </select>
     </label>
   );
+}
+
+function CharSheet({ c, en, onClose }: { c: any; en: boolean; onClose: () => void }) {
+  const sgn = (n: number) => (n >= 0 ? '+' : '') + n;
+  const isCaster = (c.knownSpells || []).length > 0 || (c.cantrips || []).length > 0;
+  const slotStr = Object.keys(c.spellSlotsMax || {}).sort().map((lv) => `${lv}环 ${c.spellSlots?.[lv] || 0}/${c.spellSlotsMax[lv]}`).join('  ');
+  return (
+    <div className="fixed inset-0 z-[80] bg-black/80 backdrop-blur-sm flex items-center justify-center p-3" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md max-h-[88vh] overflow-y-auto rounded-xl bg-fog border border-eldritch/40 p-4 text-left space-y-3">
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="text-lg text-parchment font-serif">{c.name}</div>
+            <div className="text-xs text-parchment/60">{RACES[c.race]?.cn}{CLASSES[c.cls]?.cn} · Lv{c.level} · XP {c.xp}</div>
+          </div>
+          <button onClick={onClose} className="text-parchment/50 hover:text-parchment text-lg leading-none">✕</button>
+        </div>
+        <div className="grid grid-cols-4 gap-2 text-center">
+          <Stat l="HP" v={`${c.hp}/${c.hpMax}`} /><Stat l="AC" v={c.ac} /><Stat l={en ? 'Speed' : '速度'} v={c.speed} /><Stat l={en ? 'Prof' : '熟练'} v={sgn(c.profBonus)} />
+        </div>
+        <div className="grid grid-cols-6 gap-1 text-center">
+          {ABILITIES.map((a) => (
+            <div key={a} className="rounded bg-ink/40 py-1"><div className="text-[10px] text-parchment/50">{ABILITY_CN[a]}</div><div className="text-sm text-parchment">{c.scores[a]}</div><div className="text-[10px] text-eldritch">{sgn(mod(c.scores[a]))}</div></div>
+          ))}
+        </div>
+        <div className="text-xs text-parchment/70"><span className="text-parchment/40">{en ? 'Saves' : '豁免'}：</span>{ABILITIES.filter((a) => c.saveProf?.includes(a)).map((a) => `${ABILITY_CN[a]} ${sgn(mod(c.scores[a]) + c.profBonus)}`).join('  ') || '—'}</div>
+        <div className="text-xs text-parchment/70"><span className="text-parchment/40">{en ? 'Skills' : '熟练技能'}：</span>{(c.skills || []).map((k: string) => SKILLS[k] ? `${SKILLS[k].cn} ${sgn(mod(c.scores[SKILLS[k].ability]) + c.profBonus)}` : k).join('  ') || '—'}</div>
+        <div className="text-xs text-parchment/70"><span className="text-parchment/40">{en ? 'Attacks' : '攻击'}：</span>{(c.attacks || []).map((a: any) => `${a.name}(${sgn(mod(c.scores[a.ability]) + c.profBonus)}, ${a.damage}${mod(c.scores[a.ability]) >= 0 ? '+' : ''}${mod(c.scores[a.ability])})`).join('  ')}</div>
+        {isCaster && (
+          <div className="text-xs text-parchment/70 space-y-0.5">
+            <div><span className="text-parchment/40">{en ? 'Spell DC/Atk' : '法术 DC/命中'}：</span>{c.spellDc} / {sgn(c.spellAtk)}　{slotStr && <span className="text-parchment/40">· {en ? 'Slots' : '法术位'} {slotStr}</span>}</div>
+            {(c.cantrips || []).length > 0 && <div><span className="text-parchment/40">{en ? 'Cantrips' : '戏法'}：</span>{c.cantrips.map((x: any) => x.name).join('、')}</div>}
+            {(c.knownSpells || []).length > 0 && <div><span className="text-parchment/40">{en ? 'Spells' : '法术'}：</span>{c.knownSpells.map((k: string) => SPELLS[k]?.cn || k).join('、')}</div>}
+          </div>
+        )}
+        <div className="text-xs text-parchment/70"><span className="text-parchment/40">{en ? 'Pack' : '随身'}：</span>🧪 {en ? 'Potion' : '药水'} ×{c.potions} · 💰 {c.gold}{(c.statuses || []).length ? ` · ${c.statuses.map((x: any) => x.name).join('/')}` : ''}{c.conditions?.length ? ` · ${c.conditions.join('/')}` : ''}{c.rage ? ' · 🪓狂暴' : ''}</div>
+        <div className="text-[11px] text-parchment/45 leading-snug">{CLASSES[c.cls]?.features}</div>
+      </div>
+    </div>
+  );
+}
+
+function Stat({ l, v }: { l: string; v: any }) {
+  return <div className="rounded bg-ink/40 py-1"><div className="text-[10px] text-parchment/50">{l}</div><div className="text-sm text-parchment">{v}</div></div>;
 }

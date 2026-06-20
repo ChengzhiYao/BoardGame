@@ -28,6 +28,7 @@ export default function JbsRoom(props: ShellProps) {
   const [showCards, setShowCards] = useState(false);
   const [showClues, setShowClues] = useState(false);
   const [showRes, setShowRes] = useState(false);
+  const [showObj, setShowObj] = useState(false);
   useTTS({
     lang: props.room.language,
     messages,
@@ -50,6 +51,7 @@ export default function JbsRoom(props: ShellProps) {
   const generating = props.room.modules_generating;
   const isHost = props.room.host_user_id === props.userId;
   const chars = props.jbsCharacters || [];
+  const objectives: any[] = props.jbsObjectives || [];
   const myChar = chars.find((c: any) => c.assigned_seat === props.mySeat);
   const inviteUrl = `${typeof window !== 'undefined' ? window.location.origin : props.siteUrl}/join/${props.inviteToken}`;
   const roleMsgs = messages.filter((m) => m.payload?.type === 'jbs_role');
@@ -80,10 +82,10 @@ export default function JbsRoom(props: ShellProps) {
   useEffect(() => {
     const ch = supabase.channel(`jbs-msgs-${props.room.id}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `room_id=eq.${props.room.id}` },
-        (payload: any) => setMessages((prev) => prev.some((m) => m.id === payload.new.id) ? prev : [...prev, payload.new]))
+        (payload: any) => { setMessages((prev) => prev.some((m) => m.id === payload.new.id) ? prev : [...prev, payload.new]); if (payload.new?.payload?.type === 'jbs_objupd') router.refresh(); })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, [props.room.id, supabase]);
+  }, [props.room.id, supabase, router]);
 
   useEffect(() => { setMessages((prev) => { const ids = new Set(prev.map((m) => m.id)); const add = props.initialMessages.filter((m) => !ids.has(m.id)); return add.length ? [...prev, ...add] : prev; }); }, [props.initialMessages]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
@@ -334,6 +336,7 @@ export default function JbsRoom(props: ShellProps) {
           {chars.length > 0 && <button onClick={() => setShowCards((v) => !v)} className="text-xs px-2 py-1 rounded bg-eldritch/30 text-parchment">{en ? 'Cast' : '角色卡'}</button>}
           {clueList.length > 0 && <button onClick={() => setShowClues((v) => !v)} className="text-xs px-2 py-1 rounded bg-amber-600/30 text-parchment">{en ? `Clues ${clueList.length}` : `线索 ${clueList.length}`}</button>}
           {resources.length > 0 && <button onClick={() => setShowRes((v) => !v)} className="text-xs px-2 py-1 rounded bg-eldritch/30 text-parchment">{en ? 'Resources' : '资源'}</button>}
+          {objectives.length > 0 && <button onClick={() => setShowObj((v) => !v)} className="text-xs px-2 py-1 rounded bg-blood/30 text-parchment">🎯 {en ? `Tasks ${objectives.filter((o: any) => o.status === 'done').length}/${objectives.length}` : `任务 ${objectives.filter((o: any) => o.status === 'done').length}/${objectives.length}`}</button>}
           {myChar && <button onClick={() => setShowRole((v) => !v)} className="text-xs px-2 py-1 rounded bg-eldritch/30 text-parchment">{en ? 'My role' : '我的角色'}</button>}
         </div>
       </header>
@@ -344,6 +347,18 @@ export default function JbsRoom(props: ShellProps) {
           {clueList.map((m) => (
             <div key={m.id} className="text-sm text-parchment/85 leading-snug">{m.payload?.type === 'private' ? '🔒 ' : '🔍 '}{m.content.replace(/^🔍\s*/, '')}</div>
           ))}
+        </div>
+      )}
+
+      {showObj && objectives.length > 0 && (
+        <div className="px-4 py-3 bg-blood/10 border-b border-blood/30 max-w-3xl w-full mx-auto space-y-1.5">
+          <div className="text-xs text-blood/80 mb-1">{en ? 'Your private tasks (only you see these · the DM judges them)' : '你的私人任务（仅你可见 · 由 DM 裁定，不认空口）'}</div>
+          {objectives.map((o: any, i: number) => {
+            const ic = o.status === 'done' ? '✅' : o.status === 'failed' ? '❌' : o.status === 'progress' ? '🟡' : '⬜';
+            const kc = o.kind === 'faction' ? (en ? 'Faction' : '阵营') : o.kind === 'goal' ? (en ? 'Goal' : '目标') : (en ? 'Task' : '任务');
+            return <div key={i} className="text-sm text-parchment/85 leading-snug">{ic} <span className="text-[10px] text-parchment/40">[{kc}]</span> {o.text}{o.note ? <span className="text-parchment/45 text-[11px]"> —— {o.note}</span> : ''}</div>;
+          })}
+          <div className="text-[11px] text-parchment/40 pt-1">{en ? 'Act it out in the story — sneak, seize, persuade… the DM rules success or failure based on the fiction and opposition.' : '在剧情里实际去做（潜入、夺取、说服…），DM 会按你的手段与现场阻力裁定成败，不是你说成功就成功。'}</div>
         </div>
       )}
 

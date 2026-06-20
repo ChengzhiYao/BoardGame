@@ -92,6 +92,15 @@ export async function POST(req: Request) {
         room_id: roomId, sender_type: 'system', turn_no: 0, content: card,
         visibility: `seat:${seat}`, payload: { type: 'jbs_role' },
       });
+      // 结构化私人任务清单（DM 据此裁定完成度，结算计入）
+      const factionWin = c.faction ? ((cf.factions || []).find((f: any) => f.name === c.faction)?.win || '') : '';
+      const objs: { kind: string; text: string }[] = [];
+      if (c.private_task) objs.push({ kind: 'task', text: String(c.private_task) });
+      if (c.private_goal) objs.push({ kind: 'goal', text: String(c.private_goal) });
+      if (c.faction && factionWin) objs.push({ kind: 'faction', text: `【阵营·${c.faction}】${factionWin}` });
+      for (let oi = 0; oi < objs.length; oi++) {
+        await admin.from('jbs_objectives').insert({ room_id: roomId, seat, idx: oi, kind: objs[oi].kind, text: objs[oi].text, status: 'pending' });
+      }
     }
     // DM 开场白
     await admin.from('messages').insert({

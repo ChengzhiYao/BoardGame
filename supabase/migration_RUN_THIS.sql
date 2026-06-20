@@ -413,3 +413,20 @@ do $$ begin alter publication supabase_realtime add table dnd_state; exception w
 
 -- ---------- 剧本杀：本型（非剧透，给前端按本型分流结局机制） ----------
 alter table rooms add column if not exists jbs_type text; -- 推理|情感|欢乐|阵营|恐怖|还原|机制
+
+-- ---------- 剧本杀：结构化任务/目标系统（私有，可勾选，DM 裁定完成度） ----------
+create table if not exists jbs_objectives (
+  id uuid primary key default gen_random_uuid(),
+  room_id uuid references rooms(id) on delete cascade,
+  seat text not null,
+  idx int not null,
+  kind text,                                   -- task|goal|faction
+  text text not null,
+  status text not null default 'pending',      -- pending|progress|done|failed
+  note text,
+  updated_at timestamptz default now()
+);
+alter table jbs_objectives enable row level security;
+drop policy if exists jbs_obj_read on jbs_objectives;
+create policy jbs_obj_read on jbs_objectives for select using (seat = my_seat(room_id) or is_admin());
+do $$ begin alter publication supabase_realtime add table jbs_objectives; exception when duplicate_object then null; end $$;

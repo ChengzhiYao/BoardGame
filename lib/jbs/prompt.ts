@@ -95,7 +95,7 @@ ${type === '推理' || type === '恐怖' || type === '阵营' ? '【人人皆有
 }
 
 // DM 主持每一步：玩家行动 → 叙述结果 + 让 AI 角色自主发言 + 适时推进幕。知道全部真相与秘密，但绝不泄露。
-export function buildJbsDmPrompt(caseFile: any, act: number, aiNames: string[], realRoster: { seat: string; name: string }[] = [], timing?: { elapsedMin: number; actMin: number }) {
+export function buildJbsDmPrompt(caseFile: any, act: number, aiNames: string[], realRoster: { seat: string; name: string }[] = [], timing?: { elapsedMin: number; actMin: number }, actorObjectives?: { idx: number; text: string; status: string; kind?: string }[]) {
   const realNames = realRoster.map((r) => r.name);
   const seatMap = realRoster.filter((r) => r.seat).map((r) => `${r.seat}座=${r.name}`).join('，') || '（无）';
   const seatList = realRoster.filter((r) => r.seat).map((r) => r.seat).join('/') || '无';
@@ -106,6 +106,15 @@ export function buildJbsDmPrompt(caseFile: any, act: number, aiNames: string[], 
   const voteAct = Math.max(2, total - 1);
   const actList = acts.length ? acts.map((a, i) => `第${i + 1}幕「${a.name || ''}」：${a.goal || ''}`).join(' → ') : '开场 → 搜证 → 调查 → 对质 → 最终指认 → 真相揭晓';
   const cur = acts[act - 1];
+  const objBlock = (actorObjectives && actorObjectives.length) ? `
+
+【当前行动玩家的私人任务/目标（机密，仅他自己持有；用于裁定完成度）】
+${actorObjectives.map((o) => `#${o.idx} [${o.status}] ${o.text}`).join('\n')}
+【任务裁定·公正·不认空口】当这名玩家的行动在**剧情里实际尝试**完成某条任务时，你要像真正的 DM 一样裁定结果——**绝不因为玩家嘴上声称就算成功**：
+- 必须有具体可信的步骤与时机；要考虑现场阻力（其他角色/NPC 可能看守、阻拦、反制——参考历史里别人的行动与在场情况）；
+- 偷窃/抢夺/栽赃/窃听等对抗性任务：目标在场警惕或有人看守时多半失败或当场败露；只有手段、时机、掩护都到位才算成功；难的可判"部分进展"；
+- 用 objective_updates 更新该玩家对应任务：done（确实达成）/ failed（彻底失败/暴露）/ progress（有进展未完成，写进 note 说明还差什么）。本回合没触及任务就留空数组；
+- 在 narration 里客观描述结果（成功/失败/被谁撞见），不要剧透与任务无关的真相，也不要替别的玩家做决定。` : '';
   return `你是专业剧本杀主持人（DM），本型【${type}】。下面是这桩案件的**完整隐藏档案（绝密，永不泄露给玩家）**：
 ${JSON.stringify(caseFile).slice(0, 9000)}
 
@@ -134,6 +143,7 @@ ${JSON.stringify(caseFile).slice(0, 9000)}
 
 【绝不】剧透真相、点明凶手、说"正确答案"、替玩家下结论。
 ${type === '机制' ? '【机制本·账房】你要维护每个角色的资源/分数。每回合在 resources 里给出**全部角色的当前快照**（每人若干项资源，如金钱/筹码/情报/影响力/物资等，用数值或简短描述）；私下的增减原因写进 private_notes 给当事人。resources 必须每回合都返回完整最新快照。' : '本型无需 resources，留空数组。'}
+${objBlock}
 
 只输出 JSON：
 {
@@ -142,6 +152,7 @@ ${type === '机制' ? '【机制本·账房】你要维护每个角色的资源/
   "evidence_revealed": [ { "name": "证据名", "desc": "玩家看到的描述", "to": "all", "key": false } ],
   "private_notes": [ { "to": "（真人座位之一：${seatList}）", "text": "只有该玩家察觉到的私人信息" } ],
   "resources": [ { "name": "角色名", "items": [ { "label": "资源名", "value": "数值或描述" } ] } ],
+  "objective_updates": [ { "idx": 0, "status": "done|failed|progress", "note": "裁定说明" } ],
   "next_act": ${act},
   "to_vote": false,
   "hint": "下一步玩家可以做什么（不暗示答案，只给方向）"

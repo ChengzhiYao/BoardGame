@@ -81,6 +81,12 @@ export default async function RoomPage({ params }: { params: { id: string } }) {
     jbsCharacters = r.data || [];
   }
 
+  let jbsObjectives: any[] = [];
+  if (room.mode === 'jbs') {
+    const or = await supabase.from('jbs_objectives').select('idx, text, status, kind, note').eq('room_id', params.id).order('idx');
+    jbsObjectives = or.data || [];
+  }
+
   let botcPlayers: any[] = [];
   if (room.mode === 'botc') {
     const r = await supabase.from('botc_players').select('seat, display_name, is_ai, alive, used_ghost_vote').eq('room_id', params.id);
@@ -130,6 +136,7 @@ export default async function RoomPage({ params }: { params: { id: string } }) {
       inviteToken={room.invite_token}
       siteUrl={site}
       jbsCharacters={(jbsCharacters as any[]) || []}
+      jbsObjectives={(jbsObjectives as any[]) || []}
     />
   );
 }

@@ -51,6 +51,7 @@ export type ShellProps = {
   caseQuality?: any;
   soupSurface?: string;
   jbsCharacters?: any[];
+  jbsObjectives?: any[];
   botcPlayers?: any[];
   mccPublic?: any;
   mccHand?: string[];

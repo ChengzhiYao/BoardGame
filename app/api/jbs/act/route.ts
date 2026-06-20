@@ -37,6 +37,7 @@ export async function POST(req: Request) {
   const seatByPid: Record<string, string> = {};
   (players || []).forEach((p: any) => { seatByPid[p.id] = p.seat; });
   const myName = nameBySeat[me.seat] || me.seat;
+  const { data: myObjs } = await admin.from('jbs_objectives').select('idx, text, status, kind').eq('room_id', roomId).eq('seat', me.seat).order('idx');
 
   // 落库玩家行动
   await admin.from('messages').insert({ room_id: roomId, sender_type: 'player', sender_player_id: me.id, action_type: 'free', content: content.trim(), turn_no: room.jbs_act || 1, visibility: 'public' });
@@ -53,7 +54,7 @@ export async function POST(req: Request) {
 
   try {
     const { data: out, usage } = await callLLMJson<any>({
-      system: buildJbsDmPrompt(kase.case_file, curAct, aiNames, realRoster, { elapsedMin, actMin }) + langDirective(room.language),
+      system: buildJbsDmPrompt(kase.case_file, curAct, aiNames, realRoster, { elapsedMin, actMin }, myObjs || []) + langDirective(room.language),
       messages: [...base, { role: 'user', content: `[${myName}·真人·${me.seat}座] 的行动：${content.trim()}` }],
       tier: 'main', temperature: 0.8, maxTokens: 2200, retry: true,
     });
@@ -67,12 +68,20 @@ export async function POST(req: Request) {
     }
     for (const ev of out.evidence_revealed || []) {
       if (!ev?.name) continue;
-      const vis = ev.to === 'A' ? 'player_a' : ev.to === 'B' ? 'player_b' : 'public';
+      const vis = /^[A-H]$/.test(String(ev.to)) ? `seat:${ev.to}` : 'public';
       await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: room.jbs_act || 1, content: `🔍 ${ev.name}：${ev.desc || ''}`, visibility: vis, payload: { type: 'jbs_evidence', key: !!ev.key } });
     }
     for (const pn of out.private_notes || []) {
-      if (!pn?.text || !['A', 'B'].includes(pn.to)) continue;
-      await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: room.jbs_act || 1, content: pn.text, visibility: pn.to === 'A' ? 'player_a' : 'player_b', payload: { type: 'private' } });
+      if (!pn?.text || !/^[A-H]$/.test(String(pn.to))) continue;
+      await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: room.jbs_act || 1, content: pn.text, visibility: `seat:${pn.to}`, payload: { type: 'private' } });
+    }
+    // 任务裁定：更新该玩家任务状态，并私下回执
+    for (const u of out.objective_updates || []) {
+      if (typeof u?.idx !== 'number' || !['done', 'failed', 'progress'].includes(u.status)) continue;
+      await admin.from('jbs_objectives').update({ status: u.status, note: u.note || null, updated_at: new Date().toISOString() }).eq('room_id', roomId).eq('seat', me.seat).eq('idx', u.idx);
+      const obj = (myObjs || []).find((o: any) => o.idx === u.idx);
+      const tag = u.status === 'done' ? '✅ 任务达成' : u.status === 'failed' ? '❌ 任务失败' : '… 任务进展';
+      await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: room.jbs_act || 1, content: `🎯 ${tag}：${obj?.text || ''}${u.note ? `（${u.note}）` : ''}`, visibility: `seat:${me.seat}`, payload: { type: 'jbs_objupd' } });
     }
 
     // 幕的推进只由 /api/jbs/advance（倒计时自动 / 房主手动）负责；玩家行动回合内绝不跳幕，避免乱推进。

@@ -15,10 +15,13 @@ export async function POST(req: Request) {
   if (!me) return NextResponse.json({ error: '你不在这个房间' }, { status: 403 });
   const out = await mutateState(admin, roomId, (s) => {
     if (s.combat?.active) return { ok: false, error: '战斗中请用战斗里的按钮' };
-    if (action === 'buy') return buyPotion(s, me.seat);
-    if (action === 'buygear') return buyGear(s, me.seat, String(kind || ''), String(key || ''));
-    if (action === 'revive') return reviveAlly(s, me.seat, String(targetSeat || ''));
-    return usePotion(s, me.seat);
+    if (action === 'buy' || action === 'buygear' || action === 'revive') {
+      if (!s.safe) return { ok: false, error: '这里不是城镇/集市——要到安全的地方才能交易或复活' };
+      if (action === 'buy') return buyPotion(s, me.seat);
+      if (action === 'buygear') return buyGear(s, me.seat, String(kind || ''), String(key || ''));
+      return reviveAlly(s, me.seat, String(targetSeat || ''));
+    }
+    return usePotion(s, me.seat); // 背包：随时可用自己已有的药水
   });
   if (!out.ok) return NextResponse.json({ error: out.error }, { status: 409 });
   if (!out.result?.ok) return NextResponse.json({ error: out.result?.error }, { status: 409 });

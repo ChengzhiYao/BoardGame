@@ -16,6 +16,7 @@ export async function POST(req: Request) {
 
   const out = await mutateState(admin, roomId, (s) => {
     if (s.combat?.active) return { ok: false, error: '战斗中无法休整' };
+    if (!s.safe) return { ok: false, error: '危险区域无法休整——先到城镇/营地等安全的地方' };
     if (kind === 'long') longRest(s); else shortRest(s);
     return { ok: true };
   });

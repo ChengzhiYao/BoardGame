@@ -172,7 +172,7 @@ export default function DndRoom(props: ShellProps) {
     <div className="px-4 py-2 border-b border-eldritch/20 bg-ink/40 flex items-center justify-between gap-2 text-left">
       <div className="min-w-0">
         <div className="text-xs text-eldritch truncate">📜 {pub.quest || (en ? 'Adventure' : '冒险')}</div>
-        <div className="text-[11px] text-parchment/50 truncate">{pub.scene}</div>
+        <div className="text-[11px] truncate"><span className={pub.safe ? 'text-green-400' : 'text-amber-400'}>{pub.safe ? (en ? '🏕️ Safe' : '🏕️ 安全') : (en ? '⚠️ Danger' : '⚠️ 危险')}</span>{pub.scene ? <span className="text-parchment/50"> · {pub.scene}</span> : null}</div>
       </div>
       {myChar && <button onClick={() => setSheet(true)} className="text-[12px] text-parchment/50 hover:text-parchment shrink-0 mr-1">📋</button>}
       <button onClick={() => { const nm = !muted; setMuted(nm); setDndMuted(nm); if (!nm) { const ph = pub?.phase || 'explore'; setDndBgm(ph === 'combat' ? (pub?.combat?.boss ? 'boss' : 'combat') : 'explore'); } }} className="text-[12px] text-parchment/40 hover:text-parchment shrink-0 mr-2">{muted ? '🔇' : '🔊'}</button>
@@ -287,15 +287,16 @@ export default function DndRoom(props: ShellProps) {
               </div>
               <div className="flex gap-2 justify-center flex-wrap">
                 {myChar.potions > 0 && <button onClick={() => call('/api/dnd/item', { roomId: props.room.id })} disabled={busy} className="px-3 py-1 rounded bg-red-900/40 border border-red-700/50 text-parchment/80 text-xs">🧪 {en ? 'Potion' : '药水'} {myChar.potions}</button>}
-                <button onClick={() => call('/api/dnd/item', { roomId: props.room.id, action: 'buy' })} disabled={busy || (myChar.gold || 0) < 25} className="px-3 py-1 rounded bg-fog border border-eldritch/25 text-parchment/70 text-xs disabled:opacity-40">🧪 {en ? 'Buy potion (25g)' : '买药水(25金)'}</button>
-                <button onClick={() => setShop((v) => !v)} className="px-3 py-1 rounded bg-fog border border-eldritch/25 text-parchment/70 text-xs">🛒 {en ? 'Shop' : '商店'} · {myChar.gold || 0}💰</button>
+                {pub.safe && <button onClick={() => call('/api/dnd/item', { roomId: props.room.id, action: 'buy' })} disabled={busy || (myChar.gold || 0) < 25} className="px-3 py-1 rounded bg-fog border border-eldritch/25 text-parchment/70 text-xs disabled:opacity-40">🧪 {en ? 'Buy potion (25g)' : '买药水(25金)'}</button>}
+                {pub.safe && <button onClick={() => setShop((v) => !v)} className="px-3 py-1 rounded bg-fog border border-eldritch/25 text-parchment/70 text-xs">🛒 {en ? 'Shop' : '商店'} · {myChar.gold || 0}💰</button>}
                 {isHost && <>
-                  <button onClick={() => call('/api/dnd/rest', { roomId: props.room.id, kind: 'short' })} disabled={busy} className="px-3 py-1 rounded bg-fog border border-eldritch/25 text-parchment/70 text-xs">🏕️ {en ? 'Short rest' : '短休'}</button>
-                  <button onClick={() => call('/api/dnd/rest', { roomId: props.room.id, kind: 'long' })} disabled={busy} className="px-3 py-1 rounded bg-fog border border-eldritch/25 text-parchment/70 text-xs">🌙 {en ? 'Long rest' : '长休'}</button>
+                  {pub.safe && <button onClick={() => call('/api/dnd/rest', { roomId: props.room.id, kind: 'short' })} disabled={busy} className="px-3 py-1 rounded bg-fog border border-eldritch/25 text-parchment/70 text-xs">🏕️ {en ? 'Short rest' : '短休'}</button>}
+                  {pub.safe && <button onClick={() => call('/api/dnd/rest', { roomId: props.room.id, kind: 'long' })} disabled={busy} className="px-3 py-1 rounded bg-fog border border-eldritch/25 text-parchment/70 text-xs">🌙 {en ? 'Long rest' : '长休'}</button>}
                   <button onClick={() => { if (confirm(en ? 'End the adventure?' : '结束本场冒险？')) call('/api/dnd/end', { roomId: props.room.id }); }} disabled={busy} className="px-3 py-1 rounded bg-fog border border-parchment/20 text-parchment/50 text-xs">🏁 {en ? 'End' : '结束冒险'}</button>
                 </>}
               </div>
-              {shop && (
+              {!pub.safe && <div className="text-center text-[11px] text-parchment/40">{en ? '⚠️ Dangerous area — find a town/camp to shop or rest (you can still use what is in your pack).' : '⚠️ 危险区域：到城镇/营地才能购物与休整（背包里已有的东西仍可使用）'}</div>}
+              {shop && pub.safe && (
                 <div className="rounded-lg bg-ink/40 border border-eldritch/20 p-2 space-y-1.5 text-[11px]">
                   <div className="text-parchment/50">{en ? 'Weapons' : '武器'}</div>
                   <div className="flex gap-1.5 flex-wrap">
@@ -308,7 +309,7 @@ export default function DndRoom(props: ShellProps) {
                   </div>
                 </div>
               )}
-              {(pub.seats || []).some((seat: string) => pub.chars?.[seat]?.alive === false) && (
+              {pub.safe && (pub.seats || []).some((seat: string) => pub.chars?.[seat]?.alive === false) && (
                 <div className="flex gap-1.5 flex-wrap justify-center">
                   {pub.seats.filter((seat: string) => pub.chars?.[seat]?.alive === false).map((seat: string) => <button key={seat} disabled={busy || (myChar.gold || 0) < 100} onClick={() => call('/api/dnd/item', { roomId: props.room.id, action: 'revive', targetSeat: seat })} className="px-3 py-1 rounded bg-fog border border-eldritch/25 text-parchment/70 text-xs disabled:opacity-40">⛪ {en ? 'Revive' : '复活'} {pub.chars[seat].name} (100💰)</button>)}
                 </div>

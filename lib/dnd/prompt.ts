@@ -32,6 +32,7 @@ export function buildDndActPrompt(scene: string, quest: string, party: string, r
 - 玩家想休息 → kind="rest"，rest 取 "short" 或 "long"，写 narration。
 - 任务目标已明确达成、或队伍彻底失败/放弃 → kind="end"，victory 取 true/false，epilogue 写 2~4 句收束尾声。仅在剧情确实该结束时才用。
 叙事用${en ? 'English' : '中文'}、第二人称、2~4 句，不替玩家做决定。若剧情推进到新地点或新目标，可填 scene_update / quest_update（一句话；否则留空）。
+另外**每次都要判断当前所在地点是否安全**填 safe：仅当队伍身处城镇/村庄/营地/旅馆/神殿/集市等**明确安全、可安心休整与交易**的地方时 safe=true；身处地牢/野外/废墟/沉船/被追杀/有敌意威胁等危险环境时 safe=false。
 {
   "kind": "check|social|combat|rest",
   "skill": "(check时)英文技能键，否则 none",
@@ -43,6 +44,7 @@ export function buildDndActPrompt(scene: string, quest: string, party: string, r
   "boss": false,
   "rest": "short|long",
   "env": "(combat时)战场环境一句话，可留空",
+  "safe": false,
   "scene_update": "(可选)新地点一句话",
   "quest_update": "(可选)新目标一句话",
   "victory": true,

@@ -90,7 +90,7 @@ export type LogEntry = { msg: string; kind?: string };
 export type State = {
   phase: 'lobby' | 'creation' | 'explore' | 'combat' | 'ended';
   theme: string; scene: string; chars: Record<string, Character>; seats: string[];
-  combat: Combat; log: LogEntry[]; logSeq: number; quest: string; xpAward: number;
+  combat: Combat; log: LogEntry[]; logSeq: number; quest: string; xpAward: number; safe: boolean;
 };
 
 function L(s: State, msg: string, kind?: string) { s.log.push({ msg, kind }); s.logSeq = (s.logSeq || 0) + 1; }
@@ -149,7 +149,7 @@ export function startCombat(s: State, monsters: Monster[], boss = false) {
   for (const m of monsters) { m.conditions = m.conditions || []; m.statuses = m.statuses || []; m.alive = m.hp > 0; order.push({ ref: m.id, init: rollDie(20) + (m.attackBonus >= 4 ? 2 : 1), isPlayer: false }); }
   order.sort((a, b) => b.init - a.init);
   s.combat = { active: true, round: 1, order, turnIdx: 0, monsters, boss: !!boss };
-  s.phase = 'combat';
+  s.phase = 'combat'; s.safe = false;
   L(s, `⚔️ ${boss ? '【BOSS战】' : ''}战斗开始！先攻顺序：${order.map((o) => refName(s, o.ref) + '(' + o.init + ')').join(' → ')}`, 'combat');
   processCurrent(s);
 }
@@ -365,13 +365,13 @@ function levelUp(s: State, c: Character) {
 
 // ---------- 快照（给前端；目前全队信息共享，怪物 HP 也展示） ----------
 export function newGame(theme: string, seats: string[], names: Record<string, string>): State {
-  const s: State = { phase: 'creation', theme: theme || '', scene: '', chars: {}, seats: [...seats], combat: null, log: [], logSeq: 0, quest: '', xpAward: 0 };
+  const s: State = { phase: 'creation', theme: theme || '', scene: '', chars: {}, seats: [...seats], combat: null, log: [], logSeq: 0, quest: '', xpAward: 0, safe: false };
   L(s, `🎲 一支冒险小队集结。请各自创建角色。`, 'sys');
   return s;
 }
 export function publicView(s: State) {
   return {
-    phase: s.phase, theme: s.theme, scene: s.scene, quest: s.quest, seats: s.seats,
+    phase: s.phase, theme: s.theme, scene: s.scene, quest: s.quest, seats: s.seats, safe: !!s.safe,
     chars: s.chars, combat: s.combat ? { active: s.combat.active, round: s.combat.round, turnIdx: s.combat.turnIdx, order: s.combat.order, monsters: s.combat.monsters, boss: !!s.combat.boss, env: s.combat.env || '', current: currentActor(s)?.ref || null } : null,
     log: s.log.slice(-30), logSeq: s.logSeq,
   };

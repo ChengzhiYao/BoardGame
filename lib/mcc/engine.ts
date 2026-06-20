@@ -130,7 +130,7 @@ export function play(s: State, seat: string, card: Card, target?: string): { ok:
   if (card === 'peek') { L(s, `🕯️ ${nm(s, seat)} 借烛光偷看了牌堆顶。`); return { ok: true, peek: s.deck.slice(-3).reverse() }; }
 
   if (CANCELABLE.includes(card) && someoneCanReact(s, seat, card, tgt)) {
-    s.pending = { type: 'react', card, by: seat, target: tgt, hiss: 0, until: Date.now() + 6000, passed: [] };
+    s.pending = { type: 'react', card, by: seat, target: tgt, hiss: 0, until: Date.now() + 8000, passed: [] };
     L(s, `🃏 ${nm(s, seat)} 打出「${ZH[card]}」${tgt ? `（指向 ${nm(s, tgt)}）` : ''}——可在数秒内被嘶吼/镜爪响应……`);
     return { ok: true };
   }
@@ -146,7 +146,7 @@ export function react(s: State, seat: string, kind: 'hiss' | 'mirror', newTarget
   if (kind === 'hiss') {
     const i = s.hands[seat].indexOf('hiss'); if (i < 0) return { ok: false, error: '你没有嘶吼牌' };
     s.hands[seat].splice(i, 1); s.discard.push('hiss');
-    pg.hiss += 1; pg.until = Date.now() + 6000; pg.passed = [];
+    pg.hiss += 1; pg.until = Date.now() + 8000; pg.passed = [];
     L(s, `🙀 ${nm(s, seat)} 发出嘶吼！（当前：${pg.hiss % 2 === 1 ? '该牌将被取消' : '取消被反取消'}）`);
     return { ok: true };
   }
@@ -156,7 +156,7 @@ export function react(s: State, seat: string, kind: 'hiss' | 'mirror', newTarget
     const i = s.hands[seat].indexOf('mirror'); if (i < 0) return { ok: false, error: '你没有镜爪' };
     if (!newTarget || !s.alive[newTarget] || newTarget === pg.by) return { ok: false, error: '请选择有效的新目标' };
     s.hands[seat].splice(i, 1); s.discard.push('mirror');
-    pg.target = newTarget; pg.until = Date.now() + 6000; pg.passed = [];
+    pg.target = newTarget; pg.until = Date.now() + 8000; pg.passed = [];
     L(s, `🪞 ${nm(s, seat)} 用镜爪把矛头转给了 ${nm(s, newTarget)}！`);
     return { ok: true };
   }

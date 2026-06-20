@@ -121,16 +121,24 @@ export default function MccRoom(props: ShellProps) {
     return () => clearInterval(id);
   }, [isHost, pub?.status, pub?.turn, pub?.pending, props.room.id]);
 
-  async function call(url: string, body: any) {
+  const inFlight = useRef(false);
+  async function call(url: string, body: any, quiet?: string[]) {
+    if (inFlight.current) return null; // 同步挡掉手快连点 / 并发重复提交（嘶吼被算两次的根因）
+    inFlight.current = true;
     setBusy(true);
     try {
       const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      const d = await res.json();
-      if (!res.ok) { alert(d.error || (en ? 'Error' : '出错了')); return null; }
+      const d = await res.json().catch(() => ({} as any));
+      if (!res.ok) {
+        const msg = d?.error || (en ? 'Error' : '出错了');
+        if (quiet && quiet.some((q) => String(msg).includes(q))) { router.refresh(); return null; } // 迟到/竞态：静默刷新，不弹框
+        alert(msg);
+        return null;
+      }
       router.refresh();
       return d;
     } catch (e: any) { alert((en ? 'Failed: ' : '失败：') + e.message); return null; }
-    finally { setBusy(false); }
+    finally { inFlight.current = false; setBusy(false); }
   }
   async function start() { await call('/api/mcc/start', { roomId: props.room.id, aiFill, total: totalSeats }); }
   async function replay() {
@@ -155,7 +163,7 @@ export default function MccRoom(props: ShellProps) {
     if (d?.drew === 'curse') { setFlashKey((k) => k + 1); mccSfx('curse'); }
   }
   async function useWard(pos: number) { await call('/api/mcc/ward', { roomId: props.room.id, pos }); }
-  async function react(kind: 'hiss' | 'mirror', newTarget?: string) { setMirrorPick(false); await call('/api/mcc/react', { roomId: props.room.id, kind, newTarget }); }
+  async function react(kind: 'hiss' | 'mirror', newTarget?: string) { setMirrorPick(false); await call('/api/mcc/react', { roomId: props.room.id, kind, newTarget }, ['没有可响应', '繁忙', '嘶吼牌', '镜爪']); }
   function startDrag(e: React.PointerEvent, card: string, usable: boolean) {
     if (!usable || busy) return;
     const st: any = { card, sx: e.clientX, sy: e.clientY, dragging: false };

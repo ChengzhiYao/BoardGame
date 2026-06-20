@@ -107,7 +107,7 @@ export async function POST(req: Request) {
       : (en ? ['Opening', 'Investigate', 'Relationships', 'Key Evidence', 'Discussion', 'Accusation', 'Reveal'] : ['案件开场', '搜证', '人物关系', '关键证据', '推理讨论', '最终指认', '真相揭晓']);
 
     await admin.from('rooms').update({
-      game_state: 'playing', jbs_phase: 'playing', jbs_act: 1, modules_generating: false,
+      game_state: 'playing', jbs_phase: 'playing', jbs_act: 1, modules_generating: false, jbs_type: cf.type || chosen.type || '推理',
       jbs_act_minutes: actMin, jbs_act_started_at: new Date().toISOString(),
       jbs_total_acts: totalActs, jbs_act_names: actNames,
     }).eq('id', roomId);

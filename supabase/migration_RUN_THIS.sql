@@ -410,3 +410,6 @@ alter table dnd_state enable row level security;
 drop policy if exists dnd_state_read on dnd_state;
 create policy dnd_state_read on dnd_state for select using (is_room_member(room_id) or is_admin());
 do $$ begin alter publication supabase_realtime add table dnd_state; exception when duplicate_object then null; end $$;
+
+-- ---------- 剧本杀：本型（非剧透，给前端按本型分流结局机制） ----------
+alter table rooms add column if not exists jbs_type text; -- 推理|情感|欢乐|阵营|恐怖|还原|机制

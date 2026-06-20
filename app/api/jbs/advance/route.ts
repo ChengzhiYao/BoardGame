@@ -16,7 +16,7 @@ export async function POST(req: Request) {
   if (!roomId) return NextResponse.json({ error: '缺少 roomId' }, { status: 400 });
 
   const admin = createAdminClient();
-  const { data: room } = await admin.from('rooms').select('host_user_id, jbs_act, jbs_phase, jbs_act_minutes, jbs_act_started_at, jbs_total_acts, language').eq('id', roomId).maybeSingle();
+  const { data: room } = await admin.from('rooms').select('host_user_id, jbs_act, jbs_phase, jbs_act_minutes, jbs_act_started_at, jbs_total_acts, jbs_type, language').eq('id', roomId).maybeSingle();
   if (!room) return NextResponse.json({ error: '房间不存在' }, { status: 404 });
   if (room.host_user_id !== user.id) return NextResponse.json({ error: '只有房主可以推进' }, { status: 403 });
   if (room.jbs_phase !== 'playing') return NextResponse.json({ error: '现在不能推进' }, { status: 409 });
@@ -40,7 +40,8 @@ export async function POST(req: Request) {
   const total = room.jbs_total_acts || 7;
   const voteAct = Math.max(2, total - 1);
   const nextAct = toVote ? voteAct : Math.min(total, cur + 1);
-  const goVote = !!toVote || nextAct >= voteAct;
+  const accuse = ['推理', '恐怖', '阵营'].includes(room.jbs_type || '推理'); // 仅指认型本进入「最终指认」；其余本由房主点「结局揭晓」结算
+  const goVote = accuse && (!!toVote || nextAct >= voteAct);
   const en = room.language === 'en';
 
   await admin.from('rooms').update({ jbs_act: nextAct, jbs_phase: goVote ? 'vote' : 'playing', jbs_act_started_at: new Date().toISOString() }).eq('id', roomId);

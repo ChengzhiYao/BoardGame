@@ -187,6 +187,7 @@ export default function JbsRoom(props: ShellProps) {
   async function act_(content: string) { const c = content.trim(); if (!c) return; setText(''); await call('/api/jbs/act', { roomId: props.room.id, content: c }); }
   async function advance(toVote?: boolean, auto?: boolean) { const r = await call('/api/jbs/advance', { roomId: props.room.id, toVote: !!toVote, auto: !!auto }); if (r) router.refresh(); }
   async function vote(target: string) { if (!confirm((en ? 'Accuse ' : '指认 ') + target + '?')) return; await call('/api/jbs/vote', { roomId: props.room.id, target }); }
+  async function settle() { if (!confirm(en ? 'Reveal the ending / settle now?' : '现在揭晓结局 / 结算本局？')) return; await call('/api/jbs/settle', { roomId: props.room.id }); }
   async function genAvatars(force?: boolean, silent?: boolean) {
     const r = silent
       ? await fetch('/api/jbs/avatars', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id, force: !!force }) }).then((x) => x.json()).catch(() => null)
@@ -318,7 +319,10 @@ export default function JbsRoom(props: ShellProps) {
   })();
   const candList: any[] = chars.length ? chars : rosterNames.map((n) => ({ name: n, is_ai: false }));
   const candidates = candList.filter((c: any) => c.name && c.name !== myName);
-  const showAccuseBtn = act >= Math.ceil(totalActs / 2); // 过半幕后才允许提前进入最终指认
+  const showAccuseBtn = act >= Math.ceil(totalActs / 2); // 过半幕后才允许提前进入最终指认/结算
+  const jbsType = (props.room.jbs_type as string) || '推理';
+  const accuse = ['推理', '恐怖', '阵营'].includes(jbsType); // 指认型本才有「最终指认」；其余本由房主点「结局揭晓/结算」
+  const endLabel = jbsType === '机制' ? (en ? 'Settle & rank ▶' : '结算排名 ▶') : jbsType === '欢乐' ? (en ? 'Reveal & score ▶' : '揭晓评分 ▶') : (en ? 'Reveal ending ▶' : '揭晓结局 ▶');
 
   return (
     <main className="h-[100svh] flex flex-col overflow-hidden">
@@ -411,7 +415,7 @@ export default function JbsRoom(props: ShellProps) {
         </div>
       ) : voting ? (
         <div className="border-t border-eldritch/20 px-4 py-3 max-w-3xl w-full mx-auto space-y-2" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
-          <p className="text-center text-parchment/70 text-sm">{en ? 'Final accusation — who is the culprit?' : '最终指认 —— 谁是真凶？'}</p>
+          <p className="text-center text-parchment/70 text-sm">{jbsType === '阵营' ? (en ? 'Final vote — cast your ballot' : '最终票决 —— 投出你的一票') : (en ? 'Final accusation — who is the culprit?' : '最终指认 —— 谁是真凶？')}</p>
           <div className="flex flex-wrap justify-center gap-2">
             {candidates.map((c: any) => (
               <button key={c.name} onClick={() => vote(c.name)} disabled={busy}
@@ -432,7 +436,10 @@ export default function JbsRoom(props: ShellProps) {
           {isHost && (
             <div className="flex items-center justify-center gap-3 text-xs">
               <button onClick={() => advance(false)} disabled={busy || !keyFound} title={!keyFound ? (en ? 'Find this act’s key clue first (or wait for the timer)' : '先找到本幕关键线索（或等倒计时）') : ''} className="px-3 py-1.5 rounded bg-fog border border-eldritch/40 text-parchment/80 hover:bg-eldritch/20 disabled:opacity-40">{keyFound ? (en ? 'Next act ▶' : '进入下一幕 ▶') : (en ? '🔒 Find key clue' : '🔒 需关键线索')}</button>
-              {showAccuseBtn && <button onClick={() => advance(true)} disabled={busy} className="px-3 py-1.5 rounded bg-blood/40 border border-blood/50 text-parchment/90 hover:bg-blood/60 disabled:opacity-40">{en ? 'Go to accusation ⚖' : '进入最终指认 ⚖'}</button>}
+              {showAccuseBtn && (accuse
+                ? <button onClick={() => advance(true)} disabled={busy} className="px-3 py-1.5 rounded bg-blood/40 border border-blood/50 text-parchment/90 hover:bg-blood/60 disabled:opacity-40">{en ? 'Go to accusation ⚖' : '进入最终指认 ⚖'}</button>
+                : <button onClick={settle} disabled={busy} className="px-3 py-1.5 rounded bg-eldritch/40 border border-eldritch/50 text-parchment/90 hover:bg-eldritch/60 disabled:opacity-40">{endLabel}</button>
+              )}
             </div>
           )}
         </div>

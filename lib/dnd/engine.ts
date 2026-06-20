@@ -90,7 +90,7 @@ export type LogEntry = { msg: string; kind?: string };
 export type State = {
   phase: 'lobby' | 'creation' | 'explore' | 'combat' | 'ended';
   theme: string; scene: string; chars: Record<string, Character>; seats: string[];
-  combat: Combat; log: LogEntry[]; logSeq: number; quest: string; xpAward: number; safe: boolean; options?: string[]; blueprint?: any;
+  combat: Combat; log: LogEntry[]; logSeq: number; quest: string; xpAward: number; safe: boolean; options?: string[]; blueprint?: any; quality?: any;
 };
 
 function L(s: State, msg: string, kind?: string) { s.log.push({ msg, kind }); s.logSeq = (s.logSeq || 0) + 1; }
@@ -371,7 +371,7 @@ export function newGame(theme: string, seats: string[], names: Record<string, st
 }
 export function publicView(s: State) {
   return {
-    phase: s.phase, theme: s.theme, scene: s.scene, quest: s.quest, seats: s.seats, safe: !!s.safe, options: s.options || [],
+    phase: s.phase, theme: s.theme, scene: s.scene, quest: s.quest, seats: s.seats, safe: !!s.safe, options: s.options || [], quality: s.quality || null,
     chars: s.chars, combat: s.combat ? { active: s.combat.active, round: s.combat.round, turnIdx: s.combat.turnIdx, order: s.combat.order, monsters: s.combat.monsters, boss: !!s.combat.boss, env: s.combat.env || '', current: currentActor(s)?.ref || null } : null,
     log: s.log.slice(-30), logSeq: s.logSeq,
   };

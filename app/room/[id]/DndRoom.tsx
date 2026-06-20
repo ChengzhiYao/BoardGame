@@ -89,7 +89,7 @@ export default function DndRoom(props: ShellProps) {
   }
   function startWith(q: any, customText?: string) {
     const theme2 = q ? `《${q.title}》｜${q.setting}｜钩子：${q.hook}｜威胁：${q.threat}｜基调：${q.tone}` : String(customText || '').trim();
-    call('/api/dnd/start', { roomId: props.room.id, theme: theme2 });
+    call('/api/dnd/start', { roomId: props.room.id, theme: theme2, fromLibrary: q?.from_library || null });
   }
   async function createChar(b: any) {
     const d = await call('/api/dnd/character', { roomId: props.room.id, ...b });
@@ -117,7 +117,7 @@ export default function DndRoom(props: ShellProps) {
             {opts.map((q: any) => (
               <div key={q.id} className="rounded-xl bg-fog/70 border border-eldritch/30 p-3 text-left flex flex-col gap-1.5">
                 <div className="text-parchment font-serif text-sm">{q.title}</div>
-                <div className="text-[11px] text-eldritch/80">{q.tone}{q.length ? ' · ' + q.length : ''}</div>
+                <div className="text-[11px] text-eldritch/80">{q.tone}{q.length ? ' · ' + q.length : ''}{q.quality_score ? <span className="ml-1 text-amber-400">★{q.quality_score}</span> : null}</div>
                 <div className="text-[12px] text-parchment/70">{q.setting}</div>
                 <div className="text-[12px] text-parchment/55">🪝 {q.hook}</div>
                 <div className="text-[12px] text-blood/80">☠ {q.threat}</div>
@@ -262,6 +262,15 @@ export default function DndRoom(props: ShellProps) {
             {combat?.env && <div className="text-xs text-parchment/50 mt-1">🌫️ {combat.env}</div>}
           </Panel>
           <Panel title={en ? 'Quest' : '任务'}><div className="text-sm text-parchment/75">{pub.quest || '—'}</div></Panel>
+          {pub.quality && (
+            <Panel title={en ? 'Adventure rating' : '本场评分'}>
+              <div className="flex items-center justify-between mb-2"><span className="text-xs text-parchment/50">{en ? 'Quality' : '质量'}</span><span className={`text-2xl font-serif ${pub.quality.complexity >= 85 ? 'text-green-400' : pub.quality.complexity >= 70 ? 'text-eldritch' : 'text-amber-400'}`}>{pub.quality.complexity}<span className="text-xs text-parchment/40"> /100</span></span></div>
+              <div className="grid grid-cols-2 gap-y-1 text-[11px] text-parchment/60">
+                <div>{en ? 'Beats' : '节拍'} {pub.quality.depth}</div><div>{en ? 'Encounters' : '遭遇'} {pub.quality.encounters}</div>
+                <div>NPC {pub.quality.npcs}</div><div>{en ? 'Twist' : '反转'} {pub.quality.twist ? '✓' : '—'}</div>
+              </div>
+            </Panel>
+          )}
           {phase === 'combat' && combat && (
             <Panel title={en ? 'Initiative & Foes' : '先攻 / 敌人'}>
               <div className="flex flex-wrap gap-1 mb-2">{combat.order.map((o: any) => <span key={o.ref} className={`text-[11px] px-2 py-0.5 rounded-full border ${o.ref === combat.current ? 'bg-blood/30 border-blood text-parchment' : 'border-eldritch/25 text-parchment/50'}`}>{o.init} {foeName(o.ref)}</span>)}</div>

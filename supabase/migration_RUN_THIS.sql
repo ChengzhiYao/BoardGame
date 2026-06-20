@@ -433,3 +433,17 @@ do $$ begin alter publication supabase_realtime add table jbs_objectives; except
 
 -- ---------- D&D：冒险选项（像 CoC/剧本杀那样先三选一 + 自定义） ----------
 alter table rooms add column if not exists dnd_options jsonb;
+
+-- ---------- D&D：冒险库（达标蓝图归档复用，省 token） ----------
+create table if not exists dnd_library (
+  id uuid primary key default gen_random_uuid(),
+  title text, setting text, hook text, tone text, threat text, length text,
+  data jsonb not null,        -- { scene, quest, blueprint, opening, options }（含反转/Boss，机密）
+  quality jsonb,              -- 质量评分
+  passed boolean not null default false,
+  times_used int not null default 0,
+  created_at timestamptz not null default now()
+);
+alter table dnd_library enable row level security;
+-- 不创建任何 anon/authenticated 策略：含反转/反派，仅服务端 service_role 可读写。
+create index if not exists dnd_library_passed_idx on dnd_library(passed, created_at);

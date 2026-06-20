@@ -31,8 +31,16 @@ export async function POST(req: Request) {
       messages: [{ role: 'user', content: '生成 3 个冒险选项。' }], tier: 'main', temperature: 0.9, maxTokens: 1200, retry: true,
     });
     await admin.from('api_usage').insert({ room_id: roomId, kind: 'llm_main', model: usage.model, prompt_tokens: usage.promptTokens, completion_tokens: usage.completionTokens, latency_ms: usage.latencyMs });
-    const quests = (Array.isArray(out.quests) ? out.quests : []).slice(0, 3).map((q: any, i: number) => ({ id: `q${i + 1}`, title: String(q.title || ''), setting: String(q.setting || ''), hook: String(q.hook || ''), tone: String(q.tone || ''), threat: String(q.threat || ''), length: String(q.length || '') }));
-    if (!quests.length) throw new Error('未生成有效选项');
+    const fresh = (Array.isArray(out.quests) ? out.quests : []).map((q: any) => ({ title: String(q.title || ''), setting: String(q.setting || ''), hook: String(q.hook || ''), tone: String(q.tone || ''), threat: String(q.threat || ''), length: String(q.length || '') }));
+    if (!fresh.length) throw new Error('未生成有效选项');
+    // 复用库存：中文且无自定义方向时，混入 1 个达标的现成冒险（被选中则跳过生成+审查，省 token）
+    let libOption: any = null;
+    if (room.language === 'zh' && !String(custom || '').trim()) {
+      const { data: libs } = await admin.from('dnd_library').select('id, title, setting, hook, tone, threat, length, quality').eq('passed', true).order('created_at', { ascending: false }).limit(20);
+      if (libs && libs.length) { const l = libs[Math.floor(Math.random() * libs.length)]; libOption = { title: l.title, setting: l.setting, hook: l.hook, tone: l.tone, threat: l.threat, length: l.length, from_library: l.id, quality_score: l.quality?.complexity ?? null }; }
+    }
+    const combined = libOption ? [libOption, ...fresh.slice(0, 2)] : fresh.slice(0, 3);
+    const quests = combined.map((q: any, i: number) => ({ id: `q${i + 1}`, ...q }));
     await admin.from('rooms').update({ dnd_options: quests, dnd_phase: 'select', modules_generating: false }).eq('id', roomId);
     return NextResponse.json({ ok: true });
   } catch (e: any) {

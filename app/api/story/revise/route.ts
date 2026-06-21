@@ -48,20 +48,35 @@ export async function POST(req: Request) {
       }
       await persistStory(admin, roomId, { ...state, phase: 'reading', rating });
     } else {
-      const { data: full, usage } = await callLLMJson<any>({
-        system: buildStoryRevisePrompt(story, state.rating || {}, state.params || {}, genre, room.language, typeof note === 'string' ? note : '') + langDirective(room.language),
-        messages: [{ role: 'user', content: '请大刀阔斧地改写，目标总分冲到 90+。' }], tier: 'main', temperature: 1.0, maxTokens: 4000, retry: true,
-      });
-      await admin.from('api_usage').insert({ room_id: roomId, kind: 'llm_main', model: usage.model, prompt_tokens: usage.promptTokens, completion_tokens: usage.completionTokens, latency_ms: usage.latencyMs });
-      story = String(full.story || story);
-      title = String(full.title || title);
-      const rating = await rate(admin, roomId, story, genre, room.language);
-      const overall = Number(rating?.overall);
-      if (rating && isFinite(overall) && overall >= 85) {
-        try { await admin.from('story_library').insert({ title, genre, logline: chosen.logline || '', mood: chosen.mood || '', est_minutes: chosen.est_minutes || 10, genres: Array.isArray(state.params?.genres) ? state.params.genres : [], tone: state.params?.tone || null, story, rating, overall }); } catch {}
+      // 并行生成 2 个候选稿，各自精确评分，只保留"分数高于当前"的最佳一版；都不如原稿则不改动（绝不越改越差）
+      const sys = buildStoryRevisePrompt(story, state.rating || {}, state.params || {}, genre, room.language, typeof note === 'string' ? note : '') + langDirective(room.language);
+      const N = 2;
+      const drafts = await Promise.all(Array.from({ length: N }, () => callLLMJson<any>({
+        system: sys, messages: [{ role: 'user', content: '请针对弱项重写，目标总分 90+。' }], tier: 'main', temperature: 0.9, maxTokens: 4000, retry: true,
+      }).catch(() => null)));
+      const cands = await Promise.all(drafts.map(async (d) => {
+        if (!d) return null;
+        await admin.from('api_usage').insert({ room_id: roomId, kind: 'llm_main', model: d.usage.model, prompt_tokens: d.usage.promptTokens, completion_tokens: d.usage.completionTokens, latency_ms: d.usage.latencyMs });
+        const cstory = String(d.data.story || '');
+        if (cstory.length < 200) return null;
+        const crating = await rate(admin, roomId, cstory, genre, room.language);
+        return { title: String(d.data.title || title), story: cstory, rating: crating, overall: Number(crating?.overall) || 0 };
+      }));
+      const valid = cands.filter(Boolean) as { title: string; story: string; rating: any; overall: number }[];
+      const prevOverall = Number(state.rating?.overall) || 0;
+      const best = valid.sort((a, b) => b.overall - a.overall)[0];
+      if (best && best.overall > prevOverall) {
+        if (best.overall >= 85) {
+          try { await admin.from('story_library').insert({ title: best.title, genre, logline: chosen.logline || '', mood: chosen.mood || '', est_minutes: chosen.est_minutes || 10, genres: Array.isArray(state.params?.genres) ? state.params.genres : [], tone: state.params?.tone || null, story: best.story, rating: best.rating, overall: best.overall }); } catch {}
+        }
+        await persistStory(admin, roomId, { ...state, phase: 'reading', full: { title: best.title, story: best.story }, rating: best.rating, revisedFrom: prevOverall, reviseCount: (Number(state.reviseCount) || 0) + 1 });
+        await admin.from('rooms').update({ modules_generating: false }).eq('id', roomId);
+        return NextResponse.json({ ok: true, improved: true, from: prevOverall, to: best.overall });
+      } else {
+        // 没改出更高分：保留原稿
+        await admin.from('rooms').update({ modules_generating: false }).eq('id', roomId);
+        return NextResponse.json({ ok: true, improved: false, from: prevOverall, to: best ? best.overall : prevOverall });
       }
-      const prevOverall = Number(state.rating?.overall);
-      await persistStory(admin, roomId, { ...state, phase: 'reading', full: { title, story }, rating, revisedFrom: isFinite(prevOverall) ? prevOverall : undefined, reviseCount: (Number(state.reviseCount) || 0) + 1 });
     }
     await admin.from('rooms').update({ modules_generating: false }).eq('id', roomId);
     return NextResponse.json({ ok: true });

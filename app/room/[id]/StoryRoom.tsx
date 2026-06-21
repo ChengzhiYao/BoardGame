@@ -58,7 +58,12 @@ export default function StoryRoom(props: ShellProps) {
   const genParams = () => ({ genres, horror_sub: genres.includes('horror') ? horrorSub : [], tone, hero, theme, world, special, forbidden });
   function generate() { call('/api/story/options', { roomId: props.room.id, params: genParams() }); }
   function write(id: number) { call('/api/story/write', { roomId: props.room.id, optionId: id }); }
-  function revise(mode: 'revise' | 'rerate') { call('/api/story/revise', { roomId: props.room.id, mode, note: mode === 'revise' ? reviseNote : '' }); }
+  async function revise(mode: 'revise' | 'rerate') {
+    const d = await call('/api/story/revise', { roomId: props.room.id, mode, note: mode === 'revise' ? reviseNote : '' });
+    if (d && mode === 'revise' && d.improved === false) {
+      alert(en ? `Tried 2 rewrites but none beat the current score (${d.from}). Kept the current version.` : `试了 2 个改写版本都没超过当前分数（${d.from}），已保留当前版本，没有变差。可换个角度再点一次，或在输入框写明要提升哪里。`);
+    }
+  }
   async function replay() { await fetch('/api/rooms/replay', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) }); if (typeof window !== 'undefined') window.location.reload(); }
 
   const Header = (

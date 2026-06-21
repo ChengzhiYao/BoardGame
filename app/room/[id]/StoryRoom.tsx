@@ -28,6 +28,8 @@ export default function StoryRoom(props: ShellProps) {
   const [horrorSub, setHorrorSub] = useState<string[]>([]);
   const [reviseNote, setReviseNote] = useState('');
   const [deepMsg, setDeepMsg] = useState('');
+  const [showCompare, setShowCompare] = useState(false);
+  const [onlyUp, setOnlyUp] = useState(false);
   const autoGen = useRef(false);
 
   useEffect(() => {
@@ -178,7 +180,11 @@ export default function StoryRoom(props: ShellProps) {
                 <button onClick={() => revise('medium')} disabled={busy} className="py-2.5 rounded bg-fog hover:bg-eldritch/15 text-parchment/85 border border-eldritch/30 text-sm disabled:opacity-50" title={en ? 'Keep mainline, add scenes / cut exposition' : '保留主线，加强场景、删解释、强化人物关系。约 +3~6'}>{en ? '🛠 Medium boost' : '🛠 中改增强'}</button>
               </div>
               <button onClick={deepRevise} disabled={busy} className="w-full py-2.5 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood text-sm disabled:opacity-50" title={en ? 'Allow structural changes; multi-round' : '允许改结构/人物功能/结尾回扣，自动多轮'}>{busy ? (en ? 'Working…' : '改写中…') : (en ? '🔥 Deep revise — aim 90 (structural, multi-round)' : '🔥 深改冲90（允许改结构 · 自动多轮）')}</button>
-              <button onClick={rerate} disabled={busy} className="w-full py-2 rounded bg-fog border border-eldritch/30 text-parchment/70 text-sm disabled:opacity-50">{en ? '↻ Re-rate precisely' : '↻ 重新精确评分'}</button>
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={rerate} disabled={busy} className="py-2 rounded bg-fog border border-eldritch/30 text-parchment/70 text-sm disabled:opacity-50">{en ? '↻ Re-rate' : '↻ 重新评分'}</button>
+                {st?.prevRating && <button onClick={() => setShowCompare((v) => !v)} className="py-2 rounded bg-fog border border-eldritch/30 text-parchment/70 text-sm">{showCompare ? (en ? '✕ Hide compare' : '✕ 收起对比') : (en ? '📊 Before/After' : '📊 改前改后对比')}</button>}
+              </div>
+              {showCompare && st?.prevRating && st?.rating && <Comparison prev={st.prevRating} cur={st.rating} en={en} onlyUp={onlyUp} setOnlyUp={setOnlyUp} />}
               {deepMsg && <p className="text-[12px] text-eldritch text-center animate-pulse">{deepMsg}</p>}
               <p className="text-[11px] text-parchment/40 text-center">{en ? 'Each pass writes 2 candidates and keeps the best only if it beats the current score — never worse. Reaching 90 usually needs structural (deep) changes, not just polish.' : '每次写 2 稿、只保留分更高的一版——只升不降。要破 88/90 通常得靠「深改」动结构，光润色到不了。满 85 自动入库。'}</p>
             </div>
@@ -186,6 +192,34 @@ export default function StoryRoom(props: ShellProps) {
         </div>
       </div>
     </main>
+  );
+}
+
+function Comparison({ prev, cur, en, onlyUp, setOnlyUp }: { prev: any; cur: any; en: boolean; onlyUp: boolean; setOnlyUp: (v: boolean) => void }) {
+  const prevBy: Record<string, any> = Object.fromEntries((prev?.dimensions || []).map((d: any) => [d.key, d]));
+  let rows = (cur?.dimensions || []).map((d: any) => { const o = prevBy[d.key]; const old = o ? Number(o.score) : null; const cu = Number(d.score) || 0; return { label: d.label, old, cu, delta: old == null ? null : cu - old }; });
+  if (onlyUp) rows = rows.filter((r: any) => (r.delta || 0) > 0);
+  const od = Number(prev?.overall) || 0, nd = Number(cur?.overall) || 0; const od2 = Math.round((nd - od) * 10) / 10;
+  return (
+    <div className="rounded-xl bg-fog/60 border border-eldritch/30 p-4 space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-sm text-parchment/70">{en ? 'Before → After' : '改前 → 改后'}</span>
+        <span className="text-sm"><span className="text-parchment/45">{od}</span> <span className="text-parchment/40">→</span> <b className={nd >= od ? 'text-green-400' : 'text-blood'}>{nd}</b>{od2 !== 0 && <span className={`ml-1 text-[11px] ${od2 > 0 ? 'text-green-400' : 'text-blood'}`}>({od2 > 0 ? '+' : ''}{od2})</span>}</span>
+      </div>
+      <button onClick={() => setOnlyUp(!onlyUp)} className={`text-[11px] px-2 py-0.5 rounded-full border ${onlyUp ? 'bg-green-500/20 border-green-500/50 text-green-300' : 'bg-fog border-eldritch/30 text-parchment/55'}`}>{onlyUp ? (en ? '✓ Only improved' : '✓ 只看提升项') : (en ? 'Show only improved' : '只看提升项')}</button>
+      <div className="space-y-0.5 pt-1">
+        {rows.length === 0 && <div className="text-[12px] text-parchment/40">{en ? 'No dimension improved this pass.' : '这一版没有任何维度提升。'}</div>}
+        {rows.map((r: any, i: number) => {
+          const col = r.delta == null ? 'text-parchment/50' : r.delta > 0 ? 'text-green-400' : r.delta < 0 ? 'text-blood' : 'text-parchment/40';
+          return (
+            <div key={i} className={`flex items-center justify-between text-[12px] px-1.5 py-0.5 rounded ${r.delta && r.delta > 0 ? 'bg-green-500/10' : r.delta && r.delta < 0 ? 'bg-blood/10' : ''}`}>
+              <span className="text-parchment/65">{r.label}</span>
+              <span className={col}>{r.old != null ? `${r.old} → ` : ''}{r.cu}{r.delta ? ` ${r.delta > 0 ? '▲+' : '▼'}${r.delta > 0 ? r.delta : r.delta}` : ''}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

@@ -69,7 +69,7 @@ export async function POST(req: Request) {
         if (best.overall >= 85) {
           try { await admin.from('story_library').insert({ title: best.title, genre, logline: chosen.logline || '', mood: chosen.mood || '', est_minutes: chosen.est_minutes || 10, genres: Array.isArray(state.params?.genres) ? state.params.genres : [], tone: state.params?.tone || null, story: best.story, rating: best.rating, overall: best.overall }); } catch {}
         }
-        await persistStory(admin, roomId, { ...state, phase: 'reading', full: { title: best.title, story: best.story }, rating: best.rating, revisedFrom: prevOverall, reviseCount: (Number(state.reviseCount) || 0) + 1 });
+        await persistStory(admin, roomId, { ...state, phase: 'reading', full: { title: best.title, story: best.story }, rating: best.rating, prevRating: state.rating || null, revisedFrom: prevOverall, reviseCount: (Number(state.reviseCount) || 0) + 1 });
         await admin.from('rooms').update({ modules_generating: false }).eq('id', roomId);
         return NextResponse.json({ ok: true, improved: true, from: prevOverall, to: best.overall });
       } else {

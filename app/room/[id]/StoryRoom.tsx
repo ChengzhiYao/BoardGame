@@ -27,6 +27,7 @@ export default function StoryRoom(props: ShellProps) {
   const [showCustom, setShowCustom] = useState(false);
   const [horrorSub, setHorrorSub] = useState<string[]>([]);
   const [reviseNote, setReviseNote] = useState('');
+  const [deepMsg, setDeepMsg] = useState('');
   const autoGen = useRef(false);
 
   useEffect(() => {
@@ -63,6 +64,20 @@ export default function StoryRoom(props: ShellProps) {
     if (d && mode === 'revise' && d.improved === false) {
       alert(en ? `Tried 2 rewrites but none beat the current score (${d.from}). Kept the current version.` : `试了 2 个改写版本都没超过当前分数（${d.from}），已保留当前版本，没有变差。可换个角度再点一次，或在输入框写明要提升哪里。`);
     }
+  }
+  async function deepRevise() {
+    const target = 90, maxRounds = 4;
+    let last = 0, stalled = false;
+    for (let i = 0; i < maxRounds; i++) {
+      setDeepMsg(en ? `Deep revise — round ${i + 1}/${maxRounds}…` : `深度改稿中 · 第 ${i + 1}/${maxRounds} 轮…`);
+      const d = await call('/api/story/revise', { roomId: props.room.id, mode: 'revise', note: reviseNote });
+      if (!d) break;
+      last = Number(d.to) || last;
+      if (d.improved === false) { stalled = true; break; }
+      if (last >= target) break;
+    }
+    setDeepMsg(en ? (last >= target ? `Reached ${last} 🎉` : stalled ? `Topped out at ${last}` : `Now ${last}`) : (last >= target ? `已冲到 ${last} 🎉` : stalled ? `已到瓶颈 ${last}，无法再提升` : `已提升到 ${last}`));
+    setTimeout(() => setDeepMsg(''), 4000);
   }
   async function replay() { await fetch('/api/rooms/replay', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) }); if (typeof window !== 'undefined') window.location.reload(); }
 
@@ -158,8 +173,10 @@ export default function StoryRoom(props: ShellProps) {
             <div className="space-y-2 pt-1">
               <textarea value={reviseNote} onChange={(e) => setReviseNote(e.target.value)} rows={2} placeholder={en ? 'Optional: what to improve, e.g. “the ending feels lazy, make it land harder”…' : '可选：想重点提升的地方，例如"结尾太敷衍，重点加强结尾的力度和余味"…'} className="w-full px-3 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 text-sm outline-none focus:border-eldritch resize-none" />
               <button onClick={() => revise('revise')} disabled={busy} className="w-full py-2.5 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood text-sm disabled:opacity-50">{busy ? (en ? 'Working…' : '改写中…') : (en ? '✨ Let AI improve the story (raise the score)' : '✨ 让 AI 改稿提分')}</button>
+              <button onClick={deepRevise} disabled={busy} className="w-full py-2.5 rounded bg-eldritch/20 hover:bg-eldritch/30 text-parchment border border-eldritch/40 text-sm disabled:opacity-50">{busy ? (en ? 'Working…' : '改写中…') : (en ? '🔥 Deep revise (multi-round, aim 90)' : '🔥 深度改稿（自动多轮，冲 90）')}</button>
               <button onClick={() => revise('rerate')} disabled={busy} className="w-full py-2 rounded bg-fog border border-eldritch/30 text-parchment/70 text-sm disabled:opacity-50">{en ? '↻ Re-rate precisely' : '↻ 重新精确评分'}</button>
-              <p className="text-[11px] text-parchment/40 text-center">{en ? 'AI rewrites targeting the weak dimensions, then re-scores.' : 'AI 会针对评分弱项重写，再重新打分；满 85 分自动收入精选库。'}</p>
+              {deepMsg && <p className="text-[12px] text-eldritch text-center animate-pulse">{deepMsg}</p>}
+              <p className="text-[11px] text-parchment/40 text-center">{en ? 'Each round writes 2 candidates and keeps the best only if it beats the current score — never gets worse.' : '每轮写 2 个候选稿、只保留分更高的一版——只升不降。满 85 分自动收入精选库。'}</p>
             </div>
           )}
         </div>

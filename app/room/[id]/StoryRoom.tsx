@@ -88,7 +88,7 @@ export default function StoryRoom(props: ShellProps) {
             <div className="grid gap-3">
               {(st.options || []).map((o: any) => (
                 <div key={o.id} className="rounded-xl bg-fog/70 border border-eldritch/30 p-4 space-y-1.5">
-                  <div className="flex items-start justify-between gap-2"><div className="font-serif text-parchment">{o.title}</div><span className="text-amber-400 text-sm shrink-0">★ {o.appeal}</span></div>
+                  <div className="flex items-start justify-between gap-2"><div className="font-serif text-parchment">{o.title}</div>{o.fromLibrary ? <span className="text-amber-400 text-sm shrink-0" title={en ? 'Saved high-scorer (precise rating)' : '精选库 · 真实精确评分'}>★ {o.appeal} <span className="text-[10px]">{en ? 'saved' : '精选'}</span></span> : <span className="text-parchment/40 text-[11px] shrink-0" title={en ? 'Premise appeal — not the final precise rating' : '开场卖相分，非成稿精确评分'}>{en ? 'appeal' : '卖相'} {o.appeal}</span>}</div>
                   <div className="text-[11px] text-eldritch/80">{o.genre} · {o.mood} · ~{o.est_minutes}min</div>
                   <div className="text-sm text-parchment/75">🪝 {o.logline}</div>
                   {isHost && <button onClick={() => write(o.id)} disabled={busy} className="mt-1 w-full py-2 rounded bg-blood/80 hover:bg-blood text-parchment text-sm border border-blood disabled:opacity-50">{en ? 'Write this story →' : '写这个故事 →'}</button>}
@@ -170,13 +170,13 @@ function Field({ label, value, onChange, ph }: { label: string; value: string; o
 }
 
 function Bar({ label, score }: { label: string; score: number; note?: string }) {
-  const s = Math.max(0, Math.min(100, Number(score) || 0));
-  const col = s >= 85 ? 'bg-green-500' : s >= 70 ? 'bg-eldritch' : s >= 50 ? 'bg-amber-500' : 'bg-blood';
+  const s = Math.max(0, Math.min(10, Number(score) || 0));
+  const col = s >= 8.5 ? 'bg-green-500' : s >= 7 ? 'bg-eldritch' : s >= 5 ? 'bg-amber-500' : 'bg-blood';
   return (
     <div className="flex items-center gap-2">
       <span className="w-20 text-[11px] text-parchment/60 shrink-0">{label}</span>
-      <div className="flex-1 h-1.5 rounded bg-ink overflow-hidden"><div className={`h-full ${col}`} style={{ width: `${s}%` }} /></div>
-      <span className="w-8 text-right text-[11px] text-parchment/70">{s}</span>
+      <div className="flex-1 h-1.5 rounded bg-ink overflow-hidden"><div className={`h-full ${col}`} style={{ width: `${s * 10}%` }} /></div>
+      <span className="w-10 text-right text-[11px] text-parchment/70">{s}<span className="text-parchment/30">/10</span></span>
     </div>
   );
 }

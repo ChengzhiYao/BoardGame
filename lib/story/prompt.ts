@@ -74,7 +74,7 @@ ${paramBlock(p)}
 export function buildStoryRevisePrompt(story: string, rating: any, p: any, genre: string, lang?: string) {
   const en = lang === 'en';
   const dims = Array.isArray(rating?.dimensions) ? rating.dimensions : [];
-  const weak = dims.filter((d: any) => Number(d?.score) < 75).sort((a: any, b: any) => Number(a.score) - Number(b.score)).slice(0, 5)
+  const weak = dims.filter((d: any) => Number(d?.score) < 7).sort((a: any, b: any) => Number(a.score) - Number(b.score)).slice(0, 5)
     .map((d: any) => `「${d.label}」(${d.score}) — ${d.note || ''}`).join('；');
   return `你是一位顶尖的文学编辑兼作者。下面这篇故事经过严苛评审，总分 ${rating?.overall ?? '未知'}/100，还不够好。请**在保留它原有优点的前提下重写一稿**，把分数显著提上去。
 题材：${genre}。
@@ -93,19 +93,57 @@ ${paramBlock(p)}
 ${String(story).slice(0, 6000)}`;
 }
 
-// 多维精确评分（严格、挑剔、给具体分数与理由）
+// 用各维度之和（每项0~10）换算成 0~100 总分，并写回 rating.overall —— 保证显示分=明细分
+export function normalizeStoryRating(r: any): any {
+  if (!r || !Array.isArray(r.dimensions) || !r.dimensions.length) return r;
+  const dims = r.dimensions.map((d: any) => ({ ...d, score: Math.max(0, Math.min(10, Number(d.score) || 0)) }));
+  const sum = dims.reduce((a: number, d: any) => a + d.score, 0);
+  const overall = Math.round((sum / (dims.length * 10)) * 1000) / 10; // 一位小数
+  return { ...r, dimensions: dims, overall };
+}
+
+// 多维精确评分（14 维度，每项 0~10；总分由各维之和换算，保证显示分=明细分）
 export function buildStoryRatePrompt(story: string, genre: string, lang?: string) {
   const en = lang === 'en';
-  return `你是一位严苛的文学评审。对下面这篇故事做**精确、可信、有区分度**的打分——好就高、弱就低，绝不一律打高分。
+  return `你是一位极其严苛、专业的短篇故事评审。这是一篇"约 10 分钟口述故事"。请按下面这套**精确标准**逐项打分——好就高、弱就低，绝不一律打高分，分数要有区分度、能看出差距。
 故事题材：${genre}。
-按以下 10 个维度各打 0~100 的**具体整数**（不要都给整十的圆数），每个维度给 ≤14 字的中肯理由：
-1 emotional 情感张力 ｜ 2 prose 文笔语言 ｜ 3 immersion 沉浸代入 ｜ 4 pacing 节奏掌控 ｜ 5 character 角色塑造 ｜ 6 surprise 意外与转折 ｜ 7 atmosphere 氛围营造 ｜ 8 ending 结局收束 ｜ 9 originality 原创新意 ｜ 10 fit 题材契合
-再给一个**题材专属维度** flavor（如治愈类给"治愈度"、恐怖类给"恐怖度"、催泪类给"泪点"、甜宠给"甜度"、悬疑给"悬疑度"），含 label 与 score。
-overall 为加权总分（情感×2、文笔×1.5、沉浸×1.5、结局×1.5、其余×1，取一位小数）。
+
+【评分标准 · 14 项，每项 0~10 分（允许 7、8 这类，不要清一色给满）】
+1 hook 开头钩子：是否 30 秒内就有钩子（"出事了/有个不正常的东西/主角必须做选择/一个温柔或恐怖的悬念"）。只是慢慢介绍设定人物地点 → 6 分以下。
+2 emotional 情感张力：是否有真正的情绪冲击力，而非平淡叙述。恐怖→不安压迫；温情→遗憾被爱释怀；悲伤→"本可更好却来不及"。
+3 fit 类型契合：有没有兑现类型承诺。恐怖不止出现鬼、温情不止让人哭、悬疑要让人想猜、喜剧要逻辑越来越离谱而人物还认真。
+4 mainline 主线清晰：能否一句话概括（一个主角 + 一个异常 + 逐步逼近真相 + 结尾反转/释放）。人物/设定/解释太多像"简介" → 低分。
+5 conflict 冲突强度：是否有压力（外部：鬼在靠近/时间快到/出不去；内部：不敢面对/原谅/说出口）。只"讲了一件事"无冲突 → 低分。
+6 info 信息控制：听众应"一直知道一点点，永远差最后一块"。给太早或最后才突然解释一大堆 → 低分。恐怖尤其先给迹象（门锁自己反了/镜中钟慢三分/邻居说"你不是一个人住吗"）。
+7 pacing 节奏推进：是否符合 10 分钟节拍（0-1 钩子｜1-4 立人物与异常｜4-7 升级冲突｜7-9 揭真相/做选择｜9-10 留余味）。恐怖避免一上来鬼就冲出来，温情避免一上来就煽情。
+8 arc 情绪曲线：情绪要变化推进（恐怖：平静→奇怪→不安→恐惧→余寒；温情：日常→误解→遗憾→理解→释怀）。从头到尾一个情绪 → 低分。
+9 change 人物转变与欲望：主角要有明确欲望并最好有转变（不信鬼→不得不信；恨父亲→理解父亲；逃避→主动打开那扇门）。被推着走、毫无变化 → 低分。
+10 detail 记忆点细节：是否有能被记住、承载情感/恐惧的标志性物件（永不灭的灯/不会叫的黑猫/没寄出的信/门后的童谣）。
+11 atmosphere 氛围营造：场景质感与代入感是否到位、足够浓郁。
+12 ending 结尾力度：必须有"落点"（恐怖反转/温情释怀/悲剧回扣/开放余味）。烂结尾（"鬼把他杀了""他们都哭了""原来是一场梦""最后全解释清楚"）→ 低分。
+13 language 语言画面感：好懂、有画面（"门缝下那双脚，脚尖朝着天花板"胜过"难以名状的恐惧"）。抽象空泛 → 低分。
+14 dialogue 台词与可复述：台词像人说话而非作者解释主题；整篇能被听众转述给别人。散到复述不出 → 低分。
+
+【纪律】每项给 0~10 的具体整数并附 ≤14 字理由（点出扣分原因）。系统会用各维度之和换算总分，所以请如实拉开差距、不要虚高。
+
 只输出 JSON（语言：${en ? 'English' : '中文'}）：
 {
-  "dimensions": [ { "key": "emotional", "label": "情感张力", "score": 0, "note": "" } ],
-  "flavor": { "label": "", "score": 0 },
+  "dimensions": [
+    { "key": "hook", "label": "开头钩子", "score": 0, "note": "" },
+    { "key": "emotional", "label": "情感张力", "score": 0, "note": "" },
+    { "key": "fit", "label": "类型契合", "score": 0, "note": "" },
+    { "key": "mainline", "label": "主线清晰", "score": 0, "note": "" },
+    { "key": "conflict", "label": "冲突强度", "score": 0, "note": "" },
+    { "key": "info", "label": "信息控制", "score": 0, "note": "" },
+    { "key": "pacing", "label": "节奏推进", "score": 0, "note": "" },
+    { "key": "arc", "label": "情绪曲线", "score": 0, "note": "" },
+    { "key": "change", "label": "人物转变", "score": 0, "note": "" },
+    { "key": "detail", "label": "记忆点细节", "score": 0, "note": "" },
+    { "key": "atmosphere", "label": "氛围营造", "score": 0, "note": "" },
+    { "key": "ending", "label": "结尾力度", "score": 0, "note": "" },
+    { "key": "language", "label": "语言画面", "score": 0, "note": "" },
+    { "key": "dialogue", "label": "台词复述", "score": 0, "note": "" }
+  ],
   "overall": 0,
   "tags": ["3~5 个风格标签"],
   "verdict": "一句话总评",

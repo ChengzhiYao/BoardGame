@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { callLLMJson } from '@/lib/llm';
-import { buildStoryWritePrompt, buildStoryRatePrompt } from '@/lib/story/prompt';
+import { buildStoryWritePrompt, buildStoryRatePrompt, normalizeStoryRating } from '@/lib/story/prompt';
 import { loadStory, persistStory } from '@/lib/story/db';
 import { langDirective } from '@/lib/i18n';
 
@@ -50,7 +50,7 @@ export async function POST(req: Request) {
         system: buildStoryRatePrompt(story, chosen.genre || '', room.language) + langDirective(room.language),
         messages: [{ role: 'user', content: '请精确评分。' }], tier: 'main', temperature: 0.3, maxTokens: 1200, retry: true,
       });
-      rating = r;
+      rating = normalizeStoryRating(r);
     } catch { /* 评分失败不阻断 */ }
     const overall = Number(rating?.overall);
     if (rating && isFinite(overall) && overall >= 85) {

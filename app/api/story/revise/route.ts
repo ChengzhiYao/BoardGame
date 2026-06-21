@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { callLLMJson } from '@/lib/llm';
-import { buildStoryRevisePrompt, buildStoryRatePrompt } from '@/lib/story/prompt';
+import { buildStoryRevisePrompt, buildStoryRatePrompt, normalizeStoryRating } from '@/lib/story/prompt';
 import { loadStory, persistStory } from '@/lib/story/db';
 import { langDirective } from '@/lib/i18n';
 
@@ -14,7 +14,7 @@ async function rate(admin: any, roomId: string, story: string, genre: string, la
     messages: [{ role: 'user', content: '请精确评分。' }], tier: 'main', temperature: 0.3, maxTokens: 1200, retry: true,
   });
   await admin.from('api_usage').insert({ room_id: roomId, kind: 'llm_main', model: usage.model, prompt_tokens: usage.promptTokens, completion_tokens: usage.completionTokens, latency_ms: usage.latencyMs });
-  return r;
+  return normalizeStoryRating(r);
 }
 
 export async function POST(req: Request) {

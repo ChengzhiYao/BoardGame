@@ -26,6 +26,7 @@ export default function StoryRoom(props: ShellProps) {
   const [forbidden, setForbidden] = useState('');
   const [showCustom, setShowCustom] = useState(false);
   const [horrorSub, setHorrorSub] = useState<string[]>([]);
+  const [reviseNote, setReviseNote] = useState('');
   const autoGen = useRef(false);
 
   useEffect(() => {
@@ -57,7 +58,7 @@ export default function StoryRoom(props: ShellProps) {
   const genParams = () => ({ genres, horror_sub: genres.includes('horror') ? horrorSub : [], tone, hero, theme, world, special, forbidden });
   function generate() { call('/api/story/options', { roomId: props.room.id, params: genParams() }); }
   function write(id: number) { call('/api/story/write', { roomId: props.room.id, optionId: id }); }
-  function revise(mode: 'revise' | 'rerate') { call('/api/story/revise', { roomId: props.room.id, mode }); }
+  function revise(mode: 'revise' | 'rerate') { call('/api/story/revise', { roomId: props.room.id, mode, note: mode === 'revise' ? reviseNote : '' }); }
   async function replay() { await fetch('/api/rooms/replay', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) }); if (typeof window !== 'undefined') window.location.reload(); }
 
   const Header = (
@@ -150,6 +151,7 @@ export default function StoryRoom(props: ShellProps) {
           )}
           {isHost && story?.story && (
             <div className="space-y-2 pt-1">
+              <textarea value={reviseNote} onChange={(e) => setReviseNote(e.target.value)} rows={2} placeholder={en ? 'Optional: what to improve, e.g. “the ending feels lazy, make it land harder”…' : '可选：想重点提升的地方，例如"结尾太敷衍，重点加强结尾的力度和余味"…'} className="w-full px-3 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 text-sm outline-none focus:border-eldritch resize-none" />
               <button onClick={() => revise('revise')} disabled={busy} className="w-full py-2.5 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood text-sm disabled:opacity-50">{busy ? (en ? 'Working…' : '改写中…') : (en ? '✨ Let AI improve the story (raise the score)' : '✨ 让 AI 改稿提分')}</button>
               <button onClick={() => revise('rerate')} disabled={busy} className="w-full py-2 rounded bg-fog border border-eldritch/30 text-parchment/70 text-sm disabled:opacity-50">{en ? '↻ Re-rate precisely' : '↻ 重新精确评分'}</button>
               <p className="text-[11px] text-parchment/40 text-center">{en ? 'AI rewrites targeting the weak dimensions, then re-scores.' : 'AI 会针对评分弱项重写，再重新打分；满 85 分自动收入精选库。'}</p>

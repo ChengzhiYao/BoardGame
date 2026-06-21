@@ -21,7 +21,7 @@ export async function POST(req: Request) {
   const supabase = createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: '未登录' }, { status: 401 });
-  const { roomId, mode } = await req.json().catch(() => ({} as any));
+  const { roomId, mode, note } = await req.json().catch(() => ({} as any));
   if (!roomId) return NextResponse.json({ error: '缺少参数' }, { status: 400 });
 
   const admin = createAdminClient();
@@ -49,7 +49,7 @@ export async function POST(req: Request) {
       await persistStory(admin, roomId, { ...state, phase: 'reading', rating });
     } else {
       const { data: full, usage } = await callLLMJson<any>({
-        system: buildStoryRevisePrompt(story, state.rating || {}, state.params || {}, genre, room.language) + langDirective(room.language),
+        system: buildStoryRevisePrompt(story, state.rating || {}, state.params || {}, genre, room.language, typeof note === 'string' ? note : '') + langDirective(room.language),
         messages: [{ role: 'user', content: '请大刀阔斧地改写，目标总分冲到 90+。' }], tier: 'main', temperature: 1.0, maxTokens: 4000, retry: true,
       });
       await admin.from('api_usage').insert({ room_id: roomId, kind: 'llm_main', model: usage.model, prompt_tokens: usage.promptTokens, completion_tokens: usage.completionTokens, latency_ms: usage.latencyMs });

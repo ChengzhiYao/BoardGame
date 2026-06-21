@@ -71,7 +71,7 @@ ${paramBlock(p)}
 }
 
 // AI 改稿：针对评分弱项重写以提升分数（保留亮点，不是推倒重来）
-export function buildStoryRevisePrompt(story: string, rating: any, p: any, genre: string, lang?: string) {
+export function buildStoryRevisePrompt(story: string, rating: any, p: any, genre: string, lang?: string, userNote?: string) {
   const en = lang === 'en';
   const dims = (Array.isArray(rating?.dimensions) ? rating.dimensions : []).map((d: any) => ({ ...d, score: Number(d?.score) || 0 }));
   // 改稿目标：所有"还没到 9 分"的维度，分数低的优先，连同评审的扣分理由一起喂给 AI
@@ -82,7 +82,7 @@ export function buildStoryRevisePrompt(story: string, rating: any, p: any, genre
 题材：${genre}。
 当前各维度（满分10）：${allDimLine || '未知'}
 评审一句话总评：${rating?.verdict || ''}
-最关键改进建议：${rating?.improve || ''}
+最关键改进建议：${rating?.improve || ''}${userNote && userNote.trim() ? `\n\n【⭐ 玩家本次特别要求 —— 最高优先，必须照做】\n${userNote.trim()}` : ''}
 
 【必须逐条攻克的维度（把每一项都提到 9~10）】
   ${targets || (rating?.improve || '整体打磨')}

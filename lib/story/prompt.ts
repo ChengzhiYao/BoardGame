@@ -71,7 +71,7 @@ ${paramBlock(p)}
 }
 
 // AI 改稿：针对评分弱项重写以提升分数（保留亮点，不是推倒重来）
-export function buildStoryRevisePrompt(story: string, rating: any, p: any, genre: string, lang?: string, userNote?: string) {
+export function buildStoryRevisePrompt(story: string, rating: any, p: any, genre: string, lang?: string, userNote?: string, intensity?: 'light' | 'medium' | 'deep') {
   const en = lang === 'en';
   const dims = (Array.isArray(rating?.dimensions) ? rating.dimensions : []).map((d: any) => ({ ...d, score: Number(d?.score) || 0 }));
   // 改稿目标：所有"还没到 9 分"的维度，分数低的优先，连同评审的扣分理由一起喂给 AI
@@ -83,15 +83,18 @@ export function buildStoryRevisePrompt(story: string, rating: any, p: any, genre
 题材：${genre}。
 当前各维度（满分10）：${allDimLine || '未知'}
 评审一句话总评：${rating?.verdict || ''}
-最关键改进建议：${rating?.improve || ''}${userNote && userNote.trim() ? `\n\n【⭐ 玩家本次特别要求 —— 最高优先，必须照做】\n${userNote.trim()}` : ''}
+最关键改进建议：${rating?.improve || ''}${rating?.capReasons?.length ? `\n当前被结构性封顶在 ${rating.cap} 分，原因：${rating.capReasons.join('、')} —— 不解决这些就突破不了，请优先动它们。` : ''}${rating?.potential?.best_fix ? `\n评审建议的最有效结构改法：${rating.potential.best_fix}` : ''}${userNote && userNote.trim() ? `\n\n【⭐ 玩家本次特别要求 —— 最高优先，必须照做】\n${userNote.trim()}` : ''}
 
 【必须逐条攻克的维度（把每一项都提到 9~10）】
   ${targets || (rating?.improve || '整体打磨')}
 
-改稿纪律：
-- **对上面列出的每一个维度，都按它的扣分原因做实质性修改**，不是换几个词。比如：信息控制差→删掉结尾的解释性段落、改用意象/留白暗示；记忆点细节差→加一个贯穿全篇、能被记住的标志性物件；台词复述差→把独白改写成有张力的对话、并让整篇能被人转述；情感张力差→把"叙述情绪"改成"用具体动作和细节让人自己感到"；结尾差→给一个有落点的反转或余味。
-- 7、8 分的维度也要往 9、10 推，别停在"还行"。
-- 保留原作的核心设定与已被肯定的亮点（${(Array.isArray(rating?.highlights) ? rating.highlights.join('、') : '') || '原有打动人的部分'}），不要推倒重来导致跑题。
+改稿强度：${intensity === 'light' ? '【轻改 · 只润色】只改语言、节奏、删废话、强化画面与具体细节；严禁改动主线、人物关系功能、结尾逻辑、世界设定。目标 +1~3 分。' : intensity === 'medium' ? '【中改 · 增强】保留主线与设定骨架，但可以新增/替换 1~2 个具体强事件场景、删减中段解释设定、强化某个人物关系的"剧情作用"。目标 +3~6 分。' : '【深改 · 冲90】允许结构级改动：重构人物关系功能（让配角的物件/一句话成为主角最终选择或结局的触发与回扣）、把"解释设定"改成"具体发生"的事件、重做结尾让它产生不可替代的回扣、加一个中段强事件。这才有机会到 90。'}
+
+改稿纪律（核心：不要只润色句子，而是修复距 90 的结构性短板）：
+- 先判断本文距 90 的结构性短板，**优先修复上面"必须攻克"里权重高、分数低的项**；不要把时间花在已经高分的文笔/氛围/开头上——那些保持别动。
+- **若仅靠润色无法到 90，必须做结构级修改**（动人物功能、动中段事件、动结尾回扣），而不是把句子写得更华丽。反例：把"那颗星像眼睛"改成"如古老神祇的瞳孔缓缓张开"——更华丽但不涨分；正例：让那颗星同时倒映在冰原裂缝与主角眼里，并回扣配角离开前说过的一句话——这才把多个评分项一起拉起来。
+- 对上面每个目标维度按其扣分原因做实质修改，不是换词。
+- 保留原作已被肯定的亮点（${(Array.isArray(rating?.highlights) ? rating.highlights.join('、') : '') || '原有打动人的部分'}），不要推倒重来导致跑题。
 - 仍是 ${en ? 'English' : '中文'}、约 ${en ? '1300~1800 words' : '1600~2200 字'}、约 10 分钟阅读；严格遵守原参数的"特别要求"与"必须避免"。
 参数：
 ${paramBlock(p)}
@@ -127,8 +130,20 @@ export function normalizeStoryRating(r: any): any {
   const dims = r.dimensions.map((d: any) => ({ ...d, score: Math.max(0, Math.min(10, Number(d.score) || 0)) }));
   let num = 0, den = 0;
   for (const d of dims) { const w = STORY_DIM_W[d.key] ?? 6; num += d.score * w; den += 10 * w; }
-  const overall = den ? Math.round((num / den) * 1000) / 10 : 0;
-  return { ...r, dimensions: dims, overall };
+  let overall = den ? Math.round((num / den) * 1000) / 10 : 0;
+  // 结构性封顶（虚高检测）：文笔再好，结构硬伤也压住总分——逼用户做结构级改动才能突破
+  const sc = (k: string) => { const d = dims.find((x: any) => x.key === k); return d ? d.score : 10; };
+  let cap = 100; const reasons: string[] = [];
+  const hit = (c: number, why: string) => { if (c < cap) cap = c; reasons.push(why); };
+  if (sc('mainline') < 5) hit(75, '主线不清');
+  if (sc('conflict') < 5) hit(78, '没有明确冲突');
+  if (sc('ending') < 5) hit(80, '结尾没有落点');
+  if (sc('genrefx') <= 5) hit(82, '类型核心效果不足');
+  if (sc('infoburden') <= 6) hit(86, '中段主要靠解释设定');
+  if (sc('relationship') <= 6) hit(88, '人物关系不推动剧情');
+  if (sc('retell') <= 6) hit(88, '可复述性弱');
+  const capped = Math.min(overall, cap);
+  return { ...r, dimensions: dims, overall: capped, ...(cap < 100 ? { cap, capReasons: reasons } : {}) };
 }
 
 // 多维精确评分：四大类（类型完成度/故事结构/人物情感/表达与传播）拆成 15 个带权维度。
@@ -155,8 +170,11 @@ ${tmpl}
   "verdict": "一句话总评",
   "highlights": ["1~2 个亮点"],
   "improve": "一句最关键的可改进点",
-  "read_minutes": 10
+  "read_minutes": 10,
+  "potential": { "light_max": 0, "medium_max": 0, "deep_max": 0, "blockers": ["拖分主因 2~3 条，点名是哪几个维度、为什么"], "best_fix": "最有效的一个结构级改法（具体到怎么改）" }
 }
+
+【改稿潜力 potential（务必如实，别乐观）】light_max=只润色语言/节奏/画面、不动结构能到的上限；medium_max=保留主线但加/换关键场景、删解释、强化人物关系剧情作用能到的上限；deep_max=允许改结构/人物关系/结尾回扣能到的上限。**关键认知：文笔、氛围、开头已经很高的故事，靠润色到不了 90——要 90 必须让"人物关系真正推动剧情、中段有具体强事件、结尾产生不可替代的回扣、恐怖从解释设定变成具体发生、听众能一句话复述"。** blockers 要诚实点名这些结构短板。
 
 故事正文：
 ${String(story).slice(0, 6000)}`;

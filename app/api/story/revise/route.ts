@@ -21,7 +21,7 @@ export async function POST(req: Request) {
   const supabase = createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: '未登录' }, { status: 401 });
-  const { roomId, mode, note } = await req.json().catch(() => ({} as any));
+  const { roomId, mode, note, intensity } = await req.json().catch(() => ({} as any));
   if (!roomId) return NextResponse.json({ error: '缺少参数' }, { status: 400 });
 
   const admin = createAdminClient();
@@ -49,7 +49,7 @@ export async function POST(req: Request) {
       await persistStory(admin, roomId, { ...state, phase: 'reading', rating });
     } else {
       // 并行生成 2 个候选稿，各自精确评分，只保留"分数高于当前"的最佳一版；都不如原稿则不改动（绝不越改越差）
-      const sys = buildStoryRevisePrompt(story, state.rating || {}, state.params || {}, genre, room.language, typeof note === 'string' ? note : '') + langDirective(room.language);
+      const sys = buildStoryRevisePrompt(story, state.rating || {}, state.params || {}, genre, room.language, typeof note === 'string' ? note : '', (intensity === 'light' || intensity === 'medium' || intensity === 'deep') ? intensity : 'deep') + langDirective(room.language);
       const N = 2;
       const drafts = await Promise.all(Array.from({ length: N }, () => callLLMJson<any>({
         system: sys, messages: [{ role: 'user', content: '请针对弱项重写，目标总分 90+。' }], tier: 'main', temperature: 0.9, maxTokens: 4000, retry: true,

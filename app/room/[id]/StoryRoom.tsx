@@ -59,18 +59,19 @@ export default function StoryRoom(props: ShellProps) {
   const genParams = () => ({ genres, horror_sub: genres.includes('horror') ? horrorSub : [], tone, hero, theme, world, special, forbidden });
   function generate() { call('/api/story/options', { roomId: props.room.id, params: genParams() }); }
   function write(id: number) { call('/api/story/write', { roomId: props.room.id, optionId: id }); }
-  async function revise(mode: 'revise' | 'rerate') {
-    const d = await call('/api/story/revise', { roomId: props.room.id, mode, note: mode === 'revise' ? reviseNote : '' });
-    if (d && mode === 'revise' && d.improved === false) {
-      alert(en ? `Tried 2 rewrites but none beat the current score (${d.from}). Kept the current version.` : `试了 2 个改写版本都没超过当前分数（${d.from}），已保留当前版本，没有变差。可换个角度再点一次，或在输入框写明要提升哪里。`);
+  async function revise(intensity: 'light' | 'medium' | 'deep') {
+    const d = await call('/api/story/revise', { roomId: props.room.id, mode: 'revise', note: reviseNote, intensity });
+    if (d && d.improved === false) {
+      alert(en ? `Tried 2 rewrites but none beat the current score (${d.from}). Kept the current version.` : `试了 2 个改写都没超过当前分数（${d.from}），已保留当前版本，没有变差。${intensity !== 'deep' ? '可以试更高强度的「深改冲90」，或' : '可'}在输入框写明要提升哪里再试。`);
     }
   }
+  function rerate() { call('/api/story/revise', { roomId: props.room.id, mode: 'rerate' }); }
   async function deepRevise() {
     const target = 90, maxRounds = 4;
     let last = 0, stalled = false;
     for (let i = 0; i < maxRounds; i++) {
       setDeepMsg(en ? `Deep revise — round ${i + 1}/${maxRounds}…` : `深度改稿中 · 第 ${i + 1}/${maxRounds} 轮…`);
-      const d = await call('/api/story/revise', { roomId: props.room.id, mode: 'revise', note: reviseNote });
+      const d = await call('/api/story/revise', { roomId: props.room.id, mode: 'revise', note: reviseNote, intensity: 'deep' });
       if (!d) break;
       last = Number(d.to) || last;
       if (d.improved === false) { stalled = true; break; }
@@ -172,11 +173,14 @@ export default function StoryRoom(props: ShellProps) {
           {isHost && story?.story && (
             <div className="space-y-2 pt-1">
               <textarea value={reviseNote} onChange={(e) => setReviseNote(e.target.value)} rows={2} placeholder={en ? 'Optional: what to improve, e.g. “the ending feels lazy, make it land harder”…' : '可选：想重点提升的地方，例如"结尾太敷衍，重点加强结尾的力度和余味"…'} className="w-full px-3 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 text-sm outline-none focus:border-eldritch resize-none" />
-              <button onClick={() => revise('revise')} disabled={busy} className="w-full py-2.5 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood text-sm disabled:opacity-50">{busy ? (en ? 'Working…' : '改写中…') : (en ? '✨ Let AI improve the story (raise the score)' : '✨ 让 AI 改稿提分')}</button>
-              <button onClick={deepRevise} disabled={busy} className="w-full py-2.5 rounded bg-eldritch/20 hover:bg-eldritch/30 text-parchment border border-eldritch/40 text-sm disabled:opacity-50">{busy ? (en ? 'Working…' : '改写中…') : (en ? '🔥 Deep revise (multi-round, aim 90)' : '🔥 深度改稿（自动多轮，冲 90）')}</button>
-              <button onClick={() => revise('rerate')} disabled={busy} className="w-full py-2 rounded bg-fog border border-eldritch/30 text-parchment/70 text-sm disabled:opacity-50">{en ? '↻ Re-rate precisely' : '↻ 重新精确评分'}</button>
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={() => revise('light')} disabled={busy} className="py-2.5 rounded bg-fog hover:bg-eldritch/15 text-parchment/85 border border-eldritch/30 text-sm disabled:opacity-50" title={en ? 'Polish only — keep structure' : '只改语言/节奏/细节，不动结构。约 +1~3'}>{en ? '🪶 Light polish' : '🪶 轻改润色'}</button>
+                <button onClick={() => revise('medium')} disabled={busy} className="py-2.5 rounded bg-fog hover:bg-eldritch/15 text-parchment/85 border border-eldritch/30 text-sm disabled:opacity-50" title={en ? 'Keep mainline, add scenes / cut exposition' : '保留主线，加强场景、删解释、强化人物关系。约 +3~6'}>{en ? '🛠 Medium boost' : '🛠 中改增强'}</button>
+              </div>
+              <button onClick={deepRevise} disabled={busy} className="w-full py-2.5 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood text-sm disabled:opacity-50" title={en ? 'Allow structural changes; multi-round' : '允许改结构/人物功能/结尾回扣，自动多轮'}>{busy ? (en ? 'Working…' : '改写中…') : (en ? '🔥 Deep revise — aim 90 (structural, multi-round)' : '🔥 深改冲90（允许改结构 · 自动多轮）')}</button>
+              <button onClick={rerate} disabled={busy} className="w-full py-2 rounded bg-fog border border-eldritch/30 text-parchment/70 text-sm disabled:opacity-50">{en ? '↻ Re-rate precisely' : '↻ 重新精确评分'}</button>
               {deepMsg && <p className="text-[12px] text-eldritch text-center animate-pulse">{deepMsg}</p>}
-              <p className="text-[11px] text-parchment/40 text-center">{en ? 'Each round writes 2 candidates and keeps the best only if it beats the current score — never gets worse.' : '每轮写 2 个候选稿、只保留分更高的一版——只升不降。满 85 分自动收入精选库。'}</p>
+              <p className="text-[11px] text-parchment/40 text-center">{en ? 'Each pass writes 2 candidates and keeps the best only if it beats the current score — never worse. Reaching 90 usually needs structural (deep) changes, not just polish.' : '每次写 2 稿、只保留分更高的一版——只升不降。要破 88/90 通常得靠「深改」动结构，光润色到不了。满 85 自动入库。'}</p>
             </div>
           )}
         </div>
@@ -228,6 +232,25 @@ function Scorecard({ r, en }: { r: any; en: boolean }) {
       {r.verdict && <div className="text-sm text-parchment/85 italic pt-1">“{r.verdict}”</div>}
       {Array.isArray(r.highlights) && r.highlights.length > 0 && <div className="text-[12px] text-green-300/80">✦ {r.highlights.join(' · ')}</div>}
       {r.improve && <div className="text-[12px] text-amber-300/70">{en ? 'To improve: ' : '可改进：'}{r.improve}</div>}
+      {(r.cap || r.potential) && (
+        <div className="mt-1 pt-2 border-t border-eldritch/15 space-y-1.5">
+          <div className="text-[11px] text-parchment/55 font-medium">{en ? 'Revision potential' : '改稿潜力诊断'}</div>
+          {r.cap && (
+            <div className="text-[11px] text-blood/90">{en ? `Structurally capped at ${r.cap}` : `结构性封顶 ${r.cap} 分`}{Array.isArray(r.capReasons) && r.capReasons.length ? `（${r.capReasons.join('、')}）` : ''}{en ? ' — only structural changes break this.' : '——光润色破不了，得动结构。'}</div>
+          )}
+          {r.potential && (
+            <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-parchment/60">
+              {Number(r.potential.light_max) > 0 && <span>{en ? 'Light→' : '轻改→'}<b className="text-parchment/80">{r.potential.light_max}</b></span>}
+              {Number(r.potential.medium_max) > 0 && <span>{en ? 'Medium→' : '中改→'}<b className="text-parchment/80">{r.potential.medium_max}</b></span>}
+              {Number(r.potential.deep_max) > 0 && <span>{en ? 'Deep→' : '深改→'}<b className="text-green-300/90">{r.potential.deep_max}</b></span>}
+            </div>
+          )}
+          {Array.isArray(r.potential?.blockers) && r.potential.blockers.length > 0 && (
+            <div className="text-[11px] text-parchment/50">{en ? 'Blockers: ' : '卡分主因：'}{r.potential.blockers.join('；')}</div>
+          )}
+          {r.potential?.best_fix && <div className="text-[11px] text-eldritch/90">{en ? 'Best fix: ' : '最优改法：'}{r.potential.best_fix}</div>}
+        </div>
+      )}
     </div>
   );
 }

@@ -447,3 +447,15 @@ create table if not exists dnd_library (
 alter table dnd_library enable row level security;
 -- 不创建任何 anon/authenticated 策略：含反转/反派，仅服务端 service_role 可读写。
 create index if not exists dnd_library_passed_idx on dnd_library(passed, created_at);
+
+-- ---------- 讲故事模式（给特别的人讲一个 10 分钟故事） ----------
+alter table rooms add column if not exists story_phase text; -- setup|generating|select|reading
+create table if not exists story_state (
+  room_id uuid primary key references rooms(id) on delete cascade,
+  state jsonb not null,
+  updated_at timestamptz not null default now()
+);
+alter table story_state enable row level security;
+drop policy if exists story_state_read on story_state;
+create policy story_state_read on story_state for select using (is_room_member(room_id) or is_admin());
+do $$ begin alter publication supabase_realtime add table story_state; exception when duplicate_object then null; end $$;

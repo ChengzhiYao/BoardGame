@@ -111,6 +111,12 @@ export default async function RoomPage({ params }: { params: { id: string } }) {
     dndPublic = (dr.data as any)?.state ? dndPublicView((dr.data as any).state) : null;
   }
 
+  let storyState: any = null;
+  if (room.mode === 'story') {
+    const sr = await supabase.from('story_state').select('state').eq('room_id', params.id).maybeSingle();
+    storyState = (sr.data as any)?.state || null;
+  }
+
   const me = (players || []).find((p) => p.user_id === user.id);
   const site = process.env.NEXT_PUBLIC_SITE_URL || '';
 
@@ -121,6 +127,7 @@ export default async function RoomPage({ params }: { params: { id: string } }) {
       mccPublic={mccPublic}
       mccHand={mccHand}
       dndPublic={dndPublic}
+      storyState={storyState}
       soupSurface={(soup as any)?.surface || ''}
       room={room}
       initialPlayers={players || []}

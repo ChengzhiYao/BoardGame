@@ -73,16 +73,23 @@ ${paramBlock(p)}
 // AI 改稿：针对评分弱项重写以提升分数（保留亮点，不是推倒重来）
 export function buildStoryRevisePrompt(story: string, rating: any, p: any, genre: string, lang?: string) {
   const en = lang === 'en';
-  const dims = Array.isArray(rating?.dimensions) ? rating.dimensions : [];
-  const weak = dims.filter((d: any) => Number(d?.score) < 7).sort((a: any, b: any) => Number(a.score) - Number(b.score)).slice(0, 5)
-    .map((d: any) => `「${d.label}」(${d.score}) — ${d.note || ''}`).join('；');
-  return `你是一位顶尖的文学编辑兼作者。下面这篇故事经过严苛评审，总分 ${rating?.overall ?? '未知'}/100，还不够好。请**在保留它原有优点的前提下重写一稿**，把分数显著提上去。
+  const dims = (Array.isArray(rating?.dimensions) ? rating.dimensions : []).map((d: any) => ({ ...d, score: Number(d?.score) || 0 }));
+  // 改稿目标：所有"还没到 9 分"的维度，分数低的优先，连同评审的扣分理由一起喂给 AI
+  const targets = dims.filter((d: any) => d.score < 9).sort((a: any, b: any) => a.score - b.score).slice(0, 10)
+    .map((d: any) => `「${d.label}」当前 ${d.score}/10 — 扣分原因：${d.note || '还能更好'}`).join('\n  ');
+  const allDimLine = dims.map((d: any) => `${d.label} ${d.score}`).join('、');
+  return `你是一位顶尖的文学编辑兼作者。下面这篇故事经过严苛评审，总分 ${rating?.overall ?? '未知'}/100。请**在保留它原有优点的前提下重写一稿，目标是把总分冲到 90+**。
 题材：${genre}。
-评审指出的最该改进的弱项：${weak || (rating?.improve || '整体打磨')}
+当前各维度（满分10）：${allDimLine || '未知'}
 评审一句话总评：${rating?.verdict || ''}
 最关键改进建议：${rating?.improve || ''}
-改稿要求：
-- 针对上面每个弱项做**实质性**提升：角色更立体（给动机/弧光/细节）、转折更出人意料、文笔去俗套换新鲜意象、氛围更浓、沉浸感更强、原创性更高；别只换词。
+
+【必须逐条攻克的维度（把每一项都提到 9~10）】
+  ${targets || (rating?.improve || '整体打磨')}
+
+改稿纪律：
+- **对上面列出的每一个维度，都按它的扣分原因做实质性修改**，不是换几个词。比如：信息控制差→删掉结尾的解释性段落、改用意象/留白暗示；记忆点细节差→加一个贯穿全篇、能被记住的标志性物件；台词复述差→把独白改写成有张力的对话、并让整篇能被人转述；情感张力差→把"叙述情绪"改成"用具体动作和细节让人自己感到"；结尾差→给一个有落点的反转或余味。
+- 7、8 分的维度也要往 9、10 推，别停在"还行"。
 - 保留原作的核心设定与已被肯定的亮点（${(Array.isArray(rating?.highlights) ? rating.highlights.join('、') : '') || '原有打动人的部分'}），不要推倒重来导致跑题。
 - 仍是 ${en ? 'English' : '中文'}、约 ${en ? '1300~1800 words' : '1600~2200 字'}、约 10 分钟阅读；严格遵守原参数的"特别要求"与"必须避免"。
 参数：

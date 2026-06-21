@@ -50,7 +50,7 @@ export async function POST(req: Request) {
     } else {
       const { data: full, usage } = await callLLMJson<any>({
         system: buildStoryRevisePrompt(story, state.rating || {}, state.params || {}, genre, room.language) + langDirective(room.language),
-        messages: [{ role: 'user', content: '请改写以提升评分。' }], tier: 'main', temperature: 0.9, maxTokens: 4000, retry: true,
+        messages: [{ role: 'user', content: '请大刀阔斧地改写，目标总分冲到 90+。' }], tier: 'main', temperature: 1.0, maxTokens: 4000, retry: true,
       });
       await admin.from('api_usage').insert({ room_id: roomId, kind: 'llm_main', model: usage.model, prompt_tokens: usage.promptTokens, completion_tokens: usage.completionTokens, latency_ms: usage.latencyMs });
       story = String(full.story || story);

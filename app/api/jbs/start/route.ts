@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { callLLMJson } from '@/lib/llm';
 import { buildJbsCasePrompt } from '@/lib/jbs/prompt';
+import { buildModuleReviewSystem, normalizeModuleQuality } from '@/lib/review/quality';
 import { langDirective } from '@/lib/i18n';
 
 export const maxDuration = 60;
@@ -44,6 +45,17 @@ export async function POST(req: Request) {
       tier: 'main', temperature: 0.8, maxTokens: 5200,
     });
     await admin.from('api_usage').insert({ room_id: roomId, kind: 'llm_main', model: usage.model, prompt_tokens: usage.promptTokens, completion_tokens: usage.completionTokens, latency_ms: usage.latencyMs });
+
+    // 共享评审引擎：对锁定的剧本案件打加权分 + 封顶 + 诊断，存入 case_file.quality（不改表）
+    try {
+      const { data: rev, usage: ru } = await callLLMJson<any>({
+        system: buildModuleReviewSystem('jbs', room.language),
+        messages: [{ role: 'user', content: '剧本案件：\n' + JSON.stringify(cf).slice(0, 6000) }],
+        tier: 'aux', temperature: 0.2, maxTokens: 1100,
+      });
+      cf.quality = normalizeModuleQuality(rev, 'jbs');
+      await admin.from('api_usage').insert({ room_id: roomId, kind: 'llm_aux', model: ru.model, prompt_tokens: ru.promptTokens, completion_tokens: ru.completionTokens, latency_ms: ru.latencyMs });
+    } catch {}
 
     const chars: any[] = Array.isArray(cf.characters) ? cf.characters : [];
     if (chars.length < headcount) throw new Error('角色生成不足');

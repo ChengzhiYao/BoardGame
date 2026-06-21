@@ -4,7 +4,8 @@ import crypto from 'crypto';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { callLLMJson } from '@/lib/llm';
 import { buildCaseLockPrompt } from '@/lib/kp/modules';
-import { buildReviewSystem, composeQuality, QUALITY_PASS } from '@/lib/kp/review';
+import { composeQuality, QUALITY_PASS } from '@/lib/kp/review';
+import { buildModuleReviewSystem, normalizeModuleQuality } from '@/lib/review/quality';
 import { langDirective } from '@/lib/i18n';
 
 export const maxDuration = 60;
@@ -71,15 +72,15 @@ export async function POST(req: Request) {
         let review: any = { complexity: 75, pass: true };
         try {
           const r = await callLLMJson<any>({
-            system: buildReviewSystem(),
+            system: buildModuleReviewSystem('coc', room.language),
             messages: [{ role: 'user', content: '案件档案：\n' + JSON.stringify(cd).slice(0, 6000) }],
-            tier: 'aux', temperature: 0.2, maxTokens: 600,
+            tier: 'aux', temperature: 0.2, maxTokens: 1100,
           });
-          review = r.data;
+          review = normalizeModuleQuality(r.data, 'coc');
           await admin.from('api_usage').insert({ room_id: roomId, kind: 'llm_aux', model: r.usage.model, prompt_tokens: r.usage.promptTokens, completion_tokens: r.usage.completionTokens, latency_ms: r.usage.latencyMs });
         } catch {}
 
-        const q = composeQuality(review, cd, chosen);
+        const q = { ...composeQuality(review, cd, chosen), dimensions: review.dimensions, verdict: review.verdict, potential: review.potential, ...(review.cap ? { cap: review.cap, capReasons: review.capReasons } : {}) };
         if (!quality || q.complexity > quality.complexity) { caseData = cd; quality = q; }
         if (q.pass && q.complexity >= QUALITY_PASS) break;
       }

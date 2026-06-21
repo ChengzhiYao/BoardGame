@@ -4,7 +4,8 @@ import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { callLLMJson } from '@/lib/llm';
 import { newGame } from '@/lib/dnd/engine';
 import { persist } from '@/lib/dnd/db';
-import { buildDndBlueprintPrompt, buildDndReviewSystem, composeDndQuality, DND_QUALITY_PASS } from '@/lib/dnd/prompt';
+import { buildDndBlueprintPrompt, composeDndQuality, DND_QUALITY_PASS } from '@/lib/dnd/prompt';
+import { buildModuleReviewSystem, normalizeModuleQuality } from '@/lib/review/quality';
 import { langDirective } from '@/lib/i18n';
 
 export const maxDuration = 60;
@@ -62,8 +63,9 @@ export async function POST(req: Request) {
     // 审查评分（cheap 模型）
     let quality: any = null;
     try {
-      const { data: rev } = await callLLMJson<any>({ system: buildDndReviewSystem() + langDirective(room.language), messages: [{ role: 'user', content: JSON.stringify(state.blueprint).slice(0, 4000) }], tier: 'aux', temperature: 0.3, maxTokens: 500 });
-      quality = composeDndQuality(rev, state.blueprint);
+      const { data: rev } = await callLLMJson<any>({ system: buildModuleReviewSystem('dnd', room.language), messages: [{ role: 'user', content: JSON.stringify(state.blueprint).slice(0, 4000) }], tier: 'aux', temperature: 0.3, maxTokens: 1100 });
+      const nq = normalizeModuleQuality(rev, 'dnd');
+      quality = { ...composeDndQuality(nq, state.blueprint), dimensions: nq.dimensions, verdict: nq.verdict, potential: nq.potential, ...(nq.cap ? { cap: nq.cap, capReasons: nq.capReasons } : {}) };
     } catch { /* 评分失败不阻断 */ }
     state.quality = quality;
     // 归档进冒险库（达标才可复用）

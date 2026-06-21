@@ -50,9 +50,11 @@ export async function POST(req: Request) {
     } else {
       // 并行生成 2 个候选稿，各自精确评分，只保留"分数高于当前"的最佳一版；都不如原稿则不改动（绝不越改越差）
       const sys = buildStoryRevisePrompt(story, state.rating || {}, state.params || {}, genre, room.language, typeof note === 'string' ? note : '', (intensity === 'light' || intensity === 'medium' || intensity === 'deep') ? intensity : 'deep') + langDirective(room.language);
-      const N = 2;
+      const isDeep = intensity === 'deep';
+      const N = isDeep ? 3 : 2;
+      const temp = isDeep ? 1.0 : intensity === 'light' ? 0.7 : 0.9;
       const drafts = await Promise.all(Array.from({ length: N }, () => callLLMJson<any>({
-        system: sys, messages: [{ role: 'user', content: '请针对弱项重写，目标总分 90+。' }], tier: 'main', temperature: 0.9, maxTokens: 4000, retry: true,
+        system: sys, messages: [{ role: 'user', content: isDeep ? '请做结构级改写，必须落地最优改法、消除封顶硬伤，目标 90+。' : '请针对弱项重写，目标总分 90+。' }], tier: 'main', temperature: temp, maxTokens: 4000, retry: true,
       }).catch(() => null)));
       const cands = await Promise.all(drafts.map(async (d) => {
         if (!d) return null;

@@ -242,6 +242,8 @@ function QualityCard({ q, lang }: { q: any; lang: string }) {
       <span className="text-parchment text-sm">{value}</span>
     </div>
   );
+  const en = EN(lang);
+  const dims: any[] = Array.isArray(q.dimensions) ? q.dimensions : [];
   return (
     <div className="rounded-lg bg-fog border border-eldritch/30 p-4">
       <div className="flex items-center justify-between mb-3">
@@ -255,6 +257,26 @@ function QualityCard({ q, lang }: { q: any; lang: string }) {
         <Metric label={L.hidden} value={q.hidden_endings} />
         <Metric label={L.dur} value={q.est_duration || '—'} />
       </div>
+      {dims.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-eldritch/20 space-y-1">
+          {dims.map((d: any, i: number) => {
+            const sv = Math.max(0, Math.min(10, Number(d.score) || 0));
+            const bc = sv >= 8.5 ? 'bg-green-500' : sv >= 7 ? 'bg-eldritch' : sv >= 5 ? 'bg-amber-500' : 'bg-blood';
+            return (
+              <div key={i} className="flex items-center gap-2">
+                <span className="w-20 text-[11px] text-parchment/55 shrink-0">{d.label}</span>
+                <div className="flex-1 h-1.5 rounded bg-ink overflow-hidden"><div className={`h-full ${bc}`} style={{ width: `${sv * 10}%` }} /></div>
+                <span className="w-9 text-right text-[11px] text-parchment/60">{sv}<span className="text-parchment/30">/10</span></span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {q.cap && (
+        <div className="mt-2 text-[11px] text-blood/90">{en ? `Structurally capped at ${q.cap}` : `结构性封顶 ${q.cap} 分`}{Array.isArray(q.capReasons) && q.capReasons.length ? `（${q.capReasons.join('、')}）` : ''}</div>
+      )}
+      {q.potential?.best_fix && <div className="mt-1 text-[11px] text-eldritch/90">{en ? 'Best fix: ' : '最优改法：'}{q.potential.best_fix}</div>}
+      {q.verdict && <div className="mt-1 text-[12px] text-parchment/70 italic">“{q.verdict}”</div>}
     </div>
   );
 }

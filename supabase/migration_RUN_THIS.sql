@@ -459,3 +459,18 @@ alter table story_state enable row level security;
 drop policy if exists story_state_read on story_state;
 create policy story_state_read on story_state for select using (is_room_member(room_id) or is_admin());
 do $$ begin alter publication supabase_realtime add table story_state; exception when duplicate_object then null; end $$;
+
+-- ===== section: 讲故事 · 精选故事库（评分≥85自动入库，优先推荐） =====
+create table if not exists story_library (
+  id uuid primary key default gen_random_uuid(),
+  title text, genre text, logline text, mood text,
+  est_minutes int default 10,
+  genres jsonb, tone text,
+  story text not null,
+  rating jsonb,
+  overall numeric,
+  times_used int not null default 0,
+  created_at timestamptz not null default now()
+);
+alter table story_library enable row level security;
+create index if not exists story_library_overall_idx on story_library(overall desc, created_at desc);

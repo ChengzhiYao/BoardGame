@@ -57,6 +57,7 @@ export default function StoryRoom(props: ShellProps) {
   const genParams = () => ({ genres, horror_sub: genres.includes('horror') ? horrorSub : [], tone, hero, theme, world, special, forbidden });
   function generate() { call('/api/story/options', { roomId: props.room.id, params: genParams() }); }
   function write(id: number) { call('/api/story/write', { roomId: props.room.id, optionId: id }); }
+  function revise(mode: 'revise' | 'rerate') { call('/api/story/revise', { roomId: props.room.id, mode }); }
   async function replay() { await fetch('/api/rooms/replay', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) }); if (typeof window !== 'undefined') window.location.reload(); }
 
   const Header = (
@@ -144,6 +145,16 @@ export default function StoryRoom(props: ShellProps) {
           </article>
 
           {r && <Scorecard r={r} en={en} />}
+          {typeof st?.revisedFrom === 'number' && r && (
+            <div className="text-center text-[12px] text-parchment/50">{en ? 'Revised from ' : '改稿前 '}{st.revisedFrom}{en ? ' → now ' : ' → 现在 '}{Number(r.overall)} {Number(r.overall) > st.revisedFrom ? '↑' : ''}</div>
+          )}
+          {isHost && story?.story && (
+            <div className="space-y-2 pt-1">
+              <button onClick={() => revise('revise')} disabled={busy} className="w-full py-2.5 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood text-sm disabled:opacity-50">{busy ? (en ? 'Working…' : '改写中…') : (en ? '✨ Let AI improve the story (raise the score)' : '✨ 让 AI 改稿提分')}</button>
+              <button onClick={() => revise('rerate')} disabled={busy} className="w-full py-2 rounded bg-fog border border-eldritch/30 text-parchment/70 text-sm disabled:opacity-50">{en ? '↻ Re-rate precisely' : '↻ 重新精确评分'}</button>
+              <p className="text-[11px] text-parchment/40 text-center">{en ? 'AI rewrites targeting the weak dimensions, then re-scores.' : 'AI 会针对评分弱项重写，再重新打分；满 85 分自动收入精选库。'}</p>
+            </div>
+          )}
         </div>
       </div>
     </main>

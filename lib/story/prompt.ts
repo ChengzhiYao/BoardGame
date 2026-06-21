@@ -70,6 +70,29 @@ ${paramBlock(p)}
 只输出 JSON：{ "title": "最终标题", "story": "完整故事正文（可含换行）" }`;
 }
 
+// AI 改稿：针对评分弱项重写以提升分数（保留亮点，不是推倒重来）
+export function buildStoryRevisePrompt(story: string, rating: any, p: any, genre: string, lang?: string) {
+  const en = lang === 'en';
+  const dims = Array.isArray(rating?.dimensions) ? rating.dimensions : [];
+  const weak = dims.filter((d: any) => Number(d?.score) < 75).sort((a: any, b: any) => Number(a.score) - Number(b.score)).slice(0, 5)
+    .map((d: any) => `「${d.label}」(${d.score}) — ${d.note || ''}`).join('；');
+  return `你是一位顶尖的文学编辑兼作者。下面这篇故事经过严苛评审，总分 ${rating?.overall ?? '未知'}/100，还不够好。请**在保留它原有优点的前提下重写一稿**，把分数显著提上去。
+题材：${genre}。
+评审指出的最该改进的弱项：${weak || (rating?.improve || '整体打磨')}
+评审一句话总评：${rating?.verdict || ''}
+最关键改进建议：${rating?.improve || ''}
+改稿要求：
+- 针对上面每个弱项做**实质性**提升：角色更立体（给动机/弧光/细节）、转折更出人意料、文笔去俗套换新鲜意象、氛围更浓、沉浸感更强、原创性更高；别只换词。
+- 保留原作的核心设定与已被肯定的亮点（${(Array.isArray(rating?.highlights) ? rating.highlights.join('、') : '') || '原有打动人的部分'}），不要推倒重来导致跑题。
+- 仍是 ${en ? 'English' : '中文'}、约 ${en ? '1300~1800 words' : '1600~2200 字'}、约 10 分钟阅读；严格遵守原参数的"特别要求"与"必须避免"。
+参数：
+${paramBlock(p)}
+只输出 JSON：{ "title": "标题", "story": "改写后的完整故事正文（可含换行）" }
+
+原故事：
+${String(story).slice(0, 6000)}`;
+}
+
 // 多维精确评分（严格、挑剔、给具体分数与理由）
 export function buildStoryRatePrompt(story: string, genre: string, lang?: string) {
   const en = lang === 'en';

@@ -28,6 +28,16 @@ export async function POST(req: Request) {
   if (!claimed || !claimed.length) return NextResponse.json({ ok: true, busy: true });
 
   try {
+    // 选中的是精选库故事：直接取出，不再生成
+    if (chosen.fromLibrary && chosen.libraryId) {
+      const { data: libRow } = await admin.from('story_library').select('*').eq('id', chosen.libraryId).maybeSingle();
+      if (libRow) {
+        await admin.from('story_library').update({ times_used: (libRow.times_used || 0) + 1 }).eq('id', libRow.id);
+        await persistStory(admin, roomId, { ...state, phase: 'reading', chosen, full: { title: String(libRow.title || chosen.title), story: String(libRow.story || '') }, rating: libRow.rating });
+        await admin.from('rooms').update({ modules_generating: false, game_state: 'playing' }).eq('id', roomId);
+        return NextResponse.json({ ok: true, fromLibrary: true });
+      }
+    }
     const { data: full, usage } = await callLLMJson<any>({
       system: buildStoryWritePrompt(chosen, state.params || {}, room.language) + langDirective(room.language),
       messages: [{ role: 'user', content: '写出完整故事。' }], tier: 'main', temperature: 0.9, maxTokens: 4000, retry: true,
@@ -42,6 +52,12 @@ export async function POST(req: Request) {
       });
       rating = r;
     } catch { /* 评分失败不阻断 */ }
+    const overall = Number(rating?.overall);
+    if (rating && isFinite(overall) && overall >= 85) {
+      try {
+        await admin.from('story_library').insert({ title: String(full.title || chosen.title), genre: String(chosen.genre || ''), logline: String(chosen.logline || ''), mood: String(chosen.mood || ''), est_minutes: Number(chosen.est_minutes) || 10, genres: Array.isArray(state.params?.genres) ? state.params.genres : [], tone: state.params?.tone || null, story, rating, overall });
+      } catch { /* 入库失败不阻断 */ }
+    }
     await persistStory(admin, roomId, { ...state, phase: 'reading', chosen, full: { title: String(full.title || chosen.title), story }, rating });
     await admin.from('rooms').update({ modules_generating: false, game_state: 'playing' }).eq('id', roomId);
     return NextResponse.json({ ok: true });

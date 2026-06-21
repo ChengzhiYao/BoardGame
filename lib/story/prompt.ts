@@ -1,22 +1,27 @@
 // 讲故事模式 prompts：按参数生成 3 个 ~10 分钟故事选项 → 写全文 → 多维精确评分。
 
 export const STORY_GENRES: { key: string; cn: string; en: string }[] = [
-  { key: 'heal', cn: '温馨治愈', en: 'Heartwarming' },
+  { key: 'heal', cn: '治愈温馨', en: 'Heartwarming' },
   { key: 'romance', cn: '浪漫爱情', en: 'Romance' },
-  { key: 'sweet', cn: '甜宠日常', en: 'Sweet & Fluffy' },
-  { key: 'tearjerker', cn: '催泪虐心', en: 'Tearjerker' },
+  { key: 'sweet', cn: '甜宠', en: 'Sweet & Fluffy' },
+  { key: 'tearjerker', cn: '催泪', en: 'Tearjerker' },
   { key: 'horror', cn: '恐怖', en: 'Horror' },
-  { key: 'thriller', cn: '惊悚悬疑', en: 'Thriller / Suspense' },
-  { key: 'mystery', cn: '推理悬疑', en: 'Mystery' },
+  { key: 'suspense', cn: '悬疑推理', en: 'Mystery / Suspense' },
   { key: 'fantasy', cn: '奇幻', en: 'Fantasy' },
   { key: 'scifi', cn: '科幻', en: 'Sci-fi' },
-  { key: 'fairy', cn: '童话寓言', en: 'Fairy tale' },
-  { key: 'ancient', cn: '古风', en: 'Historical / Ancient' },
-  { key: 'urban', cn: '都市言情', en: 'Urban romance' },
-  { key: 'slice', cn: '治愈日常', en: 'Slice of life' },
-  { key: 'reflective', cn: '哲思治愈', en: 'Reflective' },
-  { key: 'darkcomedy', cn: '黑色幽默', en: 'Dark comedy' },
+  { key: 'ancient', cn: '古风', en: 'Ancient / Wuxia' },
+  { key: 'fairy', cn: '童话', en: 'Fairy tale' },
   { key: 'bedtime', cn: '睡前轻松', en: 'Bedtime' },
+];
+// 恐怖体系细分（仅当选了"恐怖"时出现）
+export const STORY_HORROR_SUB: { key: string; cn: string; en: string }[] = [
+  { key: 'cthulhu', cn: '克苏鲁 / 宇宙恐怖', en: 'Cthulhu / Cosmic' },
+  { key: 'chinese', cn: '中式恐怖', en: 'Chinese horror' },
+  { key: 'jp', cn: '日式怪谈', en: 'Japanese kaidan' },
+  { key: 'folk', cn: '民俗恐怖', en: 'Folk horror' },
+  { key: 'psych', cn: '心理恐怖', en: 'Psychological' },
+  { key: 'urban', cn: '都市传说', en: 'Urban legend' },
+  { key: 'survival', cn: '生存恐怖', en: 'Survival' },
 ];
 export const STORY_TONES: { key: string; cn: string; en: string }[] = [
   { key: 'tender', cn: '温柔', en: 'Tender' }, { key: 'passion', cn: '热烈', en: 'Passionate' },
@@ -27,8 +32,9 @@ export const STORY_TONES: { key: string; cn: string; en: string }[] = [
 
 function paramBlock(p: any) {
   const g = (Array.isArray(p?.genres) ? p.genres : []).map((k: string) => STORY_GENRES.find((x) => x.key === k)?.cn || k).join('、');
+  const hs = (Array.isArray(p?.horror_sub) ? p.horror_sub : []).map((k: string) => STORY_HORROR_SUB.find((x) => x.key === k)?.cn || k).join('、');
   const t = STORY_TONES.find((x) => x.key === p?.tone)?.cn || p?.tone || '不限';
-  return `- 题材/风格（可多选）：${g || '不限（你来定，三个各不相同）'}
+  return `- 题材/风格（可多选）：${g || '不限（你来定，三个各不相同）'}${hs ? `\n- 恐怖体系细分：${hs}（严格贴合该体系的设定、氛围与套路）` : ''}
 - 基调：${t}
 - 主角/称呼：${p?.hero || '由你设定一个名字'}
 - 想表达的主题/情绪：${p?.theme || '不限'}

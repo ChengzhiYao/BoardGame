@@ -75,8 +75,9 @@ export function buildStoryRevisePrompt(story: string, rating: any, p: any, genre
   const en = lang === 'en';
   const dims = (Array.isArray(rating?.dimensions) ? rating.dimensions : []).map((d: any) => ({ ...d, score: Number(d?.score) || 0 }));
   // 改稿目标：所有"还没到 9 分"的维度，分数低的优先，连同评审的扣分理由一起喂给 AI
-  const targets = dims.filter((d: any) => d.score < 9).sort((a: any, b: any) => a.score - b.score).slice(0, 10)
-    .map((d: any) => `「${d.label}」当前 ${d.score}/10 — 扣分原因：${d.note || '还能更好'}`).join('\n  ');
+  const wOf = (k: string) => (STORY_RATE_DIMS.find((x) => x.key === k)?.w ?? 6);
+  const targets = dims.filter((d: any) => d.score < 9).sort((a: any, b: any) => (10 - b.score) * wOf(b.key) - (10 - a.score) * wOf(a.key)).slice(0, 10)
+    .map((d: any) => `「${d.label}」当前 ${d.score}/10（权重${wOf(d.key)}）— 扣分原因：${d.note || '还能更好'}`).join('\n  ');
   const allDimLine = dims.map((d: any) => `${d.label} ${d.score}`).join('、');
   return `你是一位顶尖的文学编辑兼作者。下面这篇故事经过严苛评审，总分 ${rating?.overall ?? '未知'}/100。请**在保留它原有优点的前提下重写一稿，目标是把总分冲到 90+**。
 题材：${genre}。
@@ -100,63 +101,54 @@ ${paramBlock(p)}
 ${String(story).slice(0, 6000)}`;
 }
 
-// 用各维度之和（每项0~10）换算成 0~100 总分，并写回 rating.overall —— 保证显示分=明细分
+// 评分维度表（每项 0~10，带权重 w；总分=加权归一到 100）。借鉴 Jestaz 的四大类设计，分离"写得漂亮"与"故事好"。
+export const STORY_RATE_DIMS: { key: string; label: string; w: number; hint: string }[] = [
+  { key: 'hook',         label: '开头钩子',        w: 8, hint: '30秒内有钩子（出事了/异常/选择/悬念）；只慢慢介绍设定人物地点→低分' },
+  { key: 'mainline',     label: '主线清晰',        w: 8, hint: '一句话能概括（一个主角+一个异常+逐步逼近真相+落点）；人物设定解释太多像"简介"→低分' },
+  { key: 'pacing',       label: '节奏推进',        w: 8, hint: '符合10分钟节拍，中段不拖、不堆说明文' },
+  { key: 'conflict',     label: '冲突强度',        w: 8, hint: '外部压力+内部挣扎都要有；只是"讲了一件事"无对抗→低分' },
+  { key: 'desire',       label: '人物欲望',        w: 6, hint: '主角有明确"想要的东西"' },
+  { key: 'change',       label: '人物转变',        w: 6, hint: '主角有"主动"的变化，而非全程被事情推着走' },
+  { key: 'relationship', label: '人物关系功能',    w: 8, hint: '关键关系要"推动剧情"——成为最后的选择/阻止/结局的原因；只是出场让主角显得可怜（工具人）→低分' },
+  { key: 'emotion',      label: '情绪递进',        w: 8, hint: '情绪有层次地推进变化，不是从头到尾一个情绪' },
+  { key: 'infoburden',   label: '信息控制·解释负担', w: 8, hint: '信息自然从事件里露出、真相能回扣前文；中段大段讲设定、名词太多、要记一堆规则才懂→低分' },
+  { key: 'concrete',     label: '具体化程度',      w: 8, hint: '用具体事件/画面承载情绪，而非抽象概念。"墙上刻着自己明天才会写的字"高分；"时间与存在的边界正在崩坏""不可名状/永恒回响"堆砌→低分' },
+  { key: 'detail',       label: '记忆点细节',      w: 6, hint: '有能被记住、承载情感/恐惧的标志性物件' },
+  { key: 'ending',       label: '结尾力度',        w: 8, hint: '有"落点"（反转/释怀/回扣/余味）；"鬼把他杀了""原来是梦""最后全解释清楚"→低分' },
+  { key: 'retell',       label: '可复述性',        w: 6, hint: '听完能一句话清楚转述给朋友（人物+异常+真相+选择）；只能说"很宏大很克苏鲁"→低分' },
+  { key: 'language',     label: '语言画面',        w: 8, hint: '好懂、有画面，show不tell' },
+  { key: 'genrefx',      label: '类型专属效果',    w: 6, hint: '按题材打：恐怖=不安递增/日常污染/未知保留/无退路/后劲余寒；温情=情感克制/关系真实/细节承载爱/前后回扣/余温；悬疑=谜题吸引/线索公平/误导有效/真相合理/揭示爽感；喜剧=笑点密度/反差/升级/人物认真感/结尾包袱' },
+];
+const STORY_DIM_W: Record<string, number> = Object.fromEntries(STORY_RATE_DIMS.map((d) => [d.key, d.w]));
+
+// 加权归一：每维 0~10 × 权重，求和后归一到 0~100（一位小数）。保证显示分=明细加权结果。
 export function normalizeStoryRating(r: any): any {
   if (!r || !Array.isArray(r.dimensions) || !r.dimensions.length) return r;
   const dims = r.dimensions.map((d: any) => ({ ...d, score: Math.max(0, Math.min(10, Number(d.score) || 0)) }));
-  const sum = dims.reduce((a: number, d: any) => a + d.score, 0);
-  const overall = Math.round((sum / (dims.length * 10)) * 1000) / 10; // 一位小数
+  let num = 0, den = 0;
+  for (const d of dims) { const w = STORY_DIM_W[d.key] ?? 6; num += d.score * w; den += 10 * w; }
+  const overall = den ? Math.round((num / den) * 1000) / 10 : 0;
   return { ...r, dimensions: dims, overall };
 }
 
-// 多维精确评分（14 维度，每项 0~10；总分由各维之和换算，保证显示分=明细分）
+// 多维精确评分：四大类（类型完成度/故事结构/人物情感/表达与传播）拆成 15 个带权维度。
 export function buildStoryRatePrompt(story: string, genre: string, lang?: string) {
   const en = lang === 'en';
-  return `你是一位专业、公正的短篇故事评审。这是一篇"约 10 分钟口述故事"。请按下面这套**精确标准**逐项打分——既要严谨有区分度，也要**公平**：真正做到位的维度就要给到该有的高分，不要反射性压分。
+  const lines = STORY_RATE_DIMS.map((d, i) => `${i + 1} ${d.key} ${d.label}(权重${d.w})：${d.hint}`).join('\n');
+  const tmpl = STORY_RATE_DIMS.map((d) => `    { "key": "${d.key}", "label": "${d.label}", "score": 0, "note": "" }`).join(',\n');
+  return `你是一位专业、公正的短篇故事评审。这是一篇"约 10 分钟口述故事"。请逐项打分——既严谨有区分度，也要公平：真正做到位的维度就给该有的高分，但**绝不只奖励"文笔漂亮"**，要同样看重"故事是否好听、好记、好转述、不靠堆抽象概念"。
 故事题材：${genre}。
 
-【评分标准 · 14 项，每项 0~10 分（允许 7、8 这类，不要清一色给满）】
-1 hook 开头钩子：是否 30 秒内就有钩子（"出事了/有个不正常的东西/主角必须做选择/一个温柔或恐怖的悬念"）。只是慢慢介绍设定人物地点 → 6 分以下。
-2 emotional 情感张力：是否有真正的情绪冲击力，而非平淡叙述。恐怖→不安压迫；温情→遗憾被爱释怀；悲伤→"本可更好却来不及"。
-3 fit 类型契合：有没有兑现类型承诺。恐怖不止出现鬼、温情不止让人哭、悬疑要让人想猜、喜剧要逻辑越来越离谱而人物还认真。
-4 mainline 主线清晰：能否一句话概括（一个主角 + 一个异常 + 逐步逼近真相 + 结尾反转/释放）。人物/设定/解释太多像"简介" → 低分。
-5 conflict 冲突强度：是否有压力（外部：鬼在靠近/时间快到/出不去；内部：不敢面对/原谅/说出口）。只"讲了一件事"无冲突 → 低分。
-6 info 信息控制：听众应"一直知道一点点，永远差最后一块"。给太早或最后才突然解释一大堆 → 低分。恐怖尤其先给迹象（门锁自己反了/镜中钟慢三分/邻居说"你不是一个人住吗"）。
-7 pacing 节奏推进：是否符合 10 分钟节拍（0-1 钩子｜1-4 立人物与异常｜4-7 升级冲突｜7-9 揭真相/做选择｜9-10 留余味）。恐怖避免一上来鬼就冲出来，温情避免一上来就煽情。
-8 arc 情绪曲线：情绪要变化推进（恐怖：平静→奇怪→不安→恐惧→余寒；温情：日常→误解→遗憾→理解→释怀）。从头到尾一个情绪 → 低分。
-9 change 人物转变与欲望：主角要有明确欲望并最好有转变（不信鬼→不得不信；恨父亲→理解父亲；逃避→主动打开那扇门）。被推着走、毫无变化 → 低分。
-10 detail 记忆点细节：是否有能被记住、承载情感/恐惧的标志性物件（永不灭的灯/不会叫的黑猫/没寄出的信/门后的童谣）。
-11 atmosphere 氛围营造：场景质感与代入感是否到位、足够浓郁。
-12 ending 结尾力度：必须有"落点"（恐怖反转/温情释怀/悲剧回扣/开放余味）。烂结尾（"鬼把他杀了""他们都哭了""原来是一场梦""最后全解释清楚"）→ 低分。
-13 language 语言画面感：好懂、有画面（"门缝下那双脚，脚尖朝着天花板"胜过"难以名状的恐惧"）。抽象空泛 → 低分。
-14 dialogue 台词与可复述：台词像人说话而非作者解释主题；整篇能被听众转述给别人。散到复述不出 → 低分。
+【15 个维度，每项 0~10 分（系统会按权重换算总分，所以请如实评、别都给 8~9）】
+${lines}
 
-【每项打分锚点（0~10，公平校准，别把好维度习惯性压在 7~8）】
-- 9~10：该维度做得出色/几近完美（短篇里只要这一项真的强，就该给 9；接近无可挑剔给 10）。一篇好故事通常会有 3~6 个维度落在 9~10。
-- 8：明确做到位、优秀，只有很小的不足。
-- 6~7：合格但普通，有可见短板。
-- 4~5：平庸、有明显问题。
-- 0~3：缺失或很差。
-【总分参考分布（=各维度之和换算）】普通 70~79；优秀 80~88；卓越 89~94；殿堂级 95+。一篇明显优秀的故事就应该落在 84~90，别无故压到 80 以下。
-【纪律】每项给 0~10 的整数并附 ≤14 字理由；扣分要有具体依据，给高分也要敢给。系统用各维度之和换算总分，请如实评价、不夸大也不刻意压低。
+【打分锚点】9~10 该维度出色/几近完美；8 优秀小瑕；6~7 合格但普通；4~5 平庸有明显问题；0~3 缺失或很差。一篇好故事通常有 3~6 项落 9~10，但"具体化/解释负担/可复述/人物关系功能"这类难项要如实，AI 味浓、靠抽象词撑场面的就压到 5~7。
+【总分参考】普通 70~79；优秀 80~88；卓越 89~94；殿堂 95+。明显优秀的故事应落在 84~90。
 
 只输出 JSON（语言：${en ? 'English' : '中文'}）：
 {
   "dimensions": [
-    { "key": "hook", "label": "开头钩子", "score": 0, "note": "" },
-    { "key": "emotional", "label": "情感张力", "score": 0, "note": "" },
-    { "key": "fit", "label": "类型契合", "score": 0, "note": "" },
-    { "key": "mainline", "label": "主线清晰", "score": 0, "note": "" },
-    { "key": "conflict", "label": "冲突强度", "score": 0, "note": "" },
-    { "key": "info", "label": "信息控制", "score": 0, "note": "" },
-    { "key": "pacing", "label": "节奏推进", "score": 0, "note": "" },
-    { "key": "arc", "label": "情绪曲线", "score": 0, "note": "" },
-    { "key": "change", "label": "人物转变", "score": 0, "note": "" },
-    { "key": "detail", "label": "记忆点细节", "score": 0, "note": "" },
-    { "key": "atmosphere", "label": "氛围营造", "score": 0, "note": "" },
-    { "key": "ending", "label": "结尾力度", "score": 0, "note": "" },
-    { "key": "language", "label": "语言画面", "score": 0, "note": "" },
-    { "key": "dialogue", "label": "台词复述", "score": 0, "note": "" }
+${tmpl}
   ],
   "overall": 0,
   "tags": ["3~5 个风格标签"],

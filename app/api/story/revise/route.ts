@@ -65,18 +65,23 @@ export async function POST(req: Request) {
         const crating = await rate(admin, roomId, cstory, genre, room.language);
         return { title: String(d.data.title || title), story: cstory, rating: crating, overall: Number(crating?.overall) || 0 };
       }));
-      const valid = cands.filter(Boolean) as { title: string; story: string; rating: any; overall: number }[];
+      const valid = (cands.filter(Boolean) as { title: string; story: string; rating: any; overall: number }[])
+        .map((c) => ({ ...c, raw: Number(c.rating?.raw ?? c.overall) || 0 }));
       const prevOverall = Number(state.rating?.overall) || 0;
-      const best = valid.sort((a, b) => b.overall - a.overall)[0];
-      if (best && best.overall > prevOverall) {
+      const prevRaw = Number(state.rating?.raw ?? state.rating?.overall) || 0;
+      // 排序：先看显示分(封顶后)，再看封顶前的潜力分
+      const best = valid.sort((a, b) => (b.overall - a.overall) || (b.raw - a.raw))[0];
+      // 采用条件：显示分不降；且 显示分提高 或 内在质量(潜力分)切实提高 → 换文并逼近突破封顶
+      const better = !!best && best.overall >= prevOverall && (best.overall > prevOverall || best.raw > prevRaw + 0.4);
+      if (better) {
         if (best.overall >= 85) {
           try { await admin.from('story_library').insert({ title: best.title, genre, logline: chosen.logline || '', mood: chosen.mood || '', est_minutes: chosen.est_minutes || 10, genres: Array.isArray(state.params?.genres) ? state.params.genres : [], tone: state.params?.tone || null, story: best.story, rating: best.rating, overall: best.overall }); } catch {}
         }
         await persistStory(admin, roomId, { ...state, phase: 'reading', full: { title: best.title, story: best.story }, rating: best.rating, prevRating: state.rating || null, revisedFrom: prevOverall, reviseCount: (Number(state.reviseCount) || 0) + 1, narration: null, playback: null });
         await admin.from('rooms').update({ modules_generating: false }).eq('id', roomId);
-        return NextResponse.json({ ok: true, improved: true, from: prevOverall, to: best.overall });
+        const capBound = best.overall <= prevOverall; // 显示分没动、但内在改善了（被封顶卡住）
+        return NextResponse.json({ ok: true, improved: true, from: prevOverall, to: best.overall, rawFrom: prevRaw, rawTo: best.raw, capBound, cap: best.rating?.cap || null, capReasons: best.rating?.capReasons || null });
       } else {
-        // 没改出更高分：保留原稿
         await admin.from('rooms').update({ modules_generating: false }).eq('id', roomId);
         return NextResponse.json({ ok: true, improved: false, from: prevOverall, to: best ? best.overall : prevOverall });
       }

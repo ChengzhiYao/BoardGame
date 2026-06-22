@@ -103,7 +103,9 @@ export default function StoryRoom(props: ShellProps) {
   async function revise(intensity: 'light' | 'medium' | 'deep') {
     const d = await call('/api/story/revise', { roomId: props.room.id, mode: 'revise', note: reviseNote, intensity });
     if (d && d.improved === false) {
-      alert(en ? `Tried 2 rewrites but none beat the current score (${d.from}). Kept the current version.` : `试了 2 个改写都没超过当前分数（${d.from}），已保留当前版本，没有变差。${intensity !== 'deep' ? '可以试更高强度的「深改冲90」，或' : '可'}在输入框写明要提升哪里再试。`);
+      alert(en ? `Tried rewrites but none beat the current score (${d.from}). Kept the current version.` : `试了改写都没超过当前分数（${d.from}），已保留当前版本，没有变差。${intensity !== 'deep' ? '可以试更高强度的「深改冲90」，或' : '可'}在输入框写明要提升哪里再试。`);
+    } else if (d && d.capBound) {
+      alert(en ? `Rewrote the story (structure improved), but the score is capped at ${d.to}${d.capReasons?.length ? ` by: ${d.capReasons.join(', ')}` : ''}. Revise again or name that structural fix to break through.` : `已重写故事（结构有改善），但总分被${d.capReasons?.length ? `『${d.capReasons.join('、')}』` : ''}封顶在 ${d.to} 分。再点一次、或在输入框点名修复该结构项，才能突破封顶。`);
     }
   }
   function rerate() { call('/api/story/revise', { roomId: props.room.id, mode: 'rerate' }); }
@@ -112,16 +114,18 @@ export default function StoryRoom(props: ShellProps) {
   useEffect(() => { setStoryVol(trackVol); }, [trackVol]);
   async function deepRevise() {
     const target = 90, maxRounds = 4;
-    let last = 0, stalled = false;
+    let last = 0, stalled = false, capReasons: string[] = [];
     for (let i = 0; i < maxRounds; i++) {
       setDeepMsg(en ? `Deep revise — round ${i + 1}/${maxRounds}…` : `深度改稿中 · 第 ${i + 1}/${maxRounds} 轮…`);
       const d = await call('/api/story/revise', { roomId: props.room.id, mode: 'revise', note: reviseNote, intensity: 'deep' });
       if (!d) break;
       last = Number(d.to) || last;
+      if (Array.isArray(d.capReasons) && d.capReasons.length) capReasons = d.capReasons;
       if (d.improved === false) { stalled = true; break; }
       if (last >= target) break;
     }
-    setDeepMsg(en ? (last >= target ? `Reached ${last} 🎉` : stalled ? `Topped out at ${last}` : `Now ${last}`) : (last >= target ? `已冲到 ${last} 🎉` : stalled ? `已到瓶颈 ${last}，无法再提升` : `已提升到 ${last}`));
+    const capTxt = capReasons.length ? (en ? ` — capped by: ${capReasons.join(', ')}. Name that fix in the box to break through.` : `——被『${capReasons.join('、')}』封顶，在输入框点名修这一项才能突破。`) : '';
+    setDeepMsg((en ? (last >= target ? `Reached ${last} 🎉` : stalled ? `Topped out at ${last}` : `Now ${last}`) : (last >= target ? `已冲到 ${last} 🎉` : stalled ? `已到瓶颈 ${last}` : `已提升到 ${last}`)) + capTxt);
     setTimeout(() => setDeepMsg(''), 4000);
   }
   async function replay() { await fetch('/api/rooms/replay', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) }); if (typeof window !== 'undefined') window.location.reload(); }

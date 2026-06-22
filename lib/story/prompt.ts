@@ -143,7 +143,7 @@ export function normalizeStoryRating(r: any): any {
   if (sc('relationship') <= 6) hit(88, '人物关系不推动剧情');
   if (sc('retell') <= 6) hit(88, '可复述性弱');
   const capped = Math.min(overall, cap);
-  return { ...r, dimensions: dims, overall: capped, ...(cap < 100 ? { cap, capReasons: reasons } : {}) };
+  return { ...r, dimensions: dims, overall: capped, raw: overall, ...(cap < 100 ? { cap, capReasons: reasons } : {}) };
 }
 
 // 多维精确评分：四大类（类型完成度/故事结构/人物情感/表达与传播）拆成 15 个带权维度。

@@ -26,6 +26,10 @@ export default function StoryRoom(props: ShellProps) {
   const [forbidden, setForbidden] = useState('');
   const [showCustom, setShowCustom] = useState(false);
   const [horrorSub, setHorrorSub] = useState<string[]>([]);
+  const [online, setOnline] = useState<Record<string, boolean>>({});
+  const [voicePreset, setVoicePreset] = useState<'gentle_f' | 'deep_m' | 'healing'>('gentle_f');
+  const [speed, setSpeed] = useState(0.9);
+  const [narrPos, setNarrPos] = useState<{ cur: number; dur: number }>({ cur: 0, dur: 0 });
   const [reviseNote, setReviseNote] = useState('');
   const [deepMsg, setDeepMsg] = useState('');
   const [showCompare, setShowCompare] = useState(false);
@@ -40,6 +44,17 @@ export default function StoryRoom(props: ShellProps) {
     const id = setInterval(() => { if (typeof document !== 'undefined' && !document.hidden) router.refresh(); }, 4000);
     return () => { clearInterval(id); supabase.removeChannel(ch); };
   }, [props.room.id, supabase, router]);
+
+  // 在线状态（Presence）：全程显示谁在房间里
+  useEffect(() => {
+    const ch = supabase.channel(`story-presence-${props.room.id}`, { config: { presence: { key: props.userId } } });
+    ch.on('presence', { event: 'sync' }, () => {
+      const state = ch.presenceState(); const map: Record<string, boolean> = {};
+      Object.keys(state).forEach((k) => (map[k] = true));
+      setOnline(map);
+    }).subscribe(async (status) => { if (status === 'SUBSCRIBED') await ch.track({ at: Date.now() }); });
+    return () => { supabase.removeChannel(ch); };
+  }, [props.room.id, props.userId, supabase]);
 
   // 一进来先自动生成 3 个推荐故事（房主，仅一次）；定制藏在按钮后面
   useEffect(() => {
@@ -68,7 +83,7 @@ export default function StoryRoom(props: ShellProps) {
     }
   }
   function rerate() { call('/api/story/revise', { roomId: props.room.id, mode: 'rerate' }); }
-  function genNarration() { call('/api/story/tts', { roomId: props.room.id }); }
+  function genNarration() { call('/api/story/tts', { roomId: props.room.id, voice: voicePreset, rate: speed }); }
   function nextStory() { call('/api/story/next', { roomId: props.room.id }); }
   async function deepRevise() {
     const target = 90, maxRounds = 4;
@@ -86,10 +101,29 @@ export default function StoryRoom(props: ShellProps) {
   }
   async function replay() { await fetch('/api/rooms/replay', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) }); if (typeof window !== 'undefined') window.location.reload(); }
 
+  const players = props.initialPlayers || [];
+  const users = props.initialUsers || [];
+  const nameOf = (uid?: string) => users.find((u: any) => u.id === uid)?.display_name || (en ? 'Listener' : '听众');
+  const Roster = (
+    <div className="flex items-center gap-2 flex-wrap">
+      {players.map((p: any) => {
+        const isOn = !!online[p.user_id];
+        return (
+          <span key={p.id} className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-fog border border-eldritch/25 text-[11px] text-parchment/75" title={isOn ? (en ? 'online' : '在线') : (en ? 'away' : '离开')}>
+            <span className={`w-2 h-2 rounded-full ${isOn ? 'bg-green-400' : 'bg-parchment/25'}`} />
+            {nameOf(p.user_id)}{p.user_id === props.userId ? (en ? ' (you)' : '（你）') : ''}
+          </span>
+        );
+      })}
+    </div>
+  );
   const Header = (
-    <header className="px-4 py-3 border-b border-eldritch/20 flex items-center justify-between">
-      <span className="font-serif text-parchment">📖 {en ? 'Storyteller' : '讲故事'} · {props.room.name}</span>
-      {isHost && (phase === 'reading' || phase === 'select') && <button onClick={replay} className="text-xs px-3 py-1.5 rounded bg-fog border border-eldritch/30 text-parchment/70">{en ? '↻ New story' : '↻ 重新开始'}</button>}
+    <header className="px-4 py-3 border-b border-eldritch/20 flex items-center justify-between gap-3">
+      <span className="font-serif text-parchment shrink-0">📖 {en ? 'Storyteller' : '讲故事'} · {props.room.name}</span>
+      <div className="flex items-center gap-3 min-w-0">
+        {Roster}
+        {isHost && (phase === 'reading' || phase === 'select') && <button onClick={replay} className="text-xs px-3 py-1.5 rounded bg-fog border border-eldritch/30 text-parchment/70 shrink-0">{en ? '↻ New story' : '↻ 重新开始'}</button>}
+      </div>
     </header>
   );
 
@@ -165,17 +199,25 @@ export default function StoryRoom(props: ShellProps) {
     <main className="h-[100svh] flex flex-col">{Header}
       <div className="flex-1 overflow-y-auto px-5 py-6">
         <div className="max-w-2xl mx-auto space-y-6">
-          {st?.narration?.url && <StoryPlayer url={st.narration.url} playback={st?.playback} roomId={props.room.id} en={en} />}
+          {st?.narration?.url && <StoryPlayer url={st.narration.url} playback={st?.playback} roomId={props.room.id} en={en} onTime={(c, d) => setNarrPos({ cur: c, dur: d })} />}
           {isHost && (
-            <div className="flex justify-center">
+            <div className="flex flex-col items-center gap-2">
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                {([['gentle_f', en ? '🌸 Gentle female' : '🌸 温柔女声'], ['deep_m', en ? '🎙 Deep male' : '🎙 低沉男声'], ['healing', en ? '💗 Healing tone' : '💗 治愈语调']] as const).map(([k, lbl]) => (
+                  <button key={k} onClick={() => setVoicePreset(k as any)} className={`px-2.5 py-1 rounded-full text-[11px] border ${voicePreset === k ? 'bg-blood/30 border-blood text-parchment' : 'bg-fog border-eldritch/30 text-parchment/60'}`}>{lbl}</button>
+                ))}
+                <select value={speed} onChange={(e) => setSpeed(Number(e.target.value))} className="px-2 py-1 rounded bg-fog border border-eldritch/30 text-parchment/70 text-[11px]">
+                  <option value={0.8}>{en ? '0.8x slow' : '0.8x 慢'}</option>
+                  <option value={0.9}>{en ? '0.9x' : '0.9x'}</option>
+                  <option value={1.0}>{en ? '1.0x' : '1.0x 正常'}</option>
+                  <option value={1.1}>{en ? '1.1x fast' : '1.1x 快'}</option>
+                </select>
+              </div>
               <button onClick={genNarration} disabled={busy} className="text-xs px-4 py-2 rounded-full bg-fog border border-eldritch/30 text-parchment/75 disabled:opacity-50">{busy ? (en ? 'Synthesizing…' : '合成中…') : (st?.narration?.url ? (en ? '🔁 Regenerate narration' : '🔁 重新生成朗读') : (en ? '🔊 Generate narration (Azure voice)' : '🔊 生成朗读（Azure 语音）'))}</button>
             </div>
           )}
           {!isHost && !st?.narration?.url && <p className="text-center text-[12px] text-parchment/40">{en ? 'Waiting for the host to generate narration…' : '等房主生成朗读…'}</p>}
-          <article className="space-y-4">
-            <h1 className="text-2xl font-serif text-parchment text-center">{story?.title}</h1>
-            <div className="text-[15px] leading-[1.9] text-parchment/90 whitespace-pre-wrap font-serif">{story?.story}</div>
-          </article>
+          <StoryArticle title={story?.title} text={story?.story || ''} pos={narrPos} active={!!st?.narration?.url} playing={!!st?.playback?.playing} />
 
           {r && <Scorecard r={r} en={en} />}
           {isHost && (
@@ -235,7 +277,29 @@ function Comparison({ prev, cur, en, onlyUp, setOnlyUp }: { prev: any; cur: any;
   );
 }
 
-function StoryPlayer({ url, playback, roomId, en }: { url: string; playback: any; roomId: string; en: boolean }) {
+function StoryArticle({ title, text, pos, active, playing }: { title?: string; text: string; pos: { cur: number; dur: number }; active: boolean; playing: boolean }) {
+  const paras = (text || '').split(/\n+/).map((p) => p.trim()).filter(Boolean);
+  const total = paras.reduce((a, p) => a + p.length, 0) || 1;
+  let acc = 0; const ends = paras.map((p) => (acc += p.length));
+  const frac = active && pos.dur > 0 ? Math.min(1, pos.cur / pos.dur) : 0;
+  const posChar = frac * total;
+  const activeIdx = active && pos.cur > 0.2 ? Math.max(0, ends.findIndex((e) => posChar < e)) : -1;
+  const activeRef = useRef<HTMLParagraphElement | null>(null);
+  useEffect(() => {
+    if (playing && activeRef.current) { try { activeRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch {} }
+  }, [activeIdx, playing]);
+  return (
+    <article className="space-y-3">
+      <h1 className="text-2xl font-serif text-parchment text-center mb-2">{title}</h1>
+      {paras.map((p, i) => (
+        <p key={i} ref={i === activeIdx ? activeRef : undefined}
+          className={`text-[15px] leading-[1.95] font-serif transition-colors duration-300 ${i === activeIdx ? 'text-parchment bg-eldritch/10 -mx-2 px-2 rounded border-l-2 border-eldritch' : activeIdx >= 0 && i < activeIdx ? 'text-parchment/45' : 'text-parchment/85'}`}>{p}</p>
+      ))}
+    </article>
+  );
+}
+
+function StoryPlayer({ url, playback, roomId, en, onTime }: { url: string; playback: any; roomId: string; en: boolean; onTime?: (cur: number, dur: number) => void }) {
   const aRef = useRef<HTMLAudioElement | null>(null);
   const [cur, setCur] = useState(0);
   const [dur, setDur] = useState(0);
@@ -266,9 +330,9 @@ function StoryPlayer({ url, playback, roomId, en }: { url: string; playback: any
   return (
     <div className="sticky top-0 z-10 rounded-xl bg-fog/95 backdrop-blur border border-eldritch/30 p-3 flex items-center gap-3 shadow-lg">
       <audio ref={aRef} src={url} preload="auto"
-        onLoadedMetadata={(e) => setDur(e.currentTarget.duration || 0)}
+        onLoadedMetadata={(e) => { const d = e.currentTarget.duration || 0; setDur(d); onTime?.(e.currentTarget.currentTime || 0, d); }}
         onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)}
-        onTimeUpdate={(e) => { if (!seeking.current) setCur(e.currentTarget.currentTime || 0); }}
+        onTimeUpdate={(e) => { const c = e.currentTarget.currentTime || 0; if (!seeking.current) setCur(c); onTime?.(c, e.currentTarget.duration || 0); }}
         onEnded={() => post(false, 0)} />
       <button onClick={toggle} className="w-10 h-10 rounded-full bg-blood/80 hover:bg-blood text-parchment flex items-center justify-center shrink-0 text-lg">{isPlaying ? '⏸' : '▶'}</button>
       <input type="range" min={0} max={dur || 0} step={0.1} value={Math.min(cur, dur || 0)}

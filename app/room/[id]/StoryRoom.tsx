@@ -12,6 +12,7 @@ export default function StoryRoom(props: ShellProps) {
   const st: any = props.storyState;
   const en = (props.room.language || 'zh') === 'en';
   const isHost = props.room.host_user_id === props.userId;
+  const canEdit = !!props.myPlayerId; // 房间内任何玩家都能定制/生成故事
   const phase: string = st?.phase || props.room.story_phase || 'setup';
   const generating = props.room.modules_generating || props.room.story_phase === 'generating';
   const [busy, setBusy] = useState(false);
@@ -180,11 +181,7 @@ export default function StoryRoom(props: ShellProps) {
             <code className="text-xs px-3 py-2 rounded bg-fog border border-eldritch/30 text-eldritch break-all w-full">{url}</code>
             <button onClick={() => { try { navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch {} }} className="px-5 py-2 rounded bg-eldritch/50 hover:bg-eldritch text-parchment text-sm">{copied ? (en ? 'Copied' : '已复制') : (en ? 'Copy invite link' : '复制邀请链接')}</button>
           </div>
-          {isHost ? (
-            <button onClick={generate} disabled={busy} className="w-full py-3 rounded-xl bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-50">{busy ? (en ? 'Starting…' : '正在开始…') : (en ? '▶ Start storytelling' : '▶ 开始讲故事')}</button>
-          ) : (
-            <p className="text-parchment/45 text-sm">{en ? 'Waiting for the host to start…' : '等房主开始…'}</p>
-          )}
+          <button onClick={generate} disabled={busy} className="w-full py-3 rounded-xl bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-50">{busy ? (en ? 'Starting…' : '正在开始…') : (en ? '▶ Start storytelling' : '▶ 开始讲故事')}</button>
         </div>
       </main>
     );
@@ -203,18 +200,18 @@ export default function StoryRoom(props: ShellProps) {
         <div className="flex-1 overflow-y-auto px-5 py-6">
           <div className="max-w-2xl mx-auto space-y-4">
             <h1 className="text-xl font-serif text-parchment text-center">{en ? 'Pick a story' : '选一个故事'}</h1>
-            {!isHost && <p className="text-center text-parchment/50 text-sm">{en ? 'The host is choosing…' : '由房主挑选…'}</p>}
+            {!canEdit && <p className="text-center text-parchment/50 text-sm">{en ? 'The host is choosing…' : '由房主挑选…'}</p>}
             <div className="grid gap-3">
               {(st.options || []).map((o: any) => (
                 <div key={o.id} className="rounded-xl bg-fog/70 border border-eldritch/30 p-4 space-y-1.5">
                   <div className="flex items-start justify-between gap-2"><div className="font-serif text-parchment">{o.title}</div>{o.fromLibrary ? <span className="text-amber-400 text-sm shrink-0" title={en ? 'Saved high-scorer (precise rating)' : '精选库 · 真实精确评分'}>★ {o.appeal} <span className="text-[10px]">{en ? 'saved' : '精选'}</span></span> : <span className="text-parchment/40 text-[11px] shrink-0" title={en ? 'Premise appeal — not the final precise rating' : '开场卖相分，非成稿精确评分'}>{en ? 'appeal' : '卖相'} {o.appeal}</span>}</div>
                   <div className="text-[11px] text-eldritch/80">{o.genre} · {o.mood} · ~{o.est_minutes}min</div>
                   <div className="text-sm text-parchment/75">🪝 {o.logline}</div>
-                  {isHost && <button onClick={() => write(o.id)} disabled={busy} className="mt-1 w-full py-2 rounded bg-blood/80 hover:bg-blood text-parchment text-sm border border-blood disabled:opacity-50">{en ? 'Write this story →' : '写这个故事 →'}</button>}
+                  {canEdit && <button onClick={() => write(o.id)} disabled={busy} className="mt-1 w-full py-2 rounded bg-blood/80 hover:bg-blood text-parchment text-sm border border-blood disabled:opacity-50">{en ? 'Write this story →' : '写这个故事 →'}</button>}
                 </div>
               ))}
             </div>
-            {isHost && (
+            {canEdit && (
               <div className="space-y-3">
                 <div className="flex gap-2">
                   <button onClick={generate} disabled={busy} className="flex-1 py-2 rounded bg-fog border border-eldritch/30 text-parchment/70 text-sm">↻ {en ? 'Regenerate 3' : '换一批'}</button>
@@ -259,7 +256,7 @@ export default function StoryRoom(props: ShellProps) {
       <div className="flex-1 overflow-y-auto px-5 py-6">
         <div className="max-w-2xl mx-auto space-y-6">
           {st?.narration?.url && <StoryPlayer url={st.narration.url} playback={st?.playback} roomId={props.room.id} en={en} provider={st?.narration?.provider} soundtrack={soundtrack} onToggleSoundtrack={() => setSoundtrack((v) => !v)} trackVol={trackVol} onTrackVol={setTrackVol} onTime={(c, d) => setNarrPos({ cur: c, dur: d })} />}
-          {isHost && (
+          {canEdit && (
             <div className="flex flex-col items-center gap-2">
               <div className="flex flex-wrap items-center justify-center gap-2">
                 {([['gentle_f', en ? '🌸 Gentle female' : '🌸 温柔女声'], ['deep_m', en ? '🎙 Deep male' : '🎙 低沉男声'], ['healing', en ? '💗 Healing tone' : '💗 治愈语调'], ['eerie', en ? '🕯 Ominous' : '🕯 悬疑低沉'], ['whisper', en ? '🌫 Eerie whisper' : '🌫 惊惧气声']] as const).map(([k, lbl]) => (
@@ -275,17 +272,17 @@ export default function StoryRoom(props: ShellProps) {
               <button onClick={genNarration} disabled={busy} className="text-xs px-4 py-2 rounded-full bg-fog border border-eldritch/30 text-parchment/75 disabled:opacity-50">{busy ? (en ? 'Synthesizing…' : '合成中…') : (st?.narration?.url ? (en ? '🔁 Regenerate narration' : '🔁 重新生成朗读') : (en ? '🔊 Generate narration (Azure voice)' : '🔊 生成朗读（Azure 语音）'))}</button>
             </div>
           )}
-          {!isHost && !st?.narration?.url && <p className="text-center text-[12px] text-parchment/40">{en ? 'Waiting for the host to generate narration…' : '等房主生成朗读…'}</p>}
+          {!canEdit && !st?.narration?.url && <p className="text-center text-[12px] text-parchment/40">{en ? 'Waiting for the host to generate narration…' : '等房主生成朗读…'}</p>}
           <StoryArticle title={story?.title} text={story?.story || ''} pos={narrPos} active={!!st?.narration?.url} playing={!!st?.playback?.playing} cues={st?.cues} soundtrack={soundtrack} />
 
           {r && <Scorecard r={r} en={en} />}
-          {isHost && (
+          {canEdit && (
             <button onClick={nextStory} disabled={busy} className="w-full py-3 rounded-xl bg-eldritch/20 hover:bg-eldritch/30 text-parchment border border-eldritch/40 text-sm disabled:opacity-50">{en ? '→ Next story' : '→ 听下一个故事'}</button>
           )}
           {typeof st?.revisedFrom === 'number' && r && (
             <div className="text-center text-[12px] text-parchment/50">{en ? 'Revised from ' : '改稿前 '}{st.revisedFrom}{en ? ' → now ' : ' → 现在 '}{Number(r.overall)} {Number(r.overall) > st.revisedFrom ? '↑' : ''}</div>
           )}
-          {isHost && story?.story && (
+          {canEdit && story?.story && (
             <div className="space-y-2 pt-1">
               <textarea value={reviseNote} onChange={(e) => setReviseNote(e.target.value)} rows={2} placeholder={en ? 'Optional: what to improve, e.g. “the ending feels lazy, make it land harder”…' : '可选：想重点提升的地方，例如"结尾太敷衍，重点加强结尾的力度和余味"…'} className="w-full px-3 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 text-sm outline-none focus:border-eldritch resize-none" />
               <div className="grid grid-cols-2 gap-2">

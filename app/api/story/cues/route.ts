@@ -19,7 +19,8 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
   const { data: room } = await admin.from('rooms').select('host_user_id, language').eq('id', roomId).maybeSingle();
   if (!room) return NextResponse.json({ error: '房间不存在' }, { status: 404 });
-  if (room.host_user_id !== user.id) return NextResponse.json({ error: '只有房主可以生成' }, { status: 403 });
+  const { data: me } = await admin.from('players').select('id').eq('room_id', roomId).eq('user_id', user.id).maybeSingle();
+  if (!me) return NextResponse.json({ error: '你不在这个房间' }, { status: 403 });
 
   const state = await loadStory(admin, roomId);
   const story = String(state?.full?.story || '').trim();

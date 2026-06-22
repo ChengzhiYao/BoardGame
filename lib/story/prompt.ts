@@ -56,16 +56,41 @@ ${paramBlock(p)}
 }
 
 // 写出选中方案的完整故事
-export function buildStoryWritePrompt(chosen: any, p: any, lang?: string) {
+// 写作前的文学规划：先把"上 90 分需要的结构件"想清楚，再去写（核心意象/人物弧光/关系功能/转折/结尾回扣）
+export function buildStoryPlanPrompt(chosen: any, p: any, lang?: string) {
   const en = lang === 'en';
-  return `你是一位极擅长讲故事的作者。请把下面这个方案写成**完整的、约 10 分钟阅读**的故事。
+  return `你是一位顶尖短篇小说编辑。先不要写故事，请为下面这个方案做一份**精炼的写作蓝图**，目标是让最终成稿达到"可发表"的水准。
 方案：《${chosen?.title || ''}》｜${chosen?.genre || ''}｜钩子：${chosen?.logline || ''}｜基调：${chosen?.mood || ''}
 参数：
 ${paramBlock(p)}
-写作要求：
-- ${en ? 'English' : '中文'}写作，约 ${en ? '1300~1800 words' : '1600~2200 字'}；情感真挚、有画面感、有起伏。
-- 开头抓人，中段有推进与转折，结尾给一个有力量/有余味的收束（治愈类温暖、恐怖类有冲击、催泪类有泪点）。
-- 若给了主角/称呼，就把 TA 写进故事；严格遵守"特别要求"与"必须避免"。
+蓝图要求（每项都要具体、可执行，不要空话）：
+- central_image：一个贯穿全篇、能被记住、并在结尾被回扣的**具体物件/意象**（如"一盏不灭的灯""泛黄的未寄出的信"）。这是全篇的锚。
+- protagonist：主角**明确想要的东西**(desire) + 从X到Y的**主动转变**(arc，必须由主角的选择推动，不是被事件推着走)。
+- relationship：关键关系如何**真正推动剧情**——成为主角最终选择或结局的触发与回扣，而非工具人。
+- turn：中段一个**出人意料但合理**的具体强事件/转折（要"发生"，不是靠解释设定）。
+- climax：高潮处一个**两难抉择**。
+- ending：{ type: 反转/释怀/回扣/余味, callback: 如何回扣开头或 central_image 的**具体**写法 }。
+- beats：5 个节拍（0-1钩子 / 1-4立人物与异常 / 4-7升级 / 7-9揭示或抉择 / 9-10余味），每个一句话。
+- concrete_anchors：3~5 个**具体感官细节**（用来 show 而非 tell）。
+- avoid：3~5 个本篇要避免的抽象套话/俗套（如"不可名状""永恒回响""灵魂深处"）。
+只输出 JSON：{ "central_image":"", "protagonist":{"desire":"","arc":""}, "relationship":"", "turn":"", "climax":"", "ending":{"type":"","callback":""}, "beats":["","","","",""], "concrete_anchors":[], "avoid":[] }`;
+}
+
+export function buildStoryWritePrompt(chosen: any, p: any, lang?: string, plan?: any) {
+  const en = lang === 'en';
+  const bp = plan ? `\n按以下写作蓝图来写（务必落地每一项，这是达到可发表水准的关键）：\n- 核心意象（贯穿+结尾回扣）：${plan.central_image || ''}\n- 主角欲望：${plan.protagonist?.desire || ''}；主动转变：${plan.protagonist?.arc || ''}\n- 关键关系如何推动剧情：${plan.relationship || ''}\n- 中段强事件/转折：${plan.turn || ''}\n- 高潮两难：${plan.climax || ''}\n- 结尾：${plan.ending?.type || ''}；回扣方式：${plan.ending?.callback || ''}\n- 节拍：${(Array.isArray(plan.beats) ? plan.beats : []).join(' / ')}\n- 必用的具体细节：${(Array.isArray(plan.concrete_anchors) ? plan.concrete_anchors : []).join('、')}\n- 本篇必须避免的套话：${(Array.isArray(plan.avoid) ? plan.avoid : []).join('、')}` : '';
+  return `你是一位**可发表水准**的短篇小说作者。请把下面方案写成**完整的、约 10 分钟阅读**的故事，目标是让挑剔的文学编辑也认可。
+方案：《${chosen?.title || ''}》｜${chosen?.genre || ''}｜钩子：${chosen?.logline || ''}｜基调：${chosen?.mood || ''}
+参数：
+${paramBlock(p)}${bp}
+文学手法（硬要求，逐条做到）：
+- **Show, don't tell**：用具体动作/画面/感官细节承载情绪，严禁抽象堆词（"难以名状的恐惧"→"门缝下那双脚，脚尖朝着天花板"）。核心意象要反复出现并在结尾回扣。
+- 主角全程有明确欲望，并完成**由自己选择推动**的转变；别让主角被事件推着走。
+- 关键关系要**真正推动剧情**，成为结局的触发/回扣，而不是工具人。
+- 中段让那个强事件**真的发生**（别用大段解释设定代替情节）；信息一点点从事件里露出。
+- 对话像真人说话、带潜台词，不要让角色替作者解释主题。
+- 结尾有不可替代的**落点**（反转/释怀/回扣/余味），避免"原来是一场梦""最后全解释清楚"这种烂收。
+- ${en ? 'English' : '中文'}写作，约 ${en ? '1300~1800 words' : '1600~2200 字'}；严格遵守"特别要求"与"必须避免"。
 - 直接输出故事正文，不要解释、不要标题外的元信息。
 只输出 JSON：{ "title": "最终标题", "story": "完整故事正文（可含换行）" }`;
 }
@@ -135,13 +160,13 @@ export function normalizeStoryRating(r: any): any {
   const sc = (k: string) => { const d = dims.find((x: any) => x.key === k); return d ? d.score : 10; };
   let cap = 100; const reasons: string[] = [];
   const hit = (c: number, why: string) => { if (c < cap) cap = c; reasons.push(why); };
-  if (sc('mainline') < 5) hit(75, '主线不清');
-  if (sc('conflict') < 5) hit(78, '没有明确冲突');
-  if (sc('ending') < 5) hit(80, '结尾没有落点');
-  if (sc('genrefx') <= 5) hit(82, '类型核心效果不足');
-  if (sc('infoburden') <= 6) hit(86, '中段主要靠解释设定');
-  if (sc('relationship') <= 6) hit(88, '人物关系不推动剧情');
-  if (sc('retell') <= 6) hit(88, '可复述性弱');
+  if (sc('mainline') < 4) hit(78, '主线不清');
+  if (sc('conflict') < 4) hit(80, '没有明确冲突');
+  if (sc('ending') < 4) hit(82, '结尾没有落点');
+  if (sc('genrefx') <= 4) hit(85, '类型核心效果不足');
+  if (sc('infoburden') <= 4) hit(88, '中段主要靠解释设定');
+  if (sc('relationship') <= 4) hit(90, '人物关系不推动剧情');
+  if (sc('retell') <= 4) hit(90, '可复述性弱');
   const capped = Math.min(overall, cap);
   return { ...r, dimensions: dims, overall: capped, raw: overall, ...(cap < 100 ? { cap, capReasons: reasons } : {}) };
 }
@@ -157,8 +182,8 @@ export function buildStoryRatePrompt(story: string, genre: string, lang?: string
 【15 个维度，每项 0~10 分（系统会按权重换算总分，所以请如实评、别都给 8~9）】
 ${lines}
 
-【打分锚点】9~10 该维度出色/几近完美；8 优秀小瑕；6~7 合格但普通；4~5 平庸有明显问题；0~3 缺失或很差。一篇好故事通常有 3~6 项落 9~10，但"具体化/解释负担/可复述/人物关系功能"这类难项要如实，AI 味浓、靠抽象词撑场面的就压到 5~7。
-【总分参考】普通 70~79；优秀 80~88；卓越 89~94；殿堂 95+。明显优秀的故事应落在 84~90。
+【打分锚点·公平别压分】9~10 该维度出色/几近完美——**只要这一项真的做得好，就大方给 9，不要反射性压在 8**；接近无可挑剔给 10。8 优秀小瑕；6~7 合格但普通；4~5 平庸有明显问题；0~3 缺失或很差。一篇情感真挚、结构完整、文笔有画面感的故事，多数维度应在 8~9、亮点 9~10；只有平庸套路、靠抽象词撑场面、或有明显硬伤的维度才压到 5~7。
+【总分参考·别无故压在90以下】平庸 70~79；良好 80~87；优秀 88~93（真正打动人、几乎没硬伤的好故事就该到这）；杰作 94~97；近乎完美 98+。若一篇故事情感、结构、文笔、结尾都到位，请给到 90+，不要习惯性卡在 88。
 
 只输出 JSON（语言：${en ? 'English' : '中文'}）：
 {

@@ -68,6 +68,7 @@ export default function StoryRoom(props: ShellProps) {
     }
   }
   function rerate() { call('/api/story/revise', { roomId: props.room.id, mode: 'rerate' }); }
+  function genNarration() { call('/api/story/tts', { roomId: props.room.id }); }
   async function deepRevise() {
     const target = 90, maxRounds = 4;
     let last = 0, stalled = false;
@@ -163,6 +164,13 @@ export default function StoryRoom(props: ShellProps) {
     <main className="h-[100svh] flex flex-col">{Header}
       <div className="flex-1 overflow-y-auto px-5 py-6">
         <div className="max-w-2xl mx-auto space-y-6">
+          {st?.narration?.url && <StoryPlayer url={st.narration.url} playback={st?.playback} roomId={props.room.id} en={en} />}
+          {isHost && (
+            <div className="flex justify-center">
+              <button onClick={genNarration} disabled={busy} className="text-xs px-4 py-2 rounded-full bg-fog border border-eldritch/30 text-parchment/75 disabled:opacity-50">{busy ? (en ? 'Synthesizing…' : '合成中…') : (st?.narration?.url ? (en ? '🔁 Regenerate narration' : '🔁 重新生成朗读') : (en ? '🔊 Generate narration (Azure voice)' : '🔊 生成朗读（Azure 语音）'))}</button>
+            </div>
+          )}
+          {!isHost && !st?.narration?.url && <p className="text-center text-[12px] text-parchment/40">{en ? 'Waiting for the host to generate narration…' : '等房主生成朗读…'}</p>}
           <article className="space-y-4">
             <h1 className="text-2xl font-serif text-parchment text-center">{story?.title}</h1>
             <div className="text-[15px] leading-[1.9] text-parchment/90 whitespace-pre-wrap font-serif">{story?.story}</div>
@@ -219,6 +227,53 @@ function Comparison({ prev, cur, en, onlyUp, setOnlyUp }: { prev: any; cur: any;
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function StoryPlayer({ url, playback, roomId, en }: { url: string; playback: any; roomId: string; en: boolean }) {
+  const aRef = useRef<HTMLAudioElement | null>(null);
+  const [cur, setCur] = useState(0);
+  const [dur, setDur] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [needGesture, setNeedGesture] = useState(false);
+  const seeking = useRef(false);
+
+  function post(playing: boolean, position: number) {
+    fetch('/api/story/playback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId, playing, position }) }).catch(() => {});
+  }
+  // 应用远端播放状态（对方按了播放/暂停/拖动 → 本地跟随）
+  useEffect(() => {
+    const a = aRef.current; if (!a || !playback) return;
+    const drift = playback.playing ? Math.max(0, (Date.now() - (Number(playback.ts) || Date.now())) / 1000) : 0;
+    const target = (Number(playback.position) || 0) + drift;
+    if (isFinite(target) && Math.abs(a.currentTime - target) > 1.2 && !seeking.current) { try { a.currentTime = target; } catch {} }
+    if (playback.playing) { if (a.paused) a.play().then(() => setNeedGesture(false)).catch(() => setNeedGesture(true)); }
+    else { if (!a.paused) a.pause(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playback?.playing, playback?.position, playback?.ts]);
+
+  function toggle() {
+    const a = aRef.current; if (!a) return;
+    if (a.paused) { a.play().then(() => setNeedGesture(false)).catch(() => setNeedGesture(true)); post(true, a.currentTime); }
+    else { a.pause(); post(false, a.currentTime); }
+  }
+  const fmt = (s: number) => { s = Math.max(0, Math.floor(s || 0)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+  return (
+    <div className="sticky top-0 z-10 rounded-xl bg-fog/95 backdrop-blur border border-eldritch/30 p-3 flex items-center gap-3 shadow-lg">
+      <audio ref={aRef} src={url} preload="auto"
+        onLoadedMetadata={(e) => setDur(e.currentTarget.duration || 0)}
+        onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)}
+        onTimeUpdate={(e) => { if (!seeking.current) setCur(e.currentTarget.currentTime || 0); }}
+        onEnded={() => post(false, 0)} />
+      <button onClick={toggle} className="w-10 h-10 rounded-full bg-blood/80 hover:bg-blood text-parchment flex items-center justify-center shrink-0 text-lg">{isPlaying ? '⏸' : '▶'}</button>
+      <input type="range" min={0} max={dur || 0} step={0.1} value={Math.min(cur, dur || 0)}
+        onChange={(e) => { const a = aRef.current; if (!a) return; seeking.current = true; const t = Number(e.target.value); setCur(t); a.currentTime = t; }}
+        onMouseUp={(e) => { const a = aRef.current; seeking.current = false; post(!!a && !a.paused, Number((e.target as HTMLInputElement).value)); }}
+        onTouchEnd={(e) => { const a = aRef.current; seeking.current = false; post(!!a && !a.paused, Number((e.target as HTMLInputElement).value)); }}
+        className="flex-1 accent-blood cursor-pointer" />
+      <span className="text-[11px] text-parchment/60 tabular-nums shrink-0">{fmt(cur)} / {fmt(dur)}</span>
+      {needGesture && <button onClick={toggle} className="text-[11px] text-amber-300 shrink-0">{en ? 'tap ▶' : '点▶继续'}</button>}
     </div>
   );
 }

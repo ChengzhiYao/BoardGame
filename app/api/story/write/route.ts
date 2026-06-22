@@ -58,7 +58,7 @@ export async function POST(req: Request) {
         await admin.from('story_library').insert({ title: String(full.title || chosen.title), genre: String(chosen.genre || ''), logline: String(chosen.logline || ''), mood: String(chosen.mood || ''), est_minutes: Number(chosen.est_minutes) || 10, genres: Array.isArray(state.params?.genres) ? state.params.genres : [], tone: state.params?.tone || null, story, rating, overall });
       } catch { /* 入库失败不阻断 */ }
     }
-    await persistStory(admin, roomId, { ...state, phase: 'reading', chosen, full: { title: String(full.title || chosen.title), story }, rating });
+    await persistStory(admin, roomId, { ...state, phase: 'reading', chosen, full: { title: String(full.title || chosen.title), story }, rating, narration: null, playback: null });
     await admin.from('rooms').update({ modules_generating: false, game_state: 'playing' }).eq('id', roomId);
     return NextResponse.json({ ok: true });
   } catch (e: any) {

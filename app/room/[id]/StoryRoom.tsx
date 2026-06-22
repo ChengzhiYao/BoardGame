@@ -69,6 +69,7 @@ export default function StoryRoom(props: ShellProps) {
   }
   function rerate() { call('/api/story/revise', { roomId: props.room.id, mode: 'rerate' }); }
   function genNarration() { call('/api/story/tts', { roomId: props.room.id }); }
+  function nextStory() { call('/api/story/next', { roomId: props.room.id }); }
   async function deepRevise() {
     const target = 90, maxRounds = 4;
     let last = 0, stalled = false;
@@ -177,6 +178,9 @@ export default function StoryRoom(props: ShellProps) {
           </article>
 
           {r && <Scorecard r={r} en={en} />}
+          {isHost && (
+            <button onClick={nextStory} disabled={busy} className="w-full py-3 rounded-xl bg-eldritch/20 hover:bg-eldritch/30 text-parchment border border-eldritch/40 text-sm disabled:opacity-50">{en ? '→ Next story' : '→ 听下一个故事'}</button>
+          )}
           {typeof st?.revisedFrom === 'number' && r && (
             <div className="text-center text-[12px] text-parchment/50">{en ? 'Revised from ' : '改稿前 '}{st.revisedFrom}{en ? ' → now ' : ' → 现在 '}{Number(r.overall)} {Number(r.overall) > st.revisedFrom ? '↑' : ''}</div>
           )}

@@ -199,7 +199,7 @@ export default function StoryRoom(props: ShellProps) {
     <main className="h-[100svh] flex flex-col">{Header}
       <div className="flex-1 overflow-y-auto px-5 py-6">
         <div className="max-w-2xl mx-auto space-y-6">
-          {st?.narration?.url && <StoryPlayer url={st.narration.url} playback={st?.playback} roomId={props.room.id} en={en} onTime={(c, d) => setNarrPos({ cur: c, dur: d })} />}
+          {st?.narration?.url && <StoryPlayer url={st.narration.url} playback={st?.playback} roomId={props.room.id} en={en} provider={st?.narration?.provider} onTime={(c, d) => setNarrPos({ cur: c, dur: d })} />}
           {isHost && (
             <div className="flex flex-col items-center gap-2">
               <div className="flex flex-wrap items-center justify-center gap-2">
@@ -299,7 +299,8 @@ function StoryArticle({ title, text, pos, active, playing }: { title?: string; t
   );
 }
 
-function StoryPlayer({ url, playback, roomId, en, onTime }: { url: string; playback: any; roomId: string; en: boolean; onTime?: (cur: number, dur: number) => void }) {
+function StoryPlayer({ url, playback, roomId, en, onTime, provider }: { url: string; playback: any; roomId: string; en: boolean; onTime?: (cur: number, dur: number) => void; provider?: string }) {
+  const provLabel = provider === 'az' ? 'Azure' : provider === 'oai' ? 'OpenAI' : null;
   const aRef = useRef<HTMLAudioElement | null>(null);
   const [cur, setCur] = useState(0);
   const [dur, setDur] = useState(0);
@@ -341,6 +342,7 @@ function StoryPlayer({ url, playback, roomId, en, onTime }: { url: string; playb
         onTouchEnd={(e) => { const a = aRef.current; seeking.current = false; post(!!a && !a.paused, Number((e.target as HTMLInputElement).value)); }}
         className="flex-1 accent-blood cursor-pointer" />
       <span className="text-[11px] text-parchment/60 tabular-nums shrink-0">{fmt(cur)} / {fmt(dur)}</span>
+      {provLabel && <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 border ${provLabel === 'Azure' ? 'bg-sky-500/15 border-sky-500/40 text-sky-300' : 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'}`} title={en ? `Voice engine: ${provLabel}` : `语音引擎：${provLabel}`}>{provLabel}</span>}
       {needGesture && <button onClick={toggle} className="text-[11px] text-amber-300 shrink-0">{en ? 'tap ▶' : '点▶继续'}</button>}
     </div>
   );

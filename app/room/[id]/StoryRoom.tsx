@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { STORY_GENRES, STORY_HORROR_SUB, STORY_TONES, STORY_MOODS } from '@/lib/story/prompt';
-import { setStoryBgm, pauseStoryBgm, resumeStoryBgm, stopStoryBgm, storyStinger, storySfx } from '@/lib/audio/storyCue';
+import { setStoryBgm, pauseStoryBgm, resumeStoryBgm, stopStoryBgm, storyStinger, storySfx, setStoryVol } from '@/lib/audio/storyCue';
 import type { ShellProps } from './RoomShell';
 
 export default function StoryRoom(props: ShellProps) {
@@ -33,6 +33,8 @@ export default function StoryRoom(props: ShellProps) {
   const [speed, setSpeed] = useState(0.9);
   const [narrPos, setNarrPos] = useState<{ cur: number; dur: number }>({ cur: 0, dur: 0 });
   const [soundtrack, setSoundtrack] = useState(true);
+  const [trackVol, setTrackVol] = useState(0.28);
+  const cueInit = useRef(false);
   const [reviseNote, setReviseNote] = useState('');
   const [deepMsg, setDeepMsg] = useState('');
   const [showCompare, setShowCompare] = useState(false);
@@ -58,6 +60,15 @@ export default function StoryRoom(props: ShellProps) {
     }).subscribe(async (status) => { if (status === 'SUBSCRIBED') await ch.track({ at: Date.now() }); });
     return () => { supabase.removeChannel(ch); };
   }, [props.room.id, props.userId, supabase]);
+
+  // 旧朗读/缺配乐：自动补生成逐段配乐（房主，仅一次）
+  useEffect(() => {
+    if (isHost && st?.narration?.url && !(Array.isArray(st?.cues) && st.cues.length) && !busy && !cueInit.current) {
+      cueInit.current = true;
+      call('/api/story/cues', { roomId: props.room.id });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHost, st?.narration?.url, st?.cues, busy]);
 
   // 恐怖题材：默认用阴森嗓音（仅自动设一次，之后用户可改）
   useEffect(() => {
@@ -96,6 +107,7 @@ export default function StoryRoom(props: ShellProps) {
   function rerate() { call('/api/story/revise', { roomId: props.room.id, mode: 'rerate' }); }
   async function genNarration() { const d = await call('/api/story/tts', { roomId: props.room.id, voice: voicePreset, rate: speed }); if (d) call('/api/story/cues', { roomId: props.room.id }); }
   function nextStory() { call('/api/story/next', { roomId: props.room.id }); }
+  useEffect(() => { setStoryVol(trackVol); }, [trackVol]);
   async function deepRevise() {
     const target = 90, maxRounds = 4;
     let last = 0, stalled = false;
@@ -210,7 +222,7 @@ export default function StoryRoom(props: ShellProps) {
     <main className="h-[100svh] flex flex-col">{Header}
       <div className="flex-1 overflow-y-auto px-5 py-6">
         <div className="max-w-2xl mx-auto space-y-6">
-          {st?.narration?.url && <StoryPlayer url={st.narration.url} playback={st?.playback} roomId={props.room.id} en={en} provider={st?.narration?.provider} soundtrack={soundtrack} onToggleSoundtrack={() => setSoundtrack((v) => !v)} onTime={(c, d) => setNarrPos({ cur: c, dur: d })} />}
+          {st?.narration?.url && <StoryPlayer url={st.narration.url} playback={st?.playback} roomId={props.room.id} en={en} provider={st?.narration?.provider} soundtrack={soundtrack} onToggleSoundtrack={() => setSoundtrack((v) => !v)} trackVol={trackVol} onTrackVol={setTrackVol} onTime={(c, d) => setNarrPos({ cur: c, dur: d })} />}
           {isHost && (
             <div className="flex flex-col items-center gap-2">
               <div className="flex flex-wrap items-center justify-center gap-2">
@@ -327,7 +339,7 @@ function StoryArticle({ title, text, pos, active, playing, cues, soundtrack }: {
   );
 }
 
-function StoryPlayer({ url, playback, roomId, en, onTime, provider, soundtrack, onToggleSoundtrack }: { url: string; playback: any; roomId: string; en: boolean; onTime?: (cur: number, dur: number) => void; provider?: string; soundtrack?: boolean; onToggleSoundtrack?: () => void }) {
+function StoryPlayer({ url, playback, roomId, en, onTime, provider, soundtrack, onToggleSoundtrack, trackVol, onTrackVol }: { url: string; playback: any; roomId: string; en: boolean; onTime?: (cur: number, dur: number) => void; provider?: string; soundtrack?: boolean; onToggleSoundtrack?: () => void; trackVol?: number; onTrackVol?: (v: number) => void }) {
   const provLabel = provider === 'az' ? 'Azure' : provider === 'oai' ? 'OpenAI' : null;
   const aRef = useRef<HTMLAudioElement | null>(null);
   const [cur, setCur] = useState(0);
@@ -374,6 +386,7 @@ function StoryPlayer({ url, playback, roomId, en, onTime, provider, soundtrack, 
       <span className="text-[11px] text-parchment/60 tabular-nums shrink-0">{fmt(cur)} / {fmt(dur)}</span>
       {provLabel && <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 border ${provLabel === 'Azure' ? 'bg-sky-500/15 border-sky-500/40 text-sky-300' : 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'}`} title={en ? `Voice engine: ${provLabel}` : `语音引擎：${provLabel}`}>{provLabel}</span>}
       {onToggleSoundtrack && <button onClick={onToggleSoundtrack} title={en ? 'Soundtrack' : '配乐'} className={`text-[13px] shrink-0 ${soundtrack ? 'text-eldritch' : 'text-parchment/30'}`}>🎵</button>}
+      {soundtrack && onTrackVol && <input type="range" min={0} max={0.6} step={0.02} value={trackVol ?? 0.28} onChange={(e) => onTrackVol(Number(e.target.value))} title={en ? 'Soundtrack volume' : '配乐音量'} className="w-14 accent-eldritch shrink-0 cursor-pointer" />}
       {needGesture && <button onClick={toggle} className="text-[11px] text-amber-300 shrink-0">{en ? 'tap ▶' : '点▶继续'}</button>}
     </div>
   );

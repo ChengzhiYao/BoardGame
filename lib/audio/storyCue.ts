@@ -6,6 +6,9 @@ import { playSfx } from './sfx';
 let bgm: HTMLAudioElement | null = null;
 let bgmCat = '';
 let fadeTimer: any = null;
+let curVol = 0.28;
+export function setStoryVol(v: number) { curVol = Math.max(0, Math.min(1, v)); if (bgm && !audioBus.muted) { try { bgm.volume = curVol; } catch {} } }
+export function storyVol() { return curVol; }
 
 function fade(a: HTMLAudioElement, target: number, ms = 700, done?: () => void) {
   const steps = 14, dt = ms / steps; const from = a.volume; let n = 0;
@@ -16,7 +19,8 @@ function fade(a: HTMLAudioElement, target: number, ms = 700, done?: () => void) 
   }, dt);
 }
 
-export function setStoryBgm(cat: string, vol = 0.28) {
+export function setStoryBgm(cat: string, vol?: number) {
+  const tv = vol == null ? curVol : vol;
   if (typeof window === 'undefined') return;
   const pool = (AUDIO_MAP as any)[cat];
   if (!pool || !pool.length) return;
@@ -25,7 +29,7 @@ export function setStoryBgm(cat: string, vol = 0.28) {
   const old = bgm;
   const a = new Audio(next); a.loop = true; a.volume = 0; bgm = a; bgmCat = cat;
   if (!audioBus.muted) a.play().catch(() => {});
-  fade(a, audioBus.muted ? 0 : vol);
+  fade(a, audioBus.muted ? 0 : tv);
   if (old) fade(old, 0, 700, () => { try { old.pause(); } catch {} });
 }
 export function pauseStoryBgm() { if (bgm) { try { bgm.pause(); } catch {} } }

@@ -179,3 +179,37 @@ ${tmpl}
 故事正文：
 ${String(story).slice(0, 6000)}`;
 }
+
+// ===== 讲故事配乐：逐段情绪 → 氛围床乐类别 + 音效 =====
+export const STORY_MOODS: { word: string; cat: string; desc: string }[] = [
+  { word: 'calm', cat: 'EXPLORATION_SAFE', desc: '平静/温暖/日常' },
+  { word: 'tender', cat: 'EXPLORATION_SAFE', desc: '柔情/温情/思念' },
+  { word: 'mystery', cat: 'INVESTIGATION_BREAKTHROUGH', desc: '悬念/好奇/线索' },
+  { word: 'tension', cat: 'EXPLORATION_DANGEROUS', desc: '不安/紧张/危险逼近' },
+  { word: 'eerie', cat: 'PARANORMAL_EVENT', desc: '诡异/灵异/不对劲' },
+  { word: 'scare', cat: 'MONSTER_REVEAL', desc: '惊吓/怪物或可怕之物现身' },
+  { word: 'cosmic', cat: 'COSMIC_HORROR', desc: '宇宙恐怖/不可名状/疯狂' },
+  { word: 'chase', cat: 'CHASE_SEQUENCE', desc: '追逐/逃命/急迫' },
+  { word: 'climax', cat: 'FINAL_CONFRONTATION', desc: '高潮/对决/抉择' },
+  { word: 'reveal', cat: 'TRUTH_REVEAL', desc: '真相揭晓/恍然' },
+  { word: 'sad', cat: 'BITTERSWEET_ENDING', desc: '悲伤/苦涩/离别' },
+  { word: 'happy', cat: 'GOOD_ENDING', desc: '温暖结局/释怀/重逢' },
+];
+export const STORY_SFX = ['ambient_wind', 'creaking_door', 'monster_growl', 'footsteps_wood', 'footsteps_leaves', 'footsteps_gravel'];
+
+export function buildStoryCuesPrompt(paras: string[], genre: string, lang?: string) {
+  const en = lang === 'en';
+  const moods = STORY_MOODS.map((m) => `${m.word}(${m.desc})`).join('、');
+  const list = paras.map((p, i) => `[${i}] ${p.slice(0, 120)}`).join('\n');
+  return `你是一位影视配乐师。下面是一篇故事，已按段落编号。请为**每一段**配一个情绪，用来切换背景氛围音乐，让朗读更有沉浸感。题材：${genre}。
+可选情绪（只能从中选一个词）：${moods}
+规则：
+- 跟着剧情走，别每段都一样；温情段用 calm/tender，恐怖段用 eerie/scare/cosmic，紧张段 tension/chase，高潮 climax，结尾按情绪 sad/happy/reveal。
+- sfx 可选 0~2 个，仅在**字面真的出现**时加：ambient_wind(风/旷野)、creaking_door(门/吱呀)、monster_growl(怪物低吼/嘶鸣)、footsteps_wood/footsteps_leaves/footsteps_gravel(脚步，按地面)。没有就留空数组。
+- stinger=true 只用于**突然的惊吓/震撼**那一段（如怪物猛然出现、真相骤然揭穿），全篇最多 1~2 段。
+只输出 JSON（cues 长度必须 = 段落数 ${paras.length}，按编号顺序）：
+{ "cues": [ { "i": 0, "mood": "calm", "sfx": [], "stinger": false } ] }
+
+段落：
+${list}`;
+}

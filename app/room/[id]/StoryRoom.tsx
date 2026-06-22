@@ -27,7 +27,8 @@ export default function StoryRoom(props: ShellProps) {
   const [showCustom, setShowCustom] = useState(false);
   const [horrorSub, setHorrorSub] = useState<string[]>([]);
   const [online, setOnline] = useState<Record<string, boolean>>({});
-  const [voicePreset, setVoicePreset] = useState<'gentle_f' | 'deep_m' | 'healing'>('gentle_f');
+  const [voicePreset, setVoicePreset] = useState<'gentle_f' | 'deep_m' | 'healing' | 'eerie' | 'whisper'>('gentle_f');
+  const voiceInit = useRef(false);
   const [speed, setSpeed] = useState(0.9);
   const [narrPos, setNarrPos] = useState<{ cur: number; dur: number }>({ cur: 0, dur: 0 });
   const [reviseNote, setReviseNote] = useState('');
@@ -55,6 +56,14 @@ export default function StoryRoom(props: ShellProps) {
     }).subscribe(async (status) => { if (status === 'SUBSCRIBED') await ch.track({ at: Date.now() }); });
     return () => { supabase.removeChannel(ch); };
   }, [props.room.id, props.userId, supabase]);
+
+  // 恐怖题材：默认用阴森嗓音（仅自动设一次，之后用户可改）
+  useEffect(() => {
+    const g = String(st?.chosen?.genre || '') + ' ' + (Array.isArray(st?.params?.genres) ? st.params.genres.join(' ') : '');
+    const horror = /horror|恐怖|惊悚|悬疑|克苏鲁|怪谈|诡|灵异/.test(g);
+    if (!voiceInit.current && horror && !st?.narration?.url) { voiceInit.current = true; setVoicePreset('eerie'); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [st?.chosen?.genre, st?.narration?.url]);
 
   // 一进来先自动生成 3 个推荐故事（房主，仅一次）；定制藏在按钮后面
   useEffect(() => {
@@ -203,7 +212,7 @@ export default function StoryRoom(props: ShellProps) {
           {isHost && (
             <div className="flex flex-col items-center gap-2">
               <div className="flex flex-wrap items-center justify-center gap-2">
-                {([['gentle_f', en ? '🌸 Gentle female' : '🌸 温柔女声'], ['deep_m', en ? '🎙 Deep male' : '🎙 低沉男声'], ['healing', en ? '💗 Healing tone' : '💗 治愈语调']] as const).map(([k, lbl]) => (
+                {([['gentle_f', en ? '🌸 Gentle female' : '🌸 温柔女声'], ['deep_m', en ? '🎙 Deep male' : '🎙 低沉男声'], ['healing', en ? '💗 Healing tone' : '💗 治愈语调'], ['eerie', en ? '🕯 Ominous' : '🕯 悬疑低沉'], ['whisper', en ? '🌫 Eerie whisper' : '🌫 惊惧气声']] as const).map(([k, lbl]) => (
                   <button key={k} onClick={() => setVoicePreset(k as any)} className={`px-2.5 py-1 rounded-full text-[11px] border ${voicePreset === k ? 'bg-blood/30 border-blood text-parchment' : 'bg-fog border-eldritch/30 text-parchment/60'}`}>{lbl}</button>
                 ))}
                 <select value={speed} onChange={(e) => setSpeed(Number(e.target.value))} className="px-2 py-1 rounded bg-fog border border-eldritch/30 text-parchment/70 text-[11px]">
@@ -311,6 +320,8 @@ function StoryPlayer({ url, playback, roomId, en, onTime, provider }: { url: str
   function post(playing: boolean, position: number) {
     fetch('/api/story/playback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId, playing, position }) }).catch(() => {});
   }
+  // 换了音色/重新生成 → url 变 → 强制重新加载，避免还在放旧的那段
+  useEffect(() => { const a = aRef.current; if (a) { try { a.load(); } catch {} setCur(0); } }, [url]);
   // 应用远端播放状态（对方按了播放/暂停/拖动 → 本地跟随）
   useEffect(() => {
     const a = aRef.current; if (!a || !playback) return;

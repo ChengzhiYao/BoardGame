@@ -12,8 +12,10 @@ const AZ: Record<string, { zh: Preset; en: Preset }> = {
   gentle_f: { zh: { voice: 'zh-CN-XiaoxiaoNeural', style: 'gentle' }, en: { voice: 'en-US-JennyNeural', style: 'friendly' } },
   deep_m:   { zh: { voice: 'zh-CN-YunjianNeural', style: 'narration-relaxed', pitch: '-4%' }, en: { voice: 'en-US-GuyNeural', pitch: '-4%' } },
   healing:  { zh: { voice: 'zh-CN-XiaoxiaoNeural', style: 'affectionate' }, en: { voice: 'en-US-AriaNeural', style: 'calm' } },
+  eerie:    { zh: { voice: 'zh-CN-YunjianNeural', style: 'serious', pitch: '-6%' }, en: { voice: 'en-US-GuyNeural', pitch: '-6%' } },
+  whisper:  { zh: { voice: 'zh-CN-XiaoxiaoNeural', style: 'fearful', pitch: '-2%' }, en: { voice: 'en-US-JennyNeural', style: 'whispering' } },
 };
-const OAI_VOICE: Record<string, string> = { gentle_f: 'shimmer', deep_m: 'onyx', healing: 'nova' };
+const OAI_VOICE: Record<string, string> = { gentle_f: 'shimmer', deep_m: 'onyx', healing: 'nova', eerie: 'onyx', whisper: 'echo' };
 
 function esc(s: string) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;'); }
 function ratePct(rate: number) { const r = Math.round((Math.max(0.7, Math.min(1.2, rate || 0.9)) - 1) * 100); return (r >= 0 ? '+' : '') + r + '%'; }

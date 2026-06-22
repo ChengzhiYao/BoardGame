@@ -34,6 +34,7 @@ export default function StoryRoom(props: ShellProps) {
   const [narrPos, setNarrPos] = useState<{ cur: number; dur: number }>({ cur: 0, dur: 0 });
   const [soundtrack, setSoundtrack] = useState(true);
   const [trackVol, setTrackVol] = useState(0.28);
+  const [copied, setCopied] = useState(false);
   const cueInit = useRef(false);
   const [reviseNote, setReviseNote] = useState('');
   const [deepMsg, setDeepMsg] = useState('');
@@ -80,9 +81,9 @@ export default function StoryRoom(props: ShellProps) {
 
   // 一进来先自动生成 3 个推荐故事（房主，仅一次）；定制藏在按钮后面
   useEffect(() => {
-    if (isHost && !generating && (phase === 'setup' || !st) && !autoGen.current) { autoGen.current = true; generate(); }
+    if (isHost && !generating && props.room.game_state !== 'lobby' && (phase === 'setup' || !st) && !autoGen.current) { autoGen.current = true; generate(); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isHost, generating, phase, st]);
+  }, [isHost, generating, phase, st, props.room.game_state]);
 
   async function call(url: string, body: any) {
     if (inFlight.current) return null;
@@ -152,6 +153,41 @@ export default function StoryRoom(props: ShellProps) {
 
   if (generating) {
     return (<main className="h-[100svh] flex flex-col">{Header}<div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-6"><div className="w-8 h-8 border-2 border-eldritch/30 border-t-eldritch rounded-full animate-spin" /><p className="text-parchment/60">{en ? 'Weaving the story…' : '正在编织故事……'}</p></div></main>);
+  }
+
+  // ---------------- LOBBY 等待间：邀请 + 在线名单 ----------------
+  if (props.room.game_state === 'lobby') {
+    const origin = typeof window !== 'undefined' && window.location?.origin ? window.location.origin : (props.siteUrl || '');
+    const url = `${origin}/join/${props.inviteToken}`;
+    return (
+      <main className="h-[100svh] flex flex-col">{Header}
+        <div className="flex-1 flex flex-col items-center justify-center gap-6 text-center px-6 max-w-md mx-auto w-full">
+          <div className="text-4xl">📖</div>
+          <div>
+            <h1 className="text-2xl font-serif text-parchment">{props.room.name}</h1>
+            <p className="text-parchment/55 mt-1 text-sm">{en ? 'Invite someone to listen together, then start.' : '把链接发给她，一起听；准备好就开始。'}</p>
+          </div>
+          <div className="w-full space-y-2">
+            <div className="text-xs text-parchment/45">{en ? 'In the room' : '已加入'}（{players.length}）</div>
+            <div className="flex flex-wrap justify-center gap-2">{players.map((p: any) => (
+              <span key={p.id} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-fog border border-eldritch/25 text-[12px] text-parchment/80">
+                <span className={`w-2 h-2 rounded-full ${online[p.user_id] ? 'bg-green-400' : 'bg-parchment/25'}`} />
+                {nameOf(p.user_id)}{p.user_id === props.userId ? (en ? ' (you)' : '（你）') : ''}
+              </span>
+            ))}</div>
+          </div>
+          <div className="w-full flex flex-col items-center gap-2">
+            <code className="text-xs px-3 py-2 rounded bg-fog border border-eldritch/30 text-eldritch break-all w-full">{url}</code>
+            <button onClick={() => { try { navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch {} }} className="px-5 py-2 rounded bg-eldritch/50 hover:bg-eldritch text-parchment text-sm">{copied ? (en ? 'Copied' : '已复制') : (en ? 'Copy invite link' : '复制邀请链接')}</button>
+          </div>
+          {isHost ? (
+            <button onClick={generate} disabled={busy} className="w-full py-3 rounded-xl bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-50">{busy ? (en ? 'Starting…' : '正在开始…') : (en ? '▶ Start storytelling' : '▶ 开始讲故事')}</button>
+          ) : (
+            <p className="text-parchment/45 text-sm">{en ? 'Waiting for the host to start…' : '等房主开始…'}</p>
+          )}
+        </div>
+      </main>
+    );
   }
 
   // ---------------- SETUP → 自动生成 3 个推荐 ----------------

@@ -1,0 +1,5 @@
+{
+  "codeConnect": {
+    "include": ["components/ui/**/*.figma.tsx"]
+  }
+}

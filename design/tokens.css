@@ -1,0 +1,11 @@
+/* MystNight design tokens — generated to match Figma Variables. */
+:root {
+  --color-ink:#0c0d10; --color-fog:#1a1c22; --color-fog-2:#232730; --color-fog-3:#2c313c;
+  --color-parchment:#d8c7a8; --color-parchment-dim:#a99c82; --color-parchment-faint:#6f6757; --color-white:#f2ead9;
+  --color-blood:#7d1d1d; --color-blood-bright:#a83232; --color-eldritch:#2f5d54; --color-eldritch-bright:#3f7d70;
+  --color-amber:#d9a441; --color-green:#4ca36a; --color-rust:#b3503f; --color-sky:#5aa0c4;
+  --bg-page:var(--color-ink); --bg-surface:var(--color-fog); --text-primary:var(--color-parchment);
+  --accent:var(--color-blood); --mystic:var(--color-eldritch); --border:var(--color-eldritch);
+  --state-success:var(--color-green); --state-warning:var(--color-amber); --state-danger:var(--color-rust); --state-info:var(--color-sky);
+  --radius-sm:6px; --radius-md:10px; --radius-lg:14px; --radius-xl:18px;
+}

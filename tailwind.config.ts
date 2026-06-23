@@ -1,7 +1,11 @@
 import type { Config } from 'tailwindcss';
+// MystNight design-system preset (mirrors Figma Variables). See design/mystnight-preset.cjs
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const mystnight = require('./design/mystnight-preset.cjs');
 
 // 克苏鲁暗黑主题基础配色
 const config: Config = {
+  presets: [mystnight],
   content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}'],
   theme: {
     extend: {

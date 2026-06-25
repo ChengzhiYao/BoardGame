@@ -90,7 +90,10 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
       <header ref={heroRef} className="w-full max-w-2xl flex flex-col items-center gap-5">
         <h1 className="text-4xl md:text-6xl font-serif tracking-wide text-parchment">{t('home_title')}</h1>
         <p className="max-w-xl text-parchment/70 leading-relaxed">{t('home_tagline')}</p>
-        <button onClick={openPromo} className="text-sm px-4 py-1.5 rounded-full border border-eldritch/40 text-parchment/80 hover:bg-eldritch/20 transition">▶ {lang === 'en' ? 'Watch the trailer' : '观看宣传片'}</button>
+        <div className="flex items-center gap-3 flex-wrap justify-center">
+          <button onClick={openPromo} className="text-sm px-4 py-1.5 rounded-full border border-eldritch/40 text-parchment/80 hover:bg-eldritch/20 transition">▶ {lang === 'en' ? 'Watch the trailer' : '观看宣传片'}</button>
+          <a href={lang === 'en' ? '/en/blog' : '/zh/blog'} className="text-sm px-4 py-1.5 rounded-full border border-eldritch/40 text-parchment/80 hover:bg-eldritch/20 transition">{lang === 'en' ? '📖 Blog' : '📖 博客'}</a>
+        </div>
 
         <input
           ref={nameRef}

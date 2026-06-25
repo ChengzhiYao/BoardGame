@@ -12,7 +12,7 @@ export async function POST(req: Request) {
   if (!roomId) return NextResponse.json({ error: '缺少参数' }, { status: 400 });
 
   const admin = createAdminClient();
-  const { data: room } = await admin.from('rooms').select('host_user_id, mcc_phase').eq('id', roomId).maybeSingle();
+  const { data: room } = await admin.from('rooms').select('host_user_id, mcc_phase, language').eq('id', roomId).maybeSingle();
   if (!room) return NextResponse.json({ error: '房间不存在' }, { status: 404 });
   if (room.host_user_id !== user.id) return NextResponse.json({ error: '只有房主可以开始' }, { status: 403 });
   if (room.mcc_phase === 'playing') return NextResponse.json({ ok: true });
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
   list.sort((a, b) => a.seat.localeCompare(b.seat));
 
   await admin.from('mcc_hands').delete().eq('room_id', roomId);
-  const state = newGame(list);
+  const state = newGame(list, (room as any).language);
   await persist(admin, roomId, state);
   return NextResponse.json({ ok: true });
 }

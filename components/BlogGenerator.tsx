@@ -1,8 +1,10 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function BlogGenerator({ lang }: { lang: 'zh' | 'en' }) {
   const en = lang === 'en';
+  const router = useRouter();
   const [admin, setAdmin] = useState(false);
   const [open, setOpen] = useState(false);
   const [topic, setTopic] = useState('');
@@ -11,13 +13,14 @@ export default function BlogGenerator({ lang }: { lang: 'zh' | 'en' }) {
   const [pub, setPub] = useState(false);
   const [draft, setDraft] = useState<any>(null);
   const [err, setErr] = useState('');
+  const [okMsg, setOkMsg] = useState('');
 
   useEffect(() => { fetch('/api/admin/stats').then((r) => setAdmin(r.ok)).catch(() => {}); }, []);
   if (!admin) return null;
 
   async function generate() {
     if (!topic.trim()) return;
-    setBusy(true); setErr(''); setDraft(null);
+    setBusy(true); setErr(''); setOkMsg(''); setDraft(null);
     try {
       const r = await fetch('/api/blog/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ topic, keywords, lang }) });
       const d = await r.json();
@@ -26,11 +29,17 @@ export default function BlogGenerator({ lang }: { lang: 'zh' | 'en' }) {
   }
   async function publish() {
     if (!draft) return;
-    setPub(true); setErr('');
+    setPub(true); setErr(''); setOkMsg('');
     try {
       const r = await fetch('/api/blog/publish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...draft, score: draft.rating?.overall }) });
       const d = await r.json();
-      if (r.ok && d.url) { window.location.href = d.url; } else setErr(d.error || (en ? 'Publish failed' : '发布失败'));
+      if (r.ok && d.url) {
+        setOkMsg((en ? '✅ Published: ' : '✅ 已发布：') + draft.title + (d.translated ? (en ? ' (+ other language)' : '（已自动生成另一语言版）') : ''));
+        setDraft(null); setTopic(''); setKeywords('');
+        router.refresh();
+      } else {
+        setErr(d.error || (en ? 'Publish failed' : '发布失败') + (r.status === 500 ? (en ? ' — did you run the SQL?' : '（数据库表可能还没建，去 Supabase 跑那段 SQL）') : ''));
+      }
     } catch { setErr(en ? 'Network error' : '网络错误'); } finally { setPub(false); }
   }
 
@@ -42,6 +51,7 @@ export default function BlogGenerator({ lang }: { lang: 'zh' | 'en' }) {
       ) : (
         <div className="space-y-3">
           <div className="flex items-center justify-between"><span className="text-amber-300 text-sm font-medium">✨ {en ? 'AI blog generator' : 'AI 博客生成器'}</span><button onClick={() => setOpen(false)} className="text-parchment/40 text-base leading-none">×</button></div>
+          {okMsg && <div className="text-eldritch text-sm bg-eldritch/10 border border-eldritch/30 rounded px-3 py-2">{okMsg}</div>}
           <input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder={en ? 'Topic — what to write about' : '主题 / 想写什么（如：AI 海龟汤怎么玩）'} className="w-full px-3 py-2 rounded bg-ink border border-eldritch/30 text-parchment placeholder:text-parchment/30 text-sm outline-none focus:border-eldritch" />
           <input value={keywords} onChange={(e) => setKeywords(e.target.value)} placeholder={en ? 'Target keywords (optional)' : '目标关键词（可选，逗号分隔）'} className="w-full px-3 py-2 rounded bg-ink border border-eldritch/30 text-parchment placeholder:text-parchment/30 text-sm outline-none focus:border-eldritch" />
           <div className="flex gap-2 flex-wrap">

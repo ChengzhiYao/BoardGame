@@ -163,7 +163,7 @@ function AdminPanel({ lang }: { lang: Lang }) {
   useEffect(() => { load(); const id = setInterval(load, 15000); return () => clearInterval(id); }, []);
   if (!s) return null;
   if (min) return (
-    <button onClick={() => setMin(false)} title="Admin" className="fixed bottom-3 left-3 z-30 w-8 h-8 rounded-full bg-fog/90 border border-eldritch/30 text-eldritch text-sm flex items-center justify-center backdrop-blur">📊</button>
+    <button onClick={() => setMin(false)} title="Admin" className="fixed bottom-3 left-3 z-30 w-8 h-8 rounded-full bg-fog/90 border border-white/20 flex items-center justify-center backdrop-blur hover:bg-fog"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="6" y1="20" x2="6" y2="13" /><line x1="12" y1="20" x2="12" y2="8" /><line x1="18" y1="20" x2="18" y2="4" /></svg></button>
   );
   return (
     <div className="fixed bottom-3 left-3 z-30 rounded-lg bg-fog/90 border border-eldritch/30 px-3 py-2 text-xs text-parchment/80 backdrop-blur space-y-0.5 text-left max-w-[78vw]">

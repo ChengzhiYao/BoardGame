@@ -1,6 +1,7 @@
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
 import InstallPWA from './InstallPWA';
+import FriendDock from '@/components/FriendDock';
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.mystnight.com';
 const TITLE = '谜夜 · MystNight';
@@ -39,6 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="zh">
       <body>
         <InstallPWA />
+        <FriendDock />
         {children}
       </body>
     </html>

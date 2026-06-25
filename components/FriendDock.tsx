@@ -3,14 +3,14 @@ import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
-type Friend = { email: string; name: string; roomId?: string };
 type Msg = { name: string; text: string; ts: number; mine: boolean };
 
 export default function FriendDock() {
   const router = useRouter();
   const pathname = usePathname();
   const [me, setMe] = useState<{ email: string; name: string } | null>(null);
-  const [friends, setFriends] = useState<Friend[]>([]);
+  const [roster, setRoster] = useState<string[]>([]); // other whitelist emails (online or not)
+  const [online, setOnline] = useState<Record<string, { roomId?: string }>>({});
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [unread, setUnread] = useState(0);
@@ -23,15 +23,24 @@ export default function FriendDock() {
   const roomId = (() => { const m = pathname && pathname.match(/^\/room\/([^/?#]+)/); return m ? m[1] : undefined; })();
   useEffect(() => { roomRef.current = roomId; }, [roomId]);
 
-  // only for logged-in whitelisted accounts
+  // gate: logged-in whitelisted account + load the whitelist roster
   useEffect(() => {
     let on = true;
-    fetch('/api/billing/status').then((r) => r.json()).then((d) => {
-      if (on && d && d.loggedIn && d.whitelisted && d.email) setMe({ email: d.email, name: String(d.email).split('@')[0] });
-    }).catch(() => {});
+    (async () => {
+      try {
+        const r = await fetch('/api/billing/status');
+        const d = await r.json();
+        if (!on || !d || !d.loggedIn || !d.whitelisted || !d.email) return;
+        setMe({ email: d.email, name: String(d.email).split('@')[0] });
+        const fr = await fetch('/api/friends').then((x) => x.json()).catch(() => ({ emails: [] }));
+        if (!on) return;
+        setRoster((fr.emails || []).filter((e: string) => e && e !== d.email));
+      } catch {}
+    })();
     return () => { on = false; };
   }, []);
 
+  // realtime presence + chat
   useEffect(() => {
     if (!me) return;
     const supabase = createClient();
@@ -39,13 +48,13 @@ export default function FriendDock() {
     chRef.current = ch;
     const sync = () => {
       const st = ch.presenceState() as Record<string, any[]>;
-      const list: Friend[] = [];
+      const map: Record<string, { roomId?: string }> = {};
       Object.keys(st).forEach((key) => {
         if (key === me.email) return;
         const meta = (st[key] && st[key][0]) || {};
-        list.push({ email: key, name: meta.name || key.split('@')[0], roomId: meta.roomId });
+        map[key] = { roomId: meta.roomId };
       });
-      setFriends(list);
+      setOnline(map);
     };
     ch.on('presence', { event: 'sync' }, sync);
     ch.on('broadcast', { event: 'msg' }, (p: any) => {
@@ -73,6 +82,7 @@ export default function FriendDock() {
   }
 
   if (!me) return null;
+  const anyOnline = roster.some((e) => online[e]);
 
   return (
     <div className="fixed bottom-3 right-3 z-40 text-parchment">
@@ -83,16 +93,20 @@ export default function FriendDock() {
             <button onClick={() => setOpen(false)} className="text-parchment/50 hover:text-parchment text-base leading-none px-1">–</button>
           </div>
           <div className="px-3 py-2 space-y-1.5 border-b border-eldritch/15">
-            {friends.length === 0 && <div className="text-xs text-parchment/40 py-1">还没有好友在线</div>}
-            {friends.map((f) => (
-              <div key={f.email} className="flex items-center gap-2 text-sm">
-                <span className="w-2 h-2 rounded-full bg-green-400 shrink-0" />
-                <span className="truncate flex-1">{f.name}</span>
-                {f.roomId && f.roomId !== roomId
-                  ? <button onClick={() => router.push('/room/' + f.roomId)} className="text-xs px-2 py-0.5 rounded bg-blood/80 hover:bg-blood text-parchment shrink-0">加入</button>
-                  : <span className="text-[10px] text-parchment/40 shrink-0">{f.roomId ? '同房' : '在线'}</span>}
-              </div>
-            ))}
+            {roster.length === 0 && <div className="text-xs text-parchment/40 py-1">没有其他白名单账号</div>}
+            {roster.map((email) => {
+              const on = online[email];
+              const name = email.split('@')[0];
+              return (
+                <div key={email} className="flex items-center gap-2 text-sm">
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${on ? 'bg-green-400' : 'bg-parchment/30'}`} />
+                  <span className="truncate flex-1" title={email}>{name}</span>
+                  {on && on.roomId && on.roomId !== roomId
+                    ? <button onClick={() => router.push('/room/' + on.roomId)} className="text-xs px-2 py-0.5 rounded bg-blood/80 hover:bg-blood text-parchment shrink-0">加入</button>
+                    : <span className="text-[10px] text-parchment/40 shrink-0">{on ? (on.roomId ? '同房' : '在线') : '离线'}</span>}
+                </div>
+              );
+            })}
           </div>
           <div className="h-44 overflow-y-auto px-3 py-2 space-y-1.5 flex flex-col">
             {msgs.length === 0 && <div className="text-xs text-parchment/35 m-auto">打个招呼吧 👋</div>}
@@ -110,7 +124,7 @@ export default function FriendDock() {
       <button onClick={() => setOpen((v) => !v)} title="好友"
         className="relative w-12 h-12 rounded-full bg-fog/95 border border-eldritch/40 backdrop-blur shadow-xl flex items-center justify-center hover:bg-fog">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f2ead9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
-        {friends.length > 0 && <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-green-400 border-2 border-fog" />}
+        <span className={`absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-fog ${anyOnline ? 'bg-green-400' : 'bg-parchment/30'}`} />
         {unread > 0 && <span className="absolute -top-1.5 -left-1.5 min-w-[16px] h-4 px-1 rounded-full bg-blood text-[10px] flex items-center justify-center">{unread}</span>}
       </button>
     </div>

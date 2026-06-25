@@ -504,3 +504,7 @@ alter table blog_posts enable row level security;
 drop policy if exists blog_posts_read on blog_posts;
 create policy blog_posts_read on blog_posts for select using (published = true);
 create index if not exists idx_blog_posts_lang on blog_posts(lang, created_at desc);
+
+-- ===== 博客改为同一 slug 可有中英两版（发布自动出双语） =====
+alter table blog_posts drop constraint if exists blog_posts_slug_key;
+create unique index if not exists blog_posts_slug_lang on blog_posts(slug, lang);

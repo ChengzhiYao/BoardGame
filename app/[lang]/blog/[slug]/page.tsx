@@ -12,7 +12,7 @@ async function resolve(lang: 'zh' | 'en', slug: string) {
   if (sp) { const t = lang === 'en' ? sp.en : sp.zh; return { title: t.title, excerpt: t.excerpt, date: sp.date, html: t.html }; }
   try {
     const admin = createAdminClient();
-    const { data } = await admin.from('blog_posts').select('title,excerpt,body_html,created_at').eq('slug', slug).eq('published', true).maybeSingle();
+    const { data } = await admin.from('blog_posts').select('title,excerpt,body_html,created_at').eq('slug', slug).eq('lang', lang).eq('published', true).maybeSingle();
     if (data) return { title: data.title, excerpt: data.excerpt || '', date: String(data.created_at || '').slice(0, 10), html: data.body_html };
   } catch {}
   return null;
@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: { params: { lang: string; slu
   const lang = params.lang === 'en' ? 'en' : 'zh';
   const r = await resolve(lang, params.slug);
   if (!r) return {};
-  return { title: `${r.title} · 谜夜 MystNight`, description: r.excerpt, alternates: { canonical: `/${lang}/blog/${params.slug}` }, openGraph: { title: r.title, description: r.excerpt, type: 'article', url: `/${lang}/blog/${params.slug}` } };
+  return { title: `${r.title} · 谜夜 MystNight`, description: r.excerpt, alternates: { canonical: `/${lang}/blog/${params.slug}`, languages: { 'zh-CN': `/zh/blog/${params.slug}`, en: `/en/blog/${params.slug}` } }, openGraph: { title: r.title, description: r.excerpt, type: 'article', url: `/${lang}/blog/${params.slug}` } };
 }
 
 export default async function PostPage({ params }: { params: { lang: string; slug: string } }) {

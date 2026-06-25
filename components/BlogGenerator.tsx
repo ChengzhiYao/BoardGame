@@ -46,7 +46,7 @@ export default function BlogGenerator({ lang }: { lang: 'zh' | 'en' }) {
           <input value={keywords} onChange={(e) => setKeywords(e.target.value)} placeholder={en ? 'Target keywords (optional)' : '目标关键词（可选，逗号分隔）'} className="w-full px-3 py-2 rounded bg-ink border border-eldritch/30 text-parchment placeholder:text-parchment/30 text-sm outline-none focus:border-eldritch" />
           <div className="flex gap-2 flex-wrap">
             <button onClick={generate} disabled={busy || !topic.trim()} className="px-4 py-2 rounded bg-blood/80 hover:bg-blood text-parchment text-sm border border-blood disabled:opacity-50">{busy ? (en ? 'Generating…' : '生成中…（约 20s）') : draft ? (en ? '↻ Regenerate' : '↻ 重新生成') : (en ? 'Generate' : '生成')}</button>
-            {draft && <button onClick={publish} disabled={pub} className="px-4 py-2 rounded bg-eldritch/60 hover:bg-eldritch text-parchment text-sm disabled:opacity-50">{pub ? (en ? 'Publishing…' : '发布中…') : (en ? 'Looks good — Publish' : '满意，发布')}</button>}
+            {draft && <button onClick={publish} disabled={pub} className="px-4 py-2 rounded bg-eldritch/60 hover:bg-eldritch text-parchment text-sm disabled:opacity-50">{pub ? (en ? 'Publishing…' : '发布中…') : (en ? 'Publish (auto bilingual)' : '满意，发布（自动出双语）')}</button>}
           </div>
           {err && <div className="text-blood text-sm">{err}</div>}
           {draft && (

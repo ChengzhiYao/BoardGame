@@ -62,3 +62,14 @@ export function slugify(s: string) {
   const base = (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
   return base || ('post-' + Date.now().toString(36));
 }
+
+export function buildBlogTranslatePrompt(title: string, html: string, excerpt: string, toLang: 'zh' | 'en') {
+  const toEn = toLang === 'en';
+  const system = toEn
+    ? `You are a bilingual editor for MystNight (an AI-hosted tabletop games site). Translate and LOCALIZE the blog post below into natural, fluent English — not a literal translation; it should read like it was written in English. Keep the HTML structure and tags (<h2>, <p>, <strong>, <a>). Keep every internal link path (e.g. /games/cthulhu) EXACTLY as-is. No <h1>, no code fences.`
+    : `你是 MystNight（AI 主持桌游网站）的双语编辑。把下面这篇博客文章自然地翻译并本地化成流畅的中文——不要逐字直译，读起来要像中文原创。保留 HTML 结构与标签（<h2><p><strong><a>）。所有站内链接路径（如 /games/cthulhu）原样保留。不要 <h1>，不要代码块。`;
+  const user = toEn
+    ? `Translate this post to English. Output ONLY JSON: { "title": "...", "excerpt": "1-2 sentence summary", "html": "<h2>..</h2><p>..</p>" }\n\nTITLE: ${title}\nEXCERPT: ${excerpt}\nHTML:\n${String(html).slice(0, 8000)}`
+    : `把这篇文章翻成中文。只输出 JSON：{ "title":"中文标题", "excerpt":"一两句话摘要", "html":"<h2>..</h2><p>..</p>" }\n\n标题：${title}\n摘要：${excerpt}\nHTML：\n${String(html).slice(0, 8000)}`;
+  return { system, user };
+}

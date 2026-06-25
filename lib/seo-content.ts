@@ -1,0 +1,118 @@
+// 8 个游戏的 SEO 落地页内容（中英双语）。服务端渲染，可被 Google 单独收录。
+export type Faq = { q: string; a: string };
+export type Loc = { name: string; tagline: string; intro: string; play: string[]; why: string; faq: Faq[]; players: string; time: string };
+export type SeoGame = { slug: string; gm: string; zh: Loc; en: Loc };
+
+export const SEO_GAMES: SeoGame[] = [
+  {
+    slug: 'storyteller', gm: 'story',
+    zh: { name: '讲故事', tagline: 'AI 现编现讲的原创短篇故事', players: '1–6 人', time: '约 10 分钟',
+      intro: '讲故事模式里，AI 会根据你选的题材和心情，现场构思并反复打磨一篇只属于今晚的原创短篇，然后用真人般的神经网络嗓音朗读出来，配上随段落变化的背景音乐，双人还能实时同步聆听。',
+      play: ['选择题材与心情（恐怖、温柔、治愈、悬疑…）', 'AI 反复起草并自我打分，直到故事真的好看', '挑选嗓音与语速，卡拉OK 式逐句高亮朗读', '背景音乐随段落自动切换，朋友可同步收听'],
+      why: '它不是把一段文字丢给你，而是「构思 → 起草 → 自评 → 留最好」的闭环，再加上真人嗓音和配乐，把"读故事"变成一次有仪式感的共享体验。',
+      faq: [ { q: '一个人能玩吗？', a: '可以。一个人也能让 AI 生成并朗读故事；想一起听就把房间链接发给朋友。' }, { q: '故事会重复吗？', a: '每一篇都是现场生成的原创内容，几乎不会重样。' }, { q: '声音是真人吗？', a: '是高质量的神经网络合成语音，接近真人，可选不同音色与语速。' } ] },
+    en: { name: 'Storyteller', tagline: 'An original short story, written and narrated live by AI', players: '1–6 players', time: '~10 min',
+      intro: 'In Storyteller mode an AI plans, refines and narrates an original short story made just for tonight, based on the genre and mood you pick. It reads aloud in a lifelike neural voice with music that shifts under every paragraph, and two people can listen in sync.',
+      play: ['Pick a genre and a mood (horror, gentle, healing, mystery…)', 'The AI drafts and self-scores until the story truly lands', 'Choose a voice and speed; follow along with karaoke highlighting', 'Background music changes per paragraph; friends listen in sync'],
+      why: 'It is a full loop — plan, draft, self-critique, keep the best — not a wall of generated text, and voice plus music turn reading into a shared, cinematic moment.',
+      faq: [ { q: 'Can I play solo?', a: 'Yes. One person can have the AI write and narrate a story; share the room link to listen together.' }, { q: 'Do stories repeat?', a: 'Every story is generated live and original, so it almost never repeats.' }, { q: 'Is the voice real?', a: 'It is high-quality neural text-to-speech, close to a real voice, with selectable timbres and speeds.' } ] },
+  },
+  {
+    slug: 'cthulhu', gm: 'coc',
+    zh: { name: '克苏鲁调查跑团（CoC）', tagline: 'AI 当守密人的在线克苏鲁恐怖探案', players: '1–6 人', time: '30–60 分钟',
+      intro: '克苏鲁调查（Call of Cthulhu）模式里，AI 担任守密人（KP），带你跑一场有理智值、骰子检定和层层线索的宇宙恐怖探案，场景配图还会自动生成。',
+      play: ['创建你的调查员：属性、职业、技能', '调查现场，行动触发真实的技能检定与骰子', '理智值会随恐怖遭遇流失，多条线索要自己拼合', '世界会根据你的行为反应，绝不直接喂答案'],
+      why: '它是一套真正的规则系统，而不是自由聊天——骰子、嫌疑、线索结算都在服务端进行，AI 只负责叙述，不会作弊或剧透真相。',
+      faq: [ { q: '需要懂 COC 规则吗？', a: '不需要，AI 会引导你建卡、检定和推进，新手也能直接玩。' }, { q: '可以两个人玩吗？', a: '可以，1–6 人都行，双人是很流行的玩法。' }, { q: '配图是自动的吗？', a: '是的，关键场景会自动生成插画，增强氛围。' } ] },
+    en: { name: 'Cthulhu Investigation (CoC)', tagline: 'An online Call of Cthulhu horror case, hosted by an AI Keeper', players: '1–6 players', time: '30–60 min',
+      intro: 'In Cthulhu Investigation mode the AI plays the Keeper and runs a cosmic-horror case with sanity, real dice checks and layered clues, generating scene art on the fly.',
+      play: ['Build your investigator: stats, occupation, skills', 'Investigate the scene; actions trigger real skill rolls and dice', 'Sanity drains through horror; combine multiple clues to deduce', 'The world reacts to what you do and never spoon-feeds the answer'],
+      why: 'It is a genuine ruleset, not freeform chat — dice, suspicion and clue resolution happen server-side, so the AI narrates but cannot cheat or spoil the truth.',
+      faq: [ { q: 'Do I need to know the CoC rules?', a: 'No. The AI guides character creation, checks and pacing, so beginners can jump in.' }, { q: 'Can two people play?', a: 'Yes, 1–6 players; two-player sessions are very popular.' }, { q: 'Is the art automatic?', a: 'Yes, key scenes generate illustrations automatically to build atmosphere.' } ] },
+  },
+  {
+    slug: 'murder-mystery', gm: 'jbs',
+    zh: { name: '剧本杀（在线 AI 主持）', tagline: 'AI 现场生成一桩真相锁定的案子，你来指认凶手', players: '1–8 人', time: '40–90 分钟',
+      intro: '剧本杀模式里，你选一个剧本，AI 现场生成一桩完整自洽、真相被锁定的案子——凶手、动机、时间线、证据、烟雾弹一应俱全，再分七幕带你搜证、讨论、指认。',
+      play: ['选题材、人数与每幕节奏', '每人拿到一个带秘密的角色', '七幕搜证、人物关系、关键证据、推理对峙', 'AI 嫌疑人会撒谎、甩锅、栽赃你，最后指认 + 复盘评分'],
+      why: '真相在生成时就被锁定并存在服务端，主持模型绝不会泄露或替真人发言；AI 嫌疑人各有动机，会主动陷害你——解决了"AI 自己剧透"的核心难题。',
+      faq: [ { q: '两个人能玩剧本杀吗？', a: '能。AI 会补满其余角色，1–8 人都支持，双人也能完整体验。' }, { q: '每次案子都不一样吗？', a: '是的，案件是现场生成的，玩过也不会知道下一局的答案。' }, { q: '需要主持人吗？', a: '不需要，AI 就是主持人（DM），它知道真相并把控节奏。' } ] },
+    en: { name: 'Murder Mystery (AI-hosted)', tagline: 'The AI generates a locked case; you accuse the killer', players: '1–8 players', time: '40–90 min',
+      intro: 'In Murder Mystery mode you pick a script and the AI generates a complete, self-consistent case whose truth is locked — culprit, motive, timeline, evidence and red herrings — then runs it across seven acts of investigation, discussion and accusation.',
+      play: ['Choose theme, headcount and pacing per act', 'Everyone receives a role with a secret', 'Seven acts: evidence, relationships, key clues, confrontation', 'AI suspects lie, scheme and frame you; end with an accusation and scorecard'],
+      why: 'The truth is locked at generation and stored server-side; the host model never leaks it or speaks for real players, and AI suspects pursue their own agendas — solving the "AI spoils its own mystery" problem.',
+      faq: [ { q: 'Can two people play a murder mystery?', a: 'Yes. The AI fills the remaining roles; 1–8 players are supported and two-player works fully.' }, { q: 'Is every case different?', a: 'Yes, cases are generated live, so even replays do not reveal the next answer.' }, { q: 'Do we need a human host?', a: 'No, the AI is the host (DM); it knows the truth and paces the reveals.' } ] },
+  },
+  {
+    slug: 'dnd', gm: 'dnd',
+    zh: { name: '龙与地下城（D&D）', tagline: 'AI 当地下城主，真实 d20 战斗与升级', players: '1–6 人', time: '30–90 分钟',
+      intro: 'D&D 模式里，AI 担任地下城主（DM）带你闯一场冒险：攻击骰、护甲值、生命、法术位、职业特性与升级全部由确定性引擎精算，AI 负责剧情、NPC 与后果。',
+      play: ['选择职业，定下你的英雄', '探索、对话、做出选择', '回合制战斗，骰子与伤害由代码计算，绝不乱编', '打怪、升级、获取装备'],
+      why: '"数值归引擎、故事归 AI"——伤害和检定由代码精算永不幻觉，战斗公平可读，AI 专心做它擅长的叙事。',
+      faq: [ { q: '没玩过 D&D 能玩吗？', a: '能，AI 会带你建角色、解释规则并推进战斗。' }, { q: '战斗是真的骰子吗？', a: '是，d20、伤害、命中都由确定性引擎计算，公平透明。' }, { q: '可以单人冒险吗？', a: '可以，1–6 人都行，单人也能完整跑。' } ] },
+    en: { name: 'Dungeons & Dragons (D&D)', tagline: 'An AI Dungeon Master with real d20 combat and levelling', players: '1–6 players', time: '30–90 min',
+      intro: 'In D&D mode the AI is your Dungeon Master and runs an adventure where a deterministic engine owns attack rolls, AC, HP, spell slots, class features and levelling, while the AI handles story, NPCs and consequences.',
+      play: ['Pick a class and shape your hero', 'Explore, talk and make choices', 'Turn-based combat; dice and damage are computed in code, never invented', 'Fight, level up and collect loot'],
+      why: 'Math belongs to the engine, fiction belongs to the AI — damage and checks are computed and never hallucinated, so combat is fair and legible while the AI does what it is good at.',
+      faq: [ { q: 'Can I play if I am new to D&D?', a: 'Yes, the AI walks you through character creation, rules and combat.' }, { q: 'Is combat really dice-based?', a: 'Yes, d20, damage and hits are computed by a deterministic engine — fair and transparent.' }, { q: 'Can I adventure solo?', a: 'Yes, 1–6 players; a solo run works fully.' } ] },
+  },
+  {
+    slug: 'lateral-thinking', gm: 'soup',
+    zh: { name: '海龟汤（情境推理）', tagline: 'AI 守着诡异谜底，你靠是非题逼近真相', players: '2–8 人', time: '15–30 分钟',
+      intro: '海龟汤（情境推理 / lateral thinking puzzle）模式里，AI 守着一个诡异的谜底，你们只能问是非题，一点点逼近真相——它几十轮都不会说漏嘴。',
+      play: ['AI 给出一个诡异的「汤面」（谜题情境）', '你们只能提是非题', 'AI 回答：是 / 不是 / 无关 / 是也不是', '想到真相就揭晓答案'],
+      why: '它是一个能严格守住秘密、对任意提问保持逻辑自洽几十轮的"非泄密神谕"——同一套能力也支撑着剧本杀里的锁定真相。',
+      faq: [ { q: '海龟汤是什么？', a: '一种情境推理游戏：主持人给出诡异情境，玩家靠是非题还原完整真相。' }, { q: 'AI 会不会乱答？', a: '不会，它对你的提问保持逻辑一致，绝不剧透。' }, { q: '几个人玩合适？', a: '2–8 人都行，人多一起头脑风暴更有意思。' } ] },
+    en: { name: 'Lateral Thinking (Soup)', tagline: 'The AI guards a hidden answer; you close in with yes/no questions', players: '2–8 players', time: '15–30 min',
+      intro: 'In Lateral Soup (a yes/no situation puzzle) the AI guards a strange hidden solution and answers only yes/no questions, so you close in on the truth — and it never leaks across dozens of turns.',
+      play: ['The AI presents a strange scenario (the "soup surface")', 'You may only ask yes/no questions', 'It answers: yes / no / irrelevant / partly', 'Reveal the answer once you have it'],
+      why: 'It is a reliable, non-leaking oracle that stays logically consistent over dozens of arbitrary questions — the same primitive that powers locked murder mysteries.',
+      faq: [ { q: 'What is a lateral thinking puzzle?', a: 'A situation puzzle: the host gives a strange scenario and players reconstruct the full truth via yes/no questions.' }, { q: 'Will the AI answer wrong?', a: 'No, it stays logically consistent with your questions and never spoils the answer.' }, { q: 'How many players?', a: '2–8; brainstorming together with more people is more fun.' } ] },
+  },
+  {
+    slug: 'truth-or-dare', gm: 'td',
+    zh: { name: '真心话大冒险（AI 出题）', tagline: 'AI 按你们的尺度现场出题，绝不重样', players: '2–10 人', time: '随意',
+      intro: '真心话大冒险模式里，AI 按你们设定的尺度和场合现场出题，贴合在场的人，还会避开你列的禁区——每一题都是新的，绝不重样。',
+      play: ['设定尺度与所处环境', '列出不想出现的内容（禁区）', '轮流抽真心话或大冒险', 'AI 现场生成，贴合场合与在场的人'],
+      why: '可控、带护栏的生成：既个性化（谁在玩、在哪、忌讳什么），又真的尊重你设的边界，这是普通"卡牌真心话"做不到的。',
+      faq: [ { q: '会不会出太露骨的题？', a: '不会，你可以设定尺度和禁区，AI 会严格遵守。' }, { q: '题目会重复吗？', a: '每题现场生成，几乎不会重样。' }, { q: '适合多少人？', a: '2–10 人都行，派对、聚会都合适。' } ] },
+    en: { name: 'Truth or Dare (AI prompts)', tagline: 'The AI invents prompts scaled to your vibe — never repeats', players: '2–10 players', time: 'any length',
+      intro: 'In Truth or Dare mode the AI invents prompts live, scaled to your chosen intensity and setting, aware of who is playing and respecting your off-limits list — every prompt is fresh.',
+      play: ['Set the intensity and the setting', 'List anything off-limits', 'Take turns drawing truth or dare', 'The AI generates on the spot, fitting the room and the players'],
+      why: 'Controllable, guard-railed generation: real personalization (who is playing, where, what is forbidden) with hard boundaries that an ordinary card deck cannot offer.',
+      faq: [ { q: 'Could it produce something too explicit?', a: 'No, you set the intensity and off-limits topics, and the AI respects them strictly.' }, { q: 'Do prompts repeat?', a: 'Each is generated live, so it almost never repeats.' }, { q: 'How many players?', a: '2–10; great for parties and gatherings.' } ] },
+  },
+  {
+    slug: 'midnight-cat-curse', gm: 'mcc',
+    zh: { name: '午夜猫诅咒（原创卡牌）', tagline: '抽到诅咒猫就出局，最后活着的猫赢', players: '2–6 人', time: '10–20 分钟',
+      intro: '午夜猫诅咒是一款完全原创的卡牌游戏：轮流抽牌，抽到诅咒猫就出局，除非你手里有护符。用嘶吼、镜爪等反应牌互相算计，最后活着的那只猫获胜——AI 随时补满空位。',
+      play: ['轮流从牌堆抽牌', '抽到诅咒猫即出局，除非用护符挡下', '用嘶吼 / 镜爪 / 换爪等反应牌互相算计', 'AI 补位，单人双人也能随时开局'],
+      why: '从规则、平衡到手绘卡面全是原创设计，跑在同一套实时多人引擎上——证明这个平台不止是套用现成玩法。',
+      faq: [ { q: '和"爆炸猫"像吗？', a: '玩法灵感类似但是原创规则与卡牌，有自己的反应牌系统。' }, { q: '两个人能玩吗？', a: '能，AI 会补位，2–6 人随时能开。' }, { q: '一局多久？', a: '很快，10–20 分钟一局，适合碎片时间。' } ] },
+    en: { name: 'Midnight Cat Curse (original card game)', tagline: 'Draw the curse cat and you are out; last cat standing wins', players: '2–6 players', time: '10–20 min',
+      intro: 'Midnight Cat Curse is a from-scratch card game: take turns drawing, and if you draw the curse cat you are out unless you are warded. Scheme with reaction cards like Hiss and Mirror Paw; the last cat standing wins — and the AI fills empty seats.',
+      play: ['Take turns drawing from the deck', 'Curse cat = out, unless you ward it', 'Scheme with Hiss, Mirror Paw and other reaction cards', 'AI fills seats — play solo or as a pair anytime'],
+      why: 'Original rules, balance and hand-drawn card art, running on the same real-time multiplayer engine — proof the platform is not just licensed formats.',
+      faq: [ { q: 'Is it like Exploding Kittens?', a: 'The vibe is similar but the rules and cards are original, with their own reaction-card system.' }, { q: 'Can two people play?', a: 'Yes, the AI fills seats; 2–6 players anytime.' }, { q: 'How long is a game?', a: 'Fast — 10–20 minutes, great for short breaks.' } ] },
+  },
+  {
+    slug: 'bloodbound', gm: 'botc',
+    zh: { name: '血染钟楼 / 狼人杀（社交推理）', tagline: 'AI 当说书人主持的隐藏身份社交推理', players: '1–8 人', time: '30–60 分钟',
+      intro: '血染钟楼式社交推理（类狼人杀）模式里，好人对邪恶，AI 担任说书人主持夜晚、白天与投票，并补满空位——任何人都可能是恶魔，包括你。',
+      play: ['AI 发放隐藏身份', '夜晚行动，白天发言讨论', '提名、投票、处决', '好人找出恶魔即获胜'],
+      why: '这是最依赖主持人的一类游戏，AI 既要公平当裁判、管理隐藏信息与昼夜流程，又要扮演会骗人的隐藏角色——它让一个"凑不齐人、缺主持"的游戏随时能开。',
+      faq: [ { q: '和狼人杀一样吗？', a: '同类社交推理：好人阵营对邪恶阵营，AI 当说书人并补满空位。' }, { q: '人不够能玩吗？', a: '能，AI 会补位，真人 1–8 人都可以开局。' }, { q: '需要有人当法官吗？', a: '不需要，AI 就是说书人，主持全部流程。' } ] },
+    en: { name: 'Bloodbound / Werewolf (social deduction)', tagline: 'Hidden-role social deduction hosted by an AI Storyteller', players: '1–8 players', time: '30–60 min',
+      intro: 'In Bloodbound-style social deduction (like Werewolf / Blood on the Clocktower) good faces evil while an AI Storyteller runs nights, days and votes and fills empty seats — anyone could be evil, including you.',
+      play: ['The AI deals secret roles', 'Act at night, talk through the day', 'Nominate, vote and execute', 'Good wins by finding the demon'],
+      why: 'This is the most host-dependent kind of game; the AI both referees fairly — managing hidden info and the night/day cycle — and plays deceptive hidden agents, so a game that usually needs a crowd and a host runs on demand.',
+      faq: [ { q: 'Is it like Werewolf?', a: 'Same family of social deduction: a good team versus an evil team, with the AI as Storyteller filling empty seats.' }, { q: 'Can we play without enough people?', a: 'Yes, the AI fills seats; 1–8 real players can start.' }, { q: 'Do we need a moderator?', a: 'No, the AI is the Storyteller and runs the whole flow.' } ] },
+  },
+];
+
+export const seoGame = (slug: string) => SEO_GAMES.find((g) => g.slug === slug);
+export const LANGS = ['zh', 'en'] as const;
+export type SeoLang = (typeof LANGS)[number];
+
+export const GM_TO_SLUG: Record<string, string> = Object.fromEntries(SEO_GAMES.map((g) => [g.gm, g.slug]));
+export const SLUGS: string[] = SEO_GAMES.map((g) => g.slug);

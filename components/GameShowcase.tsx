@@ -1,5 +1,7 @@
 'use client';
 import { useState } from 'react';
+import Link from 'next/link';
+import { GM_TO_SLUG } from '@/lib/seo-content';
 import { type Lang } from '@/lib/i18n';
 
 export type GM = 'story' | 'coc' | 'jbs' | 'dnd' | 'soup' | 'td' | 'mcc' | 'botc';
@@ -69,10 +71,16 @@ export default function GameShowcase({ lang, busy, onPlay }: { lang: Lang; busy:
                   </li>
                 ))}
               </ul>
-              <button onClick={() => onPlay(g.key)} disabled={busy}
-                className="px-6 py-3 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-50 transition">
-                {busy ? (lang === 'en' ? 'Opening…' : '正在开启…') : `▶ ${lang === 'en' ? 'Play ' + g.name.en : '开始' + g.name.zh.replace(/（.*?）/, '')}`}
-              </button>
+              <div className="flex gap-3 flex-wrap">
+                <button onClick={() => onPlay(g.key)} disabled={busy}
+                  className="px-6 py-3 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-50 transition">
+                  {busy ? (lang === 'en' ? 'Opening…' : '正在开启…') : `▶ ${lang === 'en' ? 'Play ' + g.name.en : '开始' + g.name.zh.replace(/（.*?）/, '')}`}
+                </button>
+                <Link href={`/games/${GM_TO_SLUG[g.key]}`}
+                  className="px-6 py-3 rounded bg-fog border border-eldritch/40 text-parchment/80 hover:bg-eldritch/20 transition">
+                  {lang === 'en' ? 'View details →' : '查看详情 →'}
+                </Link>
+              </div>
             </div>
           </section>
         ) : null)}

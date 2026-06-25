@@ -32,6 +32,14 @@ export default function FriendDock() {
         const d = await r.json();
         if (!on || !d || !d.loggedIn || !d.whitelisted || !d.email) return;
         setMe({ email: d.email, name: String(d.email).split('@')[0] });
+        try {
+          const k = 'mn_announce_at';
+          const last = Number(localStorage.getItem(k) || 0);
+          if (Date.now() - last > 10 * 60 * 1000) {
+            localStorage.setItem(k, String(Date.now()));
+            fetch('/api/announce-online', { method: 'POST' }).catch(() => {});
+          }
+        } catch {}
         const fr = await fetch('/api/friends').then((x) => x.json()).catch(() => ({ emails: [] }));
         if (!on) return;
         setRoster((fr.emails || []).filter((e: string) => e && e !== d.email));

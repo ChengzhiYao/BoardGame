@@ -44,3 +44,9 @@ body {
 .mcc-flash { animation: mccFlash .7s ease-out forwards; }
 .hand-card { transition: transform .16s ease; }
 .hand-card:hover, .hand-card.active { transform: translateY(-10px) scale(1.35); z-index: 50 !important; }
+
+/* blog article body */
+.blog-body h2{font-family:Georgia,'Noto Serif SC',serif;font-size:1.2rem;color:#f2ead9;margin-top:1.6rem;margin-bottom:.4rem}
+.blog-body a{color:#3f7d70;text-decoration:underline;text-underline-offset:2px}
+.blog-body a:hover{color:#5fa395}
+.blog-body strong{color:#e7d9b8}

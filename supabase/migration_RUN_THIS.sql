@@ -201,6 +201,7 @@ create policy profiles_self_read on profiles for select using (auth.uid() = user
 -- 永久免费白名单（按邮箱）。把下面换成你 Google 登录用的邮箱：
 create table if not exists whitelist_emails (email text primary key);
 insert into whitelist_emails(email) values ('yxhzdm@gmail.com') on conflict do nothing;
+insert into whitelist_emails(email) values ('hattieichinose@gmail.com') on conflict do nothing;
 
 -- Stripe webhook 去重：同一事件只充值一次。
 create table if not exists billing_events (

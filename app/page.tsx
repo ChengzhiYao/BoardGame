@@ -1,8 +1,10 @@
 'use client';
+// Home — scrolling landing page: brand hero + per-game showcase
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ensureSession, signInWithGoogle, signOut } from '@/lib/auth';
 import { tr, getClientLang, setClientLang, type Lang } from '@/lib/i18n';
+import GameShowcase, { type GM } from '@/components/GameShowcase';
 
 export default function Home() {
   const router = useRouter();
@@ -10,11 +12,13 @@ export default function Home() {
   const [name, setName] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [mode, setMode] = useState<'idle' | 'join'>('idle');
-  const [gameMode, setGameMode] = useState<'coc' | 'soup' | 'td' | 'jbs' | 'botc' | 'mcc' | 'dnd' | 'story'>('coc');
+  const [gameMode, setGameMode] = useState<GM>('coc');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [showPromo, setShowPromo] = useState(false);
   const promoAudio = useRef<HTMLAudioElement | null>(null);
+  const heroRef = useRef<HTMLElement | null>(null);
+  const nameRef = useRef<HTMLInputElement | null>(null);
   function openPromo() { setShowPromo(true); try { const a = new Audio('/audio/veil-of-night/loop1.ogg'); a.loop = true; a.volume = 0.5; a.play().catch(() => {}); promoAudio.current = a; } catch {} }
   function closePromo() { setShowPromo(false); try { promoAudio.current?.pause(); promoAudio.current = null; } catch {} }
   useEffect(() => { setLang(getClientLang()); }, []);
@@ -22,15 +26,21 @@ export default function Home() {
 
   function switchLang(l: Lang) { setLang(l); setClientLang(l); }
 
-  function roomName() {
+  function roomName(m: GM) {
     const suffix = lang === 'en'
-      ? (gameMode === 'soup' ? '’s Lateral Mystery' : gameMode === 'td' ? '’s Truth or Dare' : gameMode === 'jbs' ? '’s Murder Mystery' : gameMode === 'botc' ? '’s Bloodbound' : gameMode === 'mcc' ? '’s Cat Curse' : gameMode === 'dnd' ? '’s D&D Quest' : gameMode === 'story' ? '’s Story' : '’s Investigation')
-      : (gameMode === 'soup' ? ' 的海龟汤' : gameMode === 'td' ? ' 的真心话大冒险' : gameMode === 'jbs' ? ' 的剧本杀' : gameMode === 'botc' ? ' 的血染' : gameMode === 'mcc' ? ' 的午夜猫诅咒' : gameMode === 'dnd' ? ' 的龙与地下城' : gameMode === 'story' ? ' 的故事' : ' 的调查');
+      ? (m === 'soup' ? '’s Lateral Mystery' : m === 'td' ? '’s Truth or Dare' : m === 'jbs' ? '’s Murder Mystery' : m === 'botc' ? '’s Bloodbound' : m === 'mcc' ? '’s Cat Curse' : m === 'dnd' ? '’s D&D Quest' : m === 'story' ? '’s Story' : '’s Investigation')
+      : (m === 'soup' ? ' 的海龟汤' : m === 'td' ? ' 的真心话大冒险' : m === 'jbs' ? ' 的剧本杀' : m === 'botc' ? ' 的血染' : m === 'mcc' ? ' 的午夜猫诅咒' : m === 'dnd' ? ' 的龙与地下城' : m === 'story' ? ' 的故事' : ' 的调查');
     return `${name.trim()}${suffix}`;
   }
 
-  async function createRoom() {
-    if (!name.trim()) return setErr(t('err_name'));
+  async function createRoom(m: GM = gameMode) {
+    if (!name.trim()) {
+      setErr(t('err_name'));
+      heroRef.current?.scrollIntoView({ behavior: 'smooth' });
+      setTimeout(() => nameRef.current?.focus(), 400);
+      return;
+    }
+    setGameMode(m);
     setBusy(true);
     setErr('');
     try {
@@ -38,11 +48,11 @@ export default function Home() {
       const res = await fetch('/api/rooms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: roomName(), displayName: name.trim(), mode: gameMode, language: lang }),
+        body: JSON.stringify({ name: roomName(m), displayName: name.trim(), mode: m, language: lang }),
       });
       const data = await res.json();
       if (res.status === 402) {
-        try { localStorage.setItem('pendingGame', JSON.stringify({ mode: gameMode, name: name.trim(), language: lang })); } catch {}
+        try { localStorage.setItem('pendingGame', JSON.stringify({ mode: m, name: name.trim(), language: lang })); } catch {}
         router.push('/upgrade');
         return;
       }
@@ -68,60 +78,65 @@ export default function Home() {
     }
   }
 
+  function browseGames() {
+    document.getElementById('games')?.scrollIntoView({ behavior: 'smooth' });
+  }
+
   return (
-    <main className="min-h-screen flex flex-col items-center justify-start sm:justify-center gap-5 sm:gap-7 px-6 pt-24 pb-12 sm:pt-12 text-center">
+    <main className="min-h-screen flex flex-col items-center px-6 pt-24 pb-16 gap-6 text-center">
       <LangToggle lang={lang} onChange={switchLang} />
       <AccountBadge t={t} />
-      <h1 className="text-4xl md:text-5xl font-serif tracking-wide text-parchment">{t('home_title')}</h1>
-      <p className="max-w-md text-parchment/70 leading-relaxed">{t('home_tagline')}</p>
-      <button onClick={openPromo} className="text-sm px-4 py-1.5 rounded-full border border-eldritch/40 text-parchment/80 hover:bg-eldritch/20 transition">▶ {lang === 'en' ? 'Watch the trailer' : '观看宣传片'}</button>
 
-      <input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder={t('home_name_ph')}
-        className="w-72 px-4 py-3 rounded bg-fog border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch"
-      />
+      <header ref={heroRef} className="w-full max-w-2xl flex flex-col items-center gap-5">
+        <h1 className="text-4xl md:text-6xl font-serif tracking-wide text-parchment">{t('home_title')}</h1>
+        <p className="max-w-xl text-parchment/70 leading-relaxed">{t('home_tagline')}</p>
+        <button onClick={openPromo} className="text-sm px-4 py-1.5 rounded-full border border-eldritch/40 text-parchment/80 hover:bg-eldritch/20 transition">▶ {lang === 'en' ? 'Watch the trailer' : '观看宣传片'}</button>
 
-      {mode === 'idle' && (
-        <div className="flex gap-2 flex-wrap justify-center">
-          {(['coc', 'soup', 'td', 'jbs', 'botc', 'mcc', 'dnd', 'story'] as const).map((k) => (
-            <button key={k} onClick={() => setGameMode(k)}
-              className={`px-4 py-2 rounded text-sm border ${gameMode === k ? 'bg-blood/30 border-blood text-parchment' : 'bg-fog border-eldritch/30 text-parchment/60'}`}>
-              {t(`mode_${k}`)}
+        <input
+          ref={nameRef}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder={t('home_name_ph')}
+          className="w-72 px-4 py-3 rounded bg-fog border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch"
+        />
+
+        {mode === 'idle' ? (
+          <div className="flex gap-3 flex-wrap justify-center">
+            <button onClick={browseGames}
+              className="px-6 py-3 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood transition">
+              {lang === 'en' ? 'Browse the games ↓' : '挑一个游戏 ↓'}
             </button>
-          ))}
-        </div>
-      )}
-
-      {mode === 'idle' ? (
-        <div className="flex gap-4">
-          <button onClick={createRoom} disabled={busy}
-            className="px-6 py-3 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-50">
-            {busy ? t('starting') : t(`create_${gameMode}`)}
-          </button>
-          <button onClick={() => setMode('join')} disabled={busy}
-            className="px-6 py-3 rounded bg-fog hover:bg-eldritch/40 text-parchment border border-eldritch/50">
-            {t('join_btn')}
-          </button>
-        </div>
-      ) : (
-        <div className="flex flex-col items-center gap-3">
-          <input value={joinCode} onChange={(e) => setJoinCode(e.target.value)} placeholder={t('join_code_ph')}
-            className="w-72 px-4 py-3 rounded bg-fog border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch" />
-          <div className="flex gap-4">
-            <button onClick={joinRoom} disabled={busy}
-              className="px-6 py-3 rounded bg-eldritch/70 hover:bg-eldritch text-parchment border border-eldritch disabled:opacity-50">
-              {busy ? t('joining') : t('join_do')}
-            </button>
-            <button onClick={() => setMode('idle')} className="px-6 py-3 rounded bg-fog text-parchment/70 border border-parchment/20">
-              {t('back')}
+            <button onClick={() => setMode('join')}
+              className="px-6 py-3 rounded bg-fog hover:bg-eldritch/40 text-parchment border border-eldritch/50">
+              {t('join_btn')}
             </button>
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="flex flex-col items-center gap-3">
+            <input value={joinCode} onChange={(e) => setJoinCode(e.target.value)} placeholder={t('join_code_ph')}
+              className="w-72 px-4 py-3 rounded bg-fog border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch" />
+            <div className="flex gap-4">
+              <button onClick={joinRoom} disabled={busy}
+                className="px-6 py-3 rounded bg-eldritch/70 hover:bg-eldritch text-parchment border border-eldritch disabled:opacity-50">
+                {busy ? t('joining') : t('join_do')}
+              </button>
+              <button onClick={() => setMode('idle')} className="px-6 py-3 rounded bg-fog text-parchment/70 border border-parchment/20">
+                {t('back')}
+              </button>
+            </div>
+          </div>
+        )}
 
-      {err && <p className="text-blood text-sm">{err}</p>}
+        {err && <p className="text-blood text-sm">{err}</p>}
+      </header>
+
+      <div className="mt-10 flex flex-col items-center gap-2">
+        <div className="font-mono text-[11px] tracking-[.25em] uppercase text-eldritch/70">{lang === 'en' ? 'Eight games · one AI host' : '八种玩法 · 一个 AI 主持'}</div>
+        <p className="max-w-md text-parchment/45 text-sm leading-relaxed">{lang === 'en' ? 'Every mode is generated live and runs in real time for one player or a full table. Pick one — the AI sets it all up.' : '每个模式都由 AI 现场生成、实时进行，单人或一桌人都能玩。挑一个，剩下的交给 AI。'}</p>
+      </div>
+
+      <GameShowcase lang={lang} busy={busy} onPlay={(m) => createRoom(m)} />
+
       <a href="/upgrade" className="text-parchment/40 hover:text-parchment text-sm underline">{t('home_upgrade_link')}</a>
       <AdminPanel lang={lang} />
       {showPromo && (

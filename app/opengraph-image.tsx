@@ -1,41 +1,20 @@
-// 链接分享预览图（og:image / twitter image）。代码生成 1200×630。
-// 想换成自己的图：删掉本文件，放一张 app/opengraph-image.png（1200×630）即可自动生效。
 import { ImageResponse } from 'next/og';
 
-export const alt = '谜夜 · MystNight — AI-hosted murder mystery games';
+export const runtime = 'edge';
+export const alt = 'MystNight — AI-hosted tabletop nights';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
 export default function Image() {
   return new ImageResponse(
     (
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: 'radial-gradient(circle at 50% 28%, #16202b 0%, #07090c 72%)',
-          color: '#e8e0cf',
-          fontFamily: 'Georgia, serif',
-        }}
-      >
-        <div style={{ display: 'flex', fontSize: 26, letterSpacing: 10, color: '#6f9a86', marginBottom: 22 }}>
-          AI-HOSTED MYSTERY NIGHTS
-        </div>
-        <div style={{ display: 'flex', fontSize: 110, fontWeight: 700, letterSpacing: 6 }}>
-          MystNight
-        </div>
-        <div style={{ display: 'flex', fontSize: 30, color: '#a89e87', marginTop: 26, maxWidth: 900, textAlign: 'center' }}>
-          Grab a friend. An AI host writes a fresh case just for tonight.
-        </div>
-        <div style={{ display: 'flex', fontSize: 22, color: '#5f6b74', marginTop: 40, letterSpacing: 5 }}>
-          MURDER MYSTERY · WHODUNIT · LATERAL PUZZLES　|　ZH / EN
-        </div>
+      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#0c0d10', color: '#d8c7a8' }}>
+        <div style={{ fontSize: 122, fontWeight: 800, color: '#f2ead9', letterSpacing: 6 }}>MystNight</div>
+        <div style={{ width: 96, height: 3, background: '#7d1d1d', margin: '34px 0' }} />
+        <div style={{ fontSize: 40, color: '#a99c82', maxWidth: 940, textAlign: 'center' }}>{'AI-hosted murder mystery · Cthulhu · D&D · and more'}</div>
+        <div style={{ fontSize: 27, color: '#6f6757', marginTop: 20 }}>{'For two players or a full table'}</div>
       </div>
     ),
-    { ...size }
+    { ...size },
   );
 }

@@ -138,6 +138,7 @@ export default function Home() {
       <GameShowcase lang={lang} busy={busy} onPlay={(m) => createRoom(m)} />
 
       <a href="/upgrade" className="text-parchment/40 hover:text-parchment text-sm underline">{t('home_upgrade_link')}</a>
+      <a href={lang === 'en' ? '/en/blog' : '/zh/blog'} className="text-parchment/40 hover:text-parchment text-sm underline">{lang === 'en' ? 'Blog' : '博客'}</a>
       <AdminPanel lang={lang} />
       {showPromo && (
         <div className="fixed inset-0 z-50 bg-black flex flex-col">

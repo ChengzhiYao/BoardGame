@@ -1,0 +1,375 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MystNight screens</title><style>
+html,body{margin:0;padding:0;background:transparent;overflow:hidden}
+#stage{position:absolute;top:0;left:0;transform-origin:top left}
+    .scrn{width:1180px;height:720px;background:#0c0d10;color:#d8c7a8;font:400 15px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;position:relative;overflow:hidden}
+    .scrn .serif{font-family:Georgia,'Noto Serif SC',serif}
+    .scrn .s-top{display:flex;align-items:center;justify-content:space-between;padding:13px 24px;border-bottom:1px solid rgba(47,93,84,.18);font-size:13px;color:rgba(216,199,168,.5)}
+    .scrn .s-ttl{color:#d8c7a8;font-size:17px;letter-spacing:.02em}
+    .scrn .s-3col{display:grid;grid-template-columns:260px 1fr 300px;height:672px}
+    .scrn .s-aside{border-right:1px solid rgba(47,93,84,.15);padding:16px;display:flex;flex-direction:column;gap:13px;overflow:hidden}
+    .scrn .s-right{border-right:none;border-left:1px solid rgba(47,93,84,.15)}
+    .scrn .s-asideh{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:rgba(216,199,168,.42)}
+    .scrn .s-cc{border:1px solid rgba(47,93,84,.4);border-radius:10px;padding:12px;background:#1a1c22}
+    .scrn .s-ccn{font-size:15px;color:#f2ead9}
+    .scrn .s-cco{font-size:12px;color:rgba(216,199,168,.45);margin-bottom:8px}
+    .scrn .s-stat{display:flex;align-items:center;gap:8px;font-size:11px;color:rgba(216,199,168,.6);margin-top:5px}
+    .scrn .s-stat span:first-child{width:28px}
+    .scrn .s-bar{flex:1;height:6px;border-radius:3px;background:#2c313c;overflow:hidden}
+    .scrn .s-bar i{display:block;height:100%}
+    .scrn .s-mid{display:flex;flex-direction:column;min-height:0}
+    .scrn .s-log{flex:1;overflow:hidden;padding:22px 26px;display:flex;flex-direction:column;gap:14px}
+    .scrn .s-narr{max-width:560px;margin:0 auto;text-align:center;font-size:15px;line-height:1.7;color:#d8c7a8;border:1px solid rgba(125,29,29,.4);background:rgba(125,29,29,.12);border-radius:10px;padding:14px 20px}
+    .scrn .s-line{max-width:560px;margin:0 auto;text-align:center;font-size:13px;border-radius:6px;padding:6px 14px}
+    .scrn .s-dice{color:#3f7d70;background:rgba(47,93,84,.15);border:1px solid rgba(47,93,84,.3)}
+    .scrn .s-san{color:#cf6a6a;background:rgba(125,29,29,.12);border:1px solid rgba(125,29,29,.3)}
+    .scrn .s-ok{color:#7fd0a0;background:rgba(76,163,106,.1);border:1px solid rgba(76,163,106,.3)}
+    .scrn .s-priv{max-width:560px;margin:0 auto;font-size:13px;font-style:italic;color:rgba(216,199,168,.85);border:1px solid rgba(125,29,29,.3);background:rgba(125,29,29,.08);border-radius:10px;padding:9px 16px;text-align:center}
+    .scrn .s-priv-t{font-style:normal;font-size:10px;color:#a83232;margin-right:5px}
+    .scrn .s-input{display:flex;align-items:center;gap:8px;padding:14px 18px;border-top:1px solid rgba(47,93,84,.2)}
+    .scrn .s-seat{font-size:11px;padding:6px 9px;border-radius:5px;background:rgba(47,93,84,.3);color:#d8c7a8;white-space:nowrap}
+    .scrn .s-sel{font-size:12px;padding:8px 10px;border-radius:6px;background:#1a1c22;border:1px solid rgba(47,93,84,.3);color:#d8c7a8}
+    .scrn .s-tf{flex:1;font-size:13px;padding:10px 14px;border-radius:6px;background:#1a1c22;border:1px solid rgba(47,93,84,.3);color:rgba(216,199,168,.45)}
+    .scrn .s-btn{font-size:13px;padding:10px 16px;border-radius:6px;background:#1a1c22;border:1px solid rgba(47,93,84,.4);color:#d8c7a8;white-space:nowrap}
+    .scrn .s-btn.act{background:rgba(125,29,29,.82);border-color:#7d1d1d;color:#f2ead9}
+    .scrn .s-btn.sm{font-size:11px;padding:7px 10px;width:100%;margin-top:8px}
+    .scrn .s-imgcard{border:1px solid rgba(47,93,84,.4);border-radius:8px;padding:10px;background:#1a1c22}
+    .scrn .s-imgp{font-size:11px;line-height:1.5;color:rgba(216,199,168,.5)}
+    .scrn .s-thumb{margin-top:12px;height:118px;border-radius:8px;border:1px solid rgba(47,93,84,.3);background:linear-gradient(135deg,#1b2a26,#0b0b0e 70%)}
+    .scrn .s-npc{font-size:13px;color:rgba(216,199,168,.8);padding:4px 0}
+    .scrn .s-npc span{font-size:11px;color:rgba(216,199,168,.4)}
+    .scrn-home .s-page{height:720px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;background:radial-gradient(120% 90% at 50% -10%,#16171f 0,#0a0a0c 70%)}
+    .scrn .s-hero{text-align:center;margin-bottom:32px}
+    .scrn .s-logo{font-size:46px;letter-spacing:.22em;color:#f2ead9}
+    .scrn .s-tag{max-width:560px;margin:14px auto 0;font-size:15px;line-height:1.6;color:rgba(216,199,168,.55)}
+    .scrn .s-modes{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;width:980px}
+    .scrn .s-mode{border:1px solid rgba(47,93,84,.32);border-radius:12px;padding:16px;background:#14161c;display:flex;flex-direction:column;gap:6px}
+    .scrn .s-mode.hot{border-color:rgba(125,29,29,.55);background:#1a1216}
+    .scrn .s-mi{font-size:22px}
+    .scrn .s-mode b{font-size:15px;color:#f2ead9}
+    .scrn .s-mode i{font-size:11px;font-style:normal;line-height:1.45;color:rgba(216,199,168,.5);min-height:32px}
+    .scrn .s-mode u{font-size:10px;text-decoration:none;letter-spacing:.06em;color:rgba(216,199,168,.38);text-transform:uppercase}
+    .scrn-story .s-readwrap{height:672px;overflow:hidden;padding:30px}
+    .scrn .s-read{max-width:620px;margin:0 auto}
+    .scrn .s-player{display:flex;align-items:center;gap:14px;padding:13px 16px;border:1px solid rgba(47,93,84,.3);border-radius:12px;background:#1a1c22}
+    .scrn .s-play{width:42px;height:42px;border-radius:50%;border:1px solid rgba(47,93,84,.5);background:#0c0d10;color:#d8c7a8;font-size:12px;letter-spacing:1px}
+    .scrn .s-pp{flex:1}
+    .scrn .s-ppline{position:relative;height:5px;border-radius:3px;background:#2c313c}
+    .scrn .s-ppline i{display:block;height:100%;border-radius:3px;background:#a83232}
+    .scrn .s-ppline b{position:absolute;top:50%;width:13px;height:13px;border-radius:50%;background:#f2ead9;transform:translate(-50%,-50%)}
+    .scrn .s-pt{display:flex;justify-content:space-between;font-size:11px;color:rgba(216,199,168,.45);margin-top:6px}
+    .scrn .s-prov{font-size:11px;color:rgba(216,199,168,.5);border:1px solid rgba(47,93,84,.3);border-radius:5px;padding:6px 8px}
+    .scrn .s-voices{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:16px 0}
+    .scrn .vc{font-size:12px;padding:6px 12px;border-radius:999px;border:1px solid rgba(47,93,84,.3);background:#1a1c22;color:rgba(216,199,168,.6)}
+    .scrn .vc.on{background:rgba(125,29,29,.3);border-color:#7d1d1d;color:#f2ead9}
+    .scrn .s-spd{font-size:12px;padding:6px 10px;border-radius:6px;border:1px solid rgba(47,93,84,.3);color:rgba(216,199,168,.6)}
+    .scrn .s-soundtrack{display:flex;align-items:center;gap:12px;justify-content:center;font-size:12px;color:rgba(216,199,168,.5);margin-bottom:26px}
+    .scrn .s-vol{width:120px;height:5px;border-radius:3px;background:#2c313c;overflow:hidden}
+    .scrn .s-vol i{display:block;height:100%;background:#3f7d70}
+    .scrn .s-rtitle{font-size:30px;text-align:center;color:#f2ead9;margin:0 0 22px}
+    .scrn .s-para{font-size:18px;line-height:1.85;color:rgba(216,199,168,.5);margin:0 0 18px}
+    .scrn .s-para.on{color:#f2ead9}
+    .scrn .s-para.dim{color:rgba(216,199,168,.3)}
+    .scrn-mcc{display:flex;flex-direction:column}
+    .scrn .s-top.mcc{padding:15px 24px}
+    .scrn .s-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#4ca36a;margin-right:8px;vertical-align:middle}
+    .scrn .s-mccr{display:flex;align-items:center;gap:12px;color:rgba(216,199,168,.55)}
+    .scrn .s-pill{font-size:12px;font-weight:400;padding:5px 10px;border-radius:5px;background:rgba(47,93,84,.3);color:#d8c7a8}
+    .scrn .s-mccr em{font-style:normal;color:#d9a441}
+    .scrn .s-felt{flex:1;background:radial-gradient(80% 70% at 50% 28%,#13211d 0,#0a0a0c 75%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:26px;gap:22px}
+    .scrn .s-seats{display:flex;gap:18px}
+    .scrn .s-pc{font-size:14px;color:#d8c7a8;border:1px solid rgba(47,93,84,.4);border-radius:10px;padding:10px 18px;background:rgba(26,28,34,.7);text-align:center}
+    .scrn .s-pc span{display:block;font-size:10px;color:rgba(216,199,168,.4);margin-top:3px}
+    .scrn .s-pc.you{border-color:#7d1d1d;background:rgba(125,29,29,.18)}
+    .scrn .s-pc.dead{opacity:.42}
+    .scrn .s-react{font-size:14px;color:#d8c7a8;border:1px solid rgba(125,29,29,.5);background:rgba(125,29,29,.16);border-radius:999px;padding:9px 22px}
+    .scrn .s-react b{color:#d9a441}
+    .scrn .s-recent{text-align:center}
+    .scrn .s-recl{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:rgba(216,199,168,.4)}
+    .scrn .s-recrow{display:flex;gap:12px;margin-top:8px}
+    .scrn .s-mini{width:60px;text-align:center}
+    .scrn .s-mini svg{width:100%;height:auto;border:1px solid rgba(236,233,226,.12);border-radius:6px;background:#070708}
+    .scrn .s-mini u{display:block;font-size:9px;text-decoration:none;color:rgba(216,199,168,.4);margin-top:3px}
+    .scrn .s-hand{display:flex;justify-content:center;align-items:flex-end;height:148px;padding-bottom:4px}
+    .scrn .s-hc{width:94px;margin:0 -8px;border-radius:10px;background:#070708;border:1px solid rgba(236,233,226,.22);padding:6px 6px 8px;box-shadow:0 14px 30px -16px rgba(0,0,0,.9);transform:rotate(var(--r)) translateY(var(--y))}
+    .scrn .s-hc svg{width:100%;height:auto;border:1px solid rgba(236,233,226,.1);border-radius:6px;background:#070708;display:block}
+    .scrn .s-hc b{display:block;text-align:center;font-size:9px;letter-spacing:.16em;color:#ece9e2;margin-top:6px;font-family:Georgia,serif}
+    .scrn .s-handhint{text-align:center;font-size:12px;color:rgba(216,199,168,.4);padding:6px 0 16px}
+    /* murder mystery */
+    .scrn .s-acts{display:flex;gap:6px;padding:10px 24px;border-bottom:1px solid rgba(47,93,84,.15);overflow:hidden}
+    .scrn .s-acts i{flex:1;font-style:normal;font-size:10px;letter-spacing:.04em;text-align:center;padding:6px 4px;border-radius:5px;background:#14161c;color:rgba(216,199,168,.32);white-space:nowrap}
+    .scrn .s-acts i.on{color:rgba(216,199,168,.7);background:rgba(47,93,84,.22)}
+    .scrn .s-acts i.cur{color:#f2ead9;background:rgba(125,29,29,.4);border:1px solid #7d1d1d}
+    .scrn .s-sus{border:1px solid rgba(47,93,84,.35);border-radius:9px;padding:9px 11px;background:#1a1c22}
+    .scrn .s-sus b{display:block;font-size:14px;color:#f2ead9}
+    .scrn .s-sus span{font-size:11px;color:rgba(216,199,168,.45)}
+    .scrn .s-sus.you{border-color:#7d1d1d;background:rgba(125,29,29,.14)}
+    .scrn .s-evd{max-width:560px;margin:0 auto;font-size:13px;color:#e7d9b8;border:1px solid rgba(217,164,65,.4);background:rgba(217,164,65,.08);border-radius:10px;padding:11px 16px;text-align:center}
+    .scrn .s-evd b{color:#d9a441}
+    .scrn .s-cluechip{font-size:12px;color:rgba(216,199,168,.75);padding:6px 0}
+    .scrn .s-cluechip.dim{color:rgba(216,199,168,.35)}
+    .scrn .s-accuse{margin-top:12px;border:1px solid rgba(125,29,29,.4);border-radius:10px;padding:12px;background:rgba(125,29,29,.08)}
+    .scrn .s-vrow{display:flex;align-items:center;justify-content:space-between;font-size:13px;color:#d8c7a8;padding:6px 0}
+    .scrn .s-vbtn{font-size:11px;padding:4px 10px;border-radius:5px;border:1px solid rgba(47,93,84,.4);color:rgba(216,199,168,.7)}
+    /* d&d */
+    .scrn .s-cc.turn{border-color:#7d1d1d;background:rgba(125,29,29,.12)}
+    .scrn .s-ac{font-size:10px;font-weight:400;letter-spacing:.05em;color:#5aa0c4;border:1px solid rgba(90,160,196,.4);border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:middle}
+    .scrn .s-enemy{max-width:480px;margin:4px auto 0;border:1px solid rgba(125,29,29,.45);border-radius:10px;padding:12px 16px;background:rgba(125,29,29,.1);text-align:center}
+    .scrn .s-enh{font-size:14px;color:#f2ead9;margin-bottom:8px}
+    .scrn .s-enh span{font-size:11px;color:#5aa0c4;border:1px solid rgba(90,160,196,.4);border-radius:4px;padding:1px 6px;margin-left:6px}
+    .scrn .s-bar.lg{height:9px;max-width:300px;margin:0 auto}
+    .scrn .s-ehp{display:block;font-size:11px;color:rgba(216,199,168,.55);margin-top:6px}
+    .scrn .s-actcards{display:flex;gap:8px;padding:14px 18px;border-top:1px solid rgba(47,93,84,.2);justify-content:center}
+    .scrn .s-actc{width:96px;border:1px solid rgba(47,93,84,.3);border-radius:11px;background:rgba(26,28,34,.6);padding:11px 6px;display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center}
+    .scrn .s-actc.sel{border-color:#7d1d1d;background:rgba(125,29,29,.2)}
+    .scrn .s-ai{font-size:19px}
+    .scrn .s-actc b{font-size:12px;color:#f2ead9}
+    .scrn .s-actc i{font-style:normal;font-size:10px;color:rgba(216,199,168,.5)}
+    .scrn .s-quest{font-size:13px;line-height:1.6;color:rgba(216,199,168,.8);border:1px solid rgba(47,93,84,.3);border-radius:9px;padding:11px;background:#1a1c22}
+    .scrn .s-quest span{display:block;margin-top:6px;font-size:11px;color:#d9a441}
+    /* lateral soup */
+    .scrn .s-soupread{max-width:660px}
+    .scrn .s-soup{font-size:15px;line-height:1.7;color:#e7d9b8;border:1px solid rgba(47,93,84,.45);background:rgba(47,93,84,.12);border-radius:12px;padding:16px 20px;margin-bottom:20px}
+    .scrn .s-soup b{color:#3f7d70}
+    .scrn .s-qa{display:flex;flex-direction:column;gap:10px;margin-bottom:18px}
+    .scrn .s-q{align-self:flex-end;max-width:72%;font-size:14px;color:#d8c7a8;background:#1a1c22;border:1px solid rgba(47,93,84,.3);border-radius:12px 12px 3px 12px;padding:9px 14px}
+    .scrn .s-a{align-self:flex-start;font-size:13px;border-radius:12px 12px 12px 3px;padding:8px 14px}
+    .scrn .s-a.no{color:#cf6a6a;background:rgba(125,29,29,.12);border:1px solid rgba(125,29,29,.3)}
+    .scrn .s-a.yes{color:#7fd0a0;background:rgba(76,163,106,.1);border:1px solid rgba(76,163,106,.3)}
+    .scrn .s-a.part{color:#d9a441;background:rgba(217,164,65,.1);border:1px solid rgba(217,164,65,.3)}
+    .scrn .s-soupin{border-top:none;padding:14px 0 0}
+    /* truth or dare */
+    .scrn .s-tdwrap{height:672px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;gap:22px;background:radial-gradient(120% 90% at 50% 0,#1a1216 0,#0a0a0c 72%)}
+    .scrn .s-tdcard{max-width:560px;border:1px solid rgba(125,29,29,.5);border-radius:16px;background:#16121a;padding:28px 30px;text-align:center;box-shadow:0 30px 60px -30px rgba(125,29,29,.5)}
+    .scrn .s-tdtag{font-size:11px;letter-spacing:.18em;color:#a83232}
+    .scrn .s-tdcard p{font-size:19px;line-height:1.6;color:#f2ead9;margin:14px 0}
+    .scrn .s-tdby{font-size:11px;color:rgba(216,199,168,.4)}
+    .scrn .s-tdtoggle{font-size:12px;color:rgba(216,199,168,.55);border:1px solid rgba(47,93,84,.3);border-radius:999px;padding:7px 16px;background:#14161c}
+    .scrn .s-tdbtns{display:flex;gap:14px}
+    .scrn .s-btn.big{font-size:15px;padding:14px 30px;border-radius:10px}
+    .scrn .s-btn.eld{background:rgba(47,93,84,.6);border-color:#2f5d54;color:#f2ead9}
+    /* clocktower */
+    .scrn .s-felt.s-night{background:radial-gradient(80% 70% at 50% 30%,#0c0f1a 0,#06060c 78%)}
+    .scrn .s-seatgrid{display:grid;grid-template-columns:repeat(3,150px);gap:14px}
+    .scrn .s-seat{border:1px solid rgba(47,93,84,.4);border-radius:11px;padding:12px 14px;background:rgba(20,22,30,.7);font-size:14px;color:#d8c7a8;text-align:center}
+    .scrn .s-seat span{display:block;font-size:10px;color:rgba(216,199,168,.42);margin-top:4px}
+    .scrn .s-seat.you{border-color:#7d1d1d;background:rgba(125,29,29,.16)}
+    .scrn .s-seat.dead{opacity:.4;text-decoration:line-through}
+    .scrn .s-seat.nom{border-color:#d9a441;background:rgba(217,164,65,.12)}
+    .scrn .s-seat.ai{border-style:dashed;color:rgba(216,199,168,.6)}
+    .scrn .s-tally{font-size:15px;color:#e7d9b8;border:1px solid rgba(217,164,65,.45);background:rgba(217,164,65,.1);border-radius:999px;padding:10px 24px;text-align:center}
+    .scrn .s-tally b{color:#d9a441}
+    .scrn .s-tally span{color:rgba(216,199,168,.5);font-size:12px}
+    .scrn .s-botcrow{display:flex;align-items:center;gap:10px;width:760px;max-width:90%}
+    .scrn .s-claim{font-size:12px;color:rgba(216,199,168,.7);border:1px solid rgba(47,93,84,.4);border-radius:7px;padding:9px 12px;white-space:nowrap;background:#14161c}
+    .scrn .s-tf.sm{padding:9px 14px}
+</style></head><body><div id="stage"></div>
+    <template id="tpl-coc"><div class="scrn scrn-coc">
+      <div class="s-top"><span>Round 3</span><span class="serif s-ttl">The Blackwood Vigil</span><span>Image budget 2/8</span></div>
+      <div class="s-3col">
+        <div class="s-aside">
+          <div class="s-asideh">Investigators</div>
+          <div class="s-cc"><div class="s-ccn serif">Dr. Eleanor Vance</div><div class="s-cco">Pathologist</div>
+            <div class="s-stat"><span>HP</span><div class="s-bar"><i style="width:80%;background:#a83232"></i></div><span>12</span></div>
+            <div class="s-stat"><span>SAN</span><div class="s-bar"><i style="width:64%;background:#3f7d70"></i></div><span>48</span></div></div>
+          <div class="s-cc"><div class="s-ccn serif">Silas Crane</div><div class="s-cco">Antiquarian</div>
+            <div class="s-stat"><span>HP</span><div class="s-bar"><i style="width:70%;background:#a83232"></i></div><span>10</span></div>
+            <div class="s-stat"><span>SAN</span><div class="s-bar"><i style="width:40%;background:#3f7d70"></i></div><span>31</span></div></div>
+        </div>
+        <div class="s-mid">
+          <div class="s-log">
+            <div class="s-narr serif">The lamplight gutters as you pry the chapel door. Beneath the altar, the stone has been lifted — and something below has been waiting a very long time.</div>
+            <div class="s-line s-dice">🎲 Spot Hidden 45 → rolled 32 · Success</div>
+            <div class="s-priv serif"><span class="s-priv-t">Only you ·</span> Behind the loose brick: a child's locket, still warm.</div>
+            <div class="s-line s-san">SAN check 1d6 → −4 · the carvings rearrange when you blink</div>
+            <div class="s-line s-ok">✦ New clue added to the board: “The Sexton's Ledger”</div>
+            <div class="s-narr serif">A wet, deliberate sound moves in the dark below. It is climbing.</div>
+          </div>
+          <div class="s-input">
+            <span class="s-seat">You · A</span>
+            <select class="s-sel"><option>Act</option></select>
+            <div class="s-tf">Read the ledger aloud by candlelight…</div>
+            <button class="s-btn">Chat</button><button class="s-btn act">Act</button>
+          </div>
+        </div>
+        <div class="s-aside s-right">
+          <div class="s-asideh">Suggested image · Scene</div>
+          <div class="s-imgcard"><div class="s-imgp">A lifted altar stone over a black pit, cold lamplight, wet stone steps descending…</div><button class="s-btn act sm">Generate image</button></div>
+          <div class="s-thumb"></div>
+          <div class="s-asideh" style="margin-top:14px">NPCs present</div>
+          <div class="s-npc">Sexton Marlowe <span>· evasive</span></div>
+          <div class="s-npc">The Verger <span>· missing</span></div>
+        </div>
+      </div>
+    </div></template>
+
+    <template id="tpl-story"><div class="scrn scrn-story">
+      <div class="s-top"><span>Storyteller</span><span class="serif s-ttl">The House That Counted Backwards</span><span>2 listeners ●●</span></div>
+      <div class="s-readwrap">
+        <div class="s-read">
+          <div class="s-player">
+            <button class="s-play">❚❚</button>
+            <div class="s-pp"><div class="s-ppline"><i style="width:38%"></i><b style="left:38%"></b></div><div class="s-pt"><span>1:24</span><span>3:47</span></div></div>
+            <span class="s-prov">Azure ▾</span>
+          </div>
+          <div class="s-voices"><span class="vc on">Gentle ♀</span><span class="vc">Deep ♂</span><span class="vc">Healing</span><span class="vc">Eerie</span><span class="vc">Whisper</span><span class="s-spd">1.0×</span></div>
+          <div class="s-soundtrack"><span>♫ Soundtrack</span><div class="s-vol"><i style="width:55%"></i></div></div>
+          <h1 class="serif s-rtitle">The House That Counted Backwards</h1>
+          <p class="serif s-para">The clock in the hall had no hands, only a voice, and every night at the same unmarked hour it would tell her how many days she had left.</p>
+          <p class="serif s-para on">She had stopped believing it — until the morning the number matched the date carved, freshly, into the inside of her own front door.</p>
+          <p class="serif s-para dim">By the third night she understood the house was not counting down to her death. It was counting down to her arrival, and she had not yet come home.</p>
+        </div>
+      </div>
+    </div></template>
+
+    <template id="tpl-mcc"><div class="scrn scrn-mcc">
+      <div class="s-top mcc"><span class="serif"><i class="s-dot"></i>Midnight Cat Curse</span><span class="s-mccr"><b class="s-pill">Discard 4</b><span>Deck 21 · <em>YOUR TURN</em></span></span></div>
+      <div class="s-felt">
+        <div class="s-seats">
+          <div class="s-pc">Maya<span>seat A</span></div>
+          <div class="s-pc dead">Theo 💀<span>out</span></div>
+          <div class="s-pc">Rin<span>seat C</span></div>
+          <div class="s-pc you">You<span>seat D · turn</span></div>
+        </div>
+        <div class="s-react serif">⚡ Rin played <b>Hiss</b> — react now or let it resolve</div>
+        <div class="s-recent"><span class="s-recl">Recent plays</span><div class="s-recrow"><div class="s-mini">__ART0__<u>Maya</u></div><div class="s-mini">__ART1__<u>Theo</u></div><div class="s-mini">__ART2__<u>Rin</u></div></div></div>
+      </div>
+      <div class="s-hand">__HAND__</div>
+      <div class="s-handhint">↑ drag up to play · tap a card to target</div>
+    </div></template>
+
+    <template id="tpl-jbs"><div class="scrn scrn-jbs">
+      <div class="s-top"><span>Act 5 / 7</span><span class="serif s-ttl">The Glasshouse Murder</span><span>🗳 Accusation</span></div>
+      <div class="s-acts"><i class="on">Opening</i><i class="on">Investigate</i><i class="on">Relations</i><i class="on">Evidence</i><i class="on cur">Discussion</i><i>Accuse</i><i>Reveal</i></div>
+      <div class="s-3col">
+        <div class="s-aside">
+          <div class="s-asideh">Cast · 6 suspects</div>
+          <div class="s-sus"><b class="serif">Margot Vane</b><span>Heiress · AI</span></div>
+          <div class="s-sus you"><b class="serif">Dr. Ellis Reed</b><span>Botanist · YOU</span></div>
+          <div class="s-sus"><b class="serif">Inspector Holt</b><span>Detective · AI</span></div>
+          <div class="s-sus"><b class="serif">Silas Crane</b><span>Solicitor · AI</span></div>
+        </div>
+        <div class="s-mid">
+          <div class="s-log">
+            <div class="s-narr serif">The conservatory falls silent. The inspector lays the brass key on the table — its monogram does not read “E”.</div>
+            <div class="s-evd">🔍 Evidence unlocked · <b>The Torn Letter</b> — a rewritten will, dated the night of the murder.</div>
+            <div class="s-priv serif"><span class="s-priv-t">Only you ·</span> Your debt to the victim is motive enough. Stay ahead of the accusation.</div>
+            <div class="s-narr serif" style="border-color:rgba(47,93,84,.4);background:rgba(47,93,84,.1)"><b>Margot (AI):</b> “I saw Ellis by the greenhouse at ten. Ask him what he was <i>really</i> doing.”</div>
+          </div>
+          <div class="s-input">
+            <span class="s-seat">You · Reed</span>
+            <div class="s-tf">Point out the monogram isn't mine…</div>
+            <button class="s-btn">Speak</button><button class="s-btn act">Act</button>
+          </div>
+        </div>
+        <div class="s-aside s-right">
+          <div class="s-asideh">Clue board · 4</div>
+          <div class="s-cluechip">▸ Brass key · warm</div>
+          <div class="s-cluechip">▸ Torn letter</div>
+          <div class="s-cluechip">▸ Alibi gap · 22:10</div>
+          <div class="s-cluechip dim">▸ Monogram “M”</div>
+          <div class="s-accuse"><div class="s-asideh" style="margin-bottom:8px">Cast your accusation</div>
+            <div class="s-vrow">Margot Vane<span class="s-vbtn">Accuse</span></div>
+            <div class="s-vrow">Silas Crane<span class="s-vbtn">Accuse</span></div>
+            <button class="s-btn act sm" style="margin-top:10px">⚖ Lock accusation</button></div>
+        </div>
+      </div>
+    </div></template>
+
+    <template id="tpl-dnd"><div class="scrn scrn-dnd">
+      <div class="s-top"><span>⚔ Lv 3 · The Sunless Warrens</span><span class="serif s-ttl">Combat — round 2</span><span>Image 4/8</span></div>
+      <div class="s-3col">
+        <div class="s-aside">
+          <div class="s-asideh">Party</div>
+          <div class="s-cc turn"><div class="s-ccn serif">Kael <span class="s-ac">AC 16</span></div><div class="s-cco">Fighter · Lv 3 · your turn</div>
+            <div class="s-stat"><span>HP</span><div class="s-bar"><i style="width:72%;background:#a83232"></i></div><span>22/30</span></div></div>
+          <div class="s-cc"><div class="s-ccn serif">Lyra <span class="s-ac">AC 12</span></div><div class="s-cco">Wizard · Lv 3</div>
+            <div class="s-stat"><span>HP</span><div class="s-bar"><i style="width:54%;background:#a83232"></i></div><span>11/20</span></div>
+            <div class="s-stat"><span>MP</span><div class="s-bar"><i style="width:66%;background:#5aa0c4"></i></div><span>2 slots</span></div></div>
+        </div>
+        <div class="s-mid">
+          <div class="s-log">
+            <div class="s-narr serif">A bugbear heaves itself from the rubble, cleaver dragging sparks across the stone. It fixes on Kael.</div>
+            <div class="s-line s-dice">🎲 Greataxe attack 1d20+5 → 18 vs AC 14 · Hit! 11 slashing</div>
+            <div class="s-enemy"><div class="s-enh">☠ Bugbear Reaver <span>AC 14</span></div><div class="s-bar lg"><i style="width:46%;background:#7d1d1d"></i></div><span class="s-ehp">HP 19 / 41</span></div>
+          </div>
+          <div class="s-actcards">
+            <div class="s-actc sel"><span class="s-ai">🗡</span><b>Greatsword</b><i>2d6 slashing</i></div>
+            <div class="s-actc"><span class="s-ai">✦</span><b>Fire Bolt</b><i>1d10, on hit</i></div>
+            <div class="s-actc"><span class="s-ai">🛡</span><b>Dodge</b><i>foes disadv.</i></div>
+            <div class="s-actc"><span class="s-ai">🧪</span><b>Potion 1</b><i>heal 2d4+2</i></div>
+            <div class="s-actc"><span class="s-ai">→</span><b>Flee</b><i>~55%</i></div>
+          </div>
+        </div>
+        <div class="s-aside s-right">
+          <div class="s-asideh">Quest</div>
+          <div class="s-quest serif">Find the Sunless Heart before the warren floods. <span>2 of 3 wardstones lit.</span></div>
+          <div class="s-asideh" style="margin-top:14px">Backpack</div>
+          <div class="s-npc">🗝 Iron warren key</div>
+          <div class="s-npc">📜 Scroll of light <span>· 1</span></div>
+          <div class="s-npc">🪙 Gold <span>· 84</span></div>
+        </div>
+      </div>
+    </div></template>
+
+    <template id="tpl-soup"><div class="scrn scrn-soup">
+      <div class="s-top"><span>Lateral · Soup</span><span class="serif s-ttl">The Albatross Soup</span><span>Ask yes / no</span></div>
+      <div class="s-readwrap">
+        <div class="s-read s-soupread">
+          <div class="s-soup">📌 <b>The case</b> — A man orders albatross soup at a seaside inn, takes one taste, walks home, and ends his own life that night. Why?</div>
+          <div class="s-qa">
+            <div class="s-q">Had he eaten albatross before?</div>
+            <div class="s-a no">No</div>
+            <div class="s-q">Did the taste tell him something?</div>
+            <div class="s-a yes">Yes</div>
+            <div class="s-q">Was someone close to him once lost at sea?</div>
+            <div class="s-a yes">Yes — and that matters</div>
+            <div class="s-q">Is he learning what he was fed back then?</div>
+            <div class="s-a part">Yes and no</div>
+          </div>
+          <div class="s-input s-soupin"><div class="s-tf">Ask a yes / no question…</div><button class="s-btn">Ask</button><button class="s-btn act">Reveal</button></div>
+        </div>
+      </div>
+    </div></template>
+
+    <template id="tpl-td"><div class="scrn scrn-td">
+      <div class="s-top"><span>Truth or Dare</span><span class="serif s-ttl">Spicy · House party</span><span>4 players</span></div>
+      <div class="s-tdwrap">
+        <div class="s-tdcard">
+          <span class="s-tdtag">DARE · for Rin</span>
+          <p class="serif">Call the third contact in your phone and tell them, completely straight-faced, that you've decided to become a professional clown. Stay on for 30 seconds.</p>
+          <span class="s-tdby">drawn live by the AI · scaled to “spicy”, avoids your off-limits list</span>
+        </div>
+        <div class="s-tdtoggle">🤖 AI-generated prompts · on</div>
+        <div class="s-tdbtns"><button class="s-btn big eld">Draw Truth</button><button class="s-btn big act">Draw Dare</button></div>
+      </div>
+    </div></template>
+
+    <template id="tpl-botc"><div class="scrn scrn-botc">
+      <div class="s-top mcc"><span class="serif"><i class="s-dot"></i>Bloodbound · Storyteller</span><span class="s-mccr"><b class="s-pill">☀ Day 2</b><span><em>Vote to execute</em></span></span></div>
+      <div class="s-felt s-night">
+        <div class="s-seatgrid">
+          <div class="s-seat">A · Maya<span>Empath?</span></div>
+          <div class="s-seat dead">B · Theo 💀<span>executed D1</span></div>
+          <div class="s-seat you">C · You<span>Washerwoman</span></div>
+          <div class="s-seat nom">D · Rin<span>nominated</span></div>
+          <div class="s-seat">E · Ada<span>—</span></div>
+          <div class="s-seat ai">F · Bot<span>AI seat</span></div>
+        </div>
+        <div class="s-tally serif">Rin is on the block — <b>3 votes</b> to execute, 2 needed. <span>Hands up around the table…</span></div>
+        <div class="s-botcrow"><span class="s-claim">Claim: Washerwoman ▾</span><div class="s-tf sm">“I confirmed Ada as the Investigator on night one…”</div><button class="s-btn">Say</button></div>
+      </div>
+    </div></template>
+<script>
+    var ICON={
+      curse:'<g><g fill="none" stroke="#ece9e2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 19 L14 7 L25 16"/><path d="M46 19 L50 7 L39 16"/><path d="M14 21 q18 -9 36 0 q3 15 -18 21 q-21 -6 -18 -21 Z"/><path d="M7 27 H19 M45 27 H57" stroke-width="1.1" stroke-opacity=".65"/></g><g fill="#ece9e2"><path d="M24 24 l4 2 l-4 2 Z"/><path d="M40 24 l-4 2 l4 2 Z"/></g></g>',
+      ward:'<g fill="none" stroke="#ece9e2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M32 8 v3"/><path d="M22 41 q-2 -23 10 -28 q12 5 10 28 Z"/><path d="M17 41 H47"/><path d="M28 45 a4.5 4.5 0 0 0 8 0"/><path d="M12 20 l-4 -2 M52 20 l4 -2 M14 30 l-5 0 M50 30 l5 0" stroke-width="1.2" stroke-opacity=".6"/></g>',
+      hiss:'<g fill="none" stroke="#ece9e2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 24 q12 -9 24 0"/><path d="M25 25 l2 7 l3 -6 l3 6 l3 -6 l3 6 l2 -7" stroke-width="1.6"/><path d="M48 16 l7 -3 l-5 7 l7 0 l-6 6" stroke-width="1.6" stroke-opacity=".85"/></g>',
+      mirror:'<g><g fill="#ece9e2"><circle cx="28" cy="20" r="4.5"/><circle cx="22.5" cy="14.5" r="1.89"/><circle cx="28" cy="13.5" r="1.89"/><circle cx="33.5" cy="14.5" r="1.89"/></g><g fill="#ece9e2" fill-opacity=".45"><circle cx="28" cy="41" r="4.5"/><circle cx="22.5" cy="35.5" r="1.89"/><circle cx="28" cy="34.5" r="1.89"/><circle cx="33.5" cy="35.5" r="1.89"/></g><line x1="12" y1="30" x2="52" y2="30" stroke="#ece9e2" stroke-width="1.4" stroke-dasharray="3 3"/></g>',
+      swap:'<g><g fill="#ece9e2"><circle cx="22" cy="34" r="5"/><circle cx="16" cy="28" r="2.1"/><circle cx="22" cy="27" r="2.1"/><circle cx="28" cy="28" r="2.1"/><circle cx="42" cy="34" r="5"/><circle cx="36" cy="28" r="2.1"/><circle cx="42" cy="27" r="2.1"/><circle cx="48" cy="28" r="2.1"/></g><g fill="none" stroke="#ece9e2" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M24 15 q8 -5 15 0"/><path d="M39 15 l-1 -4 M39 15 l-4 0"/><path d="M40 21 q-8 5 -15 0"/><path d="M25 21 l1 4 M25 21 l4 0"/></g></g>',
+      peek:'<g fill="none" stroke="#ece9e2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 17 q9 -8 18 0 q-9 8 -18 0 Z"/><circle cx="23" cy="17" r="2" fill="#ece9e2" stroke="none"/><rect x="27" y="28" width="10" height="16" rx="1.5"/><path d="M32 28 q4 -6 0 -11 q-4 5 0 11 Z" fill="#ece9e2" stroke="none"/></g>'
+    };
+    function svg(k){ return '<svg viewBox="0 0 64 60" xmlns="http://www.w3.org/2000/svg"><circle cx="32" cy="28" r="24" fill="none" stroke="#ece9e2" stroke-opacity=".07"/><circle cx="32" cy="28" r="27" fill="none" stroke="#ece9e2" stroke-opacity=".04"/><g stroke="#ece9e2" stroke-opacity=".25" stroke-width="1"><path d="M6 6 h5 M6 6 v5 M58 6 h-5 M58 6 v5 M6 54 h5 M6 54 v-5 M58 54 h-5 M58 54 v-5"/></g>'+ICON[k]+'</svg>'; }
+function mccArt(node){var hand=[['curse','CURSE'],['ward','WARD'],['mirror','MIRROR'],['swap','SWAP'],['peek','PEEK']];var n=hand.length,h='';hand.forEach(function(c,i){h+='<div class="s-hc" style="--r:'+((i-(n-1)/2)*6)+'deg;--y:'+(Math.abs(i-(n-1)/2)*11)+'px">'+svg(c[0])+'<b>'+c[1]+'</b></div>';});node.innerHTML=node.innerHTML.replace('__HAND__',h).replace('__ART0__',svg('hiss')).replace('__ART1__',svg('curse')).replace('__ART2__',svg('ward'));}
+var key=(location.hash||'#coc').slice(1);var tpl=document.getElementById('tpl-'+key);var stage=document.getElementById('stage');
+if(tpl){var node=tpl.content.firstElementChild.cloneNode(true);if(key==='mcc')mccArt(node);stage.appendChild(node);var fit=function(){stage.style.transform='scale('+(window.innerWidth/1180)+')';};fit();window.addEventListener('resize',fit);window.addEventListener('hashchange',function(){location.reload();});}
+</script></body></html>

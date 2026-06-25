@@ -508,3 +508,15 @@ create index if not exists idx_blog_posts_lang on blog_posts(lang, created_at de
 -- ===== 博客改为同一 slug 可有中英两版（发布自动出双语） =====
 alter table blog_posts drop constraint if exists blog_posts_slug_key;
 create unique index if not exists blog_posts_slug_lang on blog_posts(slug, lang);
+
+-- ===== 访问统计（页面打点，给 Admin 面板看流量/自然搜索） =====
+create table if not exists page_views (
+  id bigint generated always as identity primary key,
+  path text,
+  ref text,
+  vid text,
+  created_at timestamptz default now()
+);
+alter table page_views enable row level security; -- 不建策略：仅服务端 service_role 读写
+create index if not exists idx_page_views_created on page_views(created_at desc);
+create index if not exists idx_page_views_vid on page_views(vid);

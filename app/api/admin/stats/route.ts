@@ -8,7 +8,24 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser();
   const adminEmail = (process.env.ADMIN_EMAIL || 'yxhzdm@gmail.com').toLowerCase();
   if (!user?.email || user.email.toLowerCase() !== adminEmail) {
-    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+    const since7 = new Date(Date.now() - 7 * 86400000).toISOString();
+  const { data: pv } = await admin.from('page_views').select('path, ref, vid, created_at').gte('created_at', since7).limit(50000);
+  const pvRows = (pv || []) as any[];
+  const isSearch = (r: string) => /google|bing|baidu|duckduckgo|yahoo|yandex|sogou|so\.com|360|naver|ecosia|brave|qwant/i.test(r || '');
+  const vid7 = new Set<string>(); const vidToday = new Set<string>(); let pvToday = 0; let organic7 = 0;
+  const pageCount: Record<string, number> = {}; const refCount: Record<string, number> = {};
+  for (const r of pvRows) {
+    if (r.vid) vid7.add(r.vid);
+    if (r.created_at >= todayISO) { pvToday++; if (r.vid) vidToday.add(r.vid); }
+    if (isSearch(r.ref)) organic7++;
+    if (r.path) pageCount[r.path] = (pageCount[r.path] || 0) + 1;
+    if (r.ref && r.ref !== 'direct' && r.ref !== 'internal') refCount[r.ref] = (refCount[r.ref] || 0) + 1;
+  }
+  const topPages = Object.entries(pageCount).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([path, n]) => ({ path, n }));
+  const topRefs = Object.entries(refCount).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([ref, n]) => ({ ref, n }));
+  const traffic = { pvToday, uvToday: vidToday.size, pv7d: pvRows.length, uv7d: vid7.size, organic7d: organic7, topPages, topRefs };
+
+  return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
 
   const admin = createAdminClient();
@@ -73,5 +90,6 @@ export async function GET() {
     roomsToday: roomsToday || 0,
     playersToday: playersToday || 0,
     modes: { coc: cocN || 0, soup: soupN || 0, td: tdN || 0, jbs: jbsN || 0 },
+    traffic,
   });
 }

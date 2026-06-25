@@ -177,6 +177,10 @@ function AdminPanel({ lang }: { lang: Lang }) {
       <div>{en ? 'Today' : '今日'}: {en ? 'new games' : '新局'} {s.roomsToday} · {en ? 'new players' : '新玩家'} {s.playersToday}</div>
       <div>{en ? 'Playtime' : '总时长'} {s.totalPlayMinutes}m · {en ? 'avg/game' : '均局'} {s.avgGameMinutes}m · {en ? 'msgs' : '消息'} {s.totalMessages}</div>
       <div className="text-parchment/40">CoC {s.modes?.coc ?? 0} · {en ? 'Soup' : '汤'} {s.modes?.soup ?? 0} · {en ? 'T/D' : '真'} {s.modes?.td ?? 0} · {en ? 'Murder' : '杀'} {s.modes?.jbs ?? 0}</div>
+      {s.traffic && <div className="pt-1 mt-1 border-t border-eldritch/15 text-parchment/80">👀 {en ? 'Views today' : '今日访问'} <span className="text-parchment">{s.traffic.pvToday}</span> · {en ? 'visitors' : '访客'} <span className="text-parchment">{s.traffic.uvToday}</span></div>}
+      {s.traffic && <div>{en ? '7d visitors' : '近7天访客'} {s.traffic.uv7d} · {en ? 'from search' : '自然搜索'} <span className="text-eldritch">{s.traffic.organic7d}</span></div>}
+      {s.traffic && s.traffic.topRefs?.length > 0 && <div className="text-parchment/40 truncate">{en ? 'src' : '来源'}: {s.traffic.topRefs.map((r: any) => `${r.ref}·${r.n}`).join('  ')}</div>}
+      {s.traffic && s.traffic.topPages?.length > 0 && <div className="text-parchment/40 truncate">{en ? 'top' : '热门页'}: {s.traffic.topPages.map((r: any) => `${r.path}·${r.n}`).join('  ')}</div>}
     </div>
   );
 }

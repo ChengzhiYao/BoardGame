@@ -3,11 +3,13 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { post } from '@/lib/blog';
 import { createAdminClient } from '@/lib/supabase/server';
+import { unstable_noStore as noStore } from 'next/cache';
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.mystnight.com';
 export const dynamic = 'force-dynamic';
 
 async function resolve(lang: 'zh' | 'en', slug: string) {
+  noStore();
   const sp = post(slug);
   if (sp) { const t = lang === 'en' ? sp.en : sp.zh; return { title: t.title, excerpt: t.excerpt, date: sp.date, html: t.html }; }
   try {

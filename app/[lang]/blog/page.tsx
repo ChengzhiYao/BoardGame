@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { POSTS } from '@/lib/blog';
 import { createAdminClient } from '@/lib/supabase/server';
+import { unstable_noStore as noStore } from 'next/cache';
 import BlogGenerator from '@/components/BlogGenerator';
 
 export const dynamic = 'force-dynamic';
@@ -16,6 +17,7 @@ export function generateMetadata({ params }: { params: { lang: string } }): Meta
 }
 
 export default async function Blog({ params }: { params: { lang: string } }) {
+  noStore();
   if (params.lang !== 'zh' && params.lang !== 'en') notFound();
   const en = params.lang === 'en';
   const lang = en ? 'en' : 'zh';

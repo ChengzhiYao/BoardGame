@@ -3,7 +3,6 @@ import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { callLLMJson } from '@/lib/llm';
 import { buildSoupGenPrompt } from '@/lib/soup/prompt';
-import { langDirective } from '@/lib/i18n';
 
 export const maxDuration = 60;
 
@@ -22,15 +21,13 @@ export async function POST(req: Request) {
   // 已有谜题则幂等返回
   const { data: existing } = await admin.from('soup_puzzles').select('id').eq('room_id', roomId).maybeSingle();
   if (existing) return NextResponse.json({ ok: true });
-  const { data: rm } = await admin.from('rooms').select('language').eq('id', roomId).maybeSingle();
-  const lang = rm?.language || 'zh';
 
   await admin.from('rooms').update({ modules_generating: true }).eq('id', roomId);
   try {
     const { data, usage } = await callLLMJson<any>({
-      system: buildSoupGenPrompt(difficulty) + langDirective(lang),
+      system: buildSoupGenPrompt(difficulty),
       messages: [{ role: 'user', content: '请出一道原创海龟汤。' }],
-      tier: 'main', temperature: 1.0, maxTokens: 1200,
+      tier: 'main', temperature: 0.8, maxTokens: 1200,
     });
 
     const { data: puzzle } = await admin.from('soup_puzzles').insert({
@@ -41,9 +38,7 @@ export async function POST(req: Request) {
     await admin.from('rooms').update({ game_state: 'playing', modules_generating: false }).eq('id', roomId);
     await admin.from('messages').insert({
       room_id: roomId, sender_type: 'kp', turn_no: 0,
-      content: lang === 'en'
-        ? `[Setup] ${data.surface}\n\nAsk yes/no questions; I only answer: Yes / No / Irrelevant / Yes and no. When you think you have it, tap Reveal.`
-        : `【汤面】${data.surface}\n\n你们可以提是非题，我只回答：是 / 不是 / 无关 / 是也不是。想好真相后点「揭晓答案」。`,
+      content: `【汤面】${data.surface}\n\n你们可以提是非题，我只回答：是 / 不是 / 无关 / 是也不是。想好真相后点「揭晓答案」。`,
       payload: { type: 'soup_surface' },
     });
     await admin.from('api_usage').insert({ room_id: roomId, kind: 'llm_main', model: usage.model, prompt_tokens: usage.promptTokens, completion_tokens: usage.completionTokens, latency_ms: usage.latencyMs });

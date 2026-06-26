@@ -14,6 +14,10 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
   const [guess, setGuess] = useState('');
   const [copied, setCopied] = useState(false);
   const [surfaceOpen, setSurfaceOpen] = useState(true);
+  const [difficulty, setDifficulty] = useState('普通');
+  const [supernatural, setSupernatural] = useState('any');
+  const [gore, setGore] = useState('any');
+  const [tone, setTone] = useState('any');
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const en = props.room.language === 'en';
@@ -68,7 +72,7 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
     finally { setBusy(false); }
   }
 
-  async function start() { await call('/api/soup/generate', { roomId: props.room.id }); }
+  async function start() { await call('/api/soup/generate', { roomId: props.room.id, difficulty, supernatural, gore, tone }); }
   async function ask() { const q = text.trim(); if (!q) return; setText(''); await call('/api/soup/ask', { roomId: props.room.id, question: q }); }
   async function submitGuess() { const g = guess.trim(); if (!g) return; setGuess(''); setGuessing(false); await call('/api/soup/guess', { roomId: props.room.id, guess: g }); }
   async function reveal() { if (!confirm('确定要看汤底吗？看了这局就结束了。')) return; await call('/api/soup/reveal', { roomId: props.room.id }); }
@@ -84,6 +88,13 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
           <code className="text-xs px-3 py-2 rounded bg-fog border border-eldritch/30 text-eldritch break-all w-full">{inviteUrl}</code>
           <button onClick={() => { navigator.clipboard.writeText(inviteUrl); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
             className="px-4 py-1.5 rounded bg-eldritch/40 hover:bg-eldritch text-parchment text-sm">{copied ? '已复制' : '复制邀请链接'}</button>
+        </div>
+        <div className="w-full max-w-md space-y-3 text-left rounded-lg border border-eldritch/20 bg-fog/40 p-4">
+          <div className="text-sm text-parchment/70">出题设置</div>
+          <SoupOptRow label="难度" value={difficulty} set={setDifficulty} opts={[['普通', '普通'], ['困难', '困难'], ['地狱', '地狱']]} />
+          <SoupOptRow label="灵异" value={supernatural} set={setSupernatural} opts={[['any', '不限'], ['allow', '可灵异'], ['real', '纯现实']]} />
+          <SoupOptRow label="血腥" value={gore} set={setGore} opts={[['any', '不限'], ['gore', '可血腥'], ['none', '不血腥']]} />
+          <SoupOptRow label="基调" value={tone} set={setTone} opts={[['any', '不限'], ['悬疑', '悬疑'], ['惊悚', '惊悚'], ['温情', '温情'], ['黑色幽默', '黑色幽默'], ['搞笑', '搞笑']]} />
         </div>
         <button onClick={start} disabled={busy || generating}
           className="px-6 py-3 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-50">
@@ -174,6 +185,22 @@ function SoupMsg({ m, mine, who }: { m: any; mine: boolean; who: string }) {
     <div className="flex flex-col items-end">
       <span className="text-xs text-parchment/40 mb-1">{who}{mine ? '（你）' : ''}</span>
       <div className="max-w-[80%] px-4 py-2 rounded-lg bg-blood/25 border border-blood/40 text-parchment/90">{m.content}</div>
+    </div>
+  );
+}
+
+function SoupOptRow({ label, value, set, opts }: { label: string; value: string; set: (v: string) => void; opts: [string, string][] }) {
+  return (
+    <div>
+      <div className="text-xs text-parchment/50 mb-1.5">{label}</div>
+      <div className="flex flex-wrap gap-2">
+        {opts.map(([v, t]) => (
+          <button key={v} onClick={() => set(v)}
+            className={`px-3 py-1 rounded-full text-sm border transition-colors ${value === v ? 'bg-eldritch text-parchment border-eldritch' : 'bg-fog border-eldritch/30 text-parchment/55 hover:border-eldritch/60'}`}>
+            {t}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

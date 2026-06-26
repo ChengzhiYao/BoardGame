@@ -1,15 +1,38 @@
 // 海龟汤（情境推理）模式的 prompt 构建。
 
-// 生成一道海龟汤：汤面（玩家可见的诡异情境）+ 汤底（隐藏真相）。
-export function buildSoupGenPrompt(difficulty?: string) {
-  return `你是一位海龟汤（情境推理谜题）出题大师。请原创一道**逻辑自洽、出人意料、且一看汤底就能完全看懂**的海龟汤。
-难度：${difficulty || '普通'}。
+export interface SoupGenOptions {
+  difficulty?: string;   // 普通 / 困难 / 地狱
+  supernatural?: string; // any 不限 / allow 灵异 / real 纯现实
+  gore?: string;         // any 不限 / gore 可血腥 / none 不血腥
+  tone?: string;         // any 不限 / 悬疑 / 惊悚 / 温情 / 黑色幽默 / 搞笑
+}
 
+// 生成一道海龟汤：汤面（玩家可见的诡异情境）+ 汤底（隐藏真相）。
+export function buildSoupGenPrompt(opts?: SoupGenOptions | string) {
+  // 兼容旧调用：传字符串视为难度。
+  const o: SoupGenOptions = typeof opts === 'string' ? { difficulty: opts } : (opts || {});
+  const difficulty = o.difficulty || '普通';
+  const allowSuper = o.supernatural === 'allow';
+
+  const set: string[] = [];
+  if (o.supernatural === 'real') set.push('- 题材：**纯现实**。汤底必须用合乎常理的现实逻辑解释，不得出现鬼怪、灵异、超自然或科幻设定。');
+  else if (allowSuper) set.push('- 题材：**可含灵异 / 超自然**。汤底可以有鬼魂、诅咒、轮回等元素，但它的“规则”仍要自洽、能被是非题一步步推理出来，不能随意开挂。');
+  if (o.gore === 'gore') set.push('- 尺度：**可偏血腥 / 惊悚**，允许凶案、尸体、恐怖的具体描写（但不堆砌无意义的猎奇）。');
+  else if (o.gore === 'none') set.push('- 尺度：**不血腥**。避免血腥、残忍、恐怖的具体描写，保持平和，走悬疑 / 温情 / 巧思路线。');
+  if (o.tone && o.tone !== 'any') set.push(`- 基调：**${o.tone}**，整体气质贴合它。`);
+  const settingBlock = set.length ? `\n【本局设置 · 务必满足】\n${set.join('\n')}\n` : '';
+  const realismLine = allowSuper
+    ? '- 即便含灵异设定，其规则也要**自洽、可被推理**；不靠纯巧合堆砌、不靠读者脑补冷知识。'
+    : '- 真相要**贴近现实、人之常情**，靠正常推理可达；不靠超自然外挂、不靠巧合堆砌、不靠读者脑补冷知识。';
+
+  return `你是一位海龟汤（情境推理谜题）出题大师。请原创一道**逻辑自洽、出人意料、且一看汤底就能完全看懂**的海龟汤。
+难度：${difficulty}（普通=线索较直接；困难=需多想几层；地狱=反转刁钻，但仍须公平、可由是非题推出）。
+${settingBlock}
 【第一要务：汤底必须清晰、好懂、不绕】
 - 汤底是**一条简单清楚的因果链** + **一个干净的反转**。普通人读完应当**立刻完全看懂**，并觉得“啊原来如此、合情合理”。
 - **严禁**：身份层层套娃（“A其实是B假冒的C收养的孤儿”这种）、多重误导叠加、自相矛盾、说不通的逻辑、需要反复绕才能勉强解释的真相。**如果核心反转不能用一句话讲清，就是太复杂，必须重写得更简单。**
 - **角色要少（1~3 人）**、关系一目了然；只设**一个**核心反转，不要堆叠多个转折。
-- 真相要**贴近现实、人之常情**，靠正常推理可达；不靠超自然、不靠巧合堆砌、不靠读者脑补冷知识。
+${realismLine}
 
 要求：
 - 汤面（surface）：2~4 句，描述一个**诡异、反常、令人费解的情境**，留下一个明确的“为什么”，但不剧透。具体、有画面感，避免老梗（别再“喝海龟汤自杀”那种）。
@@ -19,11 +42,10 @@ export function buildSoupGenPrompt(difficulty?: string) {
 【出题后务必自检，任一不过就重写】
 1. 一个**没看过题**的普通人，读完汤底能否**完全看懂、不犯迷糊**？
 2. 因果是否**前后一致、没有矛盾**？汤面每个反常点都被汤底解释了吗？
-3. 反转是不是**只有一个、且干净利落**？有没有不必要的身份套娃？
+3. 反转是不是**只有一个、且干净利落**？有没有不必要的身份套娃？是否满足上面的【本局设置】？
 
-可以是悬疑、温情、惊悚、黑色幽默等不同基调。
 只输出 JSON：
-{ "title": "谜题标题", "surface": "汤面", "bottom": "汤底（清楚大白话·逻辑闭环·普通人能秒懂）", "difficulty": "普通/困难/地狱" }`;
+{ "title": "谜题标题", "surface": "汤面", "bottom": "汤底（清楚大白话·逻辑闭环·普通人能秒懂）", "difficulty": "${difficulty}" }`;
 }
 
 // 回答玩家的是非题。主持人知道汤底，只给裁定。

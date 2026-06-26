@@ -475,7 +475,11 @@ create table if not exists story_library (
 );
 alter table story_library enable row level security;
 create index if not exists story_library_overall_idx on story_library(overall desc, created_at desc);
--- 玩家对每个游戏的留言 / 反馈。
+
+-- ===== 白名单永久免费（追加） =====
+insert into whitelist_emails(email) values ('hattieichinose@gmail.com') on conflict do nothing;
+
+-- ===== 玩家对每个游戏的留言 / 反馈 =====
 create table if not exists game_feedback (
   id uuid primary key default gen_random_uuid(),
   game_slug text not null,
@@ -488,7 +492,8 @@ alter table game_feedback enable row level security;
 drop policy if exists game_feedback_read on game_feedback;
 create policy game_feedback_read on game_feedback for select using (true);
 create index if not exists idx_game_feedback_slug on game_feedback(game_slug, created_at desc);
--- AI 生成的博客文章（管理员博客生成器写入）。
+
+-- ===== AI 生成的博客文章 =====
 create table if not exists blog_posts (
   id uuid primary key default gen_random_uuid(),
   slug text unique not null,
@@ -520,3 +525,50 @@ create table if not exists page_views (
 alter table page_views enable row level security; -- 不建策略：仅服务端 service_role 读写
 create index if not exists idx_page_views_created on page_views(created_at desc);
 create index if not exists idx_page_views_vid on page_views(vid);
+
+-- =====================================================================
+-- 童话草原 MVP（meadow）：持久动物角色 + 事件日志
+-- 全部 if not exists / 可重复执行。
+-- =====================================================================
+create table if not exists meadow_characters (
+  id            uuid primary key default gen_random_uuid(),
+  user_id       uuid not null references users(id) on delete cascade,
+  species       text not null,
+  diet          text not null,
+  name          text,
+  attributes    jsonb not null default '{}'::jsonb,
+  instincts     jsonb not null default '{}'::jsonb,
+  personality   jsonb not null default '{}'::jsonb,
+  traits        jsonb not null default '[]'::jsonb,
+  hunger        int  not null default 0,          -- 0 饱 .. 100 饿死
+  location      text not null default 'meadow',
+  status        text not null default 'alive',    -- alive / dead
+  death_cause   text,
+  busy_until    timestamptz,                       -- 忙碌至(真实时间)
+  current_action jsonb,                            -- {kind, started_at, ends_at}
+  hunger_updated_at timestamptz not null default now(),
+  born_at       timestamptz not null default now(),
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+-- 一号一命：每个用户同时只能有一只在世动物
+create unique index if not exists meadow_one_alive_per_user on meadow_characters(user_id) where status = 'alive';
+alter table meadow_characters enable row level security;
+drop policy if exists meadow_char_self on meadow_characters;
+create policy meadow_char_self on meadow_characters for select using (user_id = auth.uid() or is_admin());
+-- 写入一律走服务端 service_role（绕过 RLS）
+
+create table if not exists meadow_events (
+  id           uuid primary key default gen_random_uuid(),
+  character_id uuid not null references meadow_characters(id) on delete cascade,
+  game_label   text,
+  kind         text,
+  text         text,
+  created_at   timestamptz not null default now()
+);
+create index if not exists meadow_events_char_idx on meadow_events(character_id, created_at);
+alter table meadow_events enable row level security;
+drop policy if exists meadow_events_self on meadow_events;
+create policy meadow_events_self on meadow_events for select using (
+  exists(select 1 from meadow_characters c where c.id = character_id and (c.user_id = auth.uid() or is_admin()))
+);

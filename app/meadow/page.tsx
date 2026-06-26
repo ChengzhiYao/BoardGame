@@ -17,7 +17,7 @@ export default function MeadowPage() {
   const [view, setView] = useState<View>('loading');
   const [idx, setIdx] = useState(0);
   const [answers, setAnswers] = useState<(number | null)[]>([]);
-  const [reveal, setReveal] = useState('');
+  const [reveal, setReveal] = useState<any>(null);
   const [species, setSpecies] = useState<any>(null);
   const [result, setResult] = useState<any>(null);
   const [world, setWorld] = useState<any>(null);
@@ -77,7 +77,7 @@ export default function MeadowPage() {
       const res = await fetch('/api/meadow/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ answers: finalAnswers, notable }) });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || '出错了');
-      setResult(d.result); setReveal(d.reveal || ''); setSpecies(d.species); setView('result');
+      setResult(d.result); setReveal(d.reveal || null); setSpecies(d.species); setView('result');
     } catch (e: any) { setErr(e.message); setView('test'); }
   }
   async function act(kind: string, target?: string) {
@@ -102,7 +102,19 @@ export default function MeadowPage() {
         <div className="text-7xl">{sp.emoji}</div>
         <div className="font-serif text-2xl text-parchment">你醒来，成为一只 {result?.variant || sp.zh}（{result?.gender === 'male' ? '公' : '母'}）</div>
         <div className="text-xs tracking-widest uppercase text-eldritch">{result ? DIET_ZH[result.diet as Diet] : ''}</div>
-        <p className="text-parchment/80 leading-relaxed whitespace-pre-line text-sm">{reveal || '草原的风掀起书页，你睁开了眼睛。'}</p>
+        {reveal?.title ? <div className="text-eldritch font-serif text-lg">「{reveal.title}」</div> : null}
+        {reveal ? (
+          <div className="w-full text-left flex flex-col gap-2.5 text-sm">
+            <RevSec label="性格" text={reveal.personality} />
+            <RevSec label="思维模式" text={reveal.thinking} />
+            <RevSec label="你的锋芒" text={reveal.strength} />
+            <RevSec label="你的盲点" text={reveal.shadow} />
+            <RevSec label="内心驱动" text={reveal.drive} />
+            <RevSec label={'为什么是' + (sp.zh || '它')} text={reveal.why} />
+          </div>
+        ) : (
+          <p className="text-parchment/70 text-sm">草原的风掀起书页，你睁开了眼睛。</p>
+        )}
         {result?.traits?.length ? <div className="flex flex-wrap gap-2 justify-center">{result.traits.map((tn: string) => <span key={tn} className="px-3 py-1 rounded-full bg-eldritch/25 border border-eldritch/40 text-parchment/80 text-xs">{tn}</span>)}</div> : null}
         {topA.length ? <div className="w-full grid grid-cols-2 gap-2 mt-1">{topA.map((k) => <div key={k} className="flex items-center justify-between text-sm bg-ink/40 rounded px-3 py-1.5"><span className="text-parchment/60">{ATTR_ZH[k]}</span><span className="text-parchment font-mono">{result.attributes[k]}</span></div>)}</div> : null}
         <button onClick={enterWorld} className="mt-2 px-8 py-3 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood">睁开眼睛 · 进入草原 →</button>
@@ -238,6 +250,16 @@ export default function MeadowPage() {
         <button onClick={() => answer(null)} className="text-center px-4 py-2 rounded-lg text-parchment/40 hover:text-parchment/70 text-sm">跳过本题（交给命运）</button>
       </div>
       {err && <p className="text-blood text-sm mt-3">{err}</p>}
+    </div>
+  );
+}
+
+function RevSec({ label, text }: { label: string; text?: string }) {
+  if (!text) return null;
+  return (
+    <div className="rounded-lg bg-ink/30 border border-eldritch/15 px-3 py-2">
+      <div className="text-[11px] tracking-widest uppercase text-eldritch/80 mb-0.5">{label}</div>
+      <div className="text-parchment/85 leading-relaxed">{text}</div>
     </div>
   );
 }

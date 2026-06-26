@@ -22,14 +22,14 @@ export async function POST(req: Request) {
   if (!Array.isArray(answers)) return NextResponse.json({ error: '缺少答案' }, { status: 400 });
 
   const result = scoreTest(answers.map((x: any) => (x === null || x === undefined ? null : Number(x))));
-  let reveal = '';
+  let reveal: any = null;
   try {
     const { data } = await callLLMJson<any>({
       system: buildAnimalRevealPrompt(result, Array.isArray(notable) ? notable.slice(0, 5) : []),
       messages: [{ role: 'user', content: '请揭晓。' }],
       tier: 'main', temperature: 0.8, maxTokens: 500,
     });
-    reveal = data.verdict || '';
+    reveal = data;
   } catch { /* 解读失败用兜底 */ }
 
   const sp = SP_BY_KEY[result.speciesKey];

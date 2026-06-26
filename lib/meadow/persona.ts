@@ -39,7 +39,7 @@ export const QUESTIONS: Q[] = [
     { zh: '逗逗它、跟它玩', p: { curious: 1, social: 1 }, sp: { squirrel: 1, crow: 1 } },
   ] },
   { zh: '你最擅长、也最爱做的事是？', opts: [
-    { zh: '追逐、扑咬、奔袭', a: { str: 1, agi: 1 }, p: { fierce: 1 }, i: { hunt: 2 }, meat: 1, sp: { fox: 1, weasel: 1 } },
+    { zh: '追逐、扑咬、奔袭', a: { str: 1, agi: 1 }, p: { fierce: 1 }, i: { hunt: 2 }, meat: 1, sp: { fox: 1, weasel: 1, wolf: 2 } },
     { zh: '嗅探、翻找好吃的', a: { sen: 1 }, i: { forage: 2 }, grass: 1, sp: { mouse: 1, badger: 1 } },
     { zh: '攀高、跳跃、藏东西', a: { agi: 2 }, i: { build: 1 }, sp: { squirrel: 1 } },
     { zh: '跟大家说说笑笑', a: { cha: 1 }, p: { social: 1 }, i: { social: 2 }, sp: { rabbit: 1, crow: 1 } },
@@ -57,7 +57,7 @@ export const QUESTIONS: Q[] = [
     { zh: '记在心里，留作逃命退路', a: { wit: 1 }, p: { curious: -2 }, i: { flee: 1 }, sp: { mouse: 1 } },
   ] },
   { zh: '远处传来同伴的尖叫——危险！你？', opts: [
-    { zh: '冲过去看能不能帮忙', p: { brave: 2, altru: 2 }, sp: { badger: 1, deer: 1 } },
+    { zh: '冲过去看能不能帮忙', p: { brave: 2, altru: 2 }, sp: { badger: 1, deer: 1, wolf: 1 } },
     { zh: '第一时间撒腿就跑', a: { agi: 2 }, p: { brave: -1 }, i: { flee: 2 }, sp: { rabbit: 1, deer: 1 }, trait: '飞毛腿' },
     { zh: '原地僵住、压低身子', p: { curious: -1 }, i: { stealth: 1 }, sp: { mouse: 1, hedgehog: 1 } },
     { zh: '趁乱看有没有好处可捞', a: { wit: 1 }, p: { altru: -1, wild: 1 }, sp: { crow: 1, fox: 1 } },
@@ -69,7 +69,7 @@ export const QUESTIONS: Q[] = [
     { zh: '帮它包扎，也许能交个朋友', a: { cha: 1 }, p: { altru: 2 }, i: { social: 1 }, sp: { deer: 1 } },
   ] },
   { zh: '别的动物嘲笑、欺负你，你？', opts: [
-    { zh: '龇牙低吼，绝不退让', a: { str: 1 }, p: { fierce: 1, brave: 1 }, sp: { badger: 1, weasel: 1 } },
+    { zh: '龇牙低吼，绝不退让', a: { str: 1 }, p: { fierce: 1, brave: 1 }, sp: { badger: 1, weasel: 1, wolf: 2 } },
     { zh: '忍气吞声，走开就是', p: { brave: -1, fierce: -1 }, i: { flee: 1 }, sp: { mouse: 1, rabbit: 1 } },
     { zh: '用机灵话把它说得没脾气', a: { wit: 2, cha: 1 }, i: { social: 1 }, sp: { fox: 1, crow: 1 } },
     { zh: '缩成一团护住自己', p: { curious: -1 }, i: { flee: 1 }, sp: { hedgehog: 1 }, trait: '尖刺' },
@@ -105,7 +105,7 @@ export const QUESTIONS: Q[] = [
     { zh: '暗中观察谁最有用', a: { wit: 2 }, p: { altru: -1 }, i: { stealth: 1 }, sp: { crow: 1, fox: 1 } },
   ] },
   { zh: '危险逼近的一瞬，你的身体先做什么？', opts: [
-    { zh: '绷紧、迎上去', a: { str: 1 }, p: { brave: 2, fierce: 1 }, sp: { badger: 1, weasel: 1 } },
+    { zh: '绷紧、迎上去', a: { str: 1 }, p: { brave: 2, fierce: 1 }, sp: { badger: 1, weasel: 1, wolf: 2 } },
     { zh: '瞬间弹射逃开', a: { agi: 2 }, i: { flee: 2 }, sp: { rabbit: 1, deer: 1 }, trait: '飞毛腿' },
     { zh: '一动不动、融进环境', a: { sen: 1 }, i: { stealth: 2 }, sp: { mouse: 1, hedgehog: 1 } },
     { zh: '莫名一个闪躲惊险避过', a: { luck: 2, agi: 1 }, sp: { squirrel: 1 }, trait: '好运' },
@@ -135,7 +135,7 @@ export const QUESTIONS: Q[] = [
     { zh: '设个法子让它自食其果', a: { wit: 2 }, p: { altru: -1, wild: 1 }, sp: { fox: 1, crow: 1 } },
   ] },
   { zh: '你梦里最常出现的画面？', opts: [
-    { zh: '一场酣畅淋漓的追猎', a: { str: 1 }, p: { fierce: 1 }, i: { hunt: 2 }, meat: 1, sp: { fox: 1, owl: 1 } },
+    { zh: '一场酣畅淋漓的追猎', a: { str: 1 }, p: { fierce: 1 }, i: { hunt: 2 }, meat: 1, sp: { fox: 1, owl: 1, wolf: 2 } },
     { zh: '吃不完的青草和阳光', p: { fierce: -1, calm: 1 }, i: { forage: 1 }, grass: 1, sp: { rabbit: 1, deer: 1 } },
     { zh: '一大家子热热闹闹', p: { social: 2, altru: 1 }, sp: { rabbit: 1, deer: 1 } },
     { zh: '飞起来俯瞰整片草原', a: { wit: 1 }, p: { curious: 1 }, sp: { crow: 1, owl: 1 }, trait: '翅膀' },
@@ -147,10 +147,10 @@ export const QUESTIONS: Q[] = [
     { zh: '等别人上去，再想办法', a: { wit: 1 }, p: { altru: -1 }, sp: { crow: 1, fox: 1 } },
   ] },
   { zh: '如果你早晚会被吃掉或老死，你想怎样活这一生？', opts: [
-    { zh: '做最强的猎手，让谁都怕我', a: { str: 1 }, p: { fierce: 2, brave: 1 }, i: { hunt: 1 }, meat: 2, sp: { fox: 1, weasel: 1, owl: 1 } },
+    { zh: '做最强的猎手，让谁都怕我', a: { str: 1 }, p: { fierce: 2, brave: 1 }, i: { hunt: 1 }, meat: 2, sp: { fox: 1, weasel: 1, owl: 1, wolf: 2 } },
     { zh: '平平安安，看儿孙满草原', p: { fierce: -1, altru: 1, social: 1 }, i: { build: 1 }, grass: 1, sp: { rabbit: 1, deer: 1 }, trait: '多子' },
     { zh: '走遍每个角落，看尽奇景', p: { curious: 2, wild: 1 }, sp: { crow: 1, squirrel: 1 } },
-    { zh: '守护好我在乎的人', p: { altru: 2, brave: 1, wild: -1 }, sp: { badger: 1, deer: 1 } },
+    { zh: '守护好我在乎的人', p: { altru: 2, brave: 1, wild: -1 }, sp: { badger: 1, deer: 1, wolf: 1 } },
   ] },
 ];
 

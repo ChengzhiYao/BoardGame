@@ -34,7 +34,7 @@ export const SPECIES: Species[] = [
   { key: 'owl', zh: '鸮', en: 'Owl', emoji: '🦉', diet: 'carnivore', rarity: 3, attr: { sen: 7, str: 4 }, inst: { hunt: 4 }, innate: ['翅膀', '夜视'], variants: ['仓鸮', '雕鸮', '小鸮'] },
   { key: 'hawk', zh: '鹰', en: 'Hawk', emoji: '🦅', diet: 'carnivore', rarity: 3, attr: { sen: 6, agi: 5, str: 4 }, inst: { hunt: 4, stealth: 1 }, innate: ['翅膀'], variants: ['苍鹰', '雀鹰', '红隼'] },
   { key: 'snake', zh: '蛇', en: 'Snake', emoji: '🐍', diet: 'carnivore', rarity: 2, attr: { agi: 4, sen: 5, str: 2 }, inst: { hunt: 3, stealth: 4 }, innate: ['毒牙'], variants: ['草蛇', '蝮蛇', '乌梢蛇'] },
-  { key: 'wolf', zh: '狼', en: 'Wolf', emoji: '🐺', diet: 'carnivore', rarity: 2, attr: { str: 7, agi: 5, vit: 5, sen: 4 }, inst: { hunt: 5, social: 3 }, innate: ['群猎'], variants: ['灰狼', '草原狼', '黑狼'] },
+  { key: 'wolf', zh: '狼', en: 'Wolf', emoji: '🐺', diet: 'carnivore', rarity: 6, attr: { str: 7, agi: 5, vit: 5, sen: 4 }, inst: { hunt: 5, social: 3 }, innate: ['群猎'], variants: ['灰狼', '草原狼', '黑狼'] },
   { key: 'lion', zh: '狮', en: 'Lion', emoji: '🦁', diet: 'carnivore', rarity: 1, attr: { str: 12, vit: 10, cha: 5, agi: 3 }, inst: { hunt: 5, social: 2 }, innate: ['百兽之王'], variants: ['草原狮', '黑鬃狮'] },
   { key: 'tiger', zh: '虎', en: 'Tiger', emoji: '🐅', diet: 'carnivore', rarity: 1, attr: { str: 12, agi: 8, vit: 8, sen: 5 }, inst: { hunt: 6, stealth: 4 }, innate: ['独行霸主'], variants: ['孟虎', '雪虎'] },
 ];

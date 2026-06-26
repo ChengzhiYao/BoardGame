@@ -80,10 +80,10 @@ export default function MeadowPage() {
       setResult(d.result); setReveal(d.reveal || ''); setSpecies(d.species); setView('result');
     } catch (e: any) { setErr(e.message); setView('test'); }
   }
-  async function act(kind: string) {
+  async function act(kind: string, target?: string) {
     setNetBusy(true); setErr('');
     try {
-      const res = await fetch('/api/meadow/act', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind }) });
+      const res = await fetch('/api/meadow/act', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind, target }) });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || '出错了');
       await loadState();
@@ -135,7 +135,7 @@ export default function MeadowPage() {
             <span className="text-5xl">{c.emoji}</span>
             <div className="text-left">
               <div className="font-serif text-xl text-parchment">一只 {c.speciesZh}</div>
-              <div className="text-xs text-eldritch">{c.diet ? DIET_ZH[c.diet as Diet] : ''} · {c.locationZh}</div>
+              <div className="text-xs text-eldritch">{c.diet ? DIET_ZH[c.diet as Diet] : ''} · {c.locationZh} · <span className="text-parchment/45">此处{c.danger}</span></div>
             </div>
             <div className="ml-auto text-right text-xs text-parchment/50">{clk.label}</div>
           </div>
@@ -153,14 +153,28 @@ export default function MeadowPage() {
             <div className="text-xs text-parchment/40 mt-1">（关掉页面也在继续，回来时自动结算）</div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            {ACTS.map((a) => (
-              <button key={a.kind} onClick={() => act(a.kind)} disabled={netBusy}
-                className="rounded-xl border border-eldritch/30 bg-fog hover:bg-eldritch/15 hover:border-eldritch p-3 text-center disabled:opacity-50 transition">
-                <div className="text-parchment font-serif">{a.zh}</div>
-                <div className="text-[11px] text-parchment/45 mt-0.5">{a.desc}</div>
-              </button>
-            ))}
+          <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {ACTS.map((a) => (
+                <button key={a.kind} onClick={() => act(a.kind)} disabled={netBusy}
+                  className="rounded-xl border border-eldritch/30 bg-fog hover:bg-eldritch/15 hover:border-eldritch p-3 text-center disabled:opacity-50 transition">
+                  <div className="text-parchment font-serif">{a.zh}</div>
+                  <div className="text-[11px] text-parchment/45 mt-0.5">{a.desc}</div>
+                </button>
+              ))}
+            </div>
+            <div>
+              <div className="text-xs text-parchment/40 mb-1.5">迁徙到别处（约 2 分钟，途中可能遇袭）</div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {(world?.locations || []).filter((l: any) => l.key !== c.location).map((l: any) => (
+                  <button key={l.key} onClick={() => act('move', l.key)} disabled={netBusy}
+                    className="rounded-lg border border-eldritch/25 bg-fog/60 hover:border-eldritch p-2 text-center disabled:opacity-50">
+                    <div className="text-parchment/85 text-sm">{l.zh}</div>
+                    <div className="text-[10px] text-parchment/40">{l.danger}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 

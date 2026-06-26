@@ -45,7 +45,7 @@ export async function GET() {
   const lc = locOf(location);
   return NextResponse.json({
     character: {
-      id: ch.id, species: ch.species, diet: ch.diet, attributes: ch.attributes, instincts: ch.instincts,
+      id: ch.id, species: ch.species, gender: ch.gender, variant: ch.variant, diet: ch.diet, attributes: ch.attributes, instincts: ch.instincts,
       traits: ch.traits, hunger: Math.round(hunger), location, locationZh: locZh(location), danger: dangerLabel(lc.exposure),
       status, death_cause: death, busy_until: busy, current_action: current,
       emoji: sp?.emoji, speciesZh: sp?.zh,

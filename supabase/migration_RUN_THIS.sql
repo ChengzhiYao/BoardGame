@@ -572,3 +572,7 @@ drop policy if exists meadow_events_self on meadow_events;
 create policy meadow_events_self on meadow_events for select using (
   exists(select 1 from meadow_characters c where c.id = character_id and (c.user_id = auth.uid() or is_admin()))
 );
+
+-- 童话草原：动物亚种与性别（可重复执行）
+alter table meadow_characters add column if not exists gender  text;
+alter table meadow_characters add column if not exists variant text;

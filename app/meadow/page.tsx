@@ -100,7 +100,7 @@ export default function MeadowPage() {
     return shell(
       <div className="w-full max-w-xl rounded-2xl border border-eldritch/30 bg-fog/40 p-7 flex flex-col items-center gap-4 text-center">
         <div className="text-7xl">{sp.emoji}</div>
-        <div className="font-serif text-2xl text-parchment">你醒来，成为一只 {sp.zh}</div>
+        <div className="font-serif text-2xl text-parchment">你醒来，成为一只 {result?.variant || sp.zh}（{result?.gender === 'male' ? '公' : '母'}）</div>
         <div className="text-xs tracking-widest uppercase text-eldritch">{result ? DIET_ZH[result.diet as Diet] : ''}</div>
         <p className="text-parchment/80 leading-relaxed whitespace-pre-line text-sm">{reveal || '草原的风掀起书页，你睁开了眼睛。'}</p>
         {result?.traits?.length ? <div className="flex flex-wrap gap-2 justify-center">{result.traits.map((tn: string) => <span key={tn} className="px-3 py-1 rounded-full bg-eldritch/25 border border-eldritch/40 text-parchment/80 text-xs">{tn}</span>)}</div> : null}
@@ -115,7 +115,7 @@ export default function MeadowPage() {
     return shell(
       <div className="w-full max-w-md rounded-2xl border border-blood/40 bg-fog/40 p-7 flex flex-col items-center gap-4 text-center">
         <div className="text-6xl grayscale">{c.emoji || '🥀'}</div>
-        <div className="font-serif text-2xl text-parchment">这一只 {c.speciesZh || '动物'} 死了</div>
+        <div className="font-serif text-2xl text-parchment">这一只 {c.variant || c.speciesZh || '动物'} 死了</div>
         <div className="text-parchment/60 text-sm">死因：{c.death_cause || '未知'}</div>
         <p className="text-parchment/55 text-sm">草原合上了这一页。但故事还没结束——命运会再翻开新的一页。</p>
         <button onClick={startTest} className="px-8 py-3 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood">开始新的一生</button>
@@ -134,7 +134,7 @@ export default function MeadowPage() {
           <div className="flex items-center gap-3">
             <span className="text-5xl">{c.emoji}</span>
             <div className="text-left">
-              <div className="font-serif text-xl text-parchment">一只 {c.speciesZh}</div>
+              <div className="font-serif text-xl text-parchment">一只 {c.variant || c.speciesZh}（{c.gender === 'male' ? '公' : '母'}）</div>
               <div className="text-xs text-eldritch">{c.diet ? DIET_ZH[c.diet as Diet] : ''} · {c.locationZh} · <span className="text-parchment/45">此处{c.danger}</span></div>
             </div>
             <div className="ml-auto text-right text-xs text-parchment/50">{clk.label}</div>

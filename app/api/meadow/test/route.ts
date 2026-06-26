@@ -34,13 +34,13 @@ export async function POST(req: Request) {
 
   const sp = SP_BY_KEY[result.speciesKey];
   const { data: ch, error } = await admin.from('meadow_characters').insert({
-    user_id: user.id, species: result.speciesKey, diet: result.diet,
+    user_id: user.id, species: result.speciesKey, diet: result.diet, gender: result.gender, variant: result.variant,
     attributes: result.attributes, instincts: result.instincts, personality: result.personality,
     traits: result.traits, hunger: 0, location: 'meadow', status: 'alive',
   }).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  await admin.from('meadow_events').insert({ character_id: ch.id, game_label: gameClock().label, kind: 'birth', text: `一只${sp.zh}睁开了眼睛，来到了草原。` });
+  await admin.from('meadow_events').insert({ character_id: ch.id, game_label: gameClock().label, kind: 'birth', text: `一只${result.variant}（${result.gender === 'male' ? '公' : '母'}）睁开了眼睛，来到了草原。` });
 
   return NextResponse.json({ ok: true, result, reveal, species: { key: sp.key, zh: sp.zh, en: sp.en, emoji: sp.emoji, diet: sp.diet } });
 }

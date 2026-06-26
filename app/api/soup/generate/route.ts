@@ -11,7 +11,7 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: '未登录' }, { status: 401 });
 
-  const { roomId, difficulty, supernatural, gore, tone } = await req.json().catch(() => ({} as any));
+  const { roomId, difficulty, supernatural, tone, gore, horror, edge } = await req.json().catch(() => ({} as any));
   if (!roomId) return NextResponse.json({ error: '缺少 roomId' }, { status: 400 });
 
   const admin = createAdminClient();
@@ -25,7 +25,7 @@ export async function POST(req: Request) {
   await admin.from('rooms').update({ modules_generating: true }).eq('id', roomId);
   try {
     const { data, usage } = await callLLMJson<any>({
-      system: buildSoupGenPrompt({ difficulty, supernatural, gore, tone }),
+      system: buildSoupGenPrompt({ difficulty, supernatural, tone, gore, horror, edge }),
       messages: [{ role: 'user', content: '请出一道原创海龟汤。' }],
       tier: 'main', temperature: 0.8, maxTokens: 1200,
     });

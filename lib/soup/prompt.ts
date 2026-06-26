@@ -3,8 +3,14 @@
 export interface SoupGenOptions {
   difficulty?: string;   // 普通 / 困难 / 地狱
   supernatural?: string; // any 不限 / allow 灵异 / real 纯现实
-  gore?: string;         // any 不限 / gore 可血腥 / none 不血腥
   tone?: string;         // any 不限 / 悬疑 / 惊悚 / 温情 / 黑色幽默 / 搞笑
+  gore?: number;         // 0-100 血腥程度
+  horror?: number;       // 0-100 恐怖程度
+  edge?: number;         // 0-100 尺度（暗黑 / 成人向）
+}
+
+function bucket(v: number, arr: string[]): string {
+  return arr[Math.min(arr.length - 1, Math.max(0, Math.round((v / 100) * (arr.length - 1))))];
 }
 
 // 生成一道海龟汤：汤面（玩家可见的诡异情境）+ 汤底（隐藏真相）。
@@ -17,9 +23,27 @@ export function buildSoupGenPrompt(opts?: SoupGenOptions | string) {
   const set: string[] = [];
   if (o.supernatural === 'real') set.push('- 题材：**纯现实**。汤底必须用合乎常理的现实逻辑解释，不得出现鬼怪、灵异、超自然或科幻设定。');
   else if (allowSuper) set.push('- 题材：**可含灵异 / 超自然**。汤底可以有鬼魂、诅咒、轮回等元素，但它的“规则”仍要自洽、能被是非题一步步推理出来，不能随意开挂。');
-  if (o.gore === 'gore') set.push('- 尺度：**可偏血腥 / 惊悚**，允许凶案、尸体、恐怖的具体描写（但不堆砌无意义的猎奇）。');
-  else if (o.gore === 'none') set.push('- 尺度：**不血腥**。避免血腥、残忍、恐怖的具体描写，保持平和，走悬疑 / 温情 / 巧思路线。');
+
+  if (typeof o.gore === 'number') {
+    const t = bucket(o.gore, ['完全不血腥', '轻微', '中等', '较重', '极重']);
+    const hint = o.gore <= 15 ? '避免任何血腥、残忍、恐怖伤口的描写。' : o.gore >= 67 ? '允许尸体、凶案、伤口等具体而克制的描写（不堆砌无意义猎奇）。' : '可有适度、点到为止的相关描写。';
+    set.push(`- 血腥程度：**${t}**（${o.gore}/100）。${hint}`);
+  }
+  if (typeof o.horror === 'number') {
+    const t = bucket(o.horror, ['不吓人', '微悬', '惊悚', '恐怖', '极致惊吓']);
+    const hint = o.horror <= 15 ? '气氛平和，不以吓人为目的。' : o.horror >= 67 ? '着力营造恐怖、压抑、令人不安的氛围。' : '带一点悬疑紧张感。';
+    set.push(`- 恐怖程度：**${t}**（${o.horror}/100）。${hint}`);
+  }
+  if (typeof o.edge === 'number') {
+    const t = bucket(o.edge, ['轻松', '日常', '偏暗', '黑暗', '致郁极端']);
+    const hint = o.edge <= 15 ? '主题轻松、温和、适合所有人。' : o.edge >= 67 ? '可触及死亡、犯罪、背叛、心理创伤、人性阴暗等沉重、成人向的主题。' : '可有一定的沉重与现实阴影。';
+    set.push(`- 尺度（暗黑 / 成人向）：**${t}**（${o.edge}/100）。${hint}`);
+  }
   if (o.tone && o.tone !== 'any') set.push(`- 基调：**${o.tone}**，整体气质贴合它。`);
+
+  const heavy = (o.gore ?? 0) >= 50 || (o.edge ?? 0) >= 34 || (o.horror ?? 0) >= 67;
+  if (heavy) set.push('- 安全底线：无论尺度高低，都**不得**出现涉及未成年人的不当内容、露骨色情、对真实群体的仇恨，或对自杀 / 自残的美化与教唆。');
+
   const settingBlock = set.length ? `\n【本局设置 · 务必满足】\n${set.join('\n')}\n` : '';
   const realismLine = allowSuper
     ? '- 即便含灵异设定，其规则也要**自洽、可被推理**；不靠纯巧合堆砌、不靠读者脑补冷知识。'
@@ -42,7 +66,7 @@ ${realismLine}
 【出题后务必自检，任一不过就重写】
 1. 一个**没看过题**的普通人，读完汤底能否**完全看懂、不犯迷糊**？
 2. 因果是否**前后一致、没有矛盾**？汤面每个反常点都被汤底解释了吗？
-3. 反转是不是**只有一个、且干净利落**？有没有不必要的身份套娃？是否满足上面的【本局设置】？
+3. 反转是不是**只有一个、且干净利落**？是否满足上面的【本局设置】？
 
 只输出 JSON：
 { "title": "谜题标题", "surface": "汤面", "bottom": "汤底（清楚大白话·逻辑闭环·普通人能秒懂）", "difficulty": "${difficulty}" }`;

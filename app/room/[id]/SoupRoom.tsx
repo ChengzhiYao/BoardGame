@@ -16,8 +16,10 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
   const [surfaceOpen, setSurfaceOpen] = useState(true);
   const [difficulty, setDifficulty] = useState('普通');
   const [supernatural, setSupernatural] = useState('any');
-  const [gore, setGore] = useState('any');
   const [tone, setTone] = useState('any');
+  const [gore, setGore] = useState(0);
+  const [horror, setHorror] = useState(0);
+  const [edge, setEdge] = useState(40);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const en = props.room.language === 'en';
@@ -72,7 +74,7 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
     finally { setBusy(false); }
   }
 
-  async function start() { await call('/api/soup/generate', { roomId: props.room.id, difficulty, supernatural, gore, tone }); }
+  async function start() { await call('/api/soup/generate', { roomId: props.room.id, difficulty, supernatural, tone, gore, horror, edge }); }
   async function ask() { const q = text.trim(); if (!q) return; setText(''); await call('/api/soup/ask', { roomId: props.room.id, question: q }); }
   async function submitGuess() { const g = guess.trim(); if (!g) return; setGuess(''); setGuessing(false); await call('/api/soup/guess', { roomId: props.room.id, guess: g }); }
   async function reveal() { if (!confirm('确定要看汤底吗？看了这局就结束了。')) return; await call('/api/soup/reveal', { roomId: props.room.id }); }
@@ -93,7 +95,9 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
           <div className="text-sm text-parchment/70">出题设置</div>
           <SoupOptRow label="难度" value={difficulty} set={setDifficulty} opts={[['普通', '普通'], ['困难', '困难'], ['地狱', '地狱']]} />
           <SoupOptRow label="灵异" value={supernatural} set={setSupernatural} opts={[['any', '不限'], ['allow', '可灵异'], ['real', '纯现实']]} />
-          <SoupOptRow label="血腥" value={gore} set={setGore} opts={[['any', '不限'], ['gore', '可血腥'], ['none', '不血腥']]} />
+          <SoupSlider label="血腥" value={gore} set={setGore} levels={['不血腥', '轻微', '中等', '较重', '极重']} />
+          <SoupSlider label="恐怖" value={horror} set={setHorror} levels={['不吓人', '微悬', '惊悚', '恐怖', '极致']} />
+          <SoupSlider label="尺度 · 暗黑/成人向" value={edge} set={setEdge} levels={['轻松', '日常', '偏暗', '黑暗', '致郁']} />
           <SoupOptRow label="基调" value={tone} set={setTone} opts={[['any', '不限'], ['悬疑', '悬疑'], ['惊悚', '惊悚'], ['温情', '温情'], ['黑色幽默', '黑色幽默'], ['搞笑', '搞笑']]} />
         </div>
         <button onClick={start} disabled={busy || generating}
@@ -185,6 +189,20 @@ function SoupMsg({ m, mine, who }: { m: any; mine: boolean; who: string }) {
     <div className="flex flex-col items-end">
       <span className="text-xs text-parchment/40 mb-1">{who}{mine ? '（你）' : ''}</span>
       <div className="max-w-[80%] px-4 py-2 rounded-lg bg-blood/25 border border-blood/40 text-parchment/90">{m.content}</div>
+    </div>
+  );
+}
+
+function SoupSlider({ label, value, set, levels }: { label: string; value: number; set: (v: number) => void; levels: string[] }) {
+  const idx = Math.min(levels.length - 1, Math.max(0, Math.round((value / 100) * (levels.length - 1))));
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-xs text-parchment/50">{label}</span>
+        <span className="text-xs text-eldritch">{levels[idx]}</span>
+      </div>
+      <input type="range" min={0} max={100} step={5} value={value} onChange={(e) => set(Number(e.target.value))}
+        className="w-full accent-[#3f7d70] cursor-pointer" />
     </div>
   );
 }

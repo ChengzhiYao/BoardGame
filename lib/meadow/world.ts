@@ -85,3 +85,13 @@ export function resolveAction(char: any, kind: ActionKind, ctx: Ctx, rng: () => 
   if (pr.event) events.push(pr.event);
   return { hungerDelta, events, death: pr.death };
 }
+
+// 玩家不在时的自动行为策略（按性格 + 饥饿，纯确定性）。
+export function autoPolicy(char: any, hunger: number): ActionKind {
+  const diet = char?.diet; const p = char?.personality || {};
+  if (hunger >= 55) return diet === 'carnivore' ? 'hunt' : 'forage';
+  const aggressive = (p.fierce || 0) + (p.brave || 0);
+  if (aggressive >= 3 && diet !== 'herbivore') return 'hunt';
+  if ((p.calm || 0) - Math.max(0, p.curious || 0) >= 1) return 'rest';
+  return 'forage';
+}

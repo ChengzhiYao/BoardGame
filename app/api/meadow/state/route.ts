@@ -1,9 +1,12 @@
-// 童话草原 · 读取世界状态：惰性结算行动（含季节/被捕食/迁徙）+ 推进饥饿 + 判定死亡。
+// 童话草原 · 读取世界状态：玩家不在时按性格自动行动若干次（确定性回放）+ 饥饿/死亡。
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { gameClock, advanceHunger, clamp01 } from '@/lib/meadow/time';
-import { resolveAction, locZh, locOf, dangerLabel, LOCATIONS } from '@/lib/meadow/world';
+import { resolveAction, autoPolicy, locZh, locOf, dangerLabel, LOCATIONS } from '@/lib/meadow/world';
 import { SP_BY_KEY } from '@/lib/meadow/data';
+
+const AWAY_TICK_MS = 25 * 60 * 1000;
+const MAX_TICKS = 8;
 
 export async function GET() {
   const supabase = createServerClient();
@@ -14,43 +17,51 @@ export async function GET() {
   if (!ch) return NextResponse.json({ character: null });
 
   const now = Date.now();
-  let hunger = advanceHunger(ch.hunger, now - new Date(ch.hunger_updated_at).getTime());
-  let current = ch.current_action;
-  let busy = ch.busy_until;
-  let status = ch.status; let death = ch.death_cause;
-  let location = ch.location;
+  const since = now - new Date(ch.hunger_updated_at).getTime();
+  let hunger = ch.hunger; let status = ch.status; let death = ch.death_cause; let location = ch.location;
   const newEvents: any[] = [];
+  const clkNow = gameClock(now);
 
-  if (current && current.ends_at && now >= new Date(current.ends_at).getTime()) {
-    const clk = gameClock(now);
-    const res = resolveAction(ch, current.kind, { location: ch.location, season: clk.season, night: clk.night, target: current.target });
-    hunger = clamp01(hunger + res.hungerDelta);
-    if (res.moveTo && LOCATIONS.find((l) => l.key === res.moveTo)) location = res.moveTo;
-    for (const t of res.events) newEvents.push({ character_id: ch.id, game_label: clk.label, kind: current.kind, text: t });
-    if (res.death) { status = 'dead'; death = res.death; }
-    current = null; busy = null;
+  if (status === 'alive' && since >= AWAY_TICK_MS) {
+    const ticks = Math.min(MAX_TICKS, Math.floor(since / AWAY_TICK_MS));
+    const recap: string[] = [];
+    for (let i = 0; i < ticks; i++) {
+      hunger = clamp01(advanceHunger(hunger, AWAY_TICK_MS));
+      const kind = autoPolicy({ ...ch, location }, hunger);
+      const res = resolveAction({ ...ch, location }, kind, { location, season: clkNow.season, night: clkNow.night });
+      hunger = clamp01(hunger + res.hungerDelta);
+      if (res.moveTo && LOCATIONS.find((l) => l.key === res.moveTo)) location = res.moveTo;
+      if (res.events[0]) recap.push(res.events[0]);
+      if (res.death) { status = 'dead'; death = res.death; break; }
+      if (hunger >= 100) { status = 'dead'; death = '饿死'; break; }
+    }
+    const who = SP_BY_KEY[ch.species]?.zh || '动物';
+    newEvents.push({ character_id: ch.id, game_label: clkNow.label, kind: 'auto', text: `（你不在时，这只${who}凭着自己的性子过活：${recap.filter(Boolean).slice(-3).join('；') || '安然度过了一段时光'}。）` });
+    if (status === 'dead') newEvents.push({ character_id: ch.id, game_label: clkNow.label, kind: 'death', text: `——${death}。你回来时，它已不在了。` });
+  } else {
+    hunger = clamp01(advanceHunger(hunger, since));
+    if (hunger >= 100 && status === 'alive') {
+      status = 'dead'; death = '饿死';
+      newEvents.push({ character_id: ch.id, game_label: clkNow.label, kind: 'death', text: '你饿得再也撑不住了，倒在草丛里——这一世，到此为止。' });
+    }
   }
-  if (hunger >= 100 && status === 'alive') {
-    status = 'dead'; death = '饿死';
-    newEvents.push({ character_id: ch.id, game_label: gameClock(now).label, kind: 'death', text: '你再也撑不住了，倒在草丛里——这一世，到此为止。' });
-  }
+
   if (newEvents.length) await admin.from('meadow_events').insert(newEvents);
   await admin.from('meadow_characters').update({
     hunger: Math.round(hunger), hunger_updated_at: new Date(now).toISOString(),
-    current_action: current, busy_until: busy, status, death_cause: death, location,
+    location, status, death_cause: death, busy_until: null, current_action: null,
   }).eq('id', ch.id);
 
-  const { data: events } = await admin.from('meadow_events').select('*').eq('character_id', ch.id).order('created_at', { ascending: false }).limit(20);
-  const sp = SP_BY_KEY[ch.species];
-  const lc = locOf(location);
+  const { data: events } = await admin.from('meadow_events').select('*').eq('character_id', ch.id).order('created_at', { ascending: false }).limit(30);
+  const sp = SP_BY_KEY[ch.species]; const lc = locOf(location);
   return NextResponse.json({
     character: {
-      id: ch.id, species: ch.species, gender: ch.gender, variant: ch.variant, diet: ch.diet, attributes: ch.attributes, instincts: ch.instincts,
-      traits: ch.traits, hunger: Math.round(hunger), location, locationZh: locZh(location), danger: dangerLabel(lc.exposure),
-      status, death_cause: death, busy_until: busy, current_action: current,
-      emoji: sp?.emoji, speciesZh: sp?.zh,
+      id: ch.id, species: ch.species, gender: ch.gender, variant: ch.variant, diet: ch.diet,
+      attributes: ch.attributes, instincts: ch.instincts, traits: ch.traits,
+      hunger: Math.round(hunger), location, locationZh: locZh(location), danger: dangerLabel(lc.exposure),
+      status, death_cause: death, emoji: sp?.emoji, speciesZh: sp?.zh,
     },
-    clock: gameClock(now),
+    clock: clkNow,
     locations: LOCATIONS.map((l) => ({ key: l.key, zh: l.zh, danger: dangerLabel(l.exposure) })),
     events: events || [],
   });

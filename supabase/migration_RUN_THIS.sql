@@ -576,3 +576,10 @@ create policy meadow_events_self on meadow_events for select using (
 -- 童话草原：动物亚种与性别（可重复执行）
 alter table meadow_characters add column if not exists gender  text;
 alter table meadow_characters add column if not exists variant text;
+
+-- 童话草原：繁衍与血脉传承（幼崽为 NPC，死后可继承）
+alter table meadow_characters alter column user_id drop not null;
+alter table meadow_characters add column if not exists is_npc     boolean not null default false;
+alter table meadow_characters add column if not exists parent_id  uuid references meadow_characters(id) on delete set null;
+alter table meadow_characters add column if not exists lineage_id uuid;
+alter table meadow_characters add column if not exists generation int not null default 1;

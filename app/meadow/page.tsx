@@ -38,8 +38,8 @@ export default function MeadowPage() {
       try {
         const d = await loadState();
         if (cancelled) return;
-        if (d.character && d.character.status === 'dead') setView('dead');
-        else if (d.character) setView('world');
+        if (d.character) setView('world');
+        else if (d.dead_character) setView('dead');
         else setView('test');
       } catch { if (!cancelled) setView('test'); }
     })();
@@ -78,6 +78,22 @@ export default function MeadowPage() {
     finally { setSending(false); }
   }
   async function enterWorld() { await loadState(); setView('world'); }
+  async function inherit(id: string) {
+    setSending(true); setErr('');
+    try {
+      const res = await fetch('/api/meadow/inherit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ heir_id: id }) });
+      const d = await res.json(); if (!res.ok) throw new Error(d.error || '出错了');
+      await loadState(); setView('world');
+    } catch (e: any) { setErr(e.message); } finally { setSending(false); }
+  }
+  async function breed() {
+    setSending(true); setErr('');
+    try {
+      const res = await fetch('/api/meadow/breed', { method: 'POST' });
+      const d = await res.json(); if (!res.ok) throw new Error(d.error || '出错了');
+      await loadState();
+    } catch (e: any) { setErr(e.message); } finally { setSending(false); }
+  }
 
   if (view === 'loading') return shell(<div className="flex flex-col items-center gap-4"><div className="text-5xl animate-pulse">🌙</div><p className="text-parchment/70 font-serif">草原的风掀起书页……</p></div>);
 
@@ -108,14 +124,31 @@ export default function MeadowPage() {
   }
 
   if (view === 'dead') {
-    const c = world?.character || {};
+    const dc = world?.dead_character || world?.character || {};
+    const heirs = world?.heirs || [];
     return shell(
       <div className="w-full max-w-md rounded-2xl border border-blood/40 bg-fog/40 p-7 flex flex-col items-center gap-4 text-center">
-        <div className="text-6xl grayscale">{c.emoji || '🥀'}</div>
-        <div className="font-serif text-2xl text-parchment">这一只 {c.variant || c.speciesZh || '动物'} 死了</div>
-        <div className="text-parchment/60 text-sm">死因：{c.death_cause || '未知'}</div>
-        <p className="text-parchment/55 text-sm">草原合上了这一页。但故事还没结束——命运会再翻开新的一页。</p>
-        <button onClick={startTest} className="px-8 py-3 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood">开始新的一生</button>
+        <div className="text-6xl grayscale">{dc.emoji || '🥀'}</div>
+        <div className="font-serif text-2xl text-parchment">这一只 {dc.variant || dc.speciesZh || '动物'} 死了</div>
+        <div className="text-parchment/60 text-sm">死因：{dc.death_cause || '未知'}</div>
+        {heirs.length ? (
+          <div className="w-full flex flex-col gap-2">
+            <p className="text-parchment/60 text-sm">但你的血脉还在。继承一只幼崽，延续这一族：</p>
+            {heirs.map((h: any) => (
+              <button key={h.id} onClick={() => inherit(h.id)} disabled={sending}
+                className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-fog border border-eldritch/30 hover:border-eldritch text-left disabled:opacity-50">
+                <span className="text-2xl">{h.emoji}</span>
+                <span className="text-parchment/85 text-sm">一只 {h.variant}（{h.gender === 'male' ? '公' : '母'}） · 第 {h.generation} 代</span>
+              </button>
+            ))}
+            <button onClick={startTest} className="text-parchment/40 hover:text-parchment text-sm underline mt-1">或：彻底重来，开始全新的一生</button>
+          </div>
+        ) : (
+          <>
+            <p className="text-parchment/55 text-sm">血脉断绝了。但命运会再翻开新的一页。</p>
+            <button onClick={startTest} className="px-8 py-3 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood">开始新的一生</button>
+          </>
+        )}
         <Link href="/" className="text-parchment/40 hover:text-parchment text-sm underline">← 返回首页</Link>
       </div>
     );
@@ -153,6 +186,7 @@ export default function MeadowPage() {
           <div className="flex flex-wrap gap-2">
             {QUICK.map((q) => <button key={q.zh} onClick={() => act(q.text)} disabled={sending} className="px-3 py-1 rounded-full text-xs border border-eldritch/30 bg-fog text-parchment/70 hover:border-eldritch disabled:opacity-50">{q.zh}</button>)}
             <button onClick={() => setShowMig((v) => !v)} disabled={sending} className="px-3 py-1 rounded-full text-xs border border-eldritch/30 bg-fog text-parchment/70 hover:border-eldritch disabled:opacity-50">迁徙…</button>
+            <button onClick={breed} disabled={sending} className="px-3 py-1 rounded-full text-xs border border-eldritch/30 bg-fog text-parchment/70 hover:border-eldritch disabled:opacity-50">繁衍{world?.character?.offspring ? ' · ' + world.character.offspring : ''}</button>
             <Link href="/" className="px-3 py-1 rounded-full text-xs text-parchment/40 hover:text-parchment self-center">首页</Link>
           </div>
           {showMig && (

@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>MystNight · 3D 氛围场景原型</title>
+<style>
+  * { margin:0; box-sizing:border-box; }
+  html,body { height:100%; overflow:hidden; background:#05060a; font-family:Georgia,'Noto Serif SC',serif; color:#d8c7a8; }
+  #sky { position:fixed; inset:0; z-index:0; transition:background 1.6s ease;
+    background:radial-gradient(130% 100% at 30% 0%, #1c3a33 0%, #0c1a17 38%, #05080a 100%); }
+  #cv { position:fixed; inset:0; z-index:1; width:100%; height:100%; display:block; }
+  #tint { position:fixed; inset:0; z-index:2; pointer-events:none; mix-blend-mode:soft-light; opacity:0; transition:opacity 1.2s, background 1.2s; }
+  #vig { position:fixed; inset:0; z-index:3; pointer-events:none; box-shadow:inset 0 0 240px 70px rgba(0,0,0,.82); }
+  #grain { position:fixed; inset:0; z-index:4; pointer-events:none; opacity:.06;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+  #hint { position:fixed; top:10px; left:0; right:0; z-index:6; text-align:center; font-size:11px; color:#6a7d78; letter-spacing:.12em; }
+  #label { position:fixed; left:0; right:0; top:11vh; z-index:6; text-align:center; pointer-events:none; }
+  #label .t { font-size:clamp(24px,5vw,44px); letter-spacing:.1em; text-shadow:0 2px 40px rgba(0,0,0,.95); transition:.6s; }
+  #label .s { margin-top:.45em; font-size:13px; letter-spacing:.4em; color:#8fb3aa; opacity:.75; }
+  #bar { position:fixed; left:0; right:0; bottom:0; z-index:7; padding:16px 12px calc(16px + env(safe-area-inset-bottom));
+    display:flex; gap:8px; justify-content:center; flex-wrap:wrap; background:linear-gradient(to top, rgba(0,0,0,.75), transparent); }
+  #bar button { font-family:inherit; cursor:pointer; padding:9px 16px; border-radius:999px; font-size:14px; color:#cfe0db;
+    background:rgba(20,30,30,.6); border:1px solid rgba(63,125,112,.45); backdrop-filter:blur(4px); transition:.2s; }
+  #bar button:hover { border-color:#3f7d70; color:#f2ead9; }
+  #bar button.on { background:rgba(125,29,29,.6); border-color:#a83232; color:#f2ead9; }
+  #err { position:fixed; top:40%; left:0; right:0; z-index:6; text-align:center; color:#a83232; font-size:13px; display:none; }
+</style>
+</head>
+<body>
+  <div id="sky"></div>
+  <canvas id="cv"></canvas>
+  <div id="tint"></div>
+  <div id="vig"></div>
+  <div id="grain"></div>
+  <div id="hint">3D 氛围场景原型 · 点下方切换剧情状态，看背景怎么变脸</div>
+  <div id="label"><div class="t" id="lt">荒径 · 雾起</div><div class="s" id="ls">EXPLORATION</div></div>
+  <div id="err"></div>
+  <div id="bar"></div>
+
+<script>
+// ====== 状态预设（CSS 氛围层，先保证一定有效）======
+const STATES = {
+  explore:  { name:'荒径 · 雾起', tag:'EXPLORATION', sky:'radial-gradient(130% 100% at 30% 0%, #1c3a33 0%, #0c1a17 38%, #05080a 100%)', tint:'transparent', tintO:0, fog:0x0c1a17, dens:0.05, glow:[0x3f7d70,1.6], mote:0x9fd8c8, moteSpeed:0.4, shake:0, loom:-16, aura:0, lt:'#d8c7a8' },
+  investigate:{ name:'细察 · 屏息', tag:'INVESTIGATION', sky:'radial-gradient(130% 100% at 50% 4%, #244d44 0%, #0d1c19 42%, #05080a 100%)', tint:'#3f7d70', tintO:.25, fog:0x0d1816, dens:0.045, glow:[0x6fae9f,2.2], mote:0xbfe8d8, moteSpeed:0.3, shake:0, loom:-16, aura:0, lt:'#e7f0ea' },
+  combat:   { name:'交手 · 见血', tag:'COMBAT', sky:'radial-gradient(130% 100% at 50% 6%, #4a1414 0%, #1a0808 42%, #05080a 100%)', tint:'#7d1d1d', tintO:.5, fog:0x1a0a0a, dens:0.05, glow:[0xc23a3a,2.4], mote:0xff8a5a, moteSpeed:1.8, shake:0.07, loom:-16, aura:0.5, lt:'#ffd9c8' },
+  monster:  { name:'它 · 现身', tag:'MONSTER REVEAL', sky:'radial-gradient(130% 110% at 50% 18%, #14181c 0%, #07090c 45%, #000 100%)', tint:'#10141a', tintO:.6, fog:0x080809, dens:0.07, glow:[0x2a3838,1.2], mote:0x7f9a98, moteSpeed:0.7, shake:0.035, loom:-2, aura:1.2, lt:'#c9d6d2' },
+  cosmic:   { name:'不可名状', tag:'COSMIC HORROR', sky:'radial-gradient(150% 120% at 50% 50%, #3a1d5e 0%, #150a30 42%, #000 100%)', tint:'#5a2aa0', tintO:.55, fog:0x0c0820, dens:0.06, glow:[0x8a5cff,2.6], mote:0xc4a8ff, moteSpeed:1.3, shake:0.025, loom:-7, aura:0.9, lt:'#e4d8ff', swirl:true },
+  ending:   { name:'尘埃落定', tag:'ENDING', sky:'radial-gradient(130% 100% at 50% 2%, #3a3c3e 0%, #181a1c 44%, #08090b 100%)', tint:'#d8c7a8', tintO:.22, fog:0x16191b, dens:0.035, glow:[0xd8c7a8,1.6], mote:0xe7d8b6, moteSpeed:0.2, shake:0, loom:-16, aura:0, lt:'#f2ead9' },
+};
+const sky=document.getElementById('sky'), tint=document.getElementById('tint'), lt=document.getElementById('lt'), ls=document.getElementById('ls');
+let cur = STATES.explore;
+const T = { fog:null, dens:cur.dens, glowC:null, glowI:cur.glow[1], moteC:null, moteSpeed:cur.moteSpeed, shake:0, loom:cur.loom, aura:0, swirl:0 };
+
+function applyCSS(){ sky.style.background=cur.sky; tint.style.background=cur.tint; tint.style.opacity=cur.tintO;
+  lt.textContent=cur.name; lt.style.color=cur.lt; ls.textContent=cur.tag; }
+let setState = (k)=>{ cur=STATES[k]; applyCSS();
+  document.querySelectorAll('#bar button').forEach(b=>b.classList.toggle('on', b.dataset.k===k)); };
+
+// 按钮（最先建好，3D 挂了也能用）
+const L={explore:'探索',investigate:'调查',combat:'战斗',monster:'怪物现身',cosmic:'宇宙恐怖',ending:'结局'};
+const bar=document.getElementById('bar');
+Object.keys(L).forEach(k=>{const b=document.createElement('button');b.textContent=L[k];b.dataset.k=k;b.onclick=()=>setState(k);bar.appendChild(b);});
+applyCSS(); document.querySelector('#bar button').classList.add('on');
+</script>
+
+<script src="./three.min.js"></script>
+<script>
+try {
+  if (typeof THREE === 'undefined') throw new Error('Three.js 未能从 CDN 加载（检查网络）');
+  const renderer = new THREE.WebGLRenderer({ canvas:document.getElementById('cv'), antialias:true, alpha:true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setClearColor(0x000000, 0); // 透明，露出 CSS 天空
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 260);
+  camera.position.set(0,2.4,10);
+  scene.fog = new THREE.FogExp2(cur.fog, cur.dens);
+  T.fog=new THREE.Color(cur.fog); T.glowC=new THREE.Color(cur.glow[0]); T.moteC=new THREE.Color(cur.mote);
+
+  scene.add(new THREE.AmbientLight(0x33484a, 0.7));
+  const moonL = new THREE.DirectionalLight(0x8fc4b4, 1.1); moonL.position.set(-6,14,-3); scene.add(moonL);
+  const glow = new THREE.PointLight(cur.glow[0], cur.glow[1], 70); glow.position.set(0,6,-10); scene.add(glow);
+  const aura = new THREE.PointLight(0x7d1d1d, 0, 60); aura.position.set(0,5,-16); scene.add(aura);
+
+  // 地面
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(500,500), new THREE.MeshStandardMaterial({color:0x0a0d0e,roughness:1}));
+  ground.rotation.x=-Math.PI/2; ground.position.y=-0.4; scene.add(ground);
+
+  // 发光的月（加色精灵，明显可见）
+  function glowTex(){const c=document.createElement('canvas');c.width=c.height=256;const g=c.getContext('2d');
+    const r=g.createRadialGradient(128,128,0,128,128,128);r.addColorStop(0,'rgba(230,245,235,1)');r.addColorStop(.18,'rgba(160,210,195,.85)');r.addColorStop(.5,'rgba(80,140,125,.35)');r.addColorStop(1,'rgba(0,0,0,0)');
+    g.fillStyle=r;g.fillRect(0,0,256,256);return new THREE.CanvasTexture(c);}
+  const moonTex=glowTex();
+  const moon=new THREE.Sprite(new THREE.SpriteMaterial({map:moonTex,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,opacity:.95}));
+  moon.scale.set(16,16,1); moon.position.set(-9,11,-46); scene.add(moon);
+
+  // 剪影枯树/立柱
+  const pillars=new THREE.Group(); scene.add(pillars);
+  const pm=new THREE.MeshStandardMaterial({color:0x04060a,roughness:1});
+  for(let i=0;i<60;i++){const h=3+Math.random()*9;
+    const m=new THREE.Mesh(new THREE.CylinderGeometry(0.04+Math.random()*0.16,0.2+Math.random()*0.4,h,6),pm);
+    const a=Math.random()*Math.PI*2,rad=5+Math.random()*55; m.position.set(Math.cos(a)*rad,h/2-0.4,Math.sin(a)*rad-8);
+    m.rotation.z=(Math.random()-0.5)*0.3; pillars.add(m);}
+
+  // 体积雾（一堆大号加色雾片，明显的雾感）
+  const fogTex=glowTex();
+  const fogGrp=new THREE.Group(); scene.add(fogGrp);
+  for(let i=0;i<26;i++){const s=new THREE.Sprite(new THREE.SpriteMaterial({map:fogTex,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,opacity:0.06+Math.random()*0.06,color:cur.mote}));
+    const sc=14+Math.random()*22; s.scale.set(sc,sc*0.6,1); s.position.set((Math.random()-0.5)*70,0.5+Math.random()*5,-4-Math.random()*40); fogGrp.add(s);}
+
+  // 漂浮微尘
+  const N=1100,pos=new Float32Array(N*3); for(let i=0;i<N;i++){pos[i*3]=(Math.random()-0.5)*90;pos[i*3+1]=Math.random()*26;pos[i*3+2]=(Math.random()-0.5)*90-8;}
+  const pg=new THREE.BufferGeometry(); pg.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  const motes=new THREE.Points(pg,new THREE.PointsMaterial({color:cur.mote,size:0.12,transparent:true,opacity:.7,depthWrite:false,blending:THREE.AdditiveBlending}));
+  scene.add(motes);
+
+  // 逼近的黑影
+  const loom=new THREE.Mesh(new THREE.SphereGeometry(7,24,16),new THREE.MeshBasicMaterial({color:0x000000}));
+  loom.position.set(0,-16,-24); scene.add(loom);
+
+  setState = (k)=>{ cur=STATES[k]; applyCSS();
+    T.fog.set(cur.fog); T.dens=cur.dens; T.glowC.set(cur.glow[0]); T.glowI=cur.glow[1];
+    T.moteC.set(cur.mote); T.moteSpeed=cur.moteSpeed; T.shake=cur.shake; T.loom=cur.loom; T.aura=cur.aura; T.swirl=cur.swirl?1:0;
+    document.querySelectorAll('#bar button').forEach(b=>b.classList.toggle('on',b.dataset.k===k)); };
+
+  function resize(){renderer.setSize(innerWidth,innerHeight,false);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();}
+  addEventListener('resize',resize); resize();
+
+  let t=0, swirl=0;
+  function tick(){ requestAnimationFrame(tick); t+=0.016; const a=0.045;
+    scene.fog.color.lerp(T.fog,a); scene.fog.density+=(T.dens-scene.fog.density)*a;
+    glow.color.lerp(T.glowC,a); glow.intensity+=(T.glowI-glow.intensity)*a;
+    aura.intensity+=(T.aura*(0.6+0.4*Math.sin(t*3))-aura.intensity)*0.06;
+    motes.material.color.lerp(T.moteC,a);
+    loom.position.y+=(T.loom-loom.position.y)*0.03;
+    swirl+=(T.swirl-swirl)*0.03;
+    const p=pg.attributes.position.array;
+    for(let i=0;i<N;i++){p[i*3+1]+=T.moteSpeed*0.02; if(p[i*3+1]>26)p[i*3+1]=0; p[i*3]+=Math.sin(t*0.3+i)*0.002*T.moteSpeed*4;}
+    pg.attributes.position.needsUpdate=true;
+    fogGrp.children.forEach((s,i)=>{ s.position.x+=Math.sin(t*0.2+i)*0.004; s.material.color.lerp(T.moteC,a); });
+    pillars.rotation.y=Math.sin(t*0.05)*0.04+swirl*t*0.05;
+    loom.rotation.y+=0.003+swirl*0.02; glow.position.x=Math.sin(t*0.5)*swirl*6;
+    const sh=T.shake*(0.5+0.5*Math.sin(t*40));
+    camera.position.x=Math.sin(t*0.25)*0.6+(Math.random()-0.5)*sh*2.2;
+    camera.position.y=2.4+Math.sin(t*0.4)*0.14+(Math.random()-0.5)*sh*2.2;
+    camera.lookAt(0,2.6+swirl*Math.sin(t)*0.6,-12);
+    renderer.render(scene,camera);
+  }
+  tick();
+} catch(e){
+  const el=document.getElementById('err'); el.style.display='block';
+  el.textContent='3D 层未启动：'+e.message+'（CSS 氛围层仍可用，点下方切换看变化）';
+}
+</script>
+</body>
+</html>

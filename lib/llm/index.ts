@@ -185,23 +185,29 @@ export async function callLLMJson<T = any>(req: LLMRequest): Promise<{ data: T; 
       lastErr = e;
     }
   }
-  // 兜底：主 provider 多次拿不到合法 JSON（偶发空响应 / 被内容审查挡下）→ 退回 OpenAI 再试一次。
-  if (provider !== 'openai' && process.env.OPENAI_API_KEY) {
+  // 兜底：偶发拿不到合法 JSON → 在【同一家 provider】用兜底模型再试一次。
+  // 绝不擅自切到 OpenAI 烧钱：只有把 LLM_PROVIDER 设成 openai 才会用 OpenAI。
+  const fbModel = process.env.LLM_FALLBACK_MODEL;
+  if (fbModel && fbModel !== model) {
     try {
-      const fbModel = process.env.LLM_FALLBACK_MODEL || 'gpt-4o-mini';
-      const res = await openai().chat.completions.create({
-        model: fbModel,
-        temperature,
-        max_tokens: maxTokens,
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: req.system + jsonGuard },
-          ...req.messages.map((m) => ({ role: m.role, content: m.content })),
-        ],
-      });
-      const t2 = res.choices[0]?.message?.content ?? '';
+      let t2 = '';
+      if (provider === 'anthropic') {
+        const res = await anthropic().messages.create({
+          model: fbModel, system: req.system + jsonGuard, max_tokens: maxTokens, temperature,
+          messages: req.messages.map((m) => ({ role: m.role, content: m.content })),
+        });
+        t2 = res.content.filter((b) => b.type === 'text').map((b: any) => b.text).join('');
+        pt += res.usage?.input_tokens ?? 0; ct += res.usage?.output_tokens ?? 0;
+      } else {
+        const res = await chatClient(provider).chat.completions.create({
+          model: fbModel, temperature, max_tokens: maxTokens, response_format: { type: 'json_object' },
+          messages: [{ role: 'system', content: req.system + jsonGuard }, ...req.messages.map((m) => ({ role: m.role, content: m.content }))],
+        });
+        t2 = res.choices[0]?.message?.content ?? '';
+        pt += res.usage?.prompt_tokens ?? 0; ct += res.usage?.completion_tokens ?? 0;
+      }
       const data = safeParseJson<T>(t2);
-      return { data, usage: { text: t2, provider: 'openai', model: fbModel, promptTokens: pt + (res.usage?.prompt_tokens ?? 0), completionTokens: ct + (res.usage?.completion_tokens ?? 0), latencyMs: Date.now() - t0 } };
+      return { data, usage: { text: t2, provider, model: fbModel, promptTokens: pt, completionTokens: ct, latencyMs: Date.now() - t0 } };
     } catch (e) { lastErr = e; }
   }
   throw lastErr || new Error('LLM JSON 解析失败');

@@ -58,7 +58,7 @@ export default function MeadowPage() {
   useEffect(() => { if (wasBusy.current && !busy) loadState(); wasBusy.current = busy; }, [busy, loadState]);
   const sendMeadow = useCallback(() => {
     const c = world?.character; if (!c) return;
-    try { sceneRef.current?.contentWindow?.postMessage({ type: 'meadow', species: c.species, emoji: c.emoji, location: c.location, season: world?.clock?.season, night: world?.clock?.night, action: c.current_action, busy: !!(c.busy_until && new Date(c.busy_until).getTime() > Date.now()) }, '*'); } catch {}
+    try { sceneRef.current?.contentWindow?.postMessage({ type: 'meadow', species: c.species, name: c.name, others: world?.others, emoji: c.emoji, location: c.location, season: world?.clock?.season, night: world?.clock?.night, action: c.current_action, busy: !!(c.busy_until && new Date(c.busy_until).getTime() > Date.now()) }, '*'); } catch {}
   }, [world]);
   useEffect(() => { sendMeadow(); }, [sendMeadow]);
 

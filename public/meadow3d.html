@@ -34,7 +34,7 @@ sun.shadow.camera.left=-70;sun.shadow.camera.right=70;sun.shadow.camera.top=70;s
 scene.add(sun);scene.add(sun.target);
 var amb=new THREE.AmbientLight(0xffffff,0.22);scene.add(amb);
 // 地形
-function gy(x,z){return Math.sin(x*0.045)*1.5+Math.cos(z*0.05)*1.1+Math.sin(x*0.13+z*0.07)*0.55+Math.cos(x*0.2-z*0.12)*0.28;}
+function gy(x,z){return Math.sin(x*0.04)*0.8+Math.cos(z*0.045)*0.6+Math.sin(x*0.1+z*0.06)*0.22;}
 function cvtex(w,draw){var c=document.createElement('canvas');c.width=c.height=w;draw(c.getContext('2d'),w);var t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;return t;}
 function splat(g,w,n,cols,smin,smax,amin,amax){for(var i=0;i<n;i++){g.fillStyle=cols[(Math.random()*cols.length)|0];g.globalAlpha=rnd(amin,amax);var s=rnd(smin,smax);g.beginPath();g.arc(Math.random()*w,Math.random()*w,s,0,7);g.fill();}g.globalAlpha=1;}
 var groundTex=cvtex(1024,function(g,w){g.fillStyle='#4f922f';g.fillRect(0,0,w,w);splat(g,w,1400,['#3f7d28','#5aa036','#356b22','#62ad3c'],6,26,0.25,0.7);splat(g,w,500,['#7a6a3a','#8a7642','#6a5a30'],4,16,0.15,0.45);splat(g,w,2200,['#2e5a1c','#67b340'],1,4,0.2,0.6);splat(g,w,260,['#e7d24a','#ff7aa8','#ffffff'],1.2,3,0.5,0.9);});
@@ -184,20 +184,30 @@ function makeQuad(sp){
  tail.position.set(0,bodyY+h*0.18,-ln*0.92);torso.add(tail);
  enableShadow(g);return {root:g,torso:torso,body:barrel,head:head,legs:legs,tail:tail,type:'quad',sp:sp,baseY:0};
 }
-function makeBird(sp){var g=new THREE.Group();var c=Mf(sp.color);
- var body=new THREE.Mesh(new THREE.SphereGeometry(0.5,11,9),c);body.scale.set(0.8,0.9,1.2);body.position.y=0.9;g.add(body);
- var head=new THREE.Group();var sk=new THREE.Mesh(new THREE.SphereGeometry(sp.big?0.42:0.32,10,9),c);head.add(sk);
- var bk=new THREE.Mesh(new THREE.ConeGeometry(0.1,0.3,5),Mf(sp.beak));bk.rotation.x=1.57;bk.position.z=0.36;head.add(bk);
- [-1,1].forEach(function(s){var ey=new THREE.Mesh(new THREE.SphereGeometry(sp.big?0.13:0.08,8,8),Mf(0x14110e));ey.position.set(0.16*s,0.06,0.24);head.add(ey);});
- head.position.set(0,1.45,0.18);g.add(head);
- var wings=[];[-1,1].forEach(function(s){var w=new THREE.Group();var wg=new THREE.Mesh(new THREE.BoxGeometry(0.9,0.08,0.7),Mf(sp.wing));wg.position.x=0.5*s;w.add(wg);w.position.set(0.35*s,1.0,0);g.add(w);wings.push({group:w,s:s});});
- var tail=new THREE.Group();var tf=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.06,0.6),Mf(sp.wing));tf.position.z=-0.4;tail.add(tf);tail.position.set(0,0.85,-0.5);g.add(tail);
- var legs=[];[-1,1].forEach(function(s){var lg=new THREE.Group();var leg=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.55,5),Mf(sp.beak));leg.position.y=-0.27;lg.add(leg);lg.position.set(0.15*s,0.62,0);g.add(lg);legs.push({group:lg,phase:s>0?0:Math.PI});});
- enableShadow(g);return {root:g,body:body,head:head,legs:legs,tail:tail,wings:wings,type:'bird',sp:sp,baseY:0};}
-function makeSnake(sp){var g=new THREE.Group();var segs=[];var c=Mf(sp.color),bc=Mf(sp.belly);
- for(var i=0;i<10;i++){var r=0.32*(1-i*0.05);var s=new THREE.Mesh(new THREE.SphereGeometry(r,9,8),i%2?c:bc);s.position.set(0,0.32,-i*0.5);g.add(s);segs.push(s);}
- var head=new THREE.Group();var hk=new THREE.Mesh(new THREE.SphereGeometry(0.34,10,9),c);hk.scale.set(1,0.8,1.3);head.add(hk);[-1,1].forEach(function(sd){var ey=new THREE.Mesh(new THREE.SphereGeometry(0.07,7,7),Mf(0x14110e));ey.position.set(0.16*sd,0.08,0.2);head.add(ey);});head.position.set(0,0.34,0.5);g.add(head);
- enableShadow(g);return {root:g,body:segs[0],head:head,segs:segs,legs:[],type:'snake',sp:sp,baseY:0};}
+function makeBird(sp){
+ var g=new THREE.Group();var c=Mf(sp.color);
+ var body=new THREE.Mesh(new THREE.SphereGeometry(0.55,12,10),c);body.scale.set(0.8,0.92,1.3);body.position.y=0.95;body.rotation.x=0.22;g.add(body);
+ var chest=new THREE.Mesh(new THREE.SphereGeometry(0.5,10,8),Mf(sp.big?0xe8dcc0:0x33333c));chest.scale.set(0.64,0.72,0.82);chest.position.set(0,0.86,0.5);g.add(chest);
+ var head=new THREE.Group();var rH=sp.big?0.46:0.34;
+ var sk=new THREE.Mesh(new THREE.SphereGeometry(rH,12,10),c);head.add(sk);
+ var beak=new THREE.Mesh(new THREE.ConeGeometry(rH*0.34,rH*0.95,6),Mf(sp.beak));beak.rotation.x=1.4;beak.position.set(0,-rH*0.12,rH*0.85);head.add(beak);
+ [-1,1].forEach(function(sd){if(sp.big){var ring=new THREE.Mesh(new THREE.CircleGeometry(rH*0.52,18),Mf(0xd8c79a));ring.position.set(rH*0.5*sd,rH*0.08,rH*0.78);head.add(ring);}var ey=new THREE.Mesh(new THREE.SphereGeometry(sp.big?rH*0.32:rH*0.22,12,12),Mf(0x141014));ey.position.set(rH*0.5*sd,rH*0.1,rH*0.82);head.add(ey);var gl=new THREE.Mesh(new THREE.SphereGeometry(rH*0.07,6,6),Mf(0xffffff));gl.position.set(rH*0.5*sd+rH*0.08,rH*0.2,rH*0.95);head.add(gl);});
+ if(sp.big){[-1,1].forEach(function(sd){var tf=new THREE.Mesh(new THREE.ConeGeometry(rH*0.22,rH*0.7,4),c);tf.position.set(rH*0.55*sd,rH*0.72,0);tf.rotation.z=-0.2*sd;head.add(tf);});}
+ head.position.set(0,1.55,0.25);g.add(head);
+ var wings=[];[-1,1].forEach(function(sd){var w=new THREE.Group();for(var fi=0;fi<3;fi++){var fe=new THREE.Mesh(new THREE.SphereGeometry(0.3,6,5),Mf(sp.wing));fe.scale.set(0.42,0.12,1.0+fi*0.42);fe.position.set(0,-fi*0.05,-fi*0.22-0.2);w.add(fe);}w.position.set(0.46*sd,1.0,0);w.rotation.y=0.2*sd;g.add(w);wings.push({group:w,s:sd});});
+ var tail=new THREE.Group();for(var ti=0;ti<3;ti++){var tf2=new THREE.Mesh(new THREE.SphereGeometry(0.25,6,5),Mf(sp.wing));tf2.scale.set(0.5,0.1,1.7);tf2.position.set((ti-1)*0.18,0,-0.65);tf2.rotation.y=(ti-1)*0.26;tail.add(tf2);}tail.position.set(0,0.86,-0.55);tail.rotation.x=0.22;g.add(tail);
+ var legs=[];[-1,1].forEach(function(sd){var lg=new THREE.Group();var leg=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.04,0.5,5),Mf(sp.beak));leg.position.y=-0.25;lg.add(leg);var foot=new THREE.Mesh(new THREE.SphereGeometry(0.1,6,5),Mf(sp.beak));foot.scale.set(1.5,0.4,1.5);foot.position.y=-0.5;lg.add(foot);lg.position.set(0.16*sd,0.6,0.05);g.add(lg);legs.push({group:lg,phase:sd>0?0:Math.PI});});
+ enableShadow(g);return {root:g,body:body,head:head,legs:legs,tail:tail,wings:wings,type:'bird',sp:sp,baseY:0};
+}
+function makeSnake(sp){
+ var g=new THREE.Group();var segs=[];var c=Mf(sp.color),bc=Mf(sp.belly);
+ var N=14;for(var i=0;i<N;i++){var r=0.36*(1-i*0.045);var sg=new THREE.Mesh(new THREE.SphereGeometry(r,10,9),i%2?c:bc);sg.position.set(0,0.34,-i*0.42);g.add(sg);segs.push(sg);}
+ var head=new THREE.Group();var hk=new THREE.Mesh(new THREE.SphereGeometry(0.4,11,9),c);hk.scale.set(1.15,0.72,1.45);head.add(hk);
+ [-1,1].forEach(function(sd){var ey=new THREE.Mesh(new THREE.SphereGeometry(0.1,9,9),Mf(0xd0b020));ey.position.set(0.2*sd,0.13,0.16);head.add(ey);var pu=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.1,0.04),Mf(0x141014));pu.position.set(0.2*sd,0.13,0.26);head.add(pu);});
+ var tongue=new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.016,0.42,4),Mf(0xc0303a));tongue.rotation.x=1.57;tongue.position.set(0,0.02,0.55);head.add(tongue);
+ head.position.set(0,0.36,0.6);g.add(head);
+ enableShadow(g);return {root:g,body:segs[0],head:head,segs:segs,legs:[],type:'snake',sp:sp,baseY:0,tongue:tongue};
+}
 function makeAnimal(key){var sp=SPECS[key]||SPECS.rabbit;sp.predator=/^(fox|weasel|wolf|lion|tiger|badger|boar)$/.test(key);return sp.kind==='bird'?makeBird(sp):sp.kind==='snake'?makeSnake(sp):makeQuad(sp);}
 function pose(rig,action,t,moving){var s=rig.sp;
  if(rig.type==='quad'){var freq=action==='hunt'?13:action==='move'?7:action==='forage'?3:2;var amp=action==='hunt'?0.85:action==='move'?0.6:action==='forage'?0.22:0.05;
@@ -216,7 +226,11 @@ function pose(rig,action,t,moving){var s=rig.sp;
 var animalRig=null;
 var preyRig=makeAnimal('rabbit');preyRig.root.scale.setScalar(2.2);preyRig.root.visible=false;scene.add(preyRig.root);
 var shadowSp=new THREE.Mesh(new THREE.CircleGeometry(1.5,20),new THREE.MeshBasicMaterial({color:0x16320f,transparent:true,opacity:0.26}));shadowSp.rotation.x=-Math.PI/2;scene.add(shadowSp);
-function setSpecies(key){if(animalRig)scene.remove(animalRig.root);animalRig=makeAnimal(key);animalRig.root.scale.setScalar((SPECS[key]||SPECS.rabbit).scale*2.6);scene.add(animalRig.root);}
+var playerName='',playerPlate=null;
+function nameTex(txt,col){var c=document.createElement('canvas');c.width=256;c.height=72;var g=c.getContext('2d');g.font='bold 36px Georgia';g.textAlign='center';g.textBaseline='middle';g.lineWidth=6;g.strokeStyle='rgba(0,0,0,0.55)';g.strokeText(txt,128,40);g.fillStyle=col||'#fff';g.fillText(txt,128,40);return new THREE.CanvasTexture(c);}
+function namePlate(txt,col,inv){var sp=new THREE.Sprite(new THREE.SpriteMaterial({map:nameTex(txt,col),transparent:true,depthWrite:false,fog:false}));sp.scale.set(4.4*inv,1.24*inv,1);return sp;}
+function ensurePlate(){if(!animalRig)return;if(playerPlate){animalRig.root.remove(playerPlate);playerPlate=null;}if(playerName){var S=(SPECS[animal.species]||SPECS.rabbit).scale*2.6;playerPlate=namePlate(playerName,'#ffe6a0',1/S);playerPlate.position.set(0,2.7,0);animalRig.root.add(playerPlate);}}
+function setSpecies(key){if(animalRig)scene.remove(animalRig.root);animalRig=makeAnimal(key);animalRig.root.scale.setScalar((SPECS[key]||SPECS.rabbit).scale*2.6);scene.add(animalRig.root);playerPlate=null;ensurePlate();}
 setSpecies('rabbit');
 var critters=[];['fox','deer','sheep','squirrel','boar','mouse'].forEach(function(k){var r=makeAnimal(k);r.root.scale.setScalar(SPECS[k].scale*2.0);var cx=rnd(-42,42),cz=rnd(-42,-12);r.ud={x:cx,z:cz,ph:rnd(0,6),tx:cx,tz:cz,rt:0};r.root.position.set(cx,gy(cx,cz),cz);scene.add(r.root);critters.push(r);});
 
@@ -244,7 +258,14 @@ function applyEnv(){var p=night?NIGHT:DAY;
 }
 applyEnv();
 function setAction(a){animal.action=a||'idle';animal.t=0;animal.retarget=0;var lp=LOCPOS[curLoc]||[0,2];if(a==='hunt'){preyRig.root.visible=true;prey={x:lp[0]+rnd(-9,9),z:lp[1]-15};}else{preyRig.root.visible=false;}}
+var othersGroup=new THREE.Group();scene.add(othersGroup);var otherRigs=[];var othersSig='';
+function setOthers(list){if(!list)return;var sig=list.map(function(o){return o.species+'@'+o.location+'#'+o.name;}).join('|');if(sig===othersSig)return;othersSig=sig;
+ otherRigs.forEach(function(r){othersGroup.remove(r.root);});otherRigs=[];
+ list.slice(0,14).forEach(function(o){var lp=LOCPOS[o.location]||[0,2];var S=(SPECS[o.species]||SPECS.rabbit).scale*2.4;var rig=makeAnimal(o.species||'rabbit');rig.root.scale.setScalar(S);var ox=lp[0]+rnd(-8,8),oz=lp[1]+rnd(-6,6);rig.ud={x:ox,z:oz,ph:rnd(0,6),tx:ox,tz:oz,rt:0};rig.root.position.set(ox,gy(ox,oz),oz);
+  var np=namePlate(o.name||'玩家','#bfe8ff',1/S);np.position.set(0,2.7,0);rig.root.add(np);othersGroup.add(rig.root);otherRigs.push(rig);});}
 window.addEventListener('message',function(ev){var d=ev&&ev.data;if(!d||d.type!=='meadow')return;
+ if(d.name&&d.name!==playerName){playerName=d.name;ensurePlate();}
+ if(d.others)setOthers(d.others);
  if(d.species&&d.species!==animal.species){animal.species=d.species;setSpecies(d.species);}
  if(typeof d.night==='boolean')night=d.night;if(d.season)season=d.season;applyEnv();
  if(d.location&&LOCPOS[d.location]){curLoc=d.location;if(!d.busy){animal.tx=LOCPOS[d.location][0]+rnd(-2,2);animal.tz=LOCPOS[d.location][1];}}
@@ -276,7 +297,8 @@ function tick(){requestAnimationFrame(tick);var t=performance.now()/1000;grassMa
  var gA=gy(animal.x,animal.z);shadowSp.position.set(animal.x,gA+0.06,animal.z);var ss=(SPECS[animal.species]||SPECS.rabbit).scale*2.6;shadowSp.scale.set(ss*0.7,ss*0.7,1);
  sun.target.position.set(animal.x,0,animal.z);
  critters.forEach(function(r){var u=r.ud;u.rt-=0.016;if(u.rt<=0){u.tx=u.x+rnd(-8,8);u.tz=u.z+rnd(-6,6);u.rt=rnd(2,5);}var ddx=u.tx-u.x,ddz=u.tz-u.z;u.x+=ddx*0.01;u.z+=ddz*0.01;var mv=Math.hypot(ddx,ddz)>0.3;placeRig(r,u.x,u.z,Math.atan2(ddx,ddz),0);pose(r,mv?'move':'forage',t+u.ph,mv);});
- camera.position.x+=((animal.x*0.5)-camera.position.x)*0.04;camera.position.z+=((animal.z+19)-camera.position.z)*0.03;camera.position.y+=(6.5-camera.position.y)*0.03;camera.lookAt(animal.x,2.6,animal.z);
+ otherRigs.forEach(function(r){var u=r.ud;u.rt-=0.016;if(u.rt<=0){u.tx=u.x+rnd(-6,6);u.tz=u.z+rnd(-5,5);u.rt=rnd(2,5);}var ox2=u.tx-u.x,oz2=u.tz-u.z;u.x+=ox2*0.012;u.z+=oz2*0.012;var omv=Math.hypot(ox2,oz2)>0.3;placeRig(r,u.x,u.z,Math.atan2(ox2,oz2),0);pose(r,omv?'move':'forage',t+u.ph,omv);});
+ camera.position.x+=((animal.x*0.5)-camera.position.x)*0.04;camera.position.z+=((animal.z+18)-camera.position.z)*0.03;camera.position.y+=(7.0-camera.position.y)*0.03;var cgy=gy(camera.position.x,camera.position.z);if(camera.position.y<cgy+3.6)camera.position.y=cgy+3.6;camera.lookAt(animal.x,2.6,animal.z);
  if(composer)composer.render();else renderer.render(scene,camera);}
 function resize(){renderer.setSize(innerWidth,innerHeight,false);if(composer)composer.setSize(innerWidth,innerHeight);if(grade)grade.uniforms.res.value.set(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();}
 addEventListener('resize',resize);resize();tick();

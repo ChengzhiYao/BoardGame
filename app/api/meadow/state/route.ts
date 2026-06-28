@@ -67,6 +67,10 @@ export async function GET() {
   }).eq('id', ch.id);
 
   const { data: events } = await admin.from('meadow_events').select('*').eq('character_id', ch.id).order('created_at', { ascending: false }).limit(30);
+  const { data: othersRaw } = await admin.from('meadow_characters').select('species, variant, gender, location, generation, user_id').neq('user_id', user.id).eq('status', 'alive').not('user_id', 'is', null).limit(16);
+  const nameIds = Array.from(new Set([user.id, ...((othersRaw || []).map((o: any) => o.user_id))]));
+  const { data: usersRows } = await admin.from('users').select('id, display_name').in('id', nameIds);
+  const nameOf = (uid: string) => (usersRows || []).find((u: any) => u.id === uid)?.display_name || '玩家';
   const { count: kids } = await admin.from('meadow_characters').select('id', { count: 'exact', head: true }).eq('parent_id', ch.id).eq('status', 'alive');
   const sp = SP_BY_KEY[ch.species]; const lc = locOf(location);
   return NextResponse.json({
@@ -76,9 +80,11 @@ export async function GET() {
       hunger: Math.round(hunger), location, locationZh: locZh(location), danger: dangerLabel(lc.exposure),
       status, death_cause: death, emoji: sp?.emoji, speciesZh: sp?.zh,
       busy_until: stillBusy ? ch.busy_until : null, current_action: stillBusy ? ch.current_action : null,
+      name: nameOf(user.id),
     },
     clock: clkNow,
     locations: LOCATIONS.map((l) => ({ key: l.key, zh: l.zh, danger: dangerLabel(l.exposure) })),
     events: events || [],
+    others: (othersRaw || []).map((o: any) => ({ species: o.species, location: o.location, variant: o.variant, gender: o.gender, generation: o.generation, name: nameOf(o.user_id) })),
   });
 }

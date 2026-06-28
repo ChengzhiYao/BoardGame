@@ -1,0 +1,106 @@
+<!doctype html><html lang="zh"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>童话草原 · 活场景</title>
+<style>
+*{margin:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden;background:#bfe0e8;font-family:Georgia,serif}
+#sky{position:fixed;inset:0;z-index:0;transition:background 2s ease;background:linear-gradient(#9fd4ec 0%,#cdeaf0 45%,#e8f5d8 100%)}
+#cv{position:fixed;inset:0;z-index:1;width:100%;height:100%;display:block}
+#tint{position:fixed;inset:0;z-index:2;pointer-events:none;opacity:0;transition:opacity 2s,background 2s;mix-blend-mode:multiply}
+#err{position:fixed;top:8px;left:8px;z-index:9;color:#a33;font-size:12px}
+</style></head>
+<body>
+<div id="sky"></div><canvas id="cv"></canvas><div id="tint"></div><div id="err"></div>
+<script src="./three.min.js"></script>
+<script>
+try{
+if(typeof THREE==='undefined') throw new Error('Three.js 未加载');
+var rnd=function(a,b){return a+Math.random()*(b-a);};
+var cv=document.getElementById('cv'),sky=document.getElementById('sky'),tint=document.getElementById('tint');
+var renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setClearColor(0x000000,0);
+var scene=new THREE.Scene();scene.fog=new THREE.FogExp2(0xcfeaf0,0.011);
+var camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,0.1,500);camera.position.set(0,7,24);
+var hemi=new THREE.HemisphereLight(0xddf0ff,0x4a7a3a,0.9);scene.add(hemi);
+var sun=new THREE.DirectionalLight(0xfff2cf,1.1);sun.position.set(-18,26,12);scene.add(sun);
+var amb=new THREE.AmbientLight(0xffffff,0.25);scene.add(amb);
+function gy(x,z){return Math.sin(x*0.05)*1.3+Math.cos(z*0.06)*1.0;}
+var gGeo=new THREE.PlaneGeometry(240,220,90,90);gGeo.rotateX(-Math.PI/2);
+var gp=gGeo.attributes.position;for(var i=0;i<gp.count;i++){gp.setY(i,gy(gp.getX(i),gp.getZ(i)));}gGeo.computeVertexNormals();
+var groundMat=new THREE.MeshStandardMaterial({color:0x5fa03a,roughness:1});
+var ground=new THREE.Mesh(gGeo,groundMat);scene.add(ground);
+// 随风摆动的草（instanced shader）
+var blade=new THREE.PlaneGeometry(0.22,1,1,1);blade.translate(0,0.5,0);
+var grassMat=new THREE.ShaderMaterial({uniforms:{time:{value:0},base:{value:new THREE.Color(0x2f6322)},tip:{value:new THREE.Color(0x8fce5a)}},side:THREE.DoubleSide,
+ vertexShader:'uniform float time;varying float vy;void main(){vy=uv.y;vec4 wp=instanceMatrix*vec4(position,1.0);float w=sin(time*1.6+wp.x*0.5+wp.z*0.5)*0.22*uv.y;wp.x+=w;wp.z+=w*0.4;gl_Position=projectionMatrix*modelViewMatrix*wp;}',
+ fragmentShader:'uniform vec3 base;uniform vec3 tip;varying float vy;void main(){gl_FragColor=vec4(mix(base,tip,vy),1.0);}'});
+var NG=7000;var grass=new THREE.InstancedMesh(blade,grassMat,NG);
+var mm=new THREE.Matrix4(),qq=new THREE.Quaternion(),ee=new THREE.Euler(),vp=new THREE.Vector3(),vs=new THREE.Vector3();
+for(var i2=0;i2<NG;i2++){var gx=rnd(-72,72),gz=rnd(-62,42);ee.set(0,rnd(0,6.28),0);qq.setFromEuler(ee);vs.set(rnd(0.7,1.3),rnd(0.7,1.9),1);vp.set(gx,gy(gx,gz),gz);mm.compose(vp,qq,vs);grass.setMatrixAt(i2,mm);}
+scene.add(grass);
+function dotTex(){var c=document.createElement('canvas');c.width=c.height=64;var g=c.getContext('2d');var r=g.createRadialGradient(32,32,0,32,32,32);r.addColorStop(0,'#fff');r.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=r;g.fillRect(0,0,64,64);return new THREE.CanvasTexture(c);}
+var dot=dotTex();
+function emojiTex(e){var c=document.createElement('canvas');c.width=c.height=128;var g=c.getContext('2d');g.font='96px serif';g.textAlign='center';g.textBaseline='middle';g.fillText(e||'🐾',64,74);return new THREE.CanvasTexture(c);}
+var sunS=new THREE.Sprite(new THREE.SpriteMaterial({map:dot,color:0xfff0c0,transparent:true,depthWrite:false,fog:false}));sunS.scale.set(24,24,1);sunS.position.set(-42,42,-95);scene.add(sunS);
+var clouds=[];for(var ci=0;ci<11;ci++){var cl=new THREE.Sprite(new THREE.SpriteMaterial({map:dot,color:0xffffff,transparent:true,depthWrite:false,opacity:rnd(0.5,0.9),fog:false}));var csx=rnd(22,50);cl.scale.set(csx,csx*0.55,1);cl.position.set(rnd(-95,95),rnd(34,54),rnd(-125,-70));cl.userData={sp:rnd(0.3,0.9)};clouds.push(cl);scene.add(cl);}
+var FCOL=[0xff7aa8,0xffe14d,0xff6f5e,0xffffff,0xb98cff];
+for(var fi=0;fi<240;fi++){var fx=rnd(-62,62),fz=rnd(-52,32);var fl=new THREE.Sprite(new THREE.SpriteMaterial({map:dot,color:FCOL[(Math.random()*FCOL.length)|0],transparent:true,depthWrite:false,fog:false}));fl.scale.set(0.55,0.55,1);fl.position.set(fx,gy(fx,fz)+0.5,fz);scene.add(fl);}
+var flies=[];for(var bi=0;bi<10;bi++){var b=new THREE.Sprite(new THREE.SpriteMaterial({map:emojiTex('🦋'),transparent:true,depthWrite:false,fog:false}));b.scale.set(1.6,1.6,1);b.userData={cx:rnd(-30,30),cz:rnd(-30,8),ph:rnd(0,6.28),r:rnd(3,9)};flies.push(b);scene.add(b);}
+function tree(x,z,s){var g=new THREE.Group();var tr=new THREE.Mesh(new THREE.CylinderGeometry(0.5*s,0.8*s,4*s,7),new THREE.MeshStandardMaterial({color:0x5a3d22,roughness:1}));tr.position.y=2*s;g.add(tr);var lm=new THREE.MeshStandardMaterial({color:0x3f7d3a,roughness:1});for(var i=0;i<6;i++){var bb=new THREE.Mesh(new THREE.SphereGeometry(rnd(1.6,2.6)*s,10,8),lm);bb.position.set(rnd(-1.6,1.6)*s,rnd(4,6)*s,rnd(-1.6,1.6)*s);g.add(bb);}g.position.set(x,gy(x,z),z);return g;}
+scene.add(tree(-22,-18,2.4));scene.add(tree(28,-28,1.5));scene.add(tree(-36,-32,1.3));scene.add(tree(36,-12,1.1));
+var pond=new THREE.Mesh(new THREE.CircleGeometry(7,32),new THREE.MeshStandardMaterial({color:0x3f7fb0,roughness:0.15,metalness:0.5,transparent:true,opacity:0.92}));pond.rotation.x=-Math.PI/2;pond.position.set(20,gy(20,-8)+0.08,-8);scene.add(pond);
+var warren=new THREE.Mesh(new THREE.SphereGeometry(3,16,12,0,6.28,0,1.57),new THREE.MeshStandardMaterial({color:0x6b5a3a,roughness:1}));warren.position.set(-14,gy(-14,4),4);warren.scale.y=0.5;scene.add(warren);
+var hole=new THREE.Mesh(new THREE.CircleGeometry(0.7,16),new THREE.MeshBasicMaterial({color:0x140d08}));hole.position.set(-12.4,gy(-12,5.6)+0.5,5.6);hole.rotation.x=-0.6;scene.add(hole);
+// 玩家动物 + 影子 + 猎物
+var animalSp=new THREE.Sprite(new THREE.SpriteMaterial({map:emojiTex('🐾'),transparent:true,depthWrite:false,fog:false}));animalSp.scale.set(3.4,3.4,1);scene.add(animalSp);
+var shadow=new THREE.Mesh(new THREE.CircleGeometry(1.5,20),new THREE.MeshBasicMaterial({color:0x0a2a08,transparent:true,opacity:0.26}));shadow.rotation.x=-Math.PI/2;scene.add(shadow);
+var prey=new THREE.Sprite(new THREE.SpriteMaterial({map:emojiTex('🐇'),transparent:true,depthWrite:false,fog:false,opacity:0}));prey.scale.set(2.4,2.4,1);prey.userData={x:0,z:-10};scene.add(prey);
+var critters=[];['🐇','🦌'].forEach(function(e){var c=new THREE.Sprite(new THREE.SpriteMaterial({map:emojiTex(e),transparent:true,depthWrite:false,fog:false}));c.scale.set(2.6,2.6,1);var cx=rnd(-42,42),cz=rnd(-42,-12);c.userData={x:cx,z:cz,ph:rnd(0,6),sp:rnd(0.2,0.5)};c.position.set(cx,gy(cx,cz)+1.3,cz);critters.push(c);scene.add(c);});
+var animal={x:0,z:2,tx:0,tz:2,emoji:'🐾',action:'idle',busy:false,t:0,retarget:0};
+function setAnimalEmoji(e){animalSp.material.map=emojiTex(e);animalSp.material.needsUpdate=true;animal.emoji=e;}
+var LOCPOS={meadow:[0,2],warren:[-13,4],oak:[-21,-15],pond:[20,-7]};
+var curLoc='meadow',night=false,season='夏';
+function kindOf(a){if(!a)return 'idle';if(/捕|猎/.test(a))return 'hunt';if(/休|歇|躲/.test(a))return 'rest';if(/迁|移|前往/.test(a))return 'move';return 'forage';}
+function applyEnv(){
+ grassMat.uniforms.tip.value.set(season==='秋'?0xd8c060:season==='冬'?0xbfcfc0:0x8fce5a);
+ grassMat.uniforms.base.value.set(season==='秋'?0x7a6a22:season==='冬'?0x6f8270:0x2f6322);
+ groundMat.color.set(season==='秋'?0x8a7a3a:season==='冬'?0x8fa890:0x5fa03a);
+ if(night){sky.style.background='linear-gradient(#0b1a3a 0%,#1c2c50 50%,#243a30 100%)';tint.style.background='#0a1830';tint.style.opacity='0.45';sun.intensity=0.25;sun.color.set(0x9fb6e0);hemi.intensity=0.4;amb.intensity=0.12;sunS.material.color.set(0xdfe6ff);scene.fog.color.set(0x18233f);}
+ else{sky.style.background='linear-gradient(#9fd4ec 0%,#cdeaf0 45%,#e8f5d8 100%)';tint.style.opacity='0';sun.intensity=1.1;sun.color.set(0xfff2cf);hemi.intensity=0.9;amb.intensity=0.25;sunS.material.color.set(0xfff0c0);scene.fog.color.set(0xcfeaf0);}
+}
+applyEnv();
+function setAction(a){animal.action=a||'idle';animal.t=0;animal.retarget=0;var lp=LOCPOS[curLoc]||[0,2];
+ if(a==='hunt'){prey.material.opacity=1;prey.userData={x:lp[0]+rnd(-9,9),z:lp[1]-15};}else{prey.material.opacity=0;}}
+window.addEventListener('message',function(ev){var d=ev&&ev.data;if(!d||d.type!=='meadow')return;
+ if(d.emoji&&d.emoji!==animal.emoji)setAnimalEmoji(d.emoji);
+ if(typeof d.night==='boolean')night=d.night;
+ if(d.season)season=d.season;
+ applyEnv();
+ if(d.location&&LOCPOS[d.location]){curLoc=d.location;if(!d.busy){animal.tx=LOCPOS[d.location][0]+rnd(-2,2);animal.tz=LOCPOS[d.location][1];}}
+ animal.busy=!!d.busy;
+ setAction(d.busy?kindOf(d.action):'idle');});
+function tick(){requestAnimationFrame(tick);var t=performance.now()/1000;grassMat.uniforms.time.value=t;
+ clouds.forEach(function(c){c.position.x+=c.userData.sp*0.02;if(c.position.x>96)c.position.x=-96;});
+ flies.forEach(function(b){var u=b.userData;var x=u.cx+Math.cos(t*0.6+u.ph)*u.r,z=u.cz+Math.sin(t*0.8+u.ph)*u.r;b.position.set(x,gy(x,z)+2.1,z);});
+ critters.forEach(function(c){var u=c.userData;u.x+=Math.sin(t*0.2+u.ph)*0.02;c.position.set(u.x,gy(u.x,u.z)+1.3+Math.abs(Math.sin(t*3+u.ph))*0.12,u.z);});
+ animal.t+=0.016;animal.retarget-=0.016;var lp=LOCPOS[curLoc]||[0,2];
+ if(animal.action==='forage'){if(animal.retarget<=0){animal.tx=lp[0]+rnd(-6,6);animal.tz=lp[1]+rnd(-4,4);animal.retarget=rnd(1.6,3.2);}}
+ else if(animal.action==='hunt'){var p=prey.userData;p.x+=Math.sin(t*2.2)*0.05;p.z-=0.05;prey.position.set(p.x,gy(p.x,p.z)+1.3+Math.abs(Math.sin(t*8))*0.3,p.z);animal.tx=p.x;animal.tz=p.z+2.4;}
+ else{animal.tx=lp[0];animal.tz=lp[1];}
+ animal.x+=(animal.tx-animal.x)*0.045;animal.z+=(animal.tz-animal.z)*0.045;
+ var gA=gy(animal.x,animal.z),hop=0,sy=1;
+ if(animal.action==='rest'){sy=0.65;hop=0;}
+ else if(animal.action==='forage'){hop=Math.abs(Math.sin(t*4))*0.3;sy=0.85+Math.sin(t*4)*0.1;}
+ else if(animal.action==='hunt'){hop=Math.abs(Math.sin(t*9))*0.6;}
+ else if(animal.action==='move'){hop=Math.abs(Math.sin(t*6))*0.4;}
+ else{hop=Math.abs(Math.sin(t*2))*0.18;}
+ animalSp.position.set(animal.x,gA+1.8+hop,animal.z);animalSp.scale.set(3.4,3.4*sy,1);
+ shadow.position.set(animal.x,gA+0.06,animal.z);shadow.scale.set(1.5+hop*0.4,1.5+hop*0.4,1);
+ camera.position.x+=((animal.x*0.3)-camera.position.x)*0.02;
+ camera.lookAt(animal.x*0.4,2.2,animal.z*0.3-6);
+ renderer.render(scene,camera);}
+function resize(){renderer.setSize(innerWidth,innerHeight,false);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();}
+addEventListener('resize',resize);resize();tick();
+}catch(e){document.getElementById('err').textContent=e.message;}
+</script>
+</body></html>

@@ -27,6 +27,7 @@ export default function MeadowPage() {
   const [showMig, setShowMig] = useState(false);
   const [nowTs, setNowTs] = useState(Date.now());
   const logEnd = useRef<HTMLDivElement>(null);
+  const sceneRef = useRef<HTMLIFrameElement>(null);
 
   const loadState = useCallback(async () => {
     const res = await fetch('/api/meadow/state'); const d = await res.json(); setWorld(d); return d;
@@ -55,6 +56,11 @@ export default function MeadowPage() {
   const busy = busyRemain > 0;
   const wasBusy = useRef(false);
   useEffect(() => { if (wasBusy.current && !busy) loadState(); wasBusy.current = busy; }, [busy, loadState]);
+  const sendMeadow = useCallback(() => {
+    const c = world?.character; if (!c) return;
+    try { sceneRef.current?.contentWindow?.postMessage({ type: 'meadow', emoji: c.emoji, location: c.location, season: world?.clock?.season, night: world?.clock?.night, action: c.current_action, busy: !!(c.busy_until && new Date(c.busy_until).getTime() > Date.now()) }, '*'); } catch {}
+  }, [world]);
+  useEffect(() => { sendMeadow(); }, [sendMeadow]);
 
   function startTest() { setAnswers(new Array(QUESTIONS.length).fill(null)); setIdx(0); setErr(''); setView('test'); }
   function answer(choice: number | null) {
@@ -167,6 +173,8 @@ export default function MeadowPage() {
     const hungerColor = c.hunger >= 80 ? 'bg-rust' : c.hunger >= 50 ? 'bg-amber' : 'bg-green';
     return (
       <main className="h-[100svh] flex flex-col max-w-2xl w-full mx-auto px-4">
+        <iframe ref={sceneRef} src="/meadow3d.html?embed=1" title="" aria-hidden tabIndex={-1} onLoad={sendMeadow} className="fixed inset-0 w-full h-full border-0 pointer-events-none -z-20" />
+        <div className="fixed inset-0 -z-10 pointer-events-none" style={{ background: 'linear-gradient(180deg, rgba(8,12,8,.28), rgba(8,12,8,.44))' }} />
         <div className="rounded-xl border border-eldritch/30 bg-fog/40 p-4 mt-3 flex flex-col gap-2.5">
           <div className="flex items-center gap-3">
             <span className="text-4xl">{c.emoji}</span>

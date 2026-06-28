@@ -2,11 +2,18 @@
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { callLLMJson } from '@/lib/llm';
-import { gameClock, advanceHunger, clamp01 } from '@/lib/meadow/time';
-import { locZh, locOf, dangerLabel, LOCATIONS } from '@/lib/meadow/world';
+import { gameClock, advanceHunger, clamp01, TIME_SCALE } from '@/lib/meadow/time';
+import { locZh, locOf, dangerLabel, LOCATIONS, ACTIONS, actionDuration } from '@/lib/meadow/world';
 import { buildMeadowTurnPrompt } from '@/lib/meadow/prompt';
 
 export const maxDuration = 60;
+
+function inferKind(text: string): 'forage' | 'hunt' | 'rest' | 'move' {
+  if (/(猎|捕|伏击|扑|追|咬|杀|尾随|猎物|偷袭)/.test(text)) return 'hunt';
+  if (/(迁徙|前往|动身|走向|游到|爬上|赶往)/.test(text)) return 'move';
+  if (/(休息|歇|躲|睡|藏|蹲守|观察|警觉|养神)/.test(text)) return 'rest';
+  return 'forage';
+}
 
 export async function POST(req: Request) {
   const supabase = createServerClient();
@@ -20,10 +27,17 @@ export async function POST(req: Request) {
   if (!ch) return NextResponse.json({ error: '你没有在世的动物' }, { status: 404 });
 
   const now = Date.now();
+  if (ch.busy_until && new Date(ch.busy_until).getTime() > now) {
+    const remain = Math.ceil((new Date(ch.busy_until).getTime() - now) / 1000);
+    return NextResponse.json({ error: `还在${ch.current_action || '行动'}中，再等约 ${remain} 秒`, busy_until: ch.busy_until, current_action: ch.current_action }, { status: 429 });
+  }
   let hunger = advanceHunger(ch.hunger, now - new Date(ch.hunger_updated_at).getTime());
   const clk = gameClock(now);
   const lc = locOf(ch.location);
   const action = String(text).trim().slice(0, 300);
+  const kind = inferKind(action);
+  const busyUntilISO = new Date(now + Math.round(actionDuration(ch, kind) / TIME_SCALE) * 1000).toISOString();
+  const actionZh = ACTIONS[kind].zh;
 
   const { data: recentEv } = await admin.from('meadow_events').select('text').eq('character_id', ch.id).order('created_at', { ascending: false }).limit(6);
   const recent = (recentEv || []).map((e: any) => e.text).reverse().join(' / ');
@@ -52,8 +66,10 @@ export async function POST(req: Request) {
 
   await admin.from('meadow_characters').update({
     hunger: Math.round(hunger), hunger_updated_at: new Date(now).toISOString(),
-    location, status, death_cause: death, busy_until: null, current_action: null,
+    location, status, death_cause: death,
+    busy_until: status === 'alive' ? busyUntilISO : null,
+    current_action: status === 'alive' ? actionZh : null,
   }).eq('id', ch.id);
 
-  return NextResponse.json({ ok: true, narration, dead: status === 'dead', death_cause: death });
+  return NextResponse.json({ ok: true, narration, dead: status === 'dead', death_cause: death, busy_until: status === 'alive' ? busyUntilISO : null, current_action: status === 'alive' ? actionZh : null });
 }

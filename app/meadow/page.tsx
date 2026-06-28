@@ -25,6 +25,7 @@ export default function MeadowPage() {
   const [sending, setSending] = useState(false);
   const [input, setInput] = useState('');
   const [showMig, setShowMig] = useState(false);
+  const [nowTs, setNowTs] = useState(Date.now());
   const logEnd = useRef<HTMLDivElement>(null);
 
   const loadState = useCallback(async () => {
@@ -47,6 +48,13 @@ export default function MeadowPage() {
   }, [loadState]);
 
   useEffect(() => { logEnd.current?.scrollIntoView({ behavior: 'smooth' }); }, [world, sending]);
+  useEffect(() => { const id = setInterval(() => setNowTs(Date.now()), 1000); return () => clearInterval(id); }, []);
+  const cc = world?.character;
+  const busyUntilMs = cc?.busy_until ? new Date(cc.busy_until).getTime() : 0;
+  const busyRemain = Math.max(0, Math.ceil((busyUntilMs - nowTs) / 1000));
+  const busy = busyRemain > 0;
+  const wasBusy = useRef(false);
+  useEffect(() => { if (wasBusy.current && !busy) loadState(); wasBusy.current = busy; }, [busy, loadState]);
 
   function startTest() { setAnswers(new Array(QUESTIONS.length).fill(null)); setIdx(0); setErr(''); setView('test'); }
   function answer(choice: number | null) {
@@ -66,7 +74,7 @@ export default function MeadowPage() {
     } catch (e: any) { setErr(e.message); setView('test'); }
   }
   async function act(text: string) {
-    const t = text.trim(); if (!t || sending) return;
+    const t = text.trim(); if (!t || sending || busy) return;
     setSending(true); setInput(''); setErr(''); setShowMig(false);
     try {
       const res = await fetch('/api/meadow/act', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: t }) });
@@ -135,7 +143,7 @@ export default function MeadowPage() {
           <div className="w-full flex flex-col gap-2">
             <p className="text-parchment/60 text-sm">但你的血脉还在。继承一只幼崽，延续这一族：</p>
             {heirs.map((h: any) => (
-              <button key={h.id} onClick={() => inherit(h.id)} disabled={sending}
+              <button key={h.id} onClick={() => inherit(h.id)} disabled={sending || busy}
                 className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-fog border border-eldritch/30 hover:border-eldritch text-left disabled:opacity-50">
                 <span className="text-2xl">{h.emoji}</span>
                 <span className="text-parchment/85 text-sm">一只 {h.variant}（{h.gender === 'male' ? '公' : '母'}） · 第 {h.generation} 代</span>
@@ -183,24 +191,25 @@ export default function MeadowPage() {
         </div>
 
         <div className="pb-3 pt-1 flex flex-col gap-2" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+          {busy && <div className="flex items-center gap-2 text-xs text-amber-300/90 bg-amber-900/15 border border-amber-700/30 rounded-lg px-3 py-1.5"><span className="animate-pulse">⏳</span><span>行动中：{cc?.current_action || '行动'} · 还需约 {busyRemain} 秒（草原仍在流动）</span></div>}
           <div className="flex flex-wrap gap-2">
-            {QUICK.map((q) => <button key={q.zh} onClick={() => act(q.text)} disabled={sending} className="px-3 py-1 rounded-full text-xs border border-eldritch/30 bg-fog text-parchment/70 hover:border-eldritch disabled:opacity-50">{q.zh}</button>)}
-            <button onClick={() => setShowMig((v) => !v)} disabled={sending} className="px-3 py-1 rounded-full text-xs border border-eldritch/30 bg-fog text-parchment/70 hover:border-eldritch disabled:opacity-50">迁徙…</button>
-            <button onClick={breed} disabled={sending} className="px-3 py-1 rounded-full text-xs border border-eldritch/30 bg-fog text-parchment/70 hover:border-eldritch disabled:opacity-50">繁衍{world?.character?.offspring ? ' · ' + world.character.offspring : ''}</button>
+            {QUICK.map((q) => <button key={q.zh} onClick={() => act(q.text)} disabled={sending || busy} className="px-3 py-1 rounded-full text-xs border border-eldritch/30 bg-fog text-parchment/70 hover:border-eldritch disabled:opacity-50">{q.zh}</button>)}
+            <button onClick={() => setShowMig((v) => !v)} disabled={sending || busy} className="px-3 py-1 rounded-full text-xs border border-eldritch/30 bg-fog text-parchment/70 hover:border-eldritch disabled:opacity-50">迁徙…</button>
+            <button onClick={breed} disabled={sending || busy} className="px-3 py-1 rounded-full text-xs border border-eldritch/30 bg-fog text-parchment/70 hover:border-eldritch disabled:opacity-50">繁衍{world?.character?.offspring ? ' · ' + world.character.offspring : ''}</button>
             <Link href="/" className="px-3 py-1 rounded-full text-xs text-parchment/40 hover:text-parchment self-center">首页</Link>
           </div>
           {showMig && (
             <div className="flex flex-wrap gap-2">
               {(world?.locations || []).filter((l: any) => l.key !== c.location).map((l: any) => (
-                <button key={l.key} onClick={() => act('我动身前往' + l.zh + '。')} disabled={sending} className="px-3 py-1 rounded-lg text-xs border border-eldritch/25 bg-fog/60 text-parchment/75 hover:border-eldritch disabled:opacity-50">{l.zh} · {l.danger}</button>
+                <button key={l.key} onClick={() => act('我动身前往' + l.zh + '。')} disabled={sending || busy} className="px-3 py-1 rounded-lg text-xs border border-eldritch/25 bg-fog/60 text-parchment/75 hover:border-eldritch disabled:opacity-50">{l.zh} · {l.danger}</button>
               ))}
             </div>
           )}
           <div className="flex gap-2">
             <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && act(input)}
-              placeholder="你想做什么……（比如：去溪边喝水、爬上橡树看看、伏击一只兔子）" disabled={sending}
+              placeholder="你想做什么……（比如：去溪边喝水、爬上橡树看看、伏击一只兔子）" disabled={sending || busy}
               className="flex-1 min-w-0 px-4 py-2.5 rounded-lg bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch disabled:opacity-50" />
-            <button onClick={() => act(input)} disabled={sending || !input.trim()} className="px-5 py-2.5 rounded-lg bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-40 shrink-0">{sending ? '…' : '行动'}</button>
+            <button onClick={() => act(input)} disabled={sending || busy || !input.trim()} className="px-5 py-2.5 rounded-lg bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-40 shrink-0">{sending ? '…' : busy ? busyRemain + 's' : '行动'}</button>
           </div>
           {err && <p className="text-blood text-xs text-center">{err}</p>}
         </div>

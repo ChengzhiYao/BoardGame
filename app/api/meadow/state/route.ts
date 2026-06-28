@@ -59,9 +59,11 @@ export async function GET() {
   }
 
   if (newEvents.length) await admin.from('meadow_events').insert(newEvents);
+  const stillBusy = status === 'alive' && ch.busy_until && new Date(ch.busy_until).getTime() > now;
   await admin.from('meadow_characters').update({
     hunger: Math.round(hunger), hunger_updated_at: new Date(now).toISOString(),
-    location, status, death_cause: death, busy_until: null, current_action: null,
+    location, status, death_cause: death,
+    busy_until: stillBusy ? ch.busy_until : null, current_action: stillBusy ? ch.current_action : null,
   }).eq('id', ch.id);
 
   const { data: events } = await admin.from('meadow_events').select('*').eq('character_id', ch.id).order('created_at', { ascending: false }).limit(30);
@@ -73,6 +75,7 @@ export async function GET() {
       attributes: ch.attributes, instincts: ch.instincts, traits: ch.traits, generation: ch.generation || 1, offspring: kids || 0,
       hunger: Math.round(hunger), location, locationZh: locZh(location), danger: dangerLabel(lc.exposure),
       status, death_cause: death, emoji: sp?.emoji, speciesZh: sp?.zh,
+      busy_until: stillBusy ? ch.busy_until : null, current_action: stillBusy ? ch.current_action : null,
     },
     clock: clkNow,
     locations: LOCATIONS.map((l) => ({ key: l.key, zh: l.zh, danger: dangerLabel(l.exposure) })),

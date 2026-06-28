@@ -24,6 +24,17 @@ const THREADS_L: Record<string, Record<string, string>> = {
 };
 const ACT = (lang: string, k: string) => (ACTION_LABELS[EN(lang) ? 'en' : 'zh'][k] || '');
 
+// CoC scene_state -> 3D 背景氛围（探索/调查/战斗/怪物现身/宇宙恐怖/结局）
+const SCENE3D: Record<string, string> = {
+  EXPLORATION_SAFE: 'explore', EXPLORATION_DANGEROUS: 'explore', CHARACTER_CREATION: 'explore', MENU: 'explore',
+  HIDDEN_CLUE: 'investigate', INVESTIGATION_BREAKTHROUGH: 'investigate', RITUAL_DISCOVERY: 'investigate',
+  PARANORMAL_EVENT: 'cosmic', COSMIC_HORROR: 'cosmic',
+  MONSTER_REVEAL: 'monster',
+  CHASE_SEQUENCE: 'combat', COMBAT: 'combat', FINAL_CONFRONTATION: 'combat',
+  GOOD_ENDING: 'ending', BITTERSWEET_ENDING: 'ending', BAD_ENDING: 'ending', TRUTH_REVEAL: 'ending',
+};
+const scene3dFor = (s?: string) => SCENE3D[(s || '').toUpperCase()] || 'explore';
+
 export default function Dashboard(props: ShellProps) {
   const supabase = useRef(createClient()).current;
   const router = useRouter();
@@ -37,7 +48,15 @@ export default function Dashboard(props: ShellProps) {
   const [genImg, setGenImg] = useState<string | null>(null);
   const [mobileTab, setMobileTab] = useState<'story' | 'chars' | 'clues'>('story');
   const bottomRef = useRef<HTMLDivElement>(null);
+  const sceneRef = useRef<HTMLIFrameElement>(null);
+  const scene3d = scene3dFor(props.room.scene_state);
   const ended = props.room.game_state === 'ended';
+  useEffect(() => {
+    const send = () => { try { sceneRef.current?.contentWindow?.postMessage({ type: 'scene', state: scene3d }, '*'); } catch {} };
+    send();
+    const id = setTimeout(send, 700);
+    return () => clearTimeout(id);
+  }, [scene3d]);
 
   const players = props.initialPlayers;
   const users = props.initialUsers;
@@ -92,6 +111,7 @@ export default function Dashboard(props: ShellProps) {
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, thinking]);
 
+  // 轮询兜底：被邀请的匿名玩家realtime可能被RLS过滤收不到推送，这里定时主动拉消息+回合状态，保证两边同步。
   useEffect(() => {
     const tick = async () => {
       if (typeof document !== 'undefined' && document.hidden) return;
@@ -171,6 +191,7 @@ export default function Dashboard(props: ShellProps) {
   const suggestedImages = props.initialImages.filter((i) => i.status === 'suggested' || i.status === 'generating' || i.status === 'failed');
   const doneImages = props.initialImages.filter((i) => i.status === 'done');
 
+  // 自动出图：房主端在预算内自动把"建议配图"逐张生成，无需点击。
   const autoImg = useRef(false);
   useEffect(() => {
     if (props.userId !== props.room.host_user_id) return;
@@ -184,6 +205,15 @@ export default function Dashboard(props: ShellProps) {
 
   return (
     <main className="h-[100svh] flex flex-col overflow-hidden">
+      <iframe
+        ref={sceneRef}
+        src="/coc3d-demo.html?embed=1"
+        title=""
+        aria-hidden
+        tabIndex={-1}
+        onLoad={() => { try { sceneRef.current?.contentWindow?.postMessage({ type: 'scene', state: scene3d }, '*'); } catch {} }}
+        className="fixed inset-0 w-full h-full border-0 pointer-events-none -z-10"
+      />
       <Stepper current={props.room.game_state} lang={lang} />
 
       {ended && <EndedBanner roomId={props.room.id} lang={lang} isHost={props.userId === props.room.host_user_id} />}

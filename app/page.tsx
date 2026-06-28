@@ -84,6 +84,14 @@ export default function Home() {
 
   return (
     <main className="min-h-screen flex flex-col items-center px-6 pt-24 pb-16 gap-6 text-center">
+      <iframe
+        src="/coc3d-demo.html?embed=1&full=1&auto=1"
+        title=""
+        aria-hidden
+        tabIndex={-1}
+        className="fixed inset-0 w-full h-full border-0 pointer-events-none -z-20"
+      />
+      <div className="fixed inset-0 pointer-events-none -z-10" style={{ background: 'radial-gradient(125% 85% at 50% 0%, rgba(12,13,16,.30), rgba(12,13,16,.68) 58%, rgba(12,13,16,.93))' }} />
       <LangToggle lang={lang} onChange={switchLang} />
       <AccountBadge t={t} />
 

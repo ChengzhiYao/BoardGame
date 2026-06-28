@@ -108,6 +108,19 @@ export default function MeadowPage() {
       await loadState();
     } catch (e: any) { setErr(e.message); } finally { setSending(false); }
   }
+  async function seekPlayer() {
+    if (sending || busy) return;
+    const others = world?.others || [];
+    if (!others.length) { setErr('附近没有其他在世玩家'); return; }
+    const myLoc = world?.character?.location;
+    const target = others.find((o: any) => o.location !== myLoc) || others[0];
+    const locName = (world?.locations || []).find((l: any) => l.key === target.location)?.zh || '远处';
+    const who = target.variant || '同类';
+    const txt = target.location === myLoc
+      ? `我循着气味，悄悄靠近附近那只 ${who}（玩家「${target.name}」），想看看它。`
+      : `我循着同类的气味，动身前往${locName}，去找那只 ${who}（玩家「${target.name}」）。`;
+    await act(txt);
+  }
 
   if (view === 'loading') return shell(<div className="flex flex-col items-center gap-4"><div className="text-5xl animate-pulse">🌙</div><p className="text-parchment/70 font-serif">草原的风掀起书页……</p></div>);
 
@@ -204,6 +217,7 @@ export default function MeadowPage() {
             {QUICK.map((q) => <button key={q.zh} onClick={() => act(q.text)} disabled={sending || busy} className="px-3 py-1 rounded-full text-xs border border-eldritch/30 bg-fog text-parchment/70 hover:border-eldritch disabled:opacity-50">{q.zh}</button>)}
             <button onClick={() => setShowMig((v) => !v)} disabled={sending || busy} className="px-3 py-1 rounded-full text-xs border border-eldritch/30 bg-fog text-parchment/70 hover:border-eldritch disabled:opacity-50">迁徙…</button>
             <button onClick={breed} disabled={sending || busy} className="px-3 py-1 rounded-full text-xs border border-eldritch/30 bg-fog text-parchment/70 hover:border-eldritch disabled:opacity-50">繁衍{world?.character?.offspring ? ' · ' + world.character.offspring : ''}</button>
+            <button onClick={seekPlayer} disabled={sending || busy || !(world?.others || []).length} className="px-3 py-1 rounded-full text-xs border border-sky-500/40 bg-sky-900/20 text-sky-200/90 hover:border-sky-400 disabled:opacity-40">🔍 找附近玩家{(world?.others || []).length ? ' · ' + world.others.length : ''}</button>
             <Link href="/" className="px-3 py-1 rounded-full text-xs text-parchment/40 hover:text-parchment self-center">首页</Link>
           </div>
           {showMig && (

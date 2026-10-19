@@ -18,6 +18,19 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
   const [err, setErr] = useState('');
   const [showPromo, setShowPromo] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [showContact, setShowContact] = useState(false);
+  const [contactEmail, setContactEmail] = useState(''); const [contactMsg, setContactMsg] = useState('');
+  const [contactState, setContactState] = useState<'idle' | 'sending' | 'ok' | 'err'>('idle');
+  async function sendContact() {
+    if (!contactMsg.trim()) return;
+    setContactState('sending');
+    try {
+      const r = await fetch('/api/contact', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: contactEmail, message: contactMsg }) });
+      const d = await r.json().catch(() => ({}));
+      setContactState(r.ok && d.ok ? 'ok' : 'err');
+      if (r.ok && d.ok) setContactMsg('');
+    } catch { setContactState('err'); }
+  }
   const promoAudio = useRef<HTMLAudioElement | null>(null);
   const heroRef = useRef<HTMLElement | null>(null);
   const nameRef = useRef<HTMLInputElement | null>(null);
@@ -104,6 +117,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
           <button onClick={openPromo} className="text-sm px-4 py-1.5 rounded-full border border-eldritch/40 text-parchment/80 hover:bg-eldritch/20 transition">▶ {lang === 'en' ? 'Watch the trailer' : '观看宣传片'}</button>
           <a href={lang === 'en' ? '/en/blog' : '/zh/blog'} className="inline-flex items-center gap-1.5 text-sm px-4 py-1.5 rounded-full border border-eldritch/40 text-parchment/80 hover:bg-eldritch/20 transition"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 1 6.5 18H20" /></svg>{lang === 'en' ? 'Blog' : '博客'}</a>
           <button onClick={() => setShowFeedback(true)} className="inline-flex items-center gap-1.5 text-sm px-4 py-1.5 rounded-full border border-blood/50 text-parchment/90 bg-blood/15 hover:bg-blood/30 transition"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>{lang === 'en' ? 'Guestbook' : '留言板'}</button>
+          <button onClick={() => { setShowContact(true); setContactState('idle'); }} className="inline-flex items-center gap-1.5 text-sm px-4 py-1.5 rounded-full border border-eldritch/40 text-parchment/80 hover:bg-eldritch/20 transition"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16v12H5.2L4 17.2z"/></svg>{lang === 'en' ? 'Contact' : '联系客服'}</button>
         </div>
 
         <input
@@ -162,6 +176,26 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
               <button onClick={() => setShowFeedback(false)} className="text-parchment/60 hover:text-parchment text-sm px-2">✕</button>
             </div>
             <div className="px-4 py-4 max-h-[75vh] overflow-y-auto text-left"><GameFeedback slug="site" en={lang === 'en'} /></div>
+          </div>
+        </div>
+      )}
+      {showContact && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start sm:items-center justify-center p-4 overflow-y-auto" onClick={() => setShowContact(false)}>
+          <div className="w-full max-w-md my-auto rounded-2xl bg-fog border border-eldritch/40 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-eldritch/25">
+              <span className="font-serif text-parchment">{lang === 'en' ? 'Contact support' : '联系客服'}</span>
+              <button onClick={() => setShowContact(false)} className="text-parchment/60 hover:text-parchment text-sm px-2">✕</button>
+            </div>
+            <div className="px-4 py-4 space-y-3 text-left">
+              <p className="text-parchment/55 text-sm">{lang === 'en' ? 'Questions, bugs or ideas? Send us a message — leave your email if you want a reply.' : '有问题、bug 或建议?给我们留个言——想收到回复就留下你的邮箱。'}</p>
+              <input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder={lang === 'en' ? 'Your email (optional)' : '你的邮箱(选填,便于回复)'} className="w-full px-3 py-2.5 rounded bg-ink border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch text-sm" />
+              <textarea value={contactMsg} onChange={(e) => setContactMsg(e.target.value)} rows={5} placeholder={lang === 'en' ? 'Tell us what is going on…' : '说说你遇到的问题或想法…'} className="w-full px-3 py-2.5 rounded bg-ink border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch text-sm resize-none" />
+              <div className="flex items-center gap-3">
+                <button onClick={sendContact} disabled={contactState === 'sending' || !contactMsg.trim()} className="px-5 py-2 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-40 text-sm">{contactState === 'sending' ? (lang === 'en' ? 'Sending…' : '发送中…') : (lang === 'en' ? 'Send' : '发送')}</button>
+                {contactState === 'ok' && <span className="text-green-400 text-sm">{lang === 'en' ? 'Sent, thanks!' : '已发送,谢谢!'}</span>}
+                {contactState === 'err' && <span className="text-blood text-sm">{lang === 'en' ? 'Failed, try again' : '发送失败,请重试'}</span>}
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -24,18 +24,41 @@ export default function AccountPage() {
     }).catch(() => setLoaded(true));
   }, []);
 
+  function resizeImage(file: File, max: number): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        const scale = Math.min(1, max / Math.max(w, h));
+        w = Math.round(w * scale); h = Math.round(h * scale);
+        const c = document.createElement('canvas'); c.width = w; c.height = h;
+        const ctx = c.getContext('2d'); if (!ctx) return reject(new Error('no ctx'));
+        ctx.drawImage(img, 0, 0, w, h);
+        c.toBlob((b) => (b ? resolve(b) : reject(new Error('blob'))), 'image/jpeg', 0.85);
+      };
+      img.onerror = () => reject(new Error('img'));
+      img.src = URL.createObjectURL(file);
+    });
+  }
   async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]; if (!f) return;
     if (!f.type.startsWith('image/')) { setMsg('请选择图片文件'); return; }
-    if (f.size > 3 * 1024 * 1024) { setMsg('图片不能超过 3MB'); return; }
     setUploading(true); setMsg('');
-    const fd = new FormData(); fd.append('file', f);
     try {
+      let upload: File;
+      if (f.type === 'image/gif') {
+        if (f.size > 3 * 1024 * 1024) { setMsg('GIF 不能超过 3MB'); setUploading(false); return; }
+        upload = f;
+      } else {
+        const blob = await resizeImage(f, 512);
+        upload = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
+      }
+      const fd = new FormData(); fd.append('file', upload);
       const r = await fetch('/api/avatar', { method: 'POST', body: fd });
       const d = await r.json();
       if (r.ok && d.ok) { setAvatarUrl(d.avatarUrl + '?t=' + Date.now()); setMsg('头像已更新'); }
-      else setMsg('上传失败');
-    } catch { setMsg('上传失败'); }
+      else setMsg(d.reason === 'upload' ? '上传失败（请先在 Supabase 跑 SQL 建 avatars 桶）' : '上传失败');
+    } catch { setMsg('处理图片失败'); }
     setUploading(false);
     if (fileRef.current) fileRef.current.value = '';
   }

@@ -81,6 +81,7 @@ export default function FriendDock() {
   const [notifs, setNotifs] = useState<Notif[]>([]);
   const [bellOpen, setBellOpen] = useState(false);
   const [seenTs, setSeenTs] = useState(0);
+  const [profile, setProfile] = useState<any | null>(null);
 
   const fChan = useRef<any>(null);
   const lChan = useRef<any>(null);
@@ -211,6 +212,10 @@ export default function FriendDock() {
   }
   function sendDm() { const t = dmText.trim(); if (!t || !lChan.current || !me || !peer) return; const _pid = peer.userId; const _isFriend = !!_pid && graph.friends.some((f) => f.id === _pid); const _gated = !!me.email && me.email !== HIDDEN && !!_pid && !_isFriend; const _sent = (dms[peer.uid]?.msgs || []).filter((m) => m.mine).length; if (_gated && _sent >= 1) return; lChan.current.send({ type: 'broadcast', event: 'dm', payload: { to: peer.uid, from: me.uid, fromName: me.name, text: t, ts: Date.now() } }); setDms((prev) => { const c = prev[peer.uid] || { name: peer.name, msgs: [] }; return { ...prev, [peer.uid]: { name: c.name, msgs: [...c.msgs.slice(-59), { text: t, ts: Date.now(), mine: true }] } }; }); setDmText(''); }
 
+  function openProfile(id: string) {
+    setProfile({ loading: true });
+    fetch('/api/player?id=' + encodeURIComponent(id)).then((r) => r.json()).then((d) => setProfile(d && d.ok ? d : { error: true })).catch(() => setProfile({ error: true }));
+  }
   async function loadDir() { try { const r = await fetch('/api/players'); const d = await r.json(); setDir(d.players || []); const inv: Record<string, 'ok'> = {}; (d.invitedIds || []).forEach((id: string) => { inv[id] = 'ok'; }); setInvited((p) => ({ ...inv, ...p })); } catch { setDir([]); } }
   async function invite(id: string) {
     setInvited((p) => ({ ...p, [id]: 'sending' }));
@@ -353,16 +358,16 @@ export default function FriendDock() {
                 const rel = friendIds.has(pp.id) ? '好友' : outIds.has(pp.id) ? '待通过' : inIds.has(pp.id) ? 'incoming' : '';
                 const online = !!lobbyById[pp.id];
                 return (<div key={pp.id} className="flex items-center gap-2 text-sm py-1">
-                  <div className="relative shrink-0">
+                  <button onClick={() => openProfile(pp.id)} title="查看资料" className="relative shrink-0">
                     {pp.avatar
                       ? <img src={pp.avatar} alt="" className="w-7 h-7 rounded-full object-cover border border-eldritch/30" />
                       : <span className="w-7 h-7 rounded-full bg-eldritch/40 flex items-center justify-center text-[11px] text-parchment">{pp.name.slice(0, 1).toUpperCase()}</span>}
                     {online && <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400 border-2 border-fog" />}
-                  </div>
-                  <div className="flex-1 min-w-0 leading-tight">
-                    <div className="truncate">{pp.name}</div>
+                  </button>
+                  <button onClick={() => openProfile(pp.id)} className="flex-1 min-w-0 leading-tight text-left">
+                    <div className="truncate hover:text-parchment">{pp.name}</div>
                     <div className="text-[10px] text-parchment/35 truncate">{online ? '在线' : pp.lastSeen ? '最近在线 ' + ago(pp.lastSeen) : '从未上线'}</div>
-                  </div>
+                  </button>
                   {rel === '好友' ? <span className="text-[10px] text-green-400 shrink-0">好友</span>
                     : rel === '待通过' ? <span className="text-[10px] text-parchment/40 shrink-0">待通过</span>
                     : rel === 'incoming' ? <button onClick={() => respondReq(pp.id, true)} className="text-xs px-2 py-0.5 rounded bg-green-700/70 hover:bg-green-700 text-parchment shrink-0">同意</button>
@@ -405,6 +410,50 @@ export default function FriendDock() {
         </div>
       )}
 
+      {profile && (() => {
+        const pid = profile.id as string | undefined;
+        const rel = pid && friendIds.has(pid) ? 'friend' : pid && outIds.has(pid) ? 'out' : pid && inIds.has(pid) ? 'in' : 'none';
+        return (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setProfile(null)}>
+          <div className="w-full max-w-sm rounded-2xl bg-fog border border-eldritch/40 shadow-2xl overflow-hidden text-parchment" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-eldritch/20">
+              <span className="text-sm text-parchment/70">玩家资料</span>
+              <button onClick={() => setProfile(null)} className="text-parchment/50 hover:text-parchment text-base leading-none px-1">✕</button>
+            </div>
+            {profile.loading ? <div className="py-10 text-center text-parchment/40 text-sm">加载中…</div>
+            : profile.error ? <div className="py-10 text-center text-parchment/40 text-sm">加载失败</div>
+            : (<div className="px-4 py-4">
+                <div className="flex items-center gap-3 mb-3">
+                  {profile.avatar
+                    ? <img src={profile.avatar} alt="" className="w-14 h-14 rounded-full object-cover border border-eldritch/40" />
+                    : <span className="w-14 h-14 rounded-full bg-eldritch/40 flex items-center justify-center text-xl">{String(profile.name).slice(0, 1).toUpperCase()}</span>}
+                  <div className="min-w-0">
+                    <div className="text-lg font-serif truncate">{profile.name}</div>
+                    <div className="text-[11px] text-parchment/40">{profile.lastSeen ? '最近在线 ' + ago(profile.lastSeen) : '从未上线'}{profile.joinedAt ? ' · 加入于 ' + new Date(profile.joinedAt).toLocaleDateString() : ''}</div>
+                  </div>
+                </div>
+                {profile.bio && <div className="text-sm text-parchment/75 bg-ink/40 border border-eldritch/20 rounded-lg px-3 py-2 mb-3 whitespace-pre-wrap">{profile.bio}</div>}
+                <div className="text-xs text-parchment/50 mb-1.5">玩过的游戏 · 共 {profile.gamesPlayed} 局</div>
+                <div className="max-h-40 overflow-y-auto space-y-1 mb-3">
+                  {(!profile.games || profile.games.length === 0) && <div className="text-xs text-parchment/35 py-2">还没有游戏记录</div>}
+                  {(profile.games || []).map((g: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between text-xs border-b border-eldritch/10 py-1">
+                      <span className="text-parchment/80">{g.modeName}{g.ended ? '' : ' ·进行中'}</span>
+                      <span className="text-parchment/35">{new Date(g.ts).toLocaleDateString()}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  {rel === 'friend' ? <span className="flex-1 text-center text-xs text-green-400 py-2">已是好友</span>
+                    : rel === 'out' ? <span className="flex-1 text-center text-xs text-parchment/40 py-2">好友请求待通过</span>
+                    : rel === 'in' ? <button onClick={() => pid && (respondReq(pid, true), setProfile(null))} className="flex-1 py-2 rounded bg-green-700/70 hover:bg-green-700 text-sm">同意好友</button>
+                    : <button onClick={() => pid && addFriend(pid)} className="flex-1 py-2 rounded bg-eldritch/50 hover:bg-eldritch text-sm">加好友</button>}
+                  <button onClick={() => { if (pid) { openThread(pid, profile.name); setProfile(null); } }} className="flex-1 py-2 rounded bg-blood/80 hover:bg-blood text-sm">私聊</button>
+                </div>
+              </div>)}
+          </div>
+        </div>
+        ); })()}
       <div className="flex items-center gap-2 justify-end">
         {showFriends && (
           <button onClick={toggleBell} title="消息" className="relative w-10 h-10 rounded-full bg-fog/95 border border-eldritch/40 backdrop-blur shadow-xl flex items-center justify-center hover:bg-fog">

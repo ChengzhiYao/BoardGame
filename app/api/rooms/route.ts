@@ -21,8 +21,14 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
 
   // 开房闸门：白名单或有局数额度才能开房（访客加入不经过这里）
+  // 海龟汤（soup）永久免费：登录即可开，不消耗额度。
   const ent = await getEntitlement(admin, user);
-  if (!ent.canHost) {
+  const isFree = body.mode === 'soup';
+  if (isFree) {
+    if (!ent.email) {
+      return NextResponse.json({ error: '开房需要先用 Google 登录', reason: 'login' }, { status: 402 });
+    }
+  } else if (!ent.canHost) {
     return NextResponse.json(
       { error: ent.reason === 'login' ? '开房需要先用 Google 登录' : '局数已用完，请购买后再开房', reason: ent.reason },
       { status: 402 }
@@ -56,7 +62,7 @@ export async function POST(req: Request) {
   }
 
   // 非白名单：开房成功扣 1 局
-  if (!ent.whitelisted) {
+  if (!ent.whitelisted && !isFree) {
     await admin.from('profiles').update({ credits: Math.max(0, (ent.credits || 0) - 1) }).eq('user_id', user.id);
   }
 

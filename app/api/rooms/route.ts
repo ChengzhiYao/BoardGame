@@ -3,6 +3,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { getEntitlement } from '@/lib/billing/entitlement';
+import { FREE_MODES } from '@/lib/pricing';
 
 function genToken() {
   return (
@@ -23,7 +24,7 @@ export async function POST(req: Request) {
   // 开房闸门：白名单或有局数额度才能开房（访客加入不经过这里）
   // 海龟汤（soup）永久免费：登录即可开，不消耗额度。
   const ent = await getEntitlement(admin, user);
-  const isFree = body.mode === 'soup';
+  const isFree = FREE_MODES.includes(body.mode);
   if (isFree) {
     if (!ent.email) {
       return NextResponse.json({ error: '开房需要先用 Google 登录', reason: 'login' }, { status: 402 });

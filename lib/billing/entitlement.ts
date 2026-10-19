@@ -19,10 +19,10 @@ export async function getEntitlement(admin: any, user: any): Promise<Entitlement
   const { data: p } = await admin.from('profiles').select('credits, is_whitelisted, free_granted').eq('user_id', user.id).maybeSingle();
   const whitelisted = !!wl || !!p?.is_whitelisted;
   let credits = p?.credits || 0;
-  // 每个账号一次性赠送 1 局免费额度（新老账号都发，只发一次；用 free_granted 标记防重复）
+  // 每个账号一次性赠送 2 局免费额度（可玩所有游戏；只发一次；用 free_granted 标记防重复）
   if (!whitelisted && !p?.free_granted) {
     try {
-      const { data: g } = await admin.from('profiles').update({ credits: credits + 1, free_granted: true }).eq('user_id', user.id).eq('free_granted', false).select('credits');
+      const { data: g } = await admin.from('profiles').update({ credits: credits + 2, free_granted: true }).eq('user_id', user.id).eq('free_granted', false).select('credits');
       if (g && g.length) credits = g[0].credits;
     } catch { /* free_granted 列未迁移时跳过 */ }
   }

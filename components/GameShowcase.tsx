@@ -1,5 +1,7 @@
 'use client';
+import { Fragment } from 'react';
 import { type Lang } from '@/lib/i18n';
+import { FREE_MODES } from '@/lib/pricing';
 
 export type GM = 'story' | 'coc' | 'jbs' | 'dnd' | 'soup' | 'td' | 'mcc' | 'botc' | 'meadow';
 type Bi = { zh: string; en: string };
@@ -120,48 +122,93 @@ const GAMES: Game[] = [
 ];
 
 export default function GameShowcase({ lang, busy, onPlay }: { lang: Lang; busy: boolean; onPlay: (m: GM) => void }) {
+  const en = lang === 'en';
+  const isFree = (k: GM) => FREE_MODES.includes(k);
+  const free = GAMES.filter((g) => isFree(g.key));
+  const paid = GAMES.filter((g) => !isFree(g.key) && g.key !== 'meadow');
+  const soon = GAMES.filter((g) => g.key === 'meadow');
+  const ordered = [...free, ...paid, ...soon];
+  const groupOf = (g: Game) => (isFree(g.key) ? 'free' : g.key === 'meadow' ? 'soon' : 'paid');
+
+  function renderGame(g: Game, i: number) {
+    const freeTag = isFree(g.key);
+    return (
+      <section key={g.key} className="grid md:grid-cols-2 gap-7 md:gap-10 items-center">
+        <div className={i % 2 ? 'md:order-2' : ''}>
+          {g.key === 'meadow' ? (
+            <div className="w-full rounded-xl border border-eldritch/30 bg-gradient-to-b from-eldritch/15 to-ink flex flex-col items-center justify-center text-center gap-2 shadow-[0_30px_70px_-35px_rgba(0,0,0,.9)]" style={{ aspectRatio: '1180 / 720' }}>
+              <div className="text-5xl">🌾🦊🐇</div>
+              <div className="font-serif text-parchment/80 text-lg">{en ? 'Storybook Meadow' : '童话草原'}</div>
+              <div className="text-parchment/45 text-xs tracking-widest uppercase">{en ? 'persistent world' : '永久世界 · 即将开放'}</div>
+            </div>
+          ) : (
+            <iframe src={`/screens.html#${g.key}`} title={pick(lang, g.name)} loading="lazy" scrolling="no"
+              className="w-full block rounded-xl border border-eldritch/30 bg-ink pointer-events-none shadow-[0_30px_70px_-35px_rgba(0,0,0,.9)]"
+              style={{ aspectRatio: '1180 / 720' }} />
+          )}
+        </div>
+        <div className={`text-left ${i % 2 ? 'md:order-1' : ''}`}>
+          <div className="flex items-center gap-2 mb-2">
+            <div className="font-mono text-[11px] tracking-[.22em] uppercase text-eldritch/80">{pick(lang, g.meta)}</div>
+            {freeTag && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-green-600/25 text-green-300 border border-green-500/40">{en ? 'FREE' : '免费'}</span>}
+          </div>
+          <h3 className="text-2xl sm:text-[28px] font-serif text-parchment leading-tight mb-2.5">{pick(lang, g.name)}</h3>
+          <p className="text-parchment/65 text-sm leading-relaxed mb-4">{pick(lang, g.blurb)}</p>
+          <div className="font-mono text-[10px] tracking-[.18em] uppercase text-parchment/40 mb-2">{en ? 'How it plays' : '怎么玩'}</div>
+          <ul className="space-y-1.5 mb-6">
+            {g.rules.map((r, k) => (
+              <li key={k} className="flex gap-2.5 text-sm text-parchment/75 leading-snug">
+                <span className="font-mono text-eldritch shrink-0 mt-px">{String(k + 1).padStart(2, '0')}</span>
+                <span>{pick(lang, r)}</span>
+              </li>
+            ))}
+          </ul>
+          <button onClick={() => onPlay(g.key)} disabled={busy}
+            className="px-6 py-3 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-50 transition">
+            {busy ? (en ? 'Opening…' : '正在开启…') : `▶ ${en ? 'Play ' + g.name.en : '开始' + g.name.zh.replace(/（.*?）/, '')}`}
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  function Header({ grp }: { grp: string }) {
+    if (grp === 'free') return (
+      <div className="text-center max-w-xl mx-auto">
+        <div className="font-mono text-xs tracking-[.3em] uppercase text-green-300/80">{en ? 'Free to play' : '免费畅玩'}</div>
+        <p className="text-parchment/45 text-sm mt-1">{en ? 'Always free — no play credit needed.' : '这些玩法永久免费,随时开,不消耗局数。'}</p>
+      </div>
+    );
+    if (grp === 'paid') return (
+      <div className="text-center max-w-xl mx-auto">
+        <div className="font-mono text-xs tracking-[.3em] uppercase text-eldritch/80">{en ? 'Premium modes' : '精华大制作'}</div>
+        <p className="text-parchment/45 text-sm mt-1">{en ? 'New accounts get 2 free plays on everything. After that, each of these uses 1 play credit.' : '新账号登录即送 2 次免费(可玩全部游戏);之后这些每开一局消耗 1 局。'}</p>
+      </div>
+    );
+    return (
+      <div className="text-center max-w-xl mx-auto">
+        <div className="font-mono text-xs tracking-[.3em] uppercase text-parchment/40">{en ? 'Coming soon' : '即将开放'}</div>
+      </div>
+    );
+  }
+
   return (
     <div id="games" className="w-full max-w-5xl mx-auto flex flex-col gap-16 sm:gap-24 px-1 mt-12 mb-10">
-      {GAMES.map((g, i) => (
-        <section key={g.key} className="grid md:grid-cols-2 gap-7 md:gap-10 items-center">
-          <div className={i % 2 ? 'md:order-2' : ''}>
-            {g.key === 'meadow' ? (
-              <div className="w-full rounded-xl border border-eldritch/30 bg-gradient-to-b from-eldritch/15 to-ink flex flex-col items-center justify-center text-center gap-2 shadow-[0_30px_70px_-35px_rgba(0,0,0,.9)]" style={{ aspectRatio: '1180 / 720' }}>
-                <div className="text-5xl">🌾🦊🐇</div>
-                <div className="font-serif text-parchment/80 text-lg">{lang === 'en' ? 'Storybook Meadow' : '童话草原'}</div>
-                <div className="text-parchment/45 text-xs tracking-widest uppercase">{lang === 'en' ? 'persistent world' : '永久世界 · 即将开放'}</div>
-              </div>
-            ) : (
-              <iframe
-                src={`/screens.html#${g.key}`}
-                title={pick(lang, g.name)}
-                loading="lazy"
-                scrolling="no"
-                className="w-full block rounded-xl border border-eldritch/30 bg-ink pointer-events-none shadow-[0_30px_70px_-35px_rgba(0,0,0,.9)]"
-                style={{ aspectRatio: '1180 / 720' }}
-              />
-            )}
-          </div>
-          <div className={`text-left ${i % 2 ? 'md:order-1' : ''}`}>
-            <div className="font-mono text-[11px] tracking-[.22em] uppercase text-eldritch/80 mb-2">{String(i + 1).padStart(2, '0')} · {pick(lang, g.meta)}</div>
-            <h3 className="text-2xl sm:text-[28px] font-serif text-parchment leading-tight mb-2.5">{pick(lang, g.name)}</h3>
-            <p className="text-parchment/65 text-sm leading-relaxed mb-4">{pick(lang, g.blurb)}</p>
-            <div className="font-mono text-[10px] tracking-[.18em] uppercase text-parchment/40 mb-2">{lang === 'en' ? 'How it plays' : '怎么玩'}</div>
-            <ul className="space-y-1.5 mb-6">
-              {g.rules.map((r, k) => (
-                <li key={k} className="flex gap-2.5 text-sm text-parchment/75 leading-snug">
-                  <span className="font-mono text-eldritch shrink-0 mt-px">{String(k + 1).padStart(2, '0')}</span>
-                  <span>{pick(lang, r)}</span>
-                </li>
-              ))}
-            </ul>
-            <button onClick={() => onPlay(g.key)} disabled={busy}
-              className="px-6 py-3 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-50 transition">
-              {busy ? (lang === 'en' ? 'Opening…' : '正在开启…') : `▶ ${lang === 'en' ? 'Play ' + g.name.en : '开始' + g.name.zh.replace(/（.*?）/, '')}`}
-            </button>
-          </div>
-        </section>
-      ))}
+      <div className="text-center max-w-2xl mx-auto rounded-xl border border-eldritch/25 bg-fog/40 px-5 py-3 text-sm text-parchment/70">
+        {en
+          ? <>New accounts get <b className="text-parchment">2 free plays</b> on every game. <b className="text-green-300">Lateral Soup, Truth or Dare, Midnight Cat Curse and Bloodbound are always free.</b></>
+          : <>新账号登录即送 <b className="text-parchment">2 次免费</b>,可玩所有游戏。<b className="text-green-300">海龟汤、真心话大冒险、午夜猫诅咒、血染钟楼 永久免费。</b></>}
+      </div>
+      {ordered.map((g, idx) => {
+        const grp = groupOf(g);
+        const prev = idx > 0 ? groupOf(ordered[idx - 1]) : null;
+        return (
+          <Fragment key={g.key}>
+            {grp !== prev && <Header grp={grp} />}
+            {renderGame(g, idx)}
+          </Fragment>
+        );
+      })}
     </div>
   );
 }

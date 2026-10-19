@@ -637,3 +637,11 @@ create table if not exists group_messages (
 create index if not exists group_messages_chan_idx on group_messages(channel, created_at);
 alter table group_messages enable row level security;
 -- 仅服务端（service_role）读写。
+
+-- 账号资料：个性签名 + 头像；可重复执行
+alter table users add column if not exists bio text;
+alter table users add column if not exists avatar_url text;
+
+-- 头像存储桶（公开可读，上传走服务端 service_role）
+insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true)
+on conflict (id) do update set public = true;

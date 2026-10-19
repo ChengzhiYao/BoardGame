@@ -231,8 +231,13 @@ function AccountBadge({ t }: { t: (k: string, v?: any) => string }) {
   return (
     <div className="fixed top-3 right-3 z-20 text-xs max-w-[58vw]">
       {s.loggedIn ? (
-        <div className="flex items-center gap-1.5 sm:gap-2 rounded-full bg-fog/80 border border-eldritch/30 px-2.5 py-1.5 text-parchment/80 backdrop-blur min-w-0">
-          <span className="truncate max-w-[28vw] sm:max-w-[150px] min-w-0" title={s.email}>{s.email}</span>
+        <div className="flex items-center gap-1.5 sm:gap-2 rounded-full bg-fog/80 border border-eldritch/30 px-2 py-1 text-parchment/80 backdrop-blur min-w-0">
+          <a href="/account" title="账号资料" className="shrink-0">
+            {s.avatarUrl
+              ? <img src={s.avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover border border-eldritch/40" />
+              : <span className="w-6 h-6 rounded-full bg-eldritch/40 flex items-center justify-center text-parchment text-[11px]">{(s.displayName || s.email || '?').slice(0, 1).toUpperCase()}</span>}
+          </a>
+          <a href="/account" className="truncate max-w-[24vw] sm:max-w-[140px] min-w-0 hover:text-parchment" title={s.email}>{s.displayName || s.email}</a>
           <span className="text-eldritch shrink-0">{s.whitelisted ? t('free_forever') : `${s.credits} ${t('credits_left')}`}</span>
           <button onClick={async () => { await signOut(); load(); }} className="text-parchment/40 hover:text-parchment underline shrink-0">{t('logout')}</button>
         </div>

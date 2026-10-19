@@ -48,5 +48,29 @@ export async function POST(req: Request) {
   }
   const { error } = await admin.from('dms').insert({ from_user: user.id, to_user: toUserId, text });
   if (error) return NextResponse.json({ ok: false, reason: 'db', detail: error.message }, { status: 500 });
+
+  // 邮件通知对方（限流：同一对 10 分钟内只发一次，避免刷屏）
+  try {
+    const key = process.env.RESEND_API_KEY;
+    if (key) {
+      const tenAgo = new Date(Date.now() - 600000).toISOString();
+      const { count: recent } = await admin.from('dms').select('id', { count: 'exact', head: true }).eq('from_user', user.id).eq('to_user', toUserId).gte('created_at', tenAgo);
+      if ((recent || 0) <= 1) {
+        const { data: meRow } = await admin.from('users').select('display_name').eq('id', user.id).maybeSingle();
+        const fromName = (meRow?.display_name || String(user.email).split('@')[0]);
+        const from = process.env.NOTIFY_FROM || 'MystNight <onboarding@resend.dev>';
+        const site = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.mystnight.com';
+        const esc = (x: string) => x.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const snippet = esc(text.slice(0, 300));
+        const html = `<div style="font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:0 auto;color:#1a1a1a">
+          <h2 style="font-weight:600">💬 ${esc(fromName)} 在 MystNight 给你发了私信</h2>
+          <blockquote style="border-left:3px solid #7a1f1f;margin:14px 0;padding:6px 14px;color:#333;background:#faf7f2">${snippet}</blockquote>
+          <p style="margin:18px 0"><a href="${site}" style="display:inline-block;background:#7a1f1f;color:#fff;padding:11px 22px;border-radius:8px;text-decoration:none">回到 MystNight 查看并回复 →</a></p>
+          <p style="font-size:13px;color:#888;margin-top:18px">来自 / From: <b>${esc(String(user.email))}</b></p>
+        </div>`;
+        fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to: target.email, reply_to: user.email, subject: `💬 ${fromName} 给你发了私信`, html }) }).catch(() => {});
+      }
+    }
+  } catch {}
   return NextResponse.json({ ok: true });
 }

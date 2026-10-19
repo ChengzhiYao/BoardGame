@@ -12,7 +12,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     out.push({ url: `${SITE}/${lang}`, lastModified: now, changeFrequency: 'weekly', priority: 0.9 });
     out.push({ url: `${SITE}/${lang}/blog`, lastModified: now, changeFrequency: 'weekly', priority: 0.6 });
     for (const p of POSTS) out.push({ url: `${SITE}/${lang}/blog/${p.slug}`, lastModified: new Date(p.date), changeFrequency: 'monthly', priority: 0.5 });
+    for (const s of SLUGS) out.push({ url: `${SITE}/${lang}/games/${s}`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 });
   }
-  for (const s of SLUGS) out.push({ url: `${SITE}/games/${s}`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 });
   return out;
 }

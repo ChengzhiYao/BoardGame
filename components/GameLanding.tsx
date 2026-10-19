@@ -2,17 +2,19 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { seoGame, type Loc } from '@/lib/seo-content';
+import { useRouter } from 'next/navigation';
 import { getClientLang, setClientLang, type Lang } from '@/lib/i18n';
 import GameFeedback from './GameFeedback';
 
-export default function GameLanding({ slug }: { slug: string }) {
+export default function GameLanding({ slug, forcedLang }: { slug: string; forcedLang?: Lang }) {
+  const router = useRouter();
   const g = seoGame(slug);
-  const [lang, setLang] = useState<Lang>('zh');
-  useEffect(() => { setLang(getClientLang()); }, []);
+  const [lang, setLang] = useState<Lang>(forcedLang || 'zh');
+  useEffect(() => { if (!forcedLang) setLang(getClientLang()); }, [forcedLang]);
   if (!g) return null;
   const en = lang === 'en';
   const t: Loc = en ? g.en : g.zh;
-  const switchLang = (l: Lang) => { setLang(l); setClientLang(l); };
+  const switchLang = (l: Lang) => { setClientLang(l); if (forcedLang) router.push(`/${l}/games/${slug}`); else setLang(l); };
   const playLabel = en ? `▶ Play ${t.name}` : `▶ 开始${t.name.replace(/（.*?）|\(.*?\)/, '')}`;
 
   return (

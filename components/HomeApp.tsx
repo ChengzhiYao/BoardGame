@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ensureSession, signInWithGoogle, signOut } from '@/lib/auth';
 import { tr, getClientLang, setClientLang, type Lang } from '@/lib/i18n';
 import GameShowcase, { type GM } from '@/components/GameShowcase';
+import GameFeedback from '@/components/GameFeedback';
 
 export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
   const router = useRouter();
@@ -98,7 +99,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
         <input
           ref={nameRef}
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => { setName(e.target.value); try { localStorage.setItem('name', e.target.value); } catch {} }}
           placeholder={t('home_name_ph')}
           className="w-72 px-4 py-3 rounded bg-fog border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch"
         />
@@ -140,6 +141,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
 
       <GameShowcase lang={lang} busy={busy} onPlay={(m) => createRoom(m)} />
 
+      <div className="w-full max-w-2xl mx-auto px-1 mt-4 mb-8 text-left"><GameFeedback slug="site" en={lang === 'en'} /></div>
       <a href="/upgrade" className="text-parchment/40 hover:text-parchment text-sm underline">{t('home_upgrade_link')}</a>
       <a href={lang === 'en' ? '/en/blog' : '/zh/blog'} className="text-parchment/40 hover:text-parchment text-sm underline">{lang === 'en' ? 'Blog' : '博客'}</a>
       <AdminPanel lang={lang} />

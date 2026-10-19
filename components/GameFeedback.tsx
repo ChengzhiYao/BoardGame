@@ -28,8 +28,8 @@ export default function GameFeedback({ slug, en }: { slug: string; en: boolean }
 
   return (
     <section className="border-t border-eldritch/20 pt-8">
-      <h2 className="font-serif text-xl text-parchment mb-1">{en ? 'Player feedback' : '玩家留言'}</h2>
-      <p className="text-parchment/45 text-sm mb-5">{en ? 'Played it? Leave your thoughts and help shape this game.' : '玩过这个游戏？留下你的想法，帮我们把它做得更好。'}</p>
+      <h2 className="font-serif text-xl text-parchment mb-1">{slug === 'site' ? (en ? 'Message board & feedback' : '留言板 · 反馈') : (en ? 'Player feedback' : '玩家留言')}</h2>
+      <p className="text-parchment/45 text-sm mb-5">{slug === 'site' ? (en ? 'Suggestions, bugs, or anything you want to tell us — leave a note.' : '有建议、发现 bug、或者想说点什么？给我们留个言。') : (en ? 'Played it? Leave your thoughts and help shape this game.' : '玩过这个游戏？留下你的想法，帮我们把它做得更好。')}</p>
 
       <div className="rounded-xl border border-eldritch/25 bg-fog/40 p-4 mb-6">
         <div className="flex gap-2 mb-2 items-center">

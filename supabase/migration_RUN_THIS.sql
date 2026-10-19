@@ -688,3 +688,14 @@ create table if not exists free_usage (
 );
 alter table free_usage enable row level security;
 -- 仅服务端（service_role）读写。
+
+-- 更新公告（changelog）；可重复执行
+create table if not exists changelog (
+  id         uuid primary key default gen_random_uuid(),
+  title      text,
+  body       text,
+  created_at timestamptz not null default now()
+);
+create index if not exists changelog_created_idx on changelog(created_at desc);
+alter table changelog enable row level security;
+-- 读：所有人；写：仅服务端（admin）。

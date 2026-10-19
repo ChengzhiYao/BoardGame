@@ -1,4 +1,4 @@
-// 当前账号的好友图：已通过好友 / 收到的请求 / 发出的请求。只回昵称+id，不暴露邮箱。
+// 当前账号的好友图：已通过好友 / 收到的请求 / 发出的请求。回昵称+头像+id，不暴露邮箱。
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 
@@ -18,20 +18,17 @@ export async function GET() {
   (rows || []).forEach((r: any) => { ids.add(r.from_user); ids.add(r.to_user); });
   ids.delete(user.id);
   const nameMap: Record<string, string> = {};
+  const avatarMap: Record<string, string | null> = {};
   if (ids.size) {
-    const { data: us } = await admin.from('users').select('id, display_name').in('id', Array.from(ids));
-    (us || []).forEach((u: any) => { nameMap[u.id] = u.display_name || ('玩家·' + String(u.id).slice(0, 4)); });
+    const { data: us } = await admin.from('users').select('id, display_name, avatar_url').in('id', Array.from(ids));
+    (us || []).forEach((u: any) => { nameMap[u.id] = u.display_name || ('玩家·' + String(u.id).slice(0, 4)); avatarMap[u.id] = u.avatar_url || null; });
   }
   const nm = (id: string) => nameMap[id] || ('玩家·' + id.slice(0, 4));
+  const node = (id: string) => ({ id, name: nm(id), avatar: avatarMap[id] || null });
   const friends: any[] = [], incoming: any[] = [], outgoing: any[] = [];
   (rows || []).forEach((r: any) => {
-    if (r.status === 'accepted') {
-      const other = r.from_user === user.id ? r.to_user : r.from_user;
-      friends.push({ id: other, name: nm(other) });
-    } else if (r.status === 'pending') {
-      if (r.to_user === user.id) incoming.push({ id: r.from_user, name: nm(r.from_user) });
-      else outgoing.push({ id: r.to_user, name: nm(r.to_user) });
-    }
+    if (r.status === 'accepted') { const other = r.from_user === user.id ? r.to_user : r.from_user; friends.push(node(other)); }
+    else if (r.status === 'pending') { if (r.to_user === user.id) incoming.push(node(r.from_user)); else outgoing.push(node(r.to_user)); }
   });
   return NextResponse.json({ friends, incoming, outgoing });
 }

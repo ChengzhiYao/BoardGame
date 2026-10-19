@@ -94,6 +94,12 @@ export default function FriendDock() {
   const [bellOpen, setBellOpen] = useState(false);
   const [seenTs, setSeenTs] = useState(0);
   const [profile, setProfile] = useState<any | null>(null);
+  const [lfg, setLfg] = useState<any[]>([]);
+  const [lfgOpen, setLfgOpen] = useState(false);
+  const [lfgForm, setLfgForm] = useState(false);
+  const [lfgGame, setLfgGame] = useState(''); const [lfgTimes, setLfgTimes] = useState(''); const [lfgNote, setLfgNote] = useState('');
+  const [applyFor, setApplyFor] = useState<string | null>(null); const [applyMsg, setApplyMsg] = useState('');
+  const [lfgExpand, setLfgExpand] = useState<string | null>(null);
 
   const fChan = useRef<any>(null);
   const lChan = useRef<any>(null);
@@ -183,6 +189,7 @@ export default function FriendDock() {
   async function loadGraph() { try { const r = await fetch('/api/friends/graph'); const d = await r.json(); setGraph({ friends: d.friends || [], incoming: d.incoming || [], outgoing: d.outgoing || [] }); } catch {} }
   useEffect(() => { if (!me || !me.email) return; const id = setInterval(loadGraph, 20000); return () => clearInterval(id); }, [me]);
   useEffect(() => { if (!me || !me.email) return; loadInbox(); const id = setInterval(loadInbox, 12000); return () => clearInterval(id); }, [me]);
+  useEffect(() => { if (!me || !me.email || me.email === HIDDEN) return; loadLfg(); const id = setInterval(loadLfg, 30000); return () => clearInterval(id); }, [me]);
   useEffect(() => { if (!me?.userId || !peer?.userId) return; const id = setInterval(() => loadThread(peer.userId!), 6000); return () => clearInterval(id); }, [me, peer]);
   useEffect(() => { const mq = window.matchMedia('(min-width: 1024px)'); const on = () => setIsDesktop(mq.matches); on(); mq.addEventListener('change', on); return () => mq.removeEventListener('change', on); }, []);
 
@@ -225,6 +232,10 @@ export default function FriendDock() {
   }
   function sendDm() { const t = dmText.trim(); if (!t || !lChan.current || !me || !peer) return; const _pid = peer.userId; const _isFriend = !!_pid && graph.friends.some((f) => f.id === _pid); const _gated = !!me.email && me.email !== HIDDEN && !!_pid && !_isFriend; const _sent = (dms[peer.uid]?.msgs || []).filter((m) => m.mine).length; if (_gated && _sent >= 1) return; lChan.current.send({ type: 'broadcast', event: 'dm', payload: { to: peer.uid, from: me.uid, fromName: me.name, text: t, ts: Date.now() } }); setDms((prev) => { const c = prev[peer.uid] || { name: peer.name, msgs: [] }; return { ...prev, [peer.uid]: { name: c.name, msgs: [...c.msgs.slice(-59), { text: t, ts: Date.now(), mine: true }] } }; }); setDmText(''); }
 
+  async function loadLfg() { try { const r = await fetch('/api/lfg'); const d = await r.json(); setLfg(d.posts || []); } catch {} }
+  async function createLfg() { if (!lfgGame.trim() && !lfgNote.trim()) return; await fetch('/api/lfg', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: lfgGame, times: lfgTimes, note: lfgNote }) }).catch(() => {}); setLfgGame(''); setLfgTimes(''); setLfgNote(''); setLfgForm(false); loadLfg(); }
+  async function closeLfg(id: string) { await fetch('/api/lfg?id=' + id, { method: 'DELETE' }).catch(() => {}); loadLfg(); }
+  async function applyLfg(id: string) { await fetch('/api/lfg/apply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ postId: id, message: applyMsg }) }).catch(() => {}); setApplyFor(null); setApplyMsg(''); loadLfg(); }
   function openProfile(id: string) {
     setProfile({ loading: true });
     fetch('/api/player?id=' + encodeURIComponent(id)).then((r) => r.json()).then((d) => setProfile(d && d.ok ? d : { error: true })).catch(() => setProfile({ error: true }));
@@ -255,6 +266,7 @@ export default function FriendDock() {
   const showFriends = !!me.email;              // 任何登录账号都有好友
   const showOnline = me.email !== HIDDEN;
   const showPlayers = !!me.email && me.email !== HIDDEN;
+  const showLfg = !!me.email && me.email !== HIDDEN;
   const activeDm = peer ? dms[peer.uid] : null;
 
   const friendIds = new Set(graph.friends.map((f) => f.id));
@@ -288,13 +300,62 @@ export default function FriendDock() {
             {graph.incoming.length === 0 && dmUnread === 0 && notifs.filter((n) => !n.id.startsWith('req:')).length === 0 && <div className="text-xs text-parchment/35 py-6 text-center">暂无消息</div>}
           </div>
   );
-  function toggleBell() { setBellOpen((v) => { const nv = !v; if (nv) { setOpen(false); setSeenTs(Date.now()); } return nv; }); }
-  function toggleDock() { setOpen((v) => { const nv = !v; if (nv) setBellOpen(false); return nv; }); }
+  const lfgBody = (
+    <div className="w-72 rounded-2xl border border-eldritch/30 bg-fog/95 backdrop-blur shadow-2xl overflow-hidden flex flex-col max-h-[42vh]">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-eldritch/20 text-sm shrink-0">
+        <span className="text-parchment/80">找队友</span>
+        <button onClick={() => setLfgForm((v) => !v)} className="text-xs px-2 py-0.5 rounded bg-blood/80 hover:bg-blood text-parchment">{lfgForm ? '取消' : '＋ 发公告'}</button>
+      </div>
+      {lfgForm && (
+        <div className="px-3 py-2 border-b border-eldritch/15 space-y-1.5 shrink-0">
+          <input value={lfgGame} onChange={(e) => setLfgGame(e.target.value)} placeholder="想玩什么游戏（如 剧本杀/海龟汤）" className="w-full px-2.5 py-1.5 rounded-lg bg-ink border border-eldritch/30 text-parchment placeholder:text-parchment/30 text-xs outline-none focus:border-eldritch" />
+          <input value={lfgTimes} onChange={(e) => setLfgTimes(e.target.value)} placeholder="常在线时间（如 晚上 8-11 点）" className="w-full px-2.5 py-1.5 rounded-lg bg-ink border border-eldritch/30 text-parchment placeholder:text-parchment/30 text-xs outline-none focus:border-eldritch" />
+          <textarea value={lfgNote} onChange={(e) => setLfgNote(e.target.value)} rows={2} placeholder="想找什么样的队友…" className="w-full px-2.5 py-1.5 rounded-lg bg-ink border border-eldritch/30 text-parchment placeholder:text-parchment/30 text-xs outline-none focus:border-eldritch resize-none" />
+          <button onClick={createLfg} className="w-full py-1.5 rounded-lg bg-eldritch/60 hover:bg-eldritch text-parchment text-xs">发布公告</button>
+        </div>
+      )}
+      <div className="flex-1 min-h-0 overflow-y-auto px-3 py-2 space-y-2.5">
+        {lfg.length === 0 && <div className="text-xs text-parchment/35 py-8 text-center">还没有组队公告 · 发一个吧</div>}
+        {lfg.map((post) => (
+          <div key={post.id} className="border border-eldritch/15 rounded-lg px-2.5 py-2">
+            <div className="flex items-center gap-2">
+              <Avatar url={post.author.avatar} name={post.author.name} />
+              <div className="flex-1 min-w-0 leading-tight"><div className="truncate text-sm">{post.author.name}</div><div className="text-[10px] text-parchment/35">{ago(post.ts)}</div></div>
+              {post.mine && <button onClick={() => closeLfg(post.id)} className="text-[10px] text-parchment/40 hover:text-parchment shrink-0">关闭</button>}
+            </div>
+            <div className="text-xs mt-1 space-y-0.5">
+              {post.game && <div className="text-parchment/90">🎮 {post.game}</div>}
+              {post.times && <div className="text-parchment/60">🕘 {post.times}</div>}
+              {post.note && <div className="text-parchment/70 whitespace-pre-wrap">{post.note}</div>}
+            </div>
+            <div className="mt-1.5">
+              {post.mine ? (
+                <button onClick={() => setLfgExpand((e) => (e === post.id ? null : post.id))} className="text-[11px] text-eldritch hover:text-parchment">{post.applicantCount} 人申请{post.applicantCount > 0 ? (lfgExpand === post.id ? ' ▲' : ' ▼') : ''}</button>
+              ) : post.applied ? <span className="text-[11px] text-green-400">✓ 已申请</span>
+                : applyFor === post.id ? (
+                  <div className="flex gap-1.5">
+                    <input value={applyMsg} onChange={(e) => setApplyMsg(e.target.value)} placeholder="留言（可选）" className="flex-1 min-w-0 px-2 py-1 rounded bg-ink border border-eldritch/30 text-parchment placeholder:text-parchment/30 text-xs outline-none focus:border-eldritch" />
+                    <button onClick={() => applyLfg(post.id)} className="text-xs px-2 py-1 rounded bg-blood/80 hover:bg-blood text-parchment shrink-0">提交</button>
+                  </div>
+                ) : <button onClick={() => { setApplyFor(post.id); setApplyMsg(''); }} className="text-xs px-2.5 py-0.5 rounded bg-blood/80 hover:bg-blood text-parchment">申请</button>}
+            </div>
+            {post.mine && lfgExpand === post.id && (post.applicants || []).map((ap: any) => (
+              <div key={ap.id} className="text-[11px] mt-1 pl-2 border-l-2 border-eldritch/30 text-parchment/70"><b className="text-parchment">{ap.name}</b>{ap.message ? '：' + ap.message : ''}</div>
+            ))}
+            {post.mine && lfgExpand === post.id && post.applicantCount === 0 && <div className="text-[11px] mt-1 text-parchment/35">还没有人申请</div>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+  function toggleBell() { setLfgOpen(false); setBellOpen((v) => { const nv = !v; if (nv) { setOpen(false); setSeenTs(Date.now()); } return nv; }); }
+  function toggleDock() { setLfgOpen(false); setOpen((v) => { const nv = !v; if (nv) setBellOpen(false); return nv; }); }
+  function toggleLfg() { setLfgOpen((v) => { const nv = !v; if (nv) { setOpen(false); setBellOpen(false); if (lfg.length === 0) loadLfg(); } return nv; }); }
 
   return (
-    <div className={isDesktop ? 'fixed left-3 top-16 z-40 text-parchment' : 'fixed bottom-3 right-3 z-40 text-parchment'}>
+    <div className={isDesktop ? 'fixed left-3 top-16 bottom-3 z-40 text-parchment flex flex-col gap-2 w-72' : 'fixed bottom-3 right-3 z-40 text-parchment'}>
       {(open || isDesktop) && (
-        <div className={`${isDesktop ? 'w-72 max-h-[calc(100vh-5.5rem)] overflow-y-auto' : 'mb-2 w-72 overflow-hidden'} rounded-2xl border border-eldritch/30 bg-fog/95 backdrop-blur shadow-2xl`}>
+        <div className={`${isDesktop ? 'w-72 max-h-[50%] overflow-y-auto shrink-0' : 'mb-2 w-72 overflow-hidden'} rounded-2xl border border-eldritch/30 bg-fog/95 backdrop-blur shadow-2xl`}>
           <div className="flex items-center justify-between px-3 py-2 border-b border-eldritch/20 sticky top-0 bg-fog/95 backdrop-blur z-10">
             <div className="flex gap-3 text-sm">
               {isDesktop && showFriends && <button onClick={() => setTab('messages')} className={tab === 'messages' ? 'text-parchment font-medium' : 'text-parchment/40 hover:text-parchment'}>消息{unseen > 0 && <span className="text-blood"> · {unseen}</span>}</button>}
@@ -419,6 +480,8 @@ export default function FriendDock() {
         </div>
       )}
 
+      {isDesktop && showLfg && lfgBody}
+
       {!isDesktop && bellOpen && (
         <div className="mb-2 w-64 rounded-2xl border border-eldritch/30 bg-fog/95 backdrop-blur shadow-2xl overflow-hidden">
           <div className="flex items-center justify-between px-3 py-2 border-b border-eldritch/20 text-sm">
@@ -473,7 +536,14 @@ export default function FriendDock() {
           </div>
         </div>
         ); })()}
+      {!isDesktop && lfgOpen && showLfg && <div className="mb-2">{lfgBody}</div>}
+
       {!isDesktop && <div className="flex items-center gap-2 justify-end">
+        {showLfg && (
+          <button onClick={toggleLfg} title="找队友" className="relative w-10 h-10 rounded-full bg-fog/95 border border-eldritch/40 backdrop-blur shadow-xl flex items-center justify-center hover:bg-fog">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f2ead9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 11l18-5v12L3 14z" /><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" /></svg>
+          </button>
+        )}
         {showFriends && (
           <button onClick={toggleBell} title="消息" className="relative w-10 h-10 rounded-full bg-fog/95 border border-eldritch/40 backdrop-blur shadow-xl flex items-center justify-center hover:bg-fog">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f2ead9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>

@@ -649,3 +649,28 @@ on conflict (id) do update set public = true;
 -- 最近在线时间；可重复执行
 alter table users add column if not exists last_seen timestamptz;
 create index if not exists users_last_seen_idx on users(last_seen desc);
+
+-- 找队友（组队公告）；可重复执行
+create table if not exists lfg_posts (
+  id          uuid primary key default gen_random_uuid(),
+  author_user uuid not null references auth.users(id) on delete cascade,
+  game        text,
+  times       text,
+  note        text,
+  active      boolean not null default true,
+  created_at  timestamptz not null default now()
+);
+create index if not exists lfg_posts_active_idx on lfg_posts(active, created_at desc);
+alter table lfg_posts enable row level security;
+
+create table if not exists lfg_applications (
+  id             uuid primary key default gen_random_uuid(),
+  post_id        uuid not null references lfg_posts(id) on delete cascade,
+  applicant_user uuid not null references auth.users(id) on delete cascade,
+  message        text,
+  created_at     timestamptz not null default now(),
+  unique (post_id, applicant_user)
+);
+create index if not exists lfg_app_post_idx on lfg_applications(post_id, created_at);
+alter table lfg_applications enable row level security;
+-- 仅服务端（service_role）读写。

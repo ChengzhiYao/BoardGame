@@ -29,6 +29,9 @@ export async function POST(req: Request) {
     if (!ent.email) {
       return NextResponse.json({ error: '开房需要先用 Google 登录', reason: 'login' }, { status: 402 });
     }
+    if (!ent.member && !ent.whitelisted && ent.freeSecondsUsed >= ent.freeSecondsLimit) {
+      return NextResponse.json({ error: '本周免费时长已用完，开通会员即可无限畅玩', reason: 'free_limit' }, { status: 402 });
+    }
   } else if (!ent.canHost) {
     return NextResponse.json(
       { error: ent.reason === 'login' ? '开房需要先用 Google 登录' : '局数已用完，请购买后再开房', reason: ent.reason },
@@ -63,7 +66,7 @@ export async function POST(req: Request) {
   }
 
   // 非白名单：开房成功扣 1 局
-  if (!ent.whitelisted && !isFree) {
+  if (!ent.whitelisted && !ent.member && !isFree) {
     await admin.from('profiles').update({ credits: Math.max(0, (ent.credits || 0) - 1) }).eq('user_id', user.id);
   }
 

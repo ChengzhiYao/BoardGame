@@ -265,6 +265,7 @@ export default function FriendDock() {
   const anyOnline = people.length > 0 || anyFriendOnline;
   const dmUnread = inbox.reduce((a, t) => a + t.unread, 0);
   const unseen = notifs.filter((n) => n.ts > seenTs).length + graph.incoming.length + dmUnread;
+  const peopleBadge = dmUnread + graph.incoming.length + unread;
 
   const messagesBody = (
           <div className="max-h-72 overflow-y-auto px-3 py-2 space-y-2">
@@ -480,9 +481,9 @@ export default function FriendDock() {
           </button>
         )}
         <button onClick={toggleDock} title="好友 / 在线 / 玩家" className="relative w-12 h-12 rounded-full bg-fog/95 border border-eldritch/40 backdrop-blur shadow-xl flex items-center justify-center hover:bg-fog">
+          {anyOnline && <span className="absolute inset-0 rounded-full border-2 border-green-400/70 animate-ping pointer-events-none" />}
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f2ead9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
-          <span className={`absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-fog ${anyOnline ? 'bg-green-400' : 'bg-parchment/30'}`} />
-          {unread > 0 && <span className="absolute -top-1.5 -left-1.5 min-w-[16px] h-4 px-1 rounded-full bg-blood text-[10px] flex items-center justify-center">{unread}</span>}
+          {peopleBadge > 0 && <span className="absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-blood text-[10px] font-medium flex items-center justify-center border border-fog">{peopleBadge > 99 ? '99+' : peopleBadge}</span>}
         </button>
       </div>}
     </div>

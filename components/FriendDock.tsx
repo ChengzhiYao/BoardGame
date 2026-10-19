@@ -73,6 +73,9 @@ export default function FriendDock() {
   const [tab, setTab] = useState<'friends' | 'online' | 'players' | 'messages'>('online');
   const [open, setOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [dockMin, setDockMin] = useState(false);
+  const [dockPos, setDockPos] = useState<{ x: number; y: number }>({ x: 12, y: 64 });
+  const dragRef = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
   const [unread, setUnread] = useState(0);
 
   const [roster, setRoster] = useState<string[]>([]);
@@ -204,6 +207,12 @@ export default function FriendDock() {
   useEffect(() => { if (!me) return; loadChangelog(); const id = setInterval(loadChangelog, 120000); return () => clearInterval(id); }, [me]);
   useEffect(() => { if (!me?.userId || !peer?.userId) return; const id = setInterval(() => loadThread(peer.userId!), 6000); return () => clearInterval(id); }, [me, peer]);
   useEffect(() => { const mq = window.matchMedia('(min-width: 1024px)'); const on = () => setIsDesktop(mq.matches); on(); mq.addEventListener('change', on); return () => mq.removeEventListener('change', on); }, []);
+  useEffect(() => { try { if (localStorage.getItem('dockMin') === '1') setDockMin(true); const pp = localStorage.getItem('dockPos'); if (pp) { const o = JSON.parse(pp); if (typeof o?.x === 'number' && typeof o?.y === 'number') setDockPos(o); } } catch {} }, []);
+  useEffect(() => { try { localStorage.setItem('dockMin', dockMin ? '1' : '0'); } catch {} }, [dockMin]);
+  useEffect(() => { try { localStorage.setItem('dockPos', JSON.stringify(dockPos)); } catch {} }, [dockPos]);
+  function startDrag(e: any) { try { e.currentTarget.setPointerCapture(e.pointerId); } catch {} dragRef.current = { x: e.clientX, y: e.clientY, px: dockPos.x, py: dockPos.y }; }
+  function onDragMove(e: any) { const d = dragRef.current; if (!d) return; const x = Math.max(0, Math.min(window.innerWidth - 120, d.px + (e.clientX - d.x))); const y = Math.max(0, Math.min(window.innerHeight - 60, d.py + (e.clientY - d.y))); setDockPos({ x, y }); }
+  function endDrag() { dragRef.current = null; }
 
   // 好友上线 → 推送通知（首个 sync 不通知）
   useEffect(() => {
@@ -400,17 +409,25 @@ export default function FriendDock() {
   function toggleCl() { setLfgOpen(false); setClOpen((v) => { const nv = !v; if (nv) { setOpen(false); setBellOpen(false); markClSeen(); } return nv; }); }
 
   return (
-    <div className={isDesktop ? 'fixed left-3 top-16 bottom-3 z-40 text-parchment flex flex-col gap-2 w-72' : 'fixed bottom-3 right-3 z-40 text-parchment'}>
+    <div className={isDesktop ? 'fixed z-40 text-parchment flex flex-col gap-2 w-72 overflow-y-auto' : 'fixed bottom-3 right-3 z-40 text-parchment'} style={isDesktop ? { left: dockPos.x, top: dockPos.y, maxHeight: `calc(100vh - ${dockPos.y + 12}px)` } : undefined}>
+      {isDesktop && dockMin ? (
+        <button onClick={() => setDockMin(false)} title="展开社交面板" className="relative w-12 h-12 rounded-full bg-fog/95 border border-eldritch/40 backdrop-blur shadow-xl flex items-center justify-center hover:bg-fog">
+          {anyOnline && <span className="absolute inset-0 rounded-full border-2 border-green-400/70 animate-ping pointer-events-none" />}
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f2ead9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+          {(peopleBadge > 0 || clHasNew) && <span className="absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-blood text-[10px] flex items-center justify-center border border-fog">{peopleBadge > 0 ? (peopleBadge > 99 ? '99+' : peopleBadge) : '!'}</span>}
+        </button>
+      ) : (<>
       {(open || isDesktop) && (
         <div className={`${isDesktop ? 'w-72 max-h-[50%] overflow-y-auto shrink-0' : 'mb-2 w-72 overflow-hidden'} rounded-2xl border border-eldritch/30 bg-fog/95 backdrop-blur shadow-2xl`}>
-          <div className="flex items-center justify-between px-3 py-2 border-b border-eldritch/20 sticky top-0 bg-fog/95 backdrop-blur z-10">
-            <div className="flex gap-3 text-sm">
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-eldritch/20 sticky top-0 bg-fog/95 backdrop-blur z-10">
+            {isDesktop && <span onPointerDown={startDrag} onPointerMove={onDragMove} onPointerUp={endDrag} className="cursor-move touch-none select-none text-parchment/35 hover:text-parchment/80 leading-none" title="拖动面板">⠿</span>}
+            <div className="flex gap-3 text-sm flex-1 min-w-0">
               {isDesktop && showFriends && <button onClick={() => setTab('messages')} className={tab === 'messages' ? 'text-parchment font-medium' : 'text-parchment/40 hover:text-parchment'}>{L('消息', 'Messages')}{unseen > 0 && <span className="text-blood"> · {unseen}</span>}</button>}
               {showFriends && <button onClick={() => { setTab('friends'); setPeer(null); }} className={tab === 'friends' ? 'text-parchment font-medium' : 'text-parchment/40 hover:text-parchment'}>{L('好友', 'Friends')}{anyFriendOnline && <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 ml-1 align-middle animate-pulse" />}{graph.incoming.length > 0 && <span className="text-blood"> · {graph.incoming.length}</span>}</button>}
               {showOnline && <button onClick={() => setTab('online')} className={tab === 'online' ? 'text-parchment font-medium' : 'text-parchment/40 hover:text-parchment'}>{L('在线', 'Online')}{people.length > 0 && <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 ml-1 align-middle animate-pulse" />}{people.length > 0 && <span className="text-green-400"> {people.length}</span>}</button>}
               {showPlayers && <button onClick={() => { setTab('players'); setPeer(null); if (dir === null) loadDir(); }} className={tab === 'players' ? 'text-parchment font-medium' : 'text-parchment/40 hover:text-parchment'}>{L('玩家', 'Players')}{Object.keys(lobbyById).length > 0 && <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 ml-1 align-middle animate-pulse" />}</button>}
             </div>
-            {!isDesktop && <button onClick={() => setOpen(false)} className="text-parchment/50 hover:text-parchment text-base leading-none px-1">–</button>}
+            <button onClick={() => (isDesktop ? setDockMin(true) : setOpen(false))} className="text-parchment/50 hover:text-parchment text-base leading-none px-1" title={isDesktop ? '最小化' : undefined}>–</button>
           </div>
           {tab === 'messages' && isDesktop && messagesBody}
 
@@ -609,6 +626,7 @@ export default function FriendDock() {
           {peopleBadge > 0 && <span className="absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-blood text-[10px] font-medium flex items-center justify-center border border-fog">{peopleBadge > 99 ? '99+' : peopleBadge}</span>}
         </button>
       </div>}
+      </>)}
     </div>
   );
 }

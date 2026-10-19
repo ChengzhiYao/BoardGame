@@ -17,6 +17,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [showPromo, setShowPromo] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
   const promoAudio = useRef<HTMLAudioElement | null>(null);
   const heroRef = useRef<HTMLElement | null>(null);
   const nameRef = useRef<HTMLInputElement | null>(null);
@@ -94,6 +95,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
         <div className="flex items-center gap-3 flex-wrap justify-center">
           <button onClick={openPromo} className="text-sm px-4 py-1.5 rounded-full border border-eldritch/40 text-parchment/80 hover:bg-eldritch/20 transition">▶ {lang === 'en' ? 'Watch the trailer' : '观看宣传片'}</button>
           <a href={lang === 'en' ? '/en/blog' : '/zh/blog'} className="inline-flex items-center gap-1.5 text-sm px-4 py-1.5 rounded-full border border-eldritch/40 text-parchment/80 hover:bg-eldritch/20 transition"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 1 6.5 18H20" /></svg>{lang === 'en' ? 'Blog' : '博客'}</a>
+          <button onClick={() => setShowFeedback(true)} className="inline-flex items-center gap-1.5 text-sm px-4 py-1.5 rounded-full border border-blood/50 text-parchment/90 bg-blood/15 hover:bg-blood/30 transition"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>{lang === 'en' ? 'Guestbook' : '留言板'}</button>
         </div>
 
         <input
@@ -141,10 +143,20 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
 
       <GameShowcase lang={lang} busy={busy} onPlay={(m) => createRoom(m)} />
 
-      <div className="w-full max-w-2xl mx-auto px-1 mt-4 mb-8 text-left"><GameFeedback slug="site" en={lang === 'en'} /></div>
       <a href="/upgrade" className="text-parchment/40 hover:text-parchment text-sm underline">{t('home_upgrade_link')}</a>
       <a href={lang === 'en' ? '/en/blog' : '/zh/blog'} className="text-parchment/40 hover:text-parchment text-sm underline">{lang === 'en' ? 'Blog' : '博客'}</a>
       <AdminPanel lang={lang} />
+      {showFeedback && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start sm:items-center justify-center p-4 overflow-y-auto" onClick={() => setShowFeedback(false)}>
+          <div className="w-full max-w-lg my-auto rounded-2xl bg-fog border border-eldritch/40 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-eldritch/25">
+              <span className="font-serif text-parchment">{lang === 'en' ? 'Guestbook · Feedback' : '留言板 · 反馈'}</span>
+              <button onClick={() => setShowFeedback(false)} className="text-parchment/60 hover:text-parchment text-sm px-2">✕</button>
+            </div>
+            <div className="px-4 py-4 max-h-[75vh] overflow-y-auto text-left"><GameFeedback slug="site" en={lang === 'en'} /></div>
+          </div>
+        </div>
+      )}
       {showPromo && (
         <div className="fixed inset-0 z-50 bg-black flex flex-col">
           <div className="flex items-center justify-between px-4 py-2 bg-ink/80 border-b border-eldritch/30">

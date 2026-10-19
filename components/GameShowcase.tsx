@@ -1,5 +1,5 @@
 'use client';
-import { Fragment } from 'react';
+import { Fragment, useState } from 'react';
 import { type Lang } from '@/lib/i18n';
 import { FREE_MODES } from '@/lib/pricing';
 
@@ -129,6 +129,14 @@ export default function GameShowcase({ lang, busy, onPlay }: { lang: Lang; busy:
   const soon = GAMES.filter((g) => g.key === 'meadow');
   const ordered = [...free, ...paid, ...soon];
   const groupOf = (g: Game) => (isFree(g.key) ? 'free' : g.key === 'meadow' ? 'soon' : 'paid');
+  const [filter, setFilter] = useState<'all' | 'free' | 'premium' | 'soon'>('all');
+  const tabs: { k: 'all' | 'free' | 'premium' | 'soon'; label: string }[] = [
+    { k: 'all', label: en ? 'All' : '全部' },
+    { k: 'free', label: en ? 'Free' : '免费畅玩' },
+    { k: 'premium', label: en ? 'Premium ✦' : '豪华大作 ✦' },
+    { k: 'soon', label: en ? 'Soon' : '即将开放' },
+  ];
+  const shown = filter === 'all' ? ordered : ordered.filter((g) => groupOf(g) === (filter === 'premium' ? 'paid' : filter));
 
   function renderGame(g: Game, i: number) {
     const freeTag = isFree(g.key);
@@ -181,7 +189,7 @@ export default function GameShowcase({ lang, busy, onPlay }: { lang: Lang; busy:
     );
     if (grp === 'paid') return (
       <div className="text-center max-w-xl mx-auto">
-        <div className="font-mono text-xs tracking-[.3em] uppercase text-eldritch/80">{en ? 'Premium modes' : '精华大制作'}</div>
+        <div className="font-mono text-xs tracking-[.3em] uppercase text-amber-300/80">{en ? 'Premium ✦ Deluxe' : '豪华大作 ✦ 殿堂级'}</div>
         <p className="text-parchment/45 text-sm mt-1">{en ? 'New accounts get 2 free plays on everything. After that, each of these uses 1 play credit.' : '新账号登录即送 2 次免费(可玩全部游戏);之后这些每开一局消耗 1 局。'}</p>
       </div>
     );
@@ -199,9 +207,17 @@ export default function GameShowcase({ lang, busy, onPlay }: { lang: Lang; busy:
           ? <>New accounts get <b className="text-parchment">2 free plays</b> on every game. <b className="text-green-300">Lateral Soup, Truth or Dare, Midnight Cat Curse and Bloodbound are always free.</b></>
           : <>新账号登录即送 <b className="text-parchment">2 次免费</b>,可玩所有游戏。<b className="text-green-300">海龟汤、真心话大冒险、午夜猫诅咒、血染钟楼 永久免费。</b></>}
       </div>
-      {ordered.map((g, idx) => {
+      <div className="flex justify-center flex-wrap gap-1.5">
+        {tabs.map((t) => (
+          <button key={t.k} onClick={() => setFilter(t.k)}
+            className={`px-3.5 py-1.5 rounded-full text-sm border transition ${filter === t.k ? 'bg-eldritch/50 border-eldritch text-parchment' : 'bg-fog/50 border-eldritch/30 text-parchment/55 hover:text-parchment'}`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {shown.map((g, idx) => {
         const grp = groupOf(g);
-        const prev = idx > 0 ? groupOf(ordered[idx - 1]) : null;
+        const prev = idx > 0 ? groupOf(shown[idx - 1]) : null;
         return (
           <Fragment key={g.key}>
             {grp !== prev && <Header grp={grp} />}

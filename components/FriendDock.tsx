@@ -8,7 +8,7 @@ const HIDDEN = 'hattieichinose@gmail.com';
 
 type Msg = { text: string; ts: number; mine: boolean };
 type Peer = { uid: string; name: string; roomId?: string; userId?: string };
-type Node = { id: string; name: string; lastSeen?: number | null };
+type Node = { id: string; name: string; lastSeen?: number | null; avatar?: string | null };
 type Notif = { id: string; text: string; ts: number };
 
 function anonId() {
@@ -352,11 +352,16 @@ export default function FriendDock() {
               {(dir || []).map((pp) => { const st = invited[pp.id]; const as = addState[pp.id];
                 const rel = friendIds.has(pp.id) ? '好友' : outIds.has(pp.id) ? '待通过' : inIds.has(pp.id) ? 'incoming' : '';
                 const online = !!lobbyById[pp.id];
-                return (<div key={pp.id} className="flex items-center gap-1.5 text-sm py-1">
-                  <span className={`w-2 h-2 rounded-full shrink-0 ${online ? 'bg-green-400' : 'bg-parchment/25'}`} />
+                return (<div key={pp.id} className="flex items-center gap-2 text-sm py-1">
+                  <div className="relative shrink-0">
+                    {pp.avatar
+                      ? <img src={pp.avatar} alt="" className="w-7 h-7 rounded-full object-cover border border-eldritch/30" />
+                      : <span className="w-7 h-7 rounded-full bg-eldritch/40 flex items-center justify-center text-[11px] text-parchment">{pp.name.slice(0, 1).toUpperCase()}</span>}
+                    {online && <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400 border-2 border-fog" />}
+                  </div>
                   <div className="flex-1 min-w-0 leading-tight">
                     <div className="truncate">{pp.name}</div>
-                    <div className="text-[10px] text-parchment/35 truncate">{online ? '🟢 在线' : pp.lastSeen ? '最近在线 ' + ago(pp.lastSeen) : '从未上线'}</div>
+                    <div className="text-[10px] text-parchment/35 truncate">{online ? '在线' : pp.lastSeen ? '最近在线 ' + ago(pp.lastSeen) : '从未上线'}</div>
                   </div>
                   {rel === '好友' ? <span className="text-[10px] text-green-400 shrink-0">好友</span>
                     : rel === '待通过' ? <span className="text-[10px] text-parchment/40 shrink-0">待通过</span>

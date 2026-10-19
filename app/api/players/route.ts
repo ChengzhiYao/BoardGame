@@ -22,5 +22,11 @@ export async function GET() {
   const players = (data || [])
     .filter((u: any) => u.email && u.id !== user.id && u.email !== HIDDEN)
     .map((u: any) => ({ id: u.id, name: u.display_name || ('玩家·' + String(u.id).slice(0, 4)) }));
-  return NextResponse.json({ loggedIn: true, players });
+  let invitedIds: string[] = [];
+  try {
+    const sixAgo = new Date(Date.now() - 6 * 3600000).toISOString();
+    const { data: inv } = await admin.from('game_invites').select('to_user').eq('from_user', user.id).gte('created_at', sixAgo);
+    invitedIds = Array.from(new Set((inv || []).map((r: any) => r.to_user)));
+  } catch {}
+  return NextResponse.json({ loggedIn: true, players, invitedIds });
 }

@@ -170,20 +170,22 @@ export default function FriendDock() {
   function openDm(p: Peer) { setDms((prev) => (prev[p.uid] ? prev : { ...prev, [p.uid]: { name: p.name, msgs: [] } })); setPeer(p); setTab('online'); }
   function sendDm() { const t = dmText.trim(); if (!t || !lChan.current || !me || !peer) return; lChan.current.send({ type: 'broadcast', event: 'dm', payload: { to: peer.uid, from: me.uid, fromName: me.name, text: t, ts: Date.now() } }); setDms((prev) => { const c = prev[peer.uid] || { name: peer.name, msgs: [] }; return { ...prev, [peer.uid]: { name: c.name, msgs: [...c.msgs.slice(-59), { text: t, ts: Date.now(), mine: true }] } }; }); setDmText(''); }
 
-  async function loadDir() { try { const r = await fetch('/api/players'); const d = await r.json(); setDir(d.players || []); } catch { setDir([]); } }
+  async function loadDir() { try { const r = await fetch('/api/players'); const d = await r.json(); setDir(d.players || []); const inv: Record<string, 'ok'> = {}; (d.invitedIds || []).forEach((id: string) => { inv[id] = 'ok'; }); setInvited((p) => ({ ...inv, ...p })); } catch { setDir([]); } }
   async function invite(id: string) {
     setInvited((p) => ({ ...p, [id]: 'sending' }));
     try {
       const r = await fetch('/api/invite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ toUserId: id }) });
       const d = await r.json().catch(() => ({}));
       if (r.ok && d.ok) { setInvited((p) => ({ ...p, [id]: 'ok' })); return; }
-      const msg = d.reason === 'dup' ? '刚邀请过' : d.reason === 'limit' ? '今日上限' : d.reason === 'no_provider' ? '邮件未配置' : d.reason === 'send_failed' ? '发送失败(域名?)' : '失败';
+      const det = String(d.detail || '').toLowerCase();
+      const sendHint = det.includes('not verified') || det.includes('verify') ? '域名未验证' : det.includes('own email') || det.includes('testing emails') ? '域名未验证(只能发你自己)' : det.includes('api key') || det.includes('unauthor') ? 'Key无效' : '发送失败';
+      const msg = d.reason === 'dup' ? '刚邀请过' : d.reason === 'limit' ? '今日上限' : d.reason === 'no_provider' ? '邮件未配置' : d.reason === 'send_failed' ? sendHint : '失败';
       setInvited((p) => ({ ...p, [id]: msg }));
     } catch { setInvited((p) => ({ ...p, [id]: '失败' })); }
   }
   async function addFriend(id: string) {
     setAddState((p) => ({ ...p, [id]: '...' }));
-    try { const r = await fetch('/api/friends/request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ toUserId: id }) }); const d = await r.json().catch(() => ({})); if (r.ok && d.ok) { setAddState((p) => ({ ...p, [id]: d.accepted ? '已成为好友' : '已发送' })); loadGraph(); } else setAddState((p) => ({ ...p, [id]: '失败' })); }
+    try { const r = await fetch('/api/friends/request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ toUserId: id }) }); const d = await r.json().catch(() => ({})); if (r.ok && d.ok) { setAddState((p) => ({ ...p, [id]: d.accepted ? '已成为好友' : '已发送' })); loadGraph(); } else setAddState((p) => ({ ...p, [id]: d.reason === 'db' ? '需建表' : '失败' })); }
     catch { setAddState((p) => ({ ...p, [id]: '失败' })); }
   }
   async function respondReq(fromUserId: string, accept: boolean) {

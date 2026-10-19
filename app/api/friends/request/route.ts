@@ -25,6 +25,7 @@ export async function POST(req: Request) {
   // 已存在我→对方的关系：幂等
   const { data: mine } = await admin.from('friendships').select('id, status').eq('from_user', user.id).eq('to_user', toUserId).maybeSingle();
   if (mine) return NextResponse.json({ ok: true, already: mine.status });
-  await admin.from('friendships').insert({ from_user: user.id, to_user: toUserId, status: 'pending' });
+  const { error: insErr } = await admin.from('friendships').insert({ from_user: user.id, to_user: toUserId, status: 'pending' });
+  if (insErr) return NextResponse.json({ ok: false, reason: 'db', detail: insErr.message }, { status: 500 });
   return NextResponse.json({ ok: true, requested: true });
 }

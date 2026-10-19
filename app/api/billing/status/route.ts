@@ -11,6 +11,7 @@ export async function GET() {
   }
   const admin = createAdminClient();
   const ent = await getEntitlement(admin, user);
+  admin.from('users').update({ last_seen: new Date().toISOString() }).eq('id', user.id).then(() => {}, () => {});
   const { data: prof } = await admin.from('users').select('display_name, bio, avatar_url').eq('id', user.id).maybeSingle();
   return NextResponse.json({ loggedIn: true, userId: user.id, email: ent.email, whitelisted: ent.whitelisted, credits: ent.credits, displayName: prof?.display_name || null, bio: prof?.bio || null, avatarUrl: prof?.avatar_url || null });
 }

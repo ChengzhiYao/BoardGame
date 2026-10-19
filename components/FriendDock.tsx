@@ -8,7 +8,7 @@ const HIDDEN = 'hattieichinose@gmail.com';
 
 type Msg = { text: string; ts: number; mine: boolean };
 type Peer = { uid: string; name: string; roomId?: string; userId?: string };
-type Node = { id: string; name: string };
+type Node = { id: string; name: string; lastSeen?: number | null };
 type Notif = { id: string; text: string; ts: number };
 
 function anonId() {
@@ -18,6 +18,16 @@ function anonId() {
 function guestName() {
   try { const n = localStorage.getItem('name'); if (n && n.trim()) return n.trim(); } catch {}
   return '访客' + anonId().slice(-4);
+}
+
+function ago(ts?: number | null) {
+  if (!ts) return '';
+  const m = Math.floor((Date.now() - ts) / 60000);
+  if (m < 1) return '刚刚'; if (m < 60) return m + ' 分钟前';
+  const h = Math.floor(m / 60); if (h < 24) return h + ' 小时前';
+  const d = Math.floor(h / 24); if (d < 30) return d + ' 天前';
+  const mo = Math.floor(d / 30); if (mo < 12) return mo + ' 个月前';
+  return Math.floor(mo / 12) + ' 年前';
 }
 
 function ChatBox({ msgs, text, setText, send, empty, hint, disabled, footer }: { msgs: Msg[]; text: string; setText: (s: string) => void; send: () => void; empty: string; hint?: string; disabled?: boolean; footer?: ReactNode }) {
@@ -341,9 +351,13 @@ export default function FriendDock() {
               {dir !== null && dir.length === 0 && <div className="text-xs text-parchment/40 py-6 text-center">还没有其他注册玩家</div>}
               {(dir || []).map((pp) => { const st = invited[pp.id]; const as = addState[pp.id];
                 const rel = friendIds.has(pp.id) ? '好友' : outIds.has(pp.id) ? '待通过' : inIds.has(pp.id) ? 'incoming' : '';
-                return (<div key={pp.id} className="flex items-center gap-1 text-sm py-1">
-                  <span className="w-2 h-2 rounded-full bg-parchment/25 shrink-0" />
-                  <span className="truncate flex-1">{pp.name}</span>
+                const online = !!lobbyById[pp.id];
+                return (<div key={pp.id} className="flex items-center gap-1.5 text-sm py-1">
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${online ? 'bg-green-400' : 'bg-parchment/25'}`} />
+                  <div className="flex-1 min-w-0 leading-tight">
+                    <div className="truncate">{pp.name}</div>
+                    <div className="text-[10px] text-parchment/35 truncate">{online ? '🟢 在线' : pp.lastSeen ? '最近在线 ' + ago(pp.lastSeen) : '从未上线'}</div>
+                  </div>
                   {rel === '好友' ? <span className="text-[10px] text-green-400 shrink-0">好友</span>
                     : rel === '待通过' ? <span className="text-[10px] text-parchment/40 shrink-0">待通过</span>
                     : rel === 'incoming' ? <button onClick={() => respondReq(pp.id, true)} className="text-xs px-2 py-0.5 rounded bg-green-700/70 hover:bg-green-700 text-parchment shrink-0">同意</button>

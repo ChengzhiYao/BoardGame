@@ -645,3 +645,7 @@ alter table users add column if not exists avatar_url text;
 -- 头像存储桶（公开可读，上传走服务端 service_role）
 insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true)
 on conflict (id) do update set public = true;
+
+-- 最近在线时间；可重复执行
+alter table users add column if not exists last_seen timestamptz;
+create index if not exists users_last_seen_idx on users(last_seen desc);

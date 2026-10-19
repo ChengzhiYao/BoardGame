@@ -9,6 +9,7 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user || user.is_anonymous || !user.email) return NextResponse.json({ friends: [], incoming: [], outgoing: [] });
   const admin = createAdminClient();
+  admin.from('users').update({ last_seen: new Date().toISOString() }).eq('id', user.id).then(() => {}, () => {});
   const { data: rows } = await admin
     .from('friendships')
     .select('from_user, to_user, status')

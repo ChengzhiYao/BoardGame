@@ -86,6 +86,14 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
 
   return (
     <main className="min-h-screen flex flex-col items-center px-6 pt-24 pb-16 gap-6 text-center">
+      <iframe
+        src="/coc3d-demo.html?embed=1&full=1&auto=1"
+        title=""
+        aria-hidden
+        tabIndex={-1}
+        className="fixed inset-0 w-full h-full border-0 pointer-events-none -z-20"
+      />
+      <div className="fixed inset-0 pointer-events-none -z-10" style={{ background: 'radial-gradient(125% 85% at 50% 0%, rgba(12,13,16,.30), rgba(12,13,16,.68) 58%, rgba(12,13,16,.93))' }} />
       <LangToggle lang={lang} onChange={switchLang} />
       <AccountBadge t={t} />
 
@@ -137,11 +145,11 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
       </header>
 
       <div className="mt-10 flex flex-col items-center gap-2">
-        <div className="font-mono text-[11px] tracking-[.25em] uppercase text-eldritch/70">{lang === 'en' ? 'Eight games · one AI host' : '八种玩法 · 一个 AI 主持'}</div>
+        <div className="font-mono text-[11px] tracking-[.25em] uppercase text-eldritch/70">{lang === 'en' ? 'Nine games · one AI host' : '九种玩法 · 一个 AI 主持'}</div>
         <p className="max-w-md text-parchment/45 text-sm leading-relaxed">{lang === 'en' ? 'Every mode is generated live and runs in real time for one player or a full table. Pick one — the AI sets it all up.' : '每个模式都由 AI 现场生成、实时进行，单人或一桌人都能玩。挑一个，剩下的交给 AI。'}</p>
       </div>
 
-      <GameShowcase lang={lang} busy={busy} onPlay={(m) => createRoom(m)} />
+      <GameShowcase lang={lang} busy={busy} onPlay={(m) => (m === 'meadow' ? router.push('/meadow') : createRoom(m))} />
 
       <a href="/upgrade" className="text-parchment/40 hover:text-parchment text-sm underline">{t('home_upgrade_link')}</a>
       <a href={lang === 'en' ? '/en/blog' : '/zh/blog'} className="text-parchment/40 hover:text-parchment text-sm underline">{lang === 'en' ? 'Blog' : '博客'}</a>

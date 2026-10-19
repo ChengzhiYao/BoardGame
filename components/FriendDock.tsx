@@ -210,7 +210,7 @@ export default function FriendDock() {
   useEffect(() => { try { if (localStorage.getItem('dockMin') === '1') setDockMin(true); const pp = localStorage.getItem('dockPos'); if (pp) { const o = JSON.parse(pp); if (typeof o?.x === 'number' && typeof o?.y === 'number') setDockPos(o); } } catch {} }, []);
   useEffect(() => { try { localStorage.setItem('dockMin', dockMin ? '1' : '0'); } catch {} }, [dockMin]);
   useEffect(() => { try { localStorage.setItem('dockPos', JSON.stringify(dockPos)); } catch {} }, [dockPos]);
-  function startDrag(e: any) { try { e.currentTarget.setPointerCapture(e.pointerId); } catch {} dragRef.current = { x: e.clientX, y: e.clientY, px: dockPos.x, py: dockPos.y }; }
+  function startDrag(e: any) { if (!isDesktop) return; if (e.target && e.target.closest && e.target.closest('button,input,textarea,a')) return; try { e.currentTarget.setPointerCapture(e.pointerId); } catch {} dragRef.current = { x: e.clientX, y: e.clientY, px: dockPos.x, py: dockPos.y }; }
   function onDragMove(e: any) { const d = dragRef.current; if (!d) return; const x = Math.max(0, Math.min(window.innerWidth - 120, d.px + (e.clientX - d.x))); const y = Math.max(0, Math.min(window.innerHeight - 60, d.py + (e.clientY - d.y))); setDockPos({ x, y }); }
   function endDrag() { dragRef.current = null; }
 
@@ -419,8 +419,8 @@ export default function FriendDock() {
       ) : (<>
       {(open || isDesktop) && (
         <div className={`${isDesktop ? 'w-72 max-h-[50%] overflow-y-auto shrink-0' : 'mb-2 w-72 overflow-hidden'} rounded-2xl border border-eldritch/30 bg-fog/95 backdrop-blur shadow-2xl`}>
-          <div className="flex items-center gap-2 px-3 py-2 border-b border-eldritch/20 sticky top-0 bg-fog/95 backdrop-blur z-10">
-            {isDesktop && <span onPointerDown={startDrag} onPointerMove={onDragMove} onPointerUp={endDrag} className="cursor-move touch-none select-none text-parchment/35 hover:text-parchment/80 leading-none" title="拖动面板">⠿</span>}
+          <div onPointerDown={startDrag} onPointerMove={onDragMove} onPointerUp={endDrag} className={`flex items-center gap-2 px-3 py-2 border-b border-eldritch/20 sticky top-0 bg-fog/95 backdrop-blur z-10 ${isDesktop ? 'cursor-move touch-none' : ''}`} title={isDesktop ? '按住拖动面板' : undefined}>
+            {isDesktop && <svg width="11" height="11" viewBox="0 0 10 16" fill="currentColor" className="text-parchment/40 shrink-0"><circle cx="2" cy="3" r="1.3" /><circle cx="8" cy="3" r="1.3" /><circle cx="2" cy="8" r="1.3" /><circle cx="8" cy="8" r="1.3" /><circle cx="2" cy="13" r="1.3" /><circle cx="8" cy="13" r="1.3" /></svg>}
             <div className="flex gap-3 text-sm flex-1 min-w-0">
               {isDesktop && showFriends && <button onClick={() => setTab('messages')} className={tab === 'messages' ? 'text-parchment font-medium' : 'text-parchment/40 hover:text-parchment'}>{L('消息', 'Messages')}{unseen > 0 && <span className="text-blood"> · {unseen}</span>}</button>}
               {showFriends && <button onClick={() => { setTab('friends'); setPeer(null); }} className={tab === 'friends' ? 'text-parchment font-medium' : 'text-parchment/40 hover:text-parchment'}>{L('好友', 'Friends')}{anyFriendOnline && <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 ml-1 align-middle animate-pulse" />}{graph.incoming.length > 0 && <span className="text-blood"> · {graph.incoming.length}</span>}</button>}

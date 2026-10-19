@@ -13,5 +13,5 @@ export async function GET() {
   const ent = await getEntitlement(admin, user);
   admin.from('users').update({ last_seen: new Date().toISOString() }).eq('id', user.id).then(() => {}, () => {});
   const { data: prof } = await admin.from('users').select('display_name, bio, avatar_url').eq('id', user.id).maybeSingle();
-  return NextResponse.json({ loggedIn: true, userId: user.id, email: ent.email, whitelisted: ent.whitelisted, member: ent.member, credits: ent.credits, freeSecondsUsed: ent.freeSecondsUsed, freeSecondsLimit: ent.freeSecondsLimit, displayName: prof?.display_name || null, bio: prof?.bio || null, avatarUrl: prof?.avatar_url || null });
+  return NextResponse.json({ loggedIn: true, userId: user.id, email: ent.email, whitelisted: ent.whitelisted, member: ent.member, credits: ent.credits, freeSecondsUsed: ent.freeSecondsUsed, freeSecondsLimit: ent.freeSecondsLimit, memberPremiumUsed: ent.memberPremiumUsed, memberPremiumLimit: ent.memberPremiumLimit, displayName: prof?.display_name || null, bio: prof?.bio || null, avatarUrl: prof?.avatar_url || null });
 }

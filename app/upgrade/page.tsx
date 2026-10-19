@@ -105,7 +105,7 @@ export default function Upgrade() {
         ) : status.loggedIn ? (
           <div className="rounded-lg bg-fog border border-eldritch/30 px-4 py-3 text-sm text-parchment/80 flex items-center justify-between gap-3">
             <span className="truncate">{status.email}</span>
-            <span>{status.member ? (lang === 'en' ? 'Member ✓' : '会员 ✓') : status.whitelisted ? `${t('free_forever')} ✓` : `${status.credits} ${t('credits_left')}`}</span>
+            <span>{status.member ? (lang === 'en' ? `Member ✓ · ${Math.max(0,(status.memberPremiumLimit||0)-(status.memberPremiumUsed||0))}/${status.memberPremiumLimit||5} premium left` : `会员 ✓ · 本月豪华剩 ${Math.max(0,(status.memberPremiumLimit||0)-(status.memberPremiumUsed||0))}/${status.memberPremiumLimit||5}`) : status.whitelisted ? `${t('free_forever')} ✓` : `${status.credits} ${t('credits_left')}`}</span>
             <button onClick={async () => { await signOut(); load(); }} className="text-parchment/40 hover:text-parchment text-xs underline shrink-0">{t('logout')}</button>
           </div>
         ) : (
@@ -119,7 +119,7 @@ export default function Upgrade() {
       <div className="w-full max-w-3xl">
         <div className="text-center mb-3">
           <div className="font-serif text-xl text-parchment">{lang === 'en' ? 'Membership · Unlimited play ✦' : '会员 · 无限畅玩 ✦'}</div>
-          <p className="text-parchment/50 text-sm">{lang === 'en' ? 'Every mode, no limits — no credits, no weekly time cap.' : '所有模式无限玩,不耗局数、没有每周时长限制。'}</p>
+          <p className="text-parchment/50 text-sm">{lang === 'en' ? 'Unlimited free modes + 5 premium plays every month — no weekly time cap.' : '免费模式无限玩 ＋ 豪华大作每月 5 次,免每周时长限制。'}</p>
         </div>
         <div className="grid sm:grid-cols-2 gap-4">
           <div className="rounded-xl border border-eldritch/30 bg-fog p-5 flex flex-col items-center gap-2">

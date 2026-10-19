@@ -3,7 +3,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { getEntitlement } from '@/lib/billing/entitlement';
-import { FREE_MODES } from '@/lib/pricing';
+import { FREE_MODES, monthStart } from '@/lib/pricing';
 
 function genToken() {
   return (
@@ -33,10 +33,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: '本周免费时长已用完，开通会员即可无限畅玩', reason: 'free_limit' }, { status: 402 });
     }
   } else if (!ent.canHost) {
-    return NextResponse.json(
-      { error: ent.reason === 'login' ? '开房需要先用 Google 登录' : '局数已用完，请购买后再开房', reason: ent.reason },
-      { status: 402 }
-    );
+    const msg = ent.reason === 'login'
+      ? '开房需要先用 Google 登录'
+      : ent.member ? '本月会员豪华大作次数已用完，可购买局数继续' : '局数已用完，请购买后再开房';
+    return NextResponse.json({ error: msg, reason: ent.member ? 'member_exhausted' : ent.reason }, { status: 402 });
   }
 
   const token = genToken();
@@ -66,8 +66,14 @@ export async function POST(req: Request) {
   }
 
   // 非白名单：开房成功扣 1 局
-  if (!ent.whitelisted && !ent.member && !isFree) {
-    await admin.from('profiles').update({ credits: Math.max(0, (ent.credits || 0) - 1) }).eq('user_id', user.id);
+  if (!ent.whitelisted && !isFree) {
+    if (ent.member && ent.memberPremiumUsed < ent.memberPremiumLimit) {
+      const ms = monthStart();
+      const { data: pu } = await admin.from('premium_usage').select('plays').eq('user_id', user.id).eq('month_start', ms).maybeSingle();
+      await admin.from('premium_usage').upsert({ user_id: user.id, month_start: ms, plays: (pu?.plays || 0) + 1 }, { onConflict: 'user_id,month_start' });
+    } else {
+      await admin.from('profiles').update({ credits: Math.max(0, (ent.credits || 0) - 1) }).eq('user_id', user.id);
+    }
   }
 
   return NextResponse.json({ roomId: room.id, inviteToken: token });

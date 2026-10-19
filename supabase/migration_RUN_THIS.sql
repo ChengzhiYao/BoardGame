@@ -699,3 +699,12 @@ create table if not exists changelog (
 create index if not exists changelog_created_idx on changelog(created_at desc);
 alter table changelog enable row level security;
 -- 读：所有人；写：仅服务端（admin）。
+
+-- 会员每月豪华大作次数；可重复执行
+create table if not exists premium_usage (
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  month_start date not null,
+  plays       int  not null default 0,
+  primary key (user_id, month_start)
+);
+alter table premium_usage enable row level security;

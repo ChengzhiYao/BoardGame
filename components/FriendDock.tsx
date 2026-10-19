@@ -37,7 +37,7 @@ export default function FriendDock() {
   const router = useRouter();
   const pathname = usePathname();
   const [me, setMe] = useState<{ uid: string; name: string; email: string | null; whitelisted: boolean } | null>(null);
-  const [tab, setTab] = useState<'friends' | 'online'>('online');
+  const [tab, setTab] = useState<'friends' | 'online' | 'players'>('online');
   const [open, setOpen] = useState(false);
   const [unread, setUnread] = useState(0);
 
@@ -50,6 +50,23 @@ export default function FriendDock() {
   const [peer, setPeer] = useState<Peer | null>(null);
   const [dms, setDms] = useState<Record<string, { name: string; msgs: Msg[] }>>({});
   const [dmText, setDmText] = useState('');
+
+  // 注册玩家目录（邮件邀请）
+  const [dir, setDir] = useState<{ id: string; name: string }[] | null>(null);
+  const [invited, setInvited] = useState<Record<string, 'sending' | 'ok' | string>>({});
+  async function loadDir() {
+    try { const r = await fetch('/api/players'); const d = await r.json(); setDir(d.players || []); } catch { setDir([]); }
+  }
+  async function invite(id: string) {
+    setInvited((p) => ({ ...p, [id]: 'sending' }));
+    try {
+      const r = await fetch('/api/invite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ toUserId: id }) });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok && d.ok) { setInvited((p) => ({ ...p, [id]: 'ok' })); return; }
+      const msg = d.reason === 'dup' ? '刚邀请过' : d.reason === 'limit' ? '今日已达上限' : d.reason === 'no_provider' ? '邮件未配置' : d.reason === 'send_failed' ? '发送失败(域名?)' : '失败';
+      setInvited((p) => ({ ...p, [id]: msg }));
+    } catch { setInvited((p) => ({ ...p, [id]: '失败' })); }
+  }
 
   const fChan = useRef<any>(null);
   const lChan = useRef<any>(null);
@@ -123,6 +140,7 @@ export default function FriendDock() {
   if (!me) return null;
   const showFriends = me.whitelisted;
   const showOnline = me.email !== HIDDEN;
+  const showPlayers = !!me.email && me.email !== HIDDEN;
   const activeDm = peer ? dms[peer.uid] : null;
   const anyFriendOnline = roster.some((e) => fOnline[e]);
   const anyOnline = people.length > 0 || anyFriendOnline;
@@ -135,6 +153,7 @@ export default function FriendDock() {
             <div className="flex gap-3 text-sm">
               {showFriends && <button onClick={() => { setTab('friends'); setPeer(null); }} className={tab === 'friends' ? 'text-parchment font-medium' : 'text-parchment/40 hover:text-parchment'}>好友</button>}
               {showOnline && <button onClick={() => setTab('online')} className={tab === 'online' ? 'text-parchment font-medium' : 'text-parchment/40 hover:text-parchment'}>在线{people.length > 0 && <span className="text-green-400"> · {people.length}</span>}</button>}
+              {showPlayers && <button onClick={() => { setTab('players'); setPeer(null); if (dir === null) loadDir(); }} className={tab === 'players' ? 'text-parchment font-medium' : 'text-parchment/40 hover:text-parchment'}>玩家</button>}
             </div>
             <button onClick={() => setOpen(false)} className="text-parchment/50 hover:text-parchment text-base leading-none px-1">–</button>
           </div>
@@ -177,6 +196,23 @@ export default function FriendDock() {
               </div>
               <ChatBox msgs={activeDm?.msgs || []} text={dmText} setText={setDmText} send={sendDm} empty={`和 ${peer.name} 私聊`} />
             </>
+          )}
+          {tab === 'players' && showPlayers && (
+            <div className="px-3 py-2 min-h-[11rem] max-h-72 overflow-y-auto">
+              <div className="text-[11px] text-parchment/40 mb-1.5">注册玩家 · 点「邀请」给 TA 邮箱发游戏邀请</div>
+              {dir === null && <div className="text-xs text-parchment/40 py-6 text-center">加载中…</div>}
+              {dir !== null && dir.length === 0 && <div className="text-xs text-parchment/40 py-6 text-center">还没有其他注册玩家</div>}
+              {(dir || []).map((pp) => { const st = invited[pp.id];
+                return (<div key={pp.id} className="flex items-center gap-2 text-sm py-1">
+                  <span className="w-2 h-2 rounded-full bg-parchment/25 shrink-0" />
+                  <span className="truncate flex-1">{pp.name}</span>
+                  {st === 'ok'
+                    ? <span className="text-[11px] text-green-400 shrink-0">✓ 已邀请</span>
+                    : st === 'sending'
+                      ? <span className="text-[11px] text-parchment/40 shrink-0">发送中…</span>
+                      : <button onClick={() => invite(pp.id)} className="text-xs px-2 py-0.5 rounded bg-blood/80 hover:bg-blood text-parchment shrink-0">{st ? st : '邀请'}</button>}
+                </div>); })}
+            </div>
           )}
         </div>
       )}

@@ -583,3 +583,15 @@ alter table meadow_characters add column if not exists is_npc     boolean not nu
 alter table meadow_characters add column if not exists parent_id  uuid references meadow_characters(id) on delete set null;
 alter table meadow_characters add column if not exists lineage_id uuid;
 alter table meadow_characters add column if not exists generation int not null default 1;
+
+-- 玩家间游戏邀请（邮件邀请的防刷/记录；可重复执行）
+create table if not exists game_invites (
+  id         uuid primary key default gen_random_uuid(),
+  from_user  uuid not null references auth.users(id) on delete cascade,
+  to_user    uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+create index if not exists game_invites_from_idx on game_invites(from_user, created_at);
+create index if not exists game_invites_pair_idx on game_invites(from_user, to_user, created_at);
+alter table game_invites enable row level security;
+-- 仅服务端（service_role）写读；前端无需直接访问，所以不开放策略。

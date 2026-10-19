@@ -58,6 +58,9 @@ export default function FriendDock() {
   const [peer, setPeer] = useState<Peer | null>(null);
   const [dms, setDms] = useState<Record<string, { name: string; msgs: Msg[] }>>({});
   const [dmText, setDmText] = useState('');
+  const [thread, setThread] = useState<Record<string, Msg[]>>({});
+  const [inbox, setInbox] = useState<{ userId: string; name: string; unread: number; lastTs: number; lastText: string }[]>([]);
+  const [threadGated, setThreadGated] = useState(false);
 
   const [dir, setDir] = useState<Node[] | null>(null);
   const [invited, setInvited] = useState<Record<string, 'sending' | 'ok' | string>>({});
@@ -155,6 +158,8 @@ export default function FriendDock() {
   // 好友图轮询
   async function loadGraph() { try { const r = await fetch('/api/friends/graph'); const d = await r.json(); setGraph({ friends: d.friends || [], incoming: d.incoming || [], outgoing: d.outgoing || [] }); } catch {} }
   useEffect(() => { if (!me || !me.email) return; const id = setInterval(loadGraph, 20000); return () => clearInterval(id); }, [me]);
+  useEffect(() => { if (!me || !me.email) return; loadInbox(); const id = setInterval(loadInbox, 12000); return () => clearInterval(id); }, [me]);
+  useEffect(() => { if (!me?.userId || !peer?.userId) return; const id = setInterval(() => loadThread(peer.userId!), 6000); return () => clearInterval(id); }, [me, peer]);
 
   // 好友上线 → 推送通知（首个 sync 不通知）
   useEffect(() => {
@@ -172,7 +177,27 @@ export default function FriendDock() {
   useEffect(() => { graph.incoming.forEach((r) => pushNotif('req:' + r.id, `${r.name} 请求加你好友`)); }, [graph.incoming]);
 
   function sendGroup() { const t = gText.trim(); if (!t || !fChan.current || !me) return; fChan.current.send({ type: 'broadcast', event: 'msg', payload: { from: me.email, fromName: me.name, text: t, ts: Date.now() } }); setGMsgs((prev) => [...prev.slice(-59), { text: t, ts: Date.now(), mine: true }]); setGText(''); }
-  function openDm(p: Peer) { setDms((prev) => (prev[p.uid] ? prev : { ...prev, [p.uid]: { name: p.name, msgs: [] } })); setPeer(p); setTab('online'); }
+  function openDm(p: Peer) {
+    if (me?.userId && p.userId) { openThread(p.userId, p.name, p); return; }
+    setDms((prev) => (prev[p.uid] ? prev : { ...prev, [p.uid]: { name: p.name, msgs: [] } })); setPeer(p); setTab('online');
+  }
+  function openThread(userId: string, name: string, p?: Peer) {
+    setThreadGated(false);
+    setPeer({ uid: p?.uid || ('u:' + userId), name, userId, roomId: p?.roomId });
+    setTab('online'); setOpen(true); setBellOpen(false);
+    setInbox((prev) => prev.map((t) => (t.userId === userId ? { ...t, unread: 0 } : t)));
+    loadThread(userId);
+  }
+  async function loadThread(userId: string) {
+    try { const r = await fetch('/api/dm?with=' + encodeURIComponent(userId)); const d = await r.json(); setThread((prev) => ({ ...prev, [userId]: d.messages || [] })); } catch {}
+  }
+  async function loadInbox() { try { const r = await fetch('/api/dm/inbox'); const d = await r.json(); setInbox(d.threads || []); } catch {} }
+  async function sendDbDm(userId: string) {
+    const t = dmText.trim(); if (!t) return;
+    const r = await fetch('/api/dm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ toUserId: userId, text: t }) }).catch(() => null);
+    if (r && r.ok) { setThread((prev) => ({ ...prev, [userId]: [...(prev[userId] || []), { text: t, ts: Date.now(), mine: true }] })); setDmText(''); loadInbox(); }
+    else if (r && r.status === 403) setThreadGated(true);
+  }
   function sendDm() { const t = dmText.trim(); if (!t || !lChan.current || !me || !peer) return; const _pid = peer.userId; const _isFriend = !!_pid && graph.friends.some((f) => f.id === _pid); const _gated = !!me.email && me.email !== HIDDEN && !!_pid && !_isFriend; const _sent = (dms[peer.uid]?.msgs || []).filter((m) => m.mine).length; if (_gated && _sent >= 1) return; lChan.current.send({ type: 'broadcast', event: 'dm', payload: { to: peer.uid, from: me.uid, fromName: me.name, text: t, ts: Date.now() } }); setDms((prev) => { const c = prev[peer.uid] || { name: peer.name, msgs: [] }; return { ...prev, [peer.uid]: { name: c.name, msgs: [...c.msgs.slice(-59), { text: t, ts: Date.now(), mine: true }] } }; }); setDmText(''); }
 
   async function loadDir() { try { const r = await fetch('/api/players'); const d = await r.json(); setDir(d.players || []); const inv: Record<string, 'ok'> = {}; (d.invitedIds || []).forEach((id: string) => { inv[id] = 'ok'; }); setInvited((p) => ({ ...inv, ...p })); } catch { setDir([]); } }
@@ -209,7 +234,8 @@ export default function FriendDock() {
 
   const anyFriendOnline = roster.some((e) => fOnline[e]) || graph.friends.some((f) => lobbyById[f.id]);
   const anyOnline = people.length > 0 || anyFriendOnline;
-  const unseen = notifs.filter((n) => n.ts > seenTs).length + graph.incoming.length;
+  const dmUnread = inbox.reduce((a, t) => a + t.unread, 0);
+  const unseen = notifs.filter((n) => n.ts > seenTs).length + graph.incoming.length + dmUnread;
 
   function toggleBell() { setBellOpen((v) => { const nv = !v; if (nv) { setOpen(false); setSeenTs(Date.now()); } return nv; }); }
   function toggleDock() { setOpen((v) => { const nv = !v; if (nv) setBellOpen(false); return nv; }); }
@@ -278,10 +304,12 @@ export default function FriendDock() {
           )}
           {tab === 'online' && showOnline && peer && (() => {
             const pid = peer.userId;
+            const dbMode = !!me.userId && !!pid;
+            const msgs = dbMode ? (thread[pid!] || []) : (activeDm?.msgs || []);
             const isFriend = !!pid && friendIds.has(pid);
             const gated = !!me.email && me.email !== HIDDEN && !!pid && !isFriend;
-            const sent = (activeDm?.msgs || []).filter((m) => m.mine).length;
-            const blocked = gated && sent >= 1;
+            const sent = msgs.filter((m) => m.mine).length;
+            const blocked = gated && (threadGated || sent >= 1);
             const rel = pid && friendIds.has(pid) ? 'friend' : pid && outIds.has(pid) ? 'out' : pid && inIds.has(pid) ? 'in' : 'none';
             const addBtn = rel === 'none'
               ? <button onClick={() => pid && addFriend(pid)} className="text-xs px-2 py-0.5 rounded bg-eldritch/50 hover:bg-eldritch text-parchment shrink-0">加好友</button>
@@ -292,12 +320,12 @@ export default function FriendDock() {
             <>
               <div className="flex items-center gap-2 px-3 py-2 border-b border-eldritch/15 text-sm">
                 <button onClick={() => setPeer(null)} className="text-parchment/50 hover:text-parchment">←</button>
-                <span className="w-2 h-2 rounded-full bg-green-400" /><span className="truncate flex-1">{peer.name}</span>
+                <span className="truncate flex-1">{peer.name}</span>
                 {gated && addBtn}
               </div>
               <ChatBox
-                msgs={activeDm?.msgs || []} text={dmText} setText={setDmText} send={sendDm}
-                empty={`和 ${peer.name} 私聊`}
+                msgs={msgs} text={dmText} setText={setDmText} send={() => (dbMode ? sendDbDm(pid!) : sendDm())}
+                empty={dbMode ? `给 ${peer.name} 发消息 · 对方离线也能收到` : `和 ${peer.name} 私聊`}
                 hint={gated ? '⚠️ 你们还不是好友，只能发 1 条消息 · 互相加好友后才能继续聊天' : undefined}
                 disabled={blocked}
                 footer={<div className="text-[11px] text-parchment/55 flex items-center gap-2"><span className="flex-1">已发 1 条 · 互相加好友后才能继续聊天</span>{addBtn}</div>}
@@ -312,13 +340,14 @@ export default function FriendDock() {
               {dir !== null && dir.length === 0 && <div className="text-xs text-parchment/40 py-6 text-center">还没有其他注册玩家</div>}
               {(dir || []).map((pp) => { const st = invited[pp.id]; const as = addState[pp.id];
                 const rel = friendIds.has(pp.id) ? '好友' : outIds.has(pp.id) ? '待通过' : inIds.has(pp.id) ? 'incoming' : '';
-                return (<div key={pp.id} className="flex items-center gap-1.5 text-sm py-1">
+                return (<div key={pp.id} className="flex items-center gap-1 text-sm py-1">
                   <span className="w-2 h-2 rounded-full bg-parchment/25 shrink-0" />
                   <span className="truncate flex-1">{pp.name}</span>
                   {rel === '好友' ? <span className="text-[10px] text-green-400 shrink-0">好友</span>
                     : rel === '待通过' ? <span className="text-[10px] text-parchment/40 shrink-0">待通过</span>
                     : rel === 'incoming' ? <button onClick={() => respondReq(pp.id, true)} className="text-xs px-2 py-0.5 rounded bg-green-700/70 hover:bg-green-700 text-parchment shrink-0">同意</button>
-                    : <button onClick={() => addFriend(pp.id)} className="text-xs px-2 py-0.5 rounded bg-eldritch/50 hover:bg-eldritch text-parchment shrink-0">{as || '加好友'}</button>}
+                    : <button onClick={() => addFriend(pp.id)} className="text-xs px-1.5 py-0.5 rounded bg-eldritch/50 hover:bg-eldritch text-parchment shrink-0">{as || '加好友'}</button>}
+                  <button onClick={() => openThread(pp.id, pp.name)} className="text-xs px-1.5 py-0.5 rounded bg-eldritch/40 hover:bg-eldritch text-parchment shrink-0">私聊</button>
                   {st === 'ok' ? <span className="text-[10px] text-green-400 shrink-0">✓邀请</span>
                     : st === 'sending' ? <span className="text-[10px] text-parchment/40 shrink-0">…</span>
                     : <button onClick={() => invite(pp.id)} className="text-xs px-2 py-0.5 rounded bg-blood/80 hover:bg-blood text-parchment shrink-0" title="邮件邀请一起玩">{st && st !== 'ok' ? st : '邀请'}</button>}
@@ -335,6 +364,12 @@ export default function FriendDock() {
             <button onClick={() => setBellOpen(false)} className="text-parchment/50 hover:text-parchment text-base leading-none px-1">–</button>
           </div>
           <div className="max-h-72 overflow-y-auto px-3 py-2 space-y-2">
+            {inbox.filter((t) => t.unread > 0).map((t) => (
+              <div key={'dm' + t.userId} className="flex items-center gap-1.5 text-xs">
+                <span className="truncate flex-1">💬 <b>{t.name}</b> 发来 {t.unread} 条消息</span>
+                <button onClick={() => openThread(t.userId, t.name)} className="px-2 py-0.5 rounded bg-blood/80 hover:bg-blood text-parchment shrink-0">查看</button>
+              </div>
+            ))}
             {graph.incoming.map((r) => (
               <div key={'bi' + r.id} className="flex items-center gap-1.5 text-xs">
                 <span className="truncate flex-1"><b>{r.name}</b> 请求加你好友</span>
@@ -345,7 +380,7 @@ export default function FriendDock() {
             {notifs.filter((n) => !n.id.startsWith('req:')).map((n) => (
               <div key={n.id} className="text-xs text-parchment/80">🟢 {n.text}</div>
             ))}
-            {graph.incoming.length === 0 && notifs.filter((n) => !n.id.startsWith('req:')).length === 0 && <div className="text-xs text-parchment/35 py-6 text-center">暂无消息</div>}
+            {graph.incoming.length === 0 && dmUnread === 0 && notifs.filter((n) => !n.id.startsWith('req:')).length === 0 && <div className="text-xs text-parchment/35 py-6 text-center">暂无消息</div>}
           </div>
         </div>
       )}

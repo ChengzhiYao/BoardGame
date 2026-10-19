@@ -610,3 +610,17 @@ create index if not exists friendships_to_idx   on friendships(to_user, status);
 create index if not exists friendships_from_idx on friendships(from_user, status);
 alter table friendships enable row level security;
 -- 仅服务端（service_role）读写。
+
+-- 持久化私信（离线可收，登录后可见）；可重复执行
+create table if not exists dms (
+  id         uuid primary key default gen_random_uuid(),
+  from_user  uuid not null references auth.users(id) on delete cascade,
+  to_user    uuid not null references auth.users(id) on delete cascade,
+  text       text not null,
+  created_at timestamptz not null default now(),
+  read_at    timestamptz
+);
+create index if not exists dms_pair_idx on dms(from_user, to_user, created_at);
+create index if not exists dms_inbox_idx on dms(to_user, read_at);
+alter table dms enable row level security;
+-- 仅服务端（service_role）读写。

@@ -114,6 +114,7 @@ export default function FriendDock() {
     const supabase = createClient();
     const ch = supabase.channel('friend-dock', { config: { presence: { key: me.email! } } });
     fChan.current = ch;
+    fetch('/api/group-chat?channel=whitelist').then((r) => r.json()).then((d) => { if (d.messages) setGMsgs(d.messages.map((m: any) => ({ text: m.text, ts: m.ts, mine: m.mine }))); }).catch(() => {});
     const sync = () => { const st = ch.presenceState() as Record<string, any[]>; const map: Record<string, { roomId?: string }> = {}; Object.keys(st).forEach((key) => { if (key === me.email) return; const meta = (st[key] && st[key][0]) || {}; map[key] = { roomId: meta.roomId }; }); setFOnline(map); };
     ch.on('presence', { event: 'sync' }, sync);
     ch.on('broadcast', { event: 'msg' }, (p: any) => { const m = (p && p.payload) || {}; if (m.from === me.email) return; setGMsgs((prev) => [...prev.slice(-59), { text: m.text, ts: m.ts, mine: false }]); if (!openRef.current) setUnread((u) => u + 1); });
@@ -176,7 +177,7 @@ export default function FriendDock() {
   // 收到好友请求 → 通知
   useEffect(() => { graph.incoming.forEach((r) => pushNotif('req:' + r.id, `${r.name} 请求加你好友`)); }, [graph.incoming]);
 
-  function sendGroup() { const t = gText.trim(); if (!t || !fChan.current || !me) return; fChan.current.send({ type: 'broadcast', event: 'msg', payload: { from: me.email, fromName: me.name, text: t, ts: Date.now() } }); setGMsgs((prev) => [...prev.slice(-59), { text: t, ts: Date.now(), mine: true }]); setGText(''); }
+  function sendGroup() { const t = gText.trim(); if (!t || !fChan.current || !me) return; fChan.current.send({ type: 'broadcast', event: 'msg', payload: { from: me.email, fromName: me.name, text: t, ts: Date.now() } }); setGMsgs((prev) => [...prev.slice(-59), { text: t, ts: Date.now(), mine: true }]); setGText(''); fetch('/api/group-chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel: 'whitelist', text: t }) }).catch(() => {}); }
   function openDm(p: Peer) {
     if (me?.userId && p.userId) { openThread(p.userId, p.name, p); return; }
     setDms((prev) => (prev[p.uid] ? prev : { ...prev, [p.uid]: { name: p.name, msgs: [] } })); setPeer(p); setTab('online');

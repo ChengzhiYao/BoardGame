@@ -624,3 +624,16 @@ create index if not exists dms_pair_idx on dms(from_user, to_user, created_at);
 create index if not exists dms_inbox_idx on dms(to_user, read_at);
 alter table dms enable row level security;
 -- 仅服务端（service_role）读写。
+
+-- 群聊/频道消息持久化（如白名单好友群聊）；可重复执行
+create table if not exists group_messages (
+  id         uuid primary key default gen_random_uuid(),
+  channel    text not null,
+  from_user  uuid references auth.users(id) on delete set null,
+  from_name  text,
+  text       text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists group_messages_chan_idx on group_messages(channel, created_at);
+alter table group_messages enable row level security;
+-- 仅服务端（service_role）读写。

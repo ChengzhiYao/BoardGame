@@ -190,7 +190,7 @@ export default function GameShowcase({ lang, busy, onPlay }: { lang: Lang; busy:
     if (grp === 'paid') return (
       <div className="text-center max-w-xl mx-auto">
         <div className="font-mono text-xs tracking-[.3em] uppercase text-amber-300/80">{en ? 'Premium ✦ Deluxe' : '豪华大作 ✦ 殿堂级'}</div>
-        <p className="text-parchment/45 text-sm mt-1">{en ? 'New accounts get 2 free plays on everything. After that, each of these uses 1 play credit.' : '新账号登录即送 2 次免费(可玩全部游戏);之后这些每开一局消耗 1 局。'}</p>
+        <p className="text-parchment/45 text-sm mt-1">{en ? 'New accounts get 2 free plays; after that these cost 1 credit each (buy packs). Members get 5 free per month.' : '新账号送 2 次免费;用完后这些每开一局消耗 1 局(需购买)。会员每月免费 5 次。'}</p>
       </div>
     );
     return (

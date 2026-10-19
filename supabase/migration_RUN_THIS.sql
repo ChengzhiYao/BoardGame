@@ -595,3 +595,18 @@ create index if not exists game_invites_from_idx on game_invites(from_user, crea
 create index if not exists game_invites_pair_idx on game_invites(from_user, to_user, created_at);
 alter table game_invites enable row level security;
 -- 仅服务端（service_role）写读；前端无需直接访问，所以不开放策略。
+
+-- 好友关系（请求/通过）；可重复执行
+create table if not exists friendships (
+  id         uuid primary key default gen_random_uuid(),
+  from_user  uuid not null references auth.users(id) on delete cascade,
+  to_user    uuid not null references auth.users(id) on delete cascade,
+  status     text not null default 'pending' check (status in ('pending','accepted')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (from_user, to_user)
+);
+create index if not exists friendships_to_idx   on friendships(to_user, status);
+create index if not exists friendships_from_idx on friendships(from_user, status);
+alter table friendships enable row level security;
+-- 仅服务端（service_role）读写。

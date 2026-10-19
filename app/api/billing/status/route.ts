@@ -11,5 +11,5 @@ export async function GET() {
   }
   const admin = createAdminClient();
   const ent = await getEntitlement(admin, user);
-  return NextResponse.json({ loggedIn: true, email: ent.email, whitelisted: ent.whitelisted, credits: ent.credits });
+  return NextResponse.json({ loggedIn: true, userId: user.id, email: ent.email, whitelisted: ent.whitelisted, credits: ent.credits });
 }

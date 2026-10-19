@@ -184,7 +184,7 @@ export default function GameShowcase({ lang, busy, onPlay }: { lang: Lang; busy:
     if (grp === 'free') return (
       <div className="text-center max-w-xl mx-auto">
         <div className="font-mono text-xs tracking-[.3em] uppercase text-green-300/80">{en ? 'Free to play' : '免费畅玩'}</div>
-        <p className="text-parchment/45 text-sm mt-1">{en ? 'Always free — no play credit needed.' : '这些玩法永久免费,随时开,不消耗局数。'}</p>
+        <p className="text-parchment/45 text-sm mt-1">{en ? 'Free 2 hours every week — members play unlimited.' : '每周免费畅玩 2 小时,不消耗局数;会员无限玩。'}</p>
       </div>
     );
     if (grp === 'paid') return (
@@ -204,8 +204,8 @@ export default function GameShowcase({ lang, busy, onPlay }: { lang: Lang; busy:
     <div id="games" className="w-full max-w-5xl mx-auto flex flex-col gap-16 sm:gap-24 px-1 mt-12 mb-10">
       <div className="text-center max-w-2xl mx-auto rounded-xl border border-eldritch/25 bg-fog/40 px-5 py-3 text-sm text-parchment/70">
         {en
-          ? <>New accounts get <b className="text-parchment">2 free plays</b> on every game. <b className="text-green-300">Lateral Soup, Truth or Dare, Midnight Cat Curse and Bloodbound are always free.</b></>
-          : <>新账号登录即送 <b className="text-parchment">2 次免费</b>,可玩所有游戏。<b className="text-green-300">海龟汤、真心话大冒险、午夜猫诅咒、血染钟楼 永久免费。</b></>}
+          ? <>New accounts get <b className="text-parchment">2 free plays</b> on every mode. <b className="text-green-300">Lateral Soup, Truth or Dare & Midnight Cat Curse are free 2h/week</b> — <a href="/upgrade" className="underline text-amber-300">members play unlimited</a>.</>
+          : <>新账号登录即送 <b className="text-parchment">2 次免费</b>,可玩所有游戏。<b className="text-green-300">海龟汤、真心话、午夜猫诅咒 每周免费畅玩 2 小时</b> —— <a href="/upgrade" className="underline text-amber-300">开通会员无限玩</a>。</>}
       </div>
       <div className="flex justify-center flex-wrap gap-1.5">
         {tabs.map((t) => (

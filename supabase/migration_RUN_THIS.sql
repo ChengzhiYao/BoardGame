@@ -674,3 +674,17 @@ create table if not exists lfg_applications (
 create index if not exists lfg_app_post_idx on lfg_applications(post_id, created_at);
 alter table lfg_applications enable row level security;
 -- 仅服务端（service_role）读写。
+
+-- 会员订阅 + 每周免费时长；可重复执行
+alter table profiles add column if not exists member_until          timestamptz;
+alter table profiles add column if not exists member_interval       text;
+alter table profiles add column if not exists stripe_subscription_id text;
+
+create table if not exists free_usage (
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  week_start date not null,
+  seconds    int  not null default 0,
+  primary key (user_id, week_start)
+);
+alter table free_usage enable row level security;
+-- 仅服务端（service_role）读写。

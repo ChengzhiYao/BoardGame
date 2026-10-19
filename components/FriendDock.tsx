@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 const HIDDEN = 'hattieichinose@gmail.com';
 
 type Msg = { text: string; ts: number; mine: boolean };
-type Peer = { uid: string; name: string; roomId?: string };
+type Peer = { uid: string; name: string; roomId?: string; userId?: string };
 type Node = { id: string; name: string };
 type Notif = { id: string; text: string; ts: number };
 
@@ -20,17 +20,22 @@ function guestName() {
   return '访客' + anonId().slice(-4);
 }
 
-function ChatBox({ msgs, text, setText, send, empty }: { msgs: Msg[]; text: string; setText: (s: string) => void; send: () => void; empty: string }) {
+function ChatBox({ msgs, text, setText, send, empty, hint, disabled, footer }: { msgs: Msg[]; text: string; setText: (s: string) => void; send: () => void; empty: string; hint?: string; disabled?: boolean; footer?: ReactNode }) {
   return (
     <>
       <div className="h-40 overflow-y-auto px-3 py-2 space-y-1.5 flex flex-col">
         {msgs.length === 0 && <div className="text-xs text-parchment/35 m-auto">{empty}</div>}
         {msgs.map((m, i) => (<div key={i} className={`max-w-[80%] px-2.5 py-1.5 rounded-xl text-xs leading-snug ${m.mine ? 'self-end bg-blood/30 border border-blood/40' : 'self-start bg-ink/70 border border-eldritch/30'}`}>{m.text}</div>))}
       </div>
-      <div className="flex gap-1.5 p-2 border-t border-eldritch/20">
-        <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()} placeholder="说点什么…" className="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg bg-ink border border-eldritch/30 text-parchment placeholder:text-parchment/30 text-xs outline-none focus:border-eldritch" />
-        <button onClick={send} className="px-3 py-1.5 rounded-lg bg-eldritch/60 hover:bg-eldritch text-parchment text-xs shrink-0">发送</button>
-      </div>
+      {hint && !disabled && <div className="px-3 pt-1 text-[11px] text-parchment/45 leading-snug">{hint}</div>}
+      {disabled ? (
+        <div className="p-2 border-t border-eldritch/20">{footer}</div>
+      ) : (
+        <div className="flex gap-1.5 p-2 border-t border-eldritch/20">
+          <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()} placeholder="说点什么…" className="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg bg-ink border border-eldritch/30 text-parchment placeholder:text-parchment/30 text-xs outline-none focus:border-eldritch" />
+          <button onClick={send} className="px-3 py-1.5 rounded-lg bg-eldritch/60 hover:bg-eldritch text-parchment text-xs shrink-0">发送</button>
+        </div>
+      )}
     </>
   );
 }
@@ -127,7 +132,7 @@ export default function FriendDock() {
         if (meta.userId && key !== me.uid) byId[meta.userId] = { uid: key, name: meta.name || '访客', roomId: meta.roomId };
         if (key === me.uid) return;
         if (meta.email === HIDDEN) return;
-        list.push({ uid: key, name: meta.name || '访客', roomId: meta.roomId });
+        list.push({ uid: key, name: meta.name || '访客', roomId: meta.roomId, userId: meta.userId });
       });
       setPeople(list); setLobbyById(byId);
     };
@@ -168,7 +173,7 @@ export default function FriendDock() {
 
   function sendGroup() { const t = gText.trim(); if (!t || !fChan.current || !me) return; fChan.current.send({ type: 'broadcast', event: 'msg', payload: { from: me.email, fromName: me.name, text: t, ts: Date.now() } }); setGMsgs((prev) => [...prev.slice(-59), { text: t, ts: Date.now(), mine: true }]); setGText(''); }
   function openDm(p: Peer) { setDms((prev) => (prev[p.uid] ? prev : { ...prev, [p.uid]: { name: p.name, msgs: [] } })); setPeer(p); setTab('online'); }
-  function sendDm() { const t = dmText.trim(); if (!t || !lChan.current || !me || !peer) return; lChan.current.send({ type: 'broadcast', event: 'dm', payload: { to: peer.uid, from: me.uid, fromName: me.name, text: t, ts: Date.now() } }); setDms((prev) => { const c = prev[peer.uid] || { name: peer.name, msgs: [] }; return { ...prev, [peer.uid]: { name: c.name, msgs: [...c.msgs.slice(-59), { text: t, ts: Date.now(), mine: true }] } }; }); setDmText(''); }
+  function sendDm() { const t = dmText.trim(); if (!t || !lChan.current || !me || !peer) return; const _pid = peer.userId; const _isFriend = !!_pid && graph.friends.some((f) => f.id === _pid); const _gated = !!me.email && me.email !== HIDDEN && !!_pid && !_isFriend; const _sent = (dms[peer.uid]?.msgs || []).filter((m) => m.mine).length; if (_gated && _sent >= 1) return; lChan.current.send({ type: 'broadcast', event: 'dm', payload: { to: peer.uid, from: me.uid, fromName: me.name, text: t, ts: Date.now() } }); setDms((prev) => { const c = prev[peer.uid] || { name: peer.name, msgs: [] }; return { ...prev, [peer.uid]: { name: c.name, msgs: [...c.msgs.slice(-59), { text: t, ts: Date.now(), mine: true }] } }; }); setDmText(''); }
 
   async function loadDir() { try { const r = await fetch('/api/players'); const d = await r.json(); setDir(d.players || []); const inv: Record<string, 'ok'> = {}; (d.invitedIds || []).forEach((id: string) => { inv[id] = 'ok'; }); setInvited((p) => ({ ...inv, ...p })); } catch { setDir([]); } }
   async function invite(id: string) {
@@ -251,7 +256,7 @@ export default function FriendDock() {
                     <span className={`w-2 h-2 rounded-full shrink-0 ${onl ? 'bg-green-400' : 'bg-parchment/30'}`} />
                     <span className="truncate flex-1">{f.name}</span>
                     {onl && lob!.roomId && lob!.roomId !== roomId && <button onClick={() => router.push('/room/' + lob!.roomId)} className="text-[10px] px-2 py-0.5 rounded bg-eldritch/40 text-parchment/70 shrink-0">加入</button>}
-                    {onl ? <button onClick={() => openDm({ uid: lob!.uid, name: f.name, roomId: lob!.roomId })} className="text-xs px-2 py-0.5 rounded bg-blood/80 hover:bg-blood text-parchment shrink-0">私聊</button> : <span className="text-[10px] text-parchment/40 shrink-0">离线</span>}
+                    {onl ? <button onClick={() => openDm({ uid: lob!.uid, name: f.name, roomId: lob!.roomId, userId: f.id })} className="text-xs px-2 py-0.5 rounded bg-blood/80 hover:bg-blood text-parchment shrink-0">私聊</button> : <span className="text-[10px] text-parchment/40 shrink-0">离线</span>}
                   </div>); })}
               </div>
               {me.whitelisted && <ChatBox msgs={gMsgs} text={gText} setText={setGText} send={sendGroup} empty="打个招呼吧 👋" />}
@@ -271,15 +276,34 @@ export default function FriendDock() {
               ))}
             </div>
           )}
-          {tab === 'online' && showOnline && peer && (
+          {tab === 'online' && showOnline && peer && (() => {
+            const pid = peer.userId;
+            const isFriend = !!pid && friendIds.has(pid);
+            const gated = !!me.email && me.email !== HIDDEN && !!pid && !isFriend;
+            const sent = (activeDm?.msgs || []).filter((m) => m.mine).length;
+            const blocked = gated && sent >= 1;
+            const rel = pid && friendIds.has(pid) ? 'friend' : pid && outIds.has(pid) ? 'out' : pid && inIds.has(pid) ? 'in' : 'none';
+            const addBtn = rel === 'none'
+              ? <button onClick={() => pid && addFriend(pid)} className="text-xs px-2 py-0.5 rounded bg-eldritch/50 hover:bg-eldritch text-parchment shrink-0">加好友</button>
+              : rel === 'out' ? <span className="text-[10px] text-parchment/40 shrink-0">待通过</span>
+              : rel === 'in' ? <button onClick={() => pid && respondReq(pid, true)} className="text-xs px-2 py-0.5 rounded bg-green-700/70 hover:bg-green-700 text-parchment shrink-0">同意</button>
+              : <span className="text-[10px] text-green-400 shrink-0">好友</span>;
+            return (
             <>
               <div className="flex items-center gap-2 px-3 py-2 border-b border-eldritch/15 text-sm">
                 <button onClick={() => setPeer(null)} className="text-parchment/50 hover:text-parchment">←</button>
                 <span className="w-2 h-2 rounded-full bg-green-400" /><span className="truncate flex-1">{peer.name}</span>
+                {gated && addBtn}
               </div>
-              <ChatBox msgs={activeDm?.msgs || []} text={dmText} setText={setDmText} send={sendDm} empty={`和 ${peer.name} 私聊`} />
+              <ChatBox
+                msgs={activeDm?.msgs || []} text={dmText} setText={setDmText} send={sendDm}
+                empty={`和 ${peer.name} 私聊`}
+                hint={gated ? '⚠️ 你们还不是好友，只能发 1 条消息 · 互相加好友后才能继续聊天' : undefined}
+                disabled={blocked}
+                footer={<div className="text-[11px] text-parchment/55 flex items-center gap-2"><span className="flex-1">已发 1 条 · 互相加好友后才能继续聊天</span>{addBtn}</div>}
+              />
             </>
-          )}
+            ); })()}
 
           {tab === 'players' && showPlayers && (
             <div className="px-3 py-2 min-h-[11rem] max-h-72 overflow-y-auto">

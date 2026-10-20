@@ -15,13 +15,13 @@ export async function GET() {
   const admin = createAdminClient();
   const { data } = await admin
     .from('users')
-    .select('id, display_name, email, created_at, last_seen, avatar_url')
+    .select('id, display_name, email, created_at, last_seen, avatar_url, city, region')
     .not('email', 'is', null)
     .order('created_at', { ascending: false })
     .limit(500);
   const players = (data || [])
     .filter((u: any) => u.email && u.id !== user.id && u.email !== HIDDEN)
-    .map((u: any) => ({ id: u.id, name: u.display_name || ('玩家·' + String(u.id).slice(0, 4)), lastSeen: u.last_seen ? new Date(u.last_seen).getTime() : null, avatar: u.avatar_url || null }));
+    .map((u: any) => ({ id: u.id, name: u.display_name || ('玩家·' + String(u.id).slice(0, 4)), lastSeen: u.last_seen ? new Date(u.last_seen).getTime() : null, avatar: u.avatar_url || null, loc: u.city ? (u.region ? `${u.city}, ${u.region}` : u.city) : (u.region || '') }));
   let invitedIds: string[] = [];
   try {
     const sixAgo = new Date(Date.now() - 6 * 3600000).toISOString();

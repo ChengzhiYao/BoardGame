@@ -708,3 +708,8 @@ create table if not exists premium_usage (
   primary key (user_id, month_start)
 );
 alter table premium_usage enable row level security;
+
+-- 玩家城市（按 IP 地理定位，Vercel geo header）；可重复执行
+alter table users add column if not exists city    text;
+alter table users add column if not exists region  text;
+alter table users add column if not exists country text;

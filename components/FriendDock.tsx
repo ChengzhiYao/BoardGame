@@ -9,8 +9,8 @@ const HIDDEN = 'hattieichinose@gmail.com';
 const MODE_EN: Record<string, string> = { coc: 'Call of Cthulhu', soup: 'Lateral Thinking', td: 'Truth or Dare', jbs: 'Murder Mystery', botc: 'Bloodbound', mcc: 'Midnight Cat Curse', dnd: 'D&D', story: 'Storyteller', meadow: 'Storybook Meadow' };
 
 type Msg = { text: string; ts: number; mine: boolean };
-type Peer = { uid: string; name: string; roomId?: string; userId?: string; avatar?: string | null };
-type Node = { id: string; name: string; lastSeen?: number | null; avatar?: string | null };
+type Peer = { uid: string; name: string; roomId?: string; userId?: string; avatar?: string | null; loc?: string };
+type Node = { id: string; name: string; lastSeen?: number | null; avatar?: string | null; loc?: string };
 type Notif = { id: string; text: string; ts: number };
 
 function anonId() {
@@ -75,6 +75,7 @@ export default function FriendDock() {
   const [isDesktop, setIsDesktop] = useState(false);
   const [dockMin, setDockMin] = useState(false);
   const [dockPos, setDockPos] = useState<{ x: number; y: number }>({ x: 12, y: 64 });
+  const [myLoc, setMyLoc] = useState('');
   const dragRef = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
   const [unread, setUnread] = useState(0);
 
@@ -84,7 +85,7 @@ export default function FriendDock() {
   const [gText, setGText] = useState('');
 
   const [people, setPeople] = useState<Peer[]>([]);
-  const [lobbyById, setLobbyById] = useState<Record<string, { uid: string; name: string; roomId?: string; avatar?: string | null }>>({});
+  const [lobbyById, setLobbyById] = useState<Record<string, { uid: string; name: string; roomId?: string; avatar?: string | null; loc?: string }>>({});
   const [peer, setPeer] = useState<Peer | null>(null);
   const [dms, setDms] = useState<Record<string, { name: string; msgs: Msg[] }>>({});
   const [dmText, setDmText] = useState('');
@@ -173,13 +174,13 @@ export default function FriendDock() {
     lChan.current = ch;
     const sync = () => {
       const st = ch.presenceState() as Record<string, any[]>;
-      const list: Peer[] = []; const byId: Record<string, { uid: string; name: string; roomId?: string; avatar?: string | null }> = {};
+      const list: Peer[] = []; const byId: Record<string, { uid: string; name: string; roomId?: string; avatar?: string | null; loc?: string }> = {};
       Object.keys(st).forEach((key) => {
         const meta = (st[key] && st[key][0]) || {};
-        if (meta.userId && key !== me.uid) byId[meta.userId] = { uid: key, name: meta.name || '访客', roomId: meta.roomId, avatar: meta.avatar };
+        if (meta.userId && key !== me.uid) byId[meta.userId] = { uid: key, name: meta.name || '访客', roomId: meta.roomId, avatar: meta.avatar, loc: meta.loc };
         if (key === me.uid) return;
         if (meta.email === HIDDEN) return;
-        list.push({ uid: key, name: meta.name || '访客', roomId: meta.roomId, userId: meta.userId, avatar: meta.avatar });
+        list.push({ uid: key, name: meta.name || '访客', roomId: meta.roomId, userId: meta.userId, avatar: meta.avatar, loc: meta.loc });
       });
       setPeople(list); setLobbyById(byId);
     };
@@ -189,15 +190,15 @@ export default function FriendDock() {
       setDms((prev) => { const c = prev[m.from] || { name: m.fromName || '访客', msgs: [] }; return { ...prev, [m.from]: { name: m.fromName || c.name, msgs: [...c.msgs.slice(-59), { text: m.text, ts: m.ts, mine: false }] } }; });
       if (!openRef.current || peerRef.current !== m.from) setUnread((u) => u + 1);
     });
-    ch.subscribe((s: string) => { if (s === 'SUBSCRIBED') ch.track({ uid: me.uid, userId: me.userId, name: me.name, email: me.email, avatar: me.avatar, roomId: roomRef.current, ts: Date.now() }); });
+    ch.subscribe((s: string) => { if (s === 'SUBSCRIBED') ch.track({ uid: me.uid, userId: me.userId, name: me.name, email: me.email, avatar: me.avatar, loc: myLoc, roomId: roomRef.current, ts: Date.now() }); });
     return () => { try { supabase.removeChannel(ch); } catch {} lChan.current = null; };
   }, [me]);
 
   useEffect(() => {
     if (!me) return;
     if (fChan.current && me.whitelisted) fChan.current.track({ name: me.name, roomId, ts: Date.now() }).catch(() => {});
-    if (lChan.current && me.email !== HIDDEN) lChan.current.track({ uid: me.uid, userId: me.userId, name: me.name, email: me.email, avatar: me.avatar, roomId, ts: Date.now() }).catch(() => {});
-  }, [roomId, me]);
+    if (lChan.current && me.email !== HIDDEN) lChan.current.track({ uid: me.uid, userId: me.userId, name: me.name, email: me.email, avatar: me.avatar, loc: myLoc, roomId, ts: Date.now() }).catch(() => {});
+  }, [roomId, me, myLoc]);
 
   // 好友图轮询
   async function loadGraph() { try { const r = await fetch('/api/friends/graph'); const d = await r.json(); setGraph({ friends: d.friends || [], incoming: d.incoming || [], outgoing: d.outgoing || [] }); } catch {} }
@@ -210,6 +211,7 @@ export default function FriendDock() {
   useEffect(() => { try { if (localStorage.getItem('dockMin') === '1') setDockMin(true); const pp = localStorage.getItem('dockPos'); if (pp) { const o = JSON.parse(pp); if (typeof o?.x === 'number' && typeof o?.y === 'number') setDockPos(o); } } catch {} }, []);
   useEffect(() => { try { localStorage.setItem('dockMin', dockMin ? '1' : '0'); } catch {} }, [dockMin]);
   useEffect(() => { try { localStorage.setItem('dockPos', JSON.stringify(dockPos)); } catch {} }, [dockPos]);
+  useEffect(() => { fetch('/api/geo').then((r) => r.json()).then((d) => setMyLoc(d?.label || '')).catch(() => {}); }, []);
   function startDrag(e: any) { if (!isDesktop) return; if (e.target && e.target.closest && e.target.closest('button,input,textarea,a')) return; try { e.currentTarget.setPointerCapture(e.pointerId); } catch {} dragRef.current = { x: e.clientX, y: e.clientY, px: dockPos.x, py: dockPos.y }; }
   function onDragMove(e: any) { const d = dragRef.current; if (!d) return; const x = Math.max(0, Math.min(window.innerWidth - 120, d.px + (e.clientX - d.x))); const y = Math.max(0, Math.min(window.innerHeight - 60, d.py + (e.clientY - d.y))); setDockPos({ x, y }); }
   function endDrag() { dragRef.current = null; }
@@ -458,7 +460,7 @@ export default function FriendDock() {
                 {graph.friends.map((f) => { const lob = lobbyById[f.id]; const onl = !!lob;
                   return (<div key={'g' + f.id} className="flex items-center gap-2 text-sm">
                     <Avatar url={f.avatar} name={f.name} online={onl} />
-                    <span className="truncate flex-1">{f.name}</span>
+                    <div className="flex-1 min-w-0 leading-tight"><div className="truncate">{f.name}</div>{(lobbyById[f.id]?.loc || f.loc) && <div className="text-[10px] text-parchment/35 truncate">📍 {lobbyById[f.id]?.loc || f.loc}</div>}</div>
                     {onl && lob!.roomId && lob!.roomId !== roomId && <button onClick={() => router.push('/room/' + lob!.roomId)} className="text-[10px] px-2 py-0.5 rounded bg-eldritch/40 text-parchment/70 shrink-0">{L('加入', 'Join')}</button>}
                     {onl ? <button onClick={() => openDm({ uid: lob!.uid, name: f.name, roomId: lob!.roomId, userId: f.id })} className="text-xs px-2 py-0.5 rounded bg-blood/80 hover:bg-blood text-parchment shrink-0">{L('私聊', 'Chat')}</button> : <span className="text-[10px] text-parchment/40 shrink-0">{L('离线', 'Offline')}</span>}
                   </div>); })}
@@ -473,7 +475,7 @@ export default function FriendDock() {
               {people.map((p) => (
                 <div key={p.uid} className="flex items-center gap-2 text-sm py-1">
                   <Avatar url={p.avatar} name={p.name} online />
-                  <span className="truncate flex-1">{p.name}</span>
+                  <div className="flex-1 min-w-0 leading-tight"><div className="truncate">{p.name}</div>{p.loc && <div className="text-[10px] text-parchment/35 truncate">📍 {p.loc}</div>}</div>
                   {p.roomId && p.roomId !== roomId && <button onClick={() => router.push('/room/' + p.roomId)} className="text-[10px] px-2 py-0.5 rounded bg-eldritch/40 text-parchment/70 shrink-0">{L('加入', 'Join')}</button>}
                   <button onClick={() => openDm(p)} className="text-xs px-2 py-0.5 rounded bg-blood/80 hover:bg-blood text-parchment shrink-0">{L('私聊', 'Chat')}</button>
                 </div>
@@ -528,7 +530,7 @@ export default function FriendDock() {
                   </button>
                   <button onClick={() => openProfile(pp.id)} className="flex-1 min-w-0 leading-tight text-left">
                     <div className="truncate hover:text-parchment">{pp.name}</div>
-                    <div className="text-[10px] text-parchment/35 truncate">{online ? L('在线', 'Online') : pp.lastSeen ? L('最近在线 ', 'Last seen ') + ago(pp.lastSeen, en) : L('从未上线', 'Never online')}</div>
+                    <div className="text-[10px] text-parchment/35 truncate">{pp.loc ? '📍 ' + pp.loc + ' · ' : ''}{online ? L('在线', 'Online') : pp.lastSeen ? L('最近在线 ', 'Last seen ') + ago(pp.lastSeen, en) : L('从未上线', 'Never online')}</div>
                   </button>
                   {rel === '好友' ? <span className="text-[10px] text-green-400 shrink-0">{L('好友', 'Friend')}</span>
                     : rel === '待通过' ? <span className="text-[10px] text-parchment/40 shrink-0">{L('待通过', 'Pending')}</span>

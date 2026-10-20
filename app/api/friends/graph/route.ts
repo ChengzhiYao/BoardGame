@@ -19,12 +19,13 @@ export async function GET() {
   ids.delete(user.id);
   const nameMap: Record<string, string> = {};
   const avatarMap: Record<string, string | null> = {};
+  const locMap: Record<string, string> = {};
   if (ids.size) {
-    const { data: us } = await admin.from('users').select('id, display_name, avatar_url').in('id', Array.from(ids));
-    (us || []).forEach((u: any) => { nameMap[u.id] = u.display_name || ('玩家·' + String(u.id).slice(0, 4)); avatarMap[u.id] = u.avatar_url || null; });
+    const { data: us } = await admin.from('users').select('id, display_name, avatar_url, city, region').in('id', Array.from(ids));
+    (us || []).forEach((u: any) => { nameMap[u.id] = u.display_name || ('玩家·' + String(u.id).slice(0, 4)); avatarMap[u.id] = u.avatar_url || null; locMap[u.id] = u.city ? (u.region ? `${u.city}, ${u.region}` : u.city) : (u.region || ''); });
   }
   const nm = (id: string) => nameMap[id] || ('玩家·' + id.slice(0, 4));
-  const node = (id: string) => ({ id, name: nm(id), avatar: avatarMap[id] || null });
+  const node = (id: string) => ({ id, name: nm(id), avatar: avatarMap[id] || null, loc: locMap[id] || '' });
   const friends: any[] = [], incoming: any[] = [], outgoing: any[] = [];
   (rows || []).forEach((r: any) => {
     if (r.status === 'accepted') { const other = r.from_user === user.id ? r.to_user : r.from_user; friends.push(node(other)); }

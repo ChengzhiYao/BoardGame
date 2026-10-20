@@ -196,6 +196,10 @@ export default function FriendDock() {
       setDms((prev) => { const c = prev[m.from] || { name: m.fromName || '访客', msgs: [] }; return { ...prev, [m.from]: { name: m.fromName || c.name, msgs: [...c.msgs.slice(-59), { text: m.text, ts: m.ts, mine: false }] } }; });
       if (!openRef.current || peerRef.current !== m.from) setUnread((u) => u + 1);
     });
+    ch.on('broadcast', { event: 'dm-ping' }, (p: any) => {
+      const m = (p && p.payload) || {};
+      if (m.to && me.userId && m.to === me.userId) loadInbox();
+    });
     ch.subscribe((s: string) => { if (s === 'SUBSCRIBED') ch.track({ uid: me.uid, userId: me.userId, name: me.name, email: me.email, avatar: me.avatar, loc: myLoc, mode: myMode, roomId: roomRef.current, ts: Date.now() }); });
     return () => { try { supabase.removeChannel(ch); } catch {} lChan.current = null; };
   }, [me]);
@@ -209,7 +213,7 @@ export default function FriendDock() {
   // 好友图轮询
   async function loadGraph() { try { const r = await fetch('/api/friends/graph'); const d = await r.json(); setGraph({ friends: d.friends || [], incoming: d.incoming || [], outgoing: d.outgoing || [] }); } catch {} }
   useEffect(() => { if (!me || !me.email) return; const id = setInterval(loadGraph, 20000); return () => clearInterval(id); }, [me]);
-  useEffect(() => { if (!me || !me.email) return; loadInbox(); const id = setInterval(loadInbox, 12000); return () => clearInterval(id); }, [me]);
+  useEffect(() => { if (!me || !me.email) return; loadInbox(); const id = setInterval(loadInbox, 8000); return () => clearInterval(id); }, [me]);
   useEffect(() => { if (!me || !me.email || me.email === HIDDEN) return; loadLfg(); const id = setInterval(loadLfg, 30000); return () => clearInterval(id); }, [me]);
   useEffect(() => { if (!me) return; loadChangelog(); const id = setInterval(loadChangelog, 120000); return () => clearInterval(id); }, [me]);
   useEffect(() => { if (!me?.userId || !peer?.userId) return; const id = setInterval(() => loadThread(peer.userId!), 6000); return () => clearInterval(id); }, [me, peer]);
@@ -257,7 +261,7 @@ export default function FriendDock() {
   async function sendDbDm(userId: string) {
     const t = dmText.trim(); if (!t) return;
     const r = await fetch('/api/dm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ toUserId: userId, text: t }) }).catch(() => null);
-    if (r && r.ok) { setThread((prev) => ({ ...prev, [userId]: [...(prev[userId] || []), { text: t, ts: Date.now(), mine: true }] })); setDmText(''); loadInbox(); }
+    if (r && r.ok) { setThread((prev) => ({ ...prev, [userId]: [...(prev[userId] || []), { text: t, ts: Date.now(), mine: true }] })); setDmText(''); loadInbox(); try { lChan.current?.send({ type: 'broadcast', event: 'dm-ping', payload: { to: userId, from: me?.userId, ts: Date.now() } }); } catch {} }
     else if (r && r.status === 403) setThreadGated(true);
   }
   function sendDm() { const t = dmText.trim(); if (!t || !lChan.current || !me || !peer) return; const _pid = peer.userId; const _isFriend = !!_pid && graph.friends.some((f) => f.id === _pid); const _gated = !!me.email && me.email !== HIDDEN && !!_pid && !_isFriend; const _sent = (dms[peer.uid]?.msgs || []).filter((m) => m.mine).length; if (_gated && _sent >= 1) return; lChan.current.send({ type: 'broadcast', event: 'dm', payload: { to: peer.uid, from: me.uid, fromName: me.name, text: t, ts: Date.now() } }); setDms((prev) => { const c = prev[peer.uid] || { name: peer.name, msgs: [] }; return { ...prev, [peer.uid]: { name: c.name, msgs: [...c.msgs.slice(-59), { text: t, ts: Date.now(), mine: true }] } }; }); setDmText(''); }
@@ -311,7 +315,7 @@ export default function FriendDock() {
   const anyFriendOnline = roster.some((e) => fOnline[e]) || graph.friends.some((f) => lobbyById[f.id]);
   const anyOnline = people.length > 0 || anyFriendOnline;
   const dmUnread = inbox.reduce((a, t) => a + t.unread, 0);
-  const unseen = notifs.filter((n) => n.ts > seenTs).length + graph.incoming.length + dmUnread;
+  const unseen = notifs.filter((n) => n.ts > seenTs).length + graph.incoming.length + dmUnread + unread;
   const peopleBadge = dmUnread + graph.incoming.length + unread;
 
   const messagesBody = (

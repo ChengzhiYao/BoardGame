@@ -82,6 +82,7 @@ export default function FriendDock() {
   const [dockPos, setDockPos] = useState<{ x: number; y: number }>({ x: 12, y: 64 });
   const [myLoc, setMyLoc] = useState('');
   const [myMode, setMyMode] = useState('');
+  const [playing, setPlaying] = useState<Record<string, { roomId: string; mode: string }>>({});
   const dragRef = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
   const [unread, setUnread] = useState(0);
 
@@ -223,6 +224,16 @@ export default function FriendDock() {
   useEffect(() => { try { localStorage.setItem('dockPos', JSON.stringify(dockPos)); } catch {} }, [dockPos]);
   useEffect(() => { fetch('/api/geo').then((r) => r.json()).then((d) => setMyLoc(d?.label || '')).catch(() => {}); }, []);
   useEffect(() => { if (!roomId) { setMyMode(''); return; } fetch('/api/room-mode?id=' + encodeURIComponent(roomId)).then((r) => r.json()).then((d) => setMyMode(d?.mode || '')).catch(() => {}); }, [roomId]);
+  useEffect(() => {
+    if (!me) return;
+    const run = () => {
+      const ids = Array.from(new Set([...people.map((p) => p.userId), ...graph.friends.map((f) => f.id)].filter(Boolean))) as string[];
+      if (!ids.length) { setPlaying({}); return; }
+      fetch('/api/playing', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) }).then((r) => r.json()).then((d) => setPlaying(d?.map || {})).catch(() => {});
+    };
+    run(); const id = setInterval(run, 10000); return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me, people, graph.friends]);
   function startDrag(e: any) { if (!isDesktop) return; if (e.target && e.target.closest && e.target.closest('button,input,textarea,a')) return; try { e.currentTarget.setPointerCapture(e.pointerId); } catch {} dragRef.current = { x: e.clientX, y: e.clientY, px: dockPos.x, py: dockPos.y }; }
   function onDragMove(e: any) { const d = dragRef.current; if (!d) return; const x = Math.max(0, Math.min(window.innerWidth - 120, d.px + (e.clientX - d.x))); const y = Math.max(0, Math.min(window.innerHeight - 60, d.py + (e.clientY - d.y))); setDockPos({ x, y }); }
   function endDrag() { dragRef.current = null; }
@@ -486,8 +497,8 @@ export default function FriendDock() {
               {people.map((p) => (
                 <div key={p.uid} className="flex items-center gap-2 text-sm py-1">
                   <Avatar url={p.avatar} name={p.name} online />
-                  <div className="flex-1 min-w-0 leading-tight"><div className="truncate">{p.name}</div>{(p.roomId && p.mode) ? <div className="text-[10px] text-green-400/80 truncate">🎮 {L('正在玩 ', 'Playing ')}{MODE_LABEL[p.mode] ? (en ? MODE_LABEL[p.mode].en : MODE_LABEL[p.mode].zh) : p.mode}</div> : p.loc ? <div className="text-[10px] text-parchment/35 truncate">📍 {p.loc}</div> : null}</div>
-                  {p.roomId && p.roomId !== roomId && <button onClick={() => router.push('/room/' + p.roomId)} className="text-[10px] px-2 py-0.5 rounded bg-eldritch/40 text-parchment/70 shrink-0">{L('加入', 'Join')}</button>}
+                  <div className="flex-1 min-w-0 leading-tight"><div className="truncate">{p.name}</div>{(() => { const md = (p.userId && playing[p.userId]?.mode) || p.mode; const rid = (p.userId && playing[p.userId]?.roomId) || p.roomId; return (rid && md) ? <div className="text-[10px] text-green-400/80 truncate">🎮 {L('正在玩 ', 'Playing ')}{MODE_LABEL[md] ? (en ? MODE_LABEL[md].en : MODE_LABEL[md].zh) : md}</div> : p.loc ? <div className="text-[10px] text-parchment/35 truncate">📍 {p.loc}</div> : null; })()}</div>
+                  {(() => { const rid = (p.userId && playing[p.userId]?.roomId) || p.roomId; return rid && rid !== roomId ? <button onClick={() => router.push('/room/' + rid)} className="text-[10px] px-2 py-0.5 rounded bg-eldritch/40 text-parchment/70 shrink-0">{L('加入', 'Join')}</button> : null; })()}
                   <button onClick={() => openDm(p)} className="text-xs px-2 py-0.5 rounded bg-blood/80 hover:bg-blood text-parchment shrink-0">{L('私聊', 'Chat')}</button>
                 </div>
               ))}

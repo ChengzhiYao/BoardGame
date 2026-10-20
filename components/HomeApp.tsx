@@ -19,6 +19,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
   const [showPromo, setShowPromo] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [showContact, setShowContact] = useState(false);
+  const [resuming, setResuming] = useState(false);
   const [contactEmail, setContactEmail] = useState(''); const [contactMsg, setContactMsg] = useState('');
   const [contactState, setContactState] = useState<'idle' | 'sending' | 'ok' | 'err'>('idle');
   async function sendContact() {
@@ -41,7 +42,8 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
     (async () => {
       let pend: any = null; try { pend = JSON.parse(localStorage.getItem('pendingGame') || 'null'); } catch {}
       if (!pend || !pend.ts || Date.now() - pend.ts > 600000) { try { localStorage.removeItem('pendingGame'); } catch {} return; }
-      try { const r = await fetch('/api/billing/status'); const d = await r.json(); if (!d.loggedIn) return; } catch { return; }
+      setResuming(true);
+      try { const r = await fetch('/api/billing/status'); const d = await r.json(); if (!d.loggedIn) { setResuming(false); return; } } catch { setResuming(false); return; }
       try { localStorage.removeItem('pendingGame'); } catch {}
       createRoom(pend.mode, pend.name);
     })();
@@ -88,6 +90,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
     } catch (e: any) {
       setErr(e.message);
       setBusy(false);
+      setResuming(false);
     }
   }
 
@@ -209,6 +212,13 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
               </div>
             </div>
           </div>
+        </div>
+      )}
+      {resuming && (
+        <div className="fixed inset-0 z-[60] bg-ink/90 backdrop-blur-sm flex flex-col items-center justify-center gap-4 text-center px-6">
+          <div className="w-9 h-9 border-2 border-eldritch/30 border-t-eldritch rounded-full animate-spin" />
+          <p className="text-parchment/85 font-serif text-lg">{lang === 'en' ? 'Entering your game…' : '正在进入游戏…'}</p>
+          <p className="text-parchment/40 text-sm">{lang === 'en' ? 'Setting up the room, hang tight.' : '正在为你准备房间,请稍候。'}</p>
         </div>
       )}
       {showPromo && (

@@ -37,19 +37,30 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
   function openPromo() { setShowPromo(true); try { const a = new Audio('/audio/veil-of-night/loop1.ogg'); a.loop = true; a.volume = 0.5; a.play().catch(() => {}); promoAudio.current = a; } catch {} }
   function closePromo() { setShowPromo(false); try { promoAudio.current?.pause(); promoAudio.current = null; } catch {} }
   useEffect(() => { if (!forcedLang) setLang(getClientLang()); }, [forcedLang]);
+  useEffect(() => {
+    (async () => {
+      let pend: any = null; try { pend = JSON.parse(localStorage.getItem('pendingGame') || 'null'); } catch {}
+      if (!pend || !pend.ts || Date.now() - pend.ts > 600000) { try { localStorage.removeItem('pendingGame'); } catch {} return; }
+      try { const r = await fetch('/api/billing/status'); const d = await r.json(); if (!d.loggedIn) return; } catch { return; }
+      try { localStorage.removeItem('pendingGame'); } catch {}
+      createRoom(pend.mode, pend.name);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const t = tr(lang);
 
   function switchLang(l: Lang) { setClientLang(l); router.push('/' + l); }
 
-  function roomName(m: GM) {
+  function roomName(m: GM, nm: string) {
     const suffix = lang === 'en'
       ? (m === 'soup' ? '’s Lateral Mystery' : m === 'td' ? '’s Truth or Dare' : m === 'jbs' ? '’s Murder Mystery' : m === 'botc' ? '’s Bloodbound' : m === 'mcc' ? '’s Cat Curse' : m === 'dnd' ? '’s D&D Quest' : m === 'story' ? '’s Story' : '’s Investigation')
       : (m === 'soup' ? ' 的海龟汤' : m === 'td' ? ' 的真心话大冒险' : m === 'jbs' ? ' 的剧本杀' : m === 'botc' ? ' 的血染' : m === 'mcc' ? ' 的午夜猫诅咒' : m === 'dnd' ? ' 的龙与地下城' : m === 'story' ? ' 的故事' : ' 的调查');
-    return `${name.trim()}${suffix}`;
+    return `${nm}${suffix}`;
   }
 
-  async function createRoom(m: GM = gameMode) {
-    if (!name.trim()) {
+  async function createRoom(m: GM = gameMode, nameOverride?: string) {
+    const nm = (nameOverride ?? name).trim();
+    if (!nm) {
       setErr(t('err_name'));
       heroRef.current?.scrollIntoView({ behavior: 'smooth' });
       setTimeout(() => nameRef.current?.focus(), 400);
@@ -59,15 +70,16 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
     setBusy(true);
     setErr('');
     try {
-      await ensureSession(name.trim());
+      await ensureSession(nm);
       const res = await fetch('/api/rooms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: roomName(m), displayName: name.trim(), mode: m, language: lang }),
+        body: JSON.stringify({ name: roomName(m, nm), displayName: nm, mode: m, language: lang }),
       });
       const data = await res.json();
       if (res.status === 402) {
-        try { localStorage.setItem('pendingGame', JSON.stringify({ mode: m, name: name.trim(), language: lang })); } catch {}
+        try { localStorage.setItem('pendingGame', JSON.stringify({ mode: m, name: nm, language: lang, ts: Date.now() })); } catch {}
+        if (data.reason === 'login') { await signInWithGoogle('/' + lang).catch(() => {}); return; }
         router.push('/upgrade');
         return;
       }

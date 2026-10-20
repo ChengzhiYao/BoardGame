@@ -3,7 +3,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { getEntitlement } from '@/lib/billing/entitlement';
-import { FREE_MODES, monthStart } from '@/lib/pricing';
+import { FREE_MODES, monthStart, weekStart, FREE_WEEKLY_SECONDS } from '@/lib/pricing';
 
 function genToken() {
   return (
@@ -26,11 +26,13 @@ export async function POST(req: Request) {
   const ent = await getEntitlement(admin, user);
   const isFree = FREE_MODES.includes(body.mode);
   if (isFree) {
-    if (!ent.email) {
-      return NextResponse.json({ error: '开房需要先用 Google 登录', reason: 'login' }, { status: 402 });
-    }
-    if (!ent.member && !ent.whitelisted && ent.freeSecondsUsed >= ent.freeSecondsLimit) {
-      return NextResponse.json({ error: '本周免费时长已用完，开通会员即可无限畅玩', reason: 'free_limit' }, { status: 402 });
+    // 免费游戏：匿名也能直接开玩，无需登录。会员/白名单无限；其余按每周时长限制（按 user.id 计，匿名也算）。
+    if (!ent.member && !ent.whitelisted) {
+      const ws = weekStart();
+      const { data: fu } = await admin.from('free_usage').select('seconds').eq('user_id', user.id).eq('week_start', ws).maybeSingle();
+      if ((fu?.seconds || 0) >= FREE_WEEKLY_SECONDS) {
+        return NextResponse.json({ error: '本周免费时长已用完，开通会员即可无限畅玩', reason: 'free_limit' }, { status: 402 });
+      }
     }
   } else if (!ent.canHost) {
     const msg = ent.reason === 'login'

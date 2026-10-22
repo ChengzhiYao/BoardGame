@@ -761,3 +761,13 @@ alter table market_profiles add column if not exists q_buy       int not null de
 alter table market_profiles add column if not exists q_work      int not null default 0;
 alter table market_profiles add column if not exists q_social    int not null default 0;
 alter table market_profiles add column if not exists q_claimed   boolean not null default false;
+
+-- 邀请好友上线一起玩：邮件邀请节流记录
+create table if not exists play_invites (
+  id uuid primary key default gen_random_uuid(),
+  from_user uuid not null references auth.users(id) on delete cascade,
+  to_user   uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+create index if not exists play_invites_pair_idx on play_invites(from_user, to_user, created_at desc);
+alter table play_invites enable row level security;

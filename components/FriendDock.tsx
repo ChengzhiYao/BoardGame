@@ -88,6 +88,9 @@ export default function FriendDock() {
   const [knockIn, setKnockIn] = useState<{ fromUid: string; fromName: string; fromUserId: string; roomId: string } | null>(null);
   const [knockOut, setKnockOut] = useState<{ roomId: string; name: string } | null>(null);
   const [knockBusy, setKnockBusy] = useState(false);
+  const [playInvite, setPlayInvite] = useState<{ fromName: string; roomId: string; token: string; mode: string } | null>(null);
+  const [piBusy, setPiBusy] = useState(false);
+  const [tip, setTip] = useState('');
 
   const [roster, setRoster] = useState<string[]>([]);
   const [fOnline, setFOnline] = useState<Record<string, { roomId?: string }>>({});
@@ -219,6 +222,12 @@ export default function FriendDock() {
       if (m.ok && m.roomId) { router.push('/room/' + m.roomId); }
       else { pushNotif('knockno:' + Date.now(), m.reason === 'full' ? (en ? 'Room is full' : '房间已满') : (en ? 'Request declined' : '对方拒绝了你的加入申请')); }
     });
+    // 好友邀请我一起玩
+    ch.on('broadcast', { event: 'play-invite' }, (p: any) => {
+      const m = (p && p.payload) || {};
+      if (m.toUid !== me.uid || !m.token) return;
+      setPlayInvite({ fromName: m.fromName || '好友', roomId: m.roomId, token: m.token, mode: m.mode || '' });
+    });
     ch.subscribe((s: string) => { if (s === 'SUBSCRIBED') ch.track({ uid: me.uid, userId: me.userId, name: me.name, email: me.email, avatar: me.avatar, loc: myLoc, mode: myMode, roomId: roomRef.current, ts: Date.now() }); });
     return () => { try { supabase.removeChannel(ch); } catch {} lChan.current = null; };
   }, [me]);
@@ -292,6 +301,28 @@ export default function FriendDock() {
     const r = await fetch('/api/dm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ toUserId: userId, text: t }) }).catch(() => null);
     if (r && r.ok) { setThread((prev) => ({ ...prev, [userId]: [...(prev[userId] || []), { text: t, ts: Date.now(), mine: true }] })); setDmText(''); loadInbox(); try { lChan.current?.send({ type: 'broadcast', event: 'dm-ping', payload: { to: userId, from: me?.userId, ts: Date.now() } }); } catch {} }
     else if (r && r.status === 403) setThreadGated(true);
+  }
+  function showTip(t: string) { setTip(t); setTimeout(() => setTip(''), 2400); }
+  async function invitePlay(opts: { uid?: string; userId?: string; name: string; online: boolean }) {
+    if (!me) return;
+    if (opts.online && opts.uid) {
+      if (!roomId) { showTip(en ? 'Join a game first, then invite' : '先进入一个游戏，再邀请好友'); return; }
+      try {
+        const r = await fetch('/api/rooms/my-token?id=' + encodeURIComponent(roomId)); const d = await r.json().catch(() => ({}));
+        if (!d.token) { showTip(en ? 'Could not get invite' : '获取邀请失败'); return; }
+        lChan.current?.send({ type: 'broadcast', event: 'play-invite', payload: { toUid: opts.uid, roomId, token: d.token, mode: d.mode || myMode, fromName: me.name } });
+        showTip(en ? `Invited ${opts.name}` : `已邀请 ${opts.name} 加入`);
+      } catch { showTip(en ? 'Failed' : '邀请失败'); }
+    } else if (opts.userId) {
+      showTip(en ? `Emailing ${opts.name}…` : `正在邮件邀请 ${opts.name}…`);
+      try { const r = await fetch('/api/friends/invite-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: opts.userId }) }); const d = await r.json().catch(() => ({})); showTip(r.ok && d.ok ? (en ? `Emailed ${opts.name}` : `已邮件邀请 ${opts.name} 上线`) : (en ? 'Failed' : '邀请失败')); } catch { showTip(en ? 'Failed' : '邀请失败'); }
+    }
+  }
+  async function acceptPlayInvite() {
+    const pi = playInvite; if (!pi) return; setPiBusy(true);
+    try { const r = await fetch('/api/rooms/join', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: pi.token }) }); const d = await r.json().catch(() => ({}));
+      if (r.ok && d.roomId) { setPlayInvite(null); router.push('/room/' + d.roomId); } else { showTip(d.error || (en ? 'Could not join' : '无法加入')); setPiBusy(false); } }
+    catch { showTip(en ? 'Network error' : '网络错误'); setPiBusy(false); }
   }
   function requestJoin(rid: string, name: string) {
     if (!rid || !lChan.current || !me) return;
@@ -528,6 +559,7 @@ export default function FriendDock() {
                     <Avatar url={f.avatar} name={f.name} online={onl} />
                     <div className="flex-1 min-w-0 leading-tight"><div className="truncate">{f.name}</div>{(lobbyById[f.id]?.loc || f.loc) && <div className="text-[10px] text-parchment/35 truncate">📍 {lobbyById[f.id]?.loc || f.loc}</div>}</div>
                     {onl && lob!.roomId && lob!.roomId !== roomId && <button onClick={() => requestJoin(lob!.roomId!, f.name)} className="text-[10px] px-2 py-0.5 rounded bg-eldritch/40 text-parchment/70 shrink-0">{L('加入', 'Join')}</button>}
+                    {(!onl || !lob!.roomId) && <button onClick={() => invitePlay({ uid: lob?.uid, userId: f.id, name: f.name, online: onl })} className="text-[10px] px-2 py-0.5 rounded bg-eldritch/40 text-parchment/70 hover:bg-eldritch shrink-0">{L('邀请', 'Invite')}</button>}
                     {onl ? <button onClick={() => openDm({ uid: lob!.uid, name: f.name, roomId: lob!.roomId, userId: f.id })} className="text-xs px-2 py-0.5 rounded bg-blood/80 hover:bg-blood text-parchment shrink-0">{L('私聊', 'Chat')}</button> : <span className="text-[10px] text-parchment/40 shrink-0">{L('离线', 'Offline')}</span>}
                   </div>); })}
               </div>
@@ -543,6 +575,7 @@ export default function FriendDock() {
                   <Avatar url={p.avatar} name={p.name} online />
                   <div className="flex-1 min-w-0 leading-tight"><div className="truncate">{p.name}</div>{(() => { const md = (p.userId && playing[p.userId]?.mode) || p.mode; const rid = (p.userId && playing[p.userId]?.roomId) || p.roomId; return (rid && md) ? <div className="text-[10px] text-green-400/80 truncate">🎮 {L('正在玩 ', 'Playing ')}{MODE_LABEL[md] ? (en ? MODE_LABEL[md].en : MODE_LABEL[md].zh) : md}</div> : p.loc ? <div className="text-[10px] text-parchment/35 truncate">📍 {p.loc}</div> : null; })()}</div>
                   {(() => { const rid = (p.userId && playing[p.userId]?.roomId) || p.roomId; return rid && rid !== roomId ? <button onClick={() => requestJoin(rid, p.name)} className="text-[10px] px-2 py-0.5 rounded bg-eldritch/40 text-parchment/70 shrink-0">{L('加入', 'Join')}</button> : null; })()}
+                  {(() => { const rid = (p.userId && playing[p.userId]?.roomId) || p.roomId; return !rid ? <button onClick={() => invitePlay({ uid: p.uid, userId: p.userId, name: p.name, online: true })} className="text-[10px] px-2 py-0.5 rounded bg-eldritch/40 text-parchment/70 hover:bg-eldritch shrink-0">{L('邀请', 'Invite')}</button> : null; })()}
                   <button onClick={() => openDm(p)} className="text-xs px-2 py-0.5 rounded bg-blood/80 hover:bg-blood text-parchment shrink-0">{L('私聊', 'Chat')}</button>
                 </div>
               ))}
@@ -718,6 +751,19 @@ export default function FriendDock() {
           </div>
         </div>
       )}
+      {playInvite && (
+        <div className="fixed inset-0 z-[121] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="w-72 rounded-2xl border border-blood/40 bg-fog/95 shadow-2xl p-5 text-center">
+            <div className="text-3xl mb-2">🎲</div>
+            <div className="text-sm text-parchment/90"><b>{playInvite.fromName}</b>{en ? ' invites you to play' : ' 邀请你一起玩'}{playInvite.mode && MODE_LABEL[playInvite.mode] ? ' · ' + (en ? MODE_LABEL[playInvite.mode].en : MODE_LABEL[playInvite.mode].zh) : ''}</div>
+            <div className="flex gap-2 mt-4">
+              <button disabled={piBusy} onClick={() => setPlayInvite(null)} className="flex-1 py-2 rounded-lg bg-ink/70 border border-eldritch/30 text-parchment/70 text-sm hover:bg-ink disabled:opacity-40">{L('稍后', 'Later')}</button>
+              <button disabled={piBusy} onClick={acceptPlayInvite} className="flex-1 py-2 rounded-lg bg-green-700/80 hover:bg-green-700 text-parchment text-sm disabled:opacity-40">{piBusy ? L('加入中…', '…') : L('加入', 'Join')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {tip && <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[130] px-4 py-2 rounded-full bg-ink border border-eldritch/40 text-parchment text-sm shadow-xl">{tip}</div>}
     </div>
   );
 }

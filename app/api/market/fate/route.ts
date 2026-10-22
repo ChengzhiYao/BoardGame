@@ -16,7 +16,7 @@ export async function POST() {
   else if (roll < 0.9) { dPrice = Math.round(me.price * (0.1 + Math.random() * 0.2)); text = `身价暴涨 +${dPrice}`; }
   else { dPrice = -Math.round(me.price * (0.05 + Math.random() * 0.1)); text = `身价下跌 ${dPrice}`; }
   const newCash = Math.max(0, me.cash + dCash); const newPrice = Math.max(100, me.price + dPrice);
-  await admin.from('market_profiles').update({ cash: newCash, price: newPrice, last_fate: today() }).eq('user_id', user.id);
+  await admin.from('market_profiles').update({ cash: newCash, price: newPrice, last_fate: today(), exp: me.exp + 5 }).eq('user_id', user.id);
   const { data: mu } = await admin.from('users').select('display_name').eq('id', user.id).maybeSingle();
   await feed(admin, `${mu?.display_name || '玩家'} 抽到命运卡:${text}`);
   return NextResponse.json({ ok: true, text, dCash, dPrice });

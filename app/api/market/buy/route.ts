@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
-import { ensureProfile, isProtected, isWorking, tradesToday, boughtToday, feed, HOLD_CAP, PRICE_MULT, OWNER_SHARE, SELF_SHARE, TRADES_PER_DAY, BOUGHT_PER_DAY, today } from '@/lib/market/engine';
+import { ensureProfile, isProtected, isWorking, tradesToday, boughtToday, feed, questBump, HOLD_CAP, PRICE_MULT, OWNER_SHARE, SELF_SHARE, TRADES_PER_DAY, BOUGHT_PER_DAY, today } from '@/lib/market/engine';
 export const dynamic = 'force-dynamic';
 const HIDDEN = 'hattieichinose@gmail.com';
 
@@ -40,14 +40,14 @@ export async function POST(req: Request) {
   const newPrice = Math.round(P * PRICE_MULT);
 
   // apply
-  await admin.from('market_profiles').update({ cash: me.cash - P, trades_today: tradesToday(me) + 1, trades_day: today() }).eq('user_id', user.id);
+  await admin.from('market_profiles').update({ cash: me.cash - P, trades_today: tradesToday(me) + 1, trades_day: today(), exp: me.exp + 15, ...questBump(me, 'q_buy') }).eq('user_id', user.id);
   if (prevOwner && prevOwner !== targetId) {
     const { data: po } = await admin.from('market_profiles').select('cash').eq('user_id', prevOwner).maybeSingle();
     await admin.from('market_profiles').update({ cash: (po?.cash || 0) + ownerShare }).eq('user_id', prevOwner);
   }
   await admin.from('market_profiles').update({
     owner_id: user.id, price: newPrice, cash: t.cash + selfCut,
-    bought_today: boughtToday(t) + 1, bought_day: today(),
+    bought_today: boughtToday(t) + 1, bought_day: today(), exp: t.exp + 10,
   }).eq('user_id', targetId);
 
   // 持有满 10 → 自己恢复自由（若正被持有）

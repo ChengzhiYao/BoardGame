@@ -752,3 +752,12 @@ create index if not exists market_feed_idx on market_feed(created_at desc);
 alter table market_profiles enable row level security;
 alter table market_trades   enable row level security;
 alter table market_feed     enable row level security;
+
+-- 身价场 v2：经验/称号、绰号、每日任务；可重复执行
+alter table market_profiles add column if not exists exp         bigint not null default 0;
+alter table market_profiles add column if not exists nickname    text;
+alter table market_profiles add column if not exists quest_day   date;
+alter table market_profiles add column if not exists q_buy       int not null default 0;
+alter table market_profiles add column if not exists q_work      int not null default 0;
+alter table market_profiles add column if not exists q_social    int not null default 0;
+alter table market_profiles add column if not exists q_claimed   boolean not null default false;

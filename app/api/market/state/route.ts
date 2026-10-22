@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
-import { ensureProfile, defaultProfile, isProtected, isWorking, boughtToday, HOLD_CAP, START_CASH, START_PRICE, today, type MP } from '@/lib/market/engine';
+import { ensureProfile, defaultProfile, isProtected, isWorking, boughtToday, rankOf, questState, HOLD_CAP, START_CASH, START_PRICE, today, type MP } from '@/lib/market/engine';
 
 export const dynamic = 'force-dynamic';
 const HIDDEN = 'hattieichinose@gmail.com';
@@ -16,7 +16,7 @@ export async function GET() {
   const { data: profs } = await admin.from('market_profiles').select('*').limit(3000);
   const pmap: Record<string, MP> = {}; (profs || []).forEach((p: any) => { pmap[p.user_id] = p; });
   const umap: Record<string, any> = {}; (users || []).forEach((u: any) => { umap[u.id] = u; });
-  const nm = (id: string) => umap[id]?.display_name || ('玩家·' + id.slice(0, 4));
+  const nm = (id: string) => pmap[id]?.nickname || umap[id]?.display_name || ('玩家·' + id.slice(0, 4));
   const av = (id: string) => umap[id]?.avatar_url || null;
 
   // 持有数 + 名下身价合计
@@ -56,7 +56,8 @@ export async function GET() {
     loggedIn: true,
     me: { id: user.id, name: nm(user.id), avatar: av(user.id), cash: me.cash, price: me.price, ownerId: me.owner_id, ownerName: me.owner_id ? nm(me.owner_id) : null,
       assets: myAssets, holdings: holdCount[user.id] || 0, holdCap: HOLD_CAP, protectedUntil: me.protected_until,
-      dailyAvailable: me.last_daily !== today(), fateAvailable: me.last_fate !== today(), optedOut: me.opted_out },
+      dailyAvailable: me.last_daily !== today(), fateAvailable: me.last_fate !== today(), optedOut: me.opted_out,
+      rank: rankOf(me.exp), quest: questState(me) },
     team, list: list.slice(0, 80), leaderboard: lb, feed,
   });
 }

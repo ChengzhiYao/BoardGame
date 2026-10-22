@@ -9,6 +9,6 @@ export async function POST() {
   const admin = createAdminClient();
   const me = await ensureProfile(admin, user.id);
   if (me.last_daily === today()) return NextResponse.json({ ok: false, reason: 'claimed' });
-  await admin.from('market_profiles').update({ cash: me.cash + DAILY_REWARD, last_daily: today() }).eq('user_id', user.id);
+  await admin.from('market_profiles').update({ cash: me.cash + DAILY_REWARD, last_daily: today(), exp: me.exp + 3 }).eq('user_id', user.id);
   return NextResponse.json({ ok: true, reward: DAILY_REWARD, cash: me.cash + DAILY_REWARD });
 }

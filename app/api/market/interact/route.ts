@@ -1,7 +1,7 @@
 // 安抚 / 折磨 持有的好友：随机结果（现金与身价小幅变化，整体接近中性）。
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
-import { ensureProfile } from '@/lib/market/engine';
+import { ensureProfile, questBump } from '@/lib/market/engine';
 export const dynamic = 'force-dynamic';
 export async function POST(req: Request) {
   const supabase = createServerClient(); const { data: { user } } = await supabase.auth.getUser();
@@ -16,7 +16,7 @@ export async function POST(req: Request) {
   let dPrice = kind === 'soothe' ? Math.round(t.price * 0.03) : Math.round((Math.random() - 0.4) * t.price * 0.08);
   const newCash = Math.max(0, me.cash + dCash);
   const newPrice = Math.max(100, t.price + dPrice);
-  await admin.from('market_profiles').update({ cash: newCash }).eq('user_id', user.id);
+  await admin.from('market_profiles').update({ cash: newCash, exp: me.exp + 5, ...questBump(me, 'q_social') }).eq('user_id', user.id);
   await admin.from('market_profiles').update({ price: newPrice }).eq('user_id', t.user_id);
   return NextResponse.json({ ok: true, dCash, dPrice, kind });
 }

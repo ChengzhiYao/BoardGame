@@ -161,12 +161,6 @@ export default function GameShowcase({ lang, busy, onPlay }: { lang: Lang; busy:
               <div className="font-serif text-parchment/80 text-lg">{en ? 'Storybook Meadow' : '童话草原'}</div>
               <div className="text-parchment/45 text-xs tracking-widest uppercase">{en ? 'persistent world' : '永久世界 · 即将开放'}</div>
             </div>
-          ) : g.key === 'market' ? (
-            <div className="w-full rounded-xl border border-eldritch/30 bg-gradient-to-b from-amber-900/20 to-ink flex flex-col items-center justify-center text-center gap-2 shadow-[0_30px_70px_-35px_rgba(0,0,0,.9)]" style={{ aspectRatio: '1180 / 720' }}>
-              <div className="text-5xl">💰📈🤝</div>
-              <div className="font-serif text-parchment/80 text-lg">{en ? 'The Market' : '身价场'}</div>
-              <div className="text-amber-300/60 text-xs tracking-widest uppercase">{en ? 'live trading economy' : '持久交易经济'}</div>
-            </div>
           ) : (
             <iframe src={`/screens.html#${g.key}`} title={pick(lang, g.name)} loading="lazy" scrolling="no"
               className="w-full block rounded-xl border border-eldritch/30 bg-ink pointer-events-none shadow-[0_30px_70px_-35px_rgba(0,0,0,.9)]"

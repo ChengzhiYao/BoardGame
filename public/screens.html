@@ -163,6 +163,31 @@ html,body{margin:0;padding:0;background:transparent;overflow:hidden}
     .scrn .s-botcrow{display:flex;align-items:center;gap:10px;width:760px;max-width:90%}
     .scrn .s-claim{font-size:12px;color:rgba(216,199,168,.7);border:1px solid rgba(47,93,84,.4);border-radius:7px;padding:9px 12px;white-space:nowrap;background:#14161c}
     .scrn .s-tf.sm{padding:9px 14px}
+
+    .scrn-market{color:#d8c7a8}
+    .scrn-market .m-top{display:flex;align-items:center;justify-content:space-between;padding:15px 26px;border-bottom:1px solid rgba(47,93,84,.18)}
+    .scrn-market .m-ttl{font-family:Georgia,'Noto Serif SC',serif;font-size:19px;color:#f2ead9}
+    .scrn-market .m-stats{display:flex;gap:24px;font-size:12.5px;color:rgba(216,199,168,.5)}
+    .scrn-market .m-stats b{color:#f2ead9;font-weight:500}
+    .scrn-market .m-stats .gold{color:#d9a441}
+    .scrn-market .m-body{display:grid;grid-template-columns:1fr 348px;height:659px}
+    .scrn-market .m-list{padding:16px 22px;display:flex;flex-direction:column;gap:10px;overflow:hidden}
+    .scrn-market .m-row{display:flex;align-items:center;gap:13px;border:1px solid rgba(47,93,84,.22);background:#15171d;border-radius:12px;padding:10px 14px}
+    .scrn-market .m-av{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;color:#f2ead9;flex:none;border:1px solid rgba(236,233,226,.14)}
+    .scrn-market .m-nm{font-size:15.5px;color:#e7d9b8}
+    .scrn-market .m-sub{font-size:11.5px;color:rgba(216,199,168,.42);margin-top:2px}
+    .scrn-market .m-price{font-size:14px;color:#d9a441;margin-left:auto;margin-right:4px}
+    .scrn-market .m-buy{background:#7a1f1f;color:#f2ead9;border:none;border-radius:8px;padding:8px 17px;font-size:13px;white-space:nowrap}
+    .scrn-market .m-tag{font-size:11.5px;color:rgba(216,199,168,.4);margin-left:auto;white-space:nowrap}
+    .scrn-market .m-right{border-left:1px solid rgba(47,93,84,.15);padding:18px 20px;display:flex;flex-direction:column;gap:14px;background:#0a0b0e}
+    .scrn-market .m-h{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:rgba(216,199,168,.4)}
+    .scrn-market .m-lb{display:flex;align-items:center;gap:11px;font-size:13.5px;color:#d8c7a8;margin-top:9px}
+    .scrn-market .m-rank{width:16px;text-align:center;color:rgba(216,199,168,.45)}
+    .scrn-market .m-la{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;color:#f2ead9;border:1px solid rgba(236,233,226,.12)}
+    .scrn-market .m-asset{margin-left:auto;color:#d9a441;font-size:13px}
+    .scrn-market .m-feed{font-size:12px;color:rgba(216,199,168,.52);line-height:1.7}
+    .scrn-market .m-feed div{border-top:1px solid rgba(47,93,84,.12);padding:7px 0}
+    .scrn-market .m-feed b{color:#d8c7a8;font-weight:400}
 </style></head><body><div id="stage"></div>
     <template id="tpl-coc"><div class="scrn scrn-coc">
       <div class="s-top"><span>Round 3</span><span class="serif s-ttl">The Blackwood Vigil</span><span>Image budget 2/8</span></div>
@@ -358,6 +383,72 @@ html,body{margin:0;padding:0;background:transparent;overflow:hidden}
         </div>
         <div class="s-tally serif">Rin is on the block — <b>3 votes</b> to execute, 2 needed. <span>Hands up around the table…</span></div>
         <div class="s-botcrow"><span class="s-claim">Claim: Washerwoman ▾</span><div class="s-tf sm">“I confirmed Ada as the Investigator on night one…”</div><button class="s-btn">Say</button></div>
+      </div>
+    </div></template>
+    <template id="tpl-market"><div class="scrn scrn-market" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+      <div style="display:flex;gap:4px;padding:12px 24px 0;border-bottom:1px solid rgba(47,93,84,.2);font-size:14px">
+        <span style="padding:9px 18px;border:1px solid rgba(47,93,84,.3);border-bottom:none;border-radius:8px 8px 0 0;background:#15171d;color:#f2ead9">市场</span>
+        <span style="padding:9px 18px;color:rgba(216,199,168,.45)">好友排行</span>
+        <span style="padding:9px 18px;color:rgba(216,199,168,.45)">命运卡</span>
+        <span style="padding:9px 18px;color:rgba(216,199,168,.45)">动态</span>
+        <span style="margin-left:auto;align-self:center;font-family:Georgia,'Noto Serif SC',serif;font-size:16px;color:#d9a441">身价场 · The Market</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 320px;height:648px">
+        <div style="padding:18px 22px;display:flex;flex-direction:column;gap:16px;overflow:hidden">
+          <!-- 我的身价 -->
+          <div style="display:flex;gap:16px;border:1px solid rgba(47,93,84,.25);background:#15171d;border-radius:14px;padding:16px">
+            <div style="width:68px;height:68px;border-radius:50%;background:#3a402b;display:flex;align-items:center;justify-content:center;font-size:26px;color:#f2ead9;border:1px solid rgba(236,233,226,.14);flex:none">Y</div>
+            <div style="flex:1;font-size:13.5px;line-height:1.9;color:rgba(216,199,168,.65)">
+              <div style="font-size:16px;color:#f2ead9;margin-bottom:3px">You <span style="color:rgba(216,199,168,.4);font-size:12px">· 身价场</span></div>
+              身　价 <b style="color:#d9a441">¥650</b>　　总资产 <b style="color:#d9a441">¥3,120</b><br>现　金 <b style="color:#f2ead9">¥1,240</b>　　持　有 <b style="color:#f2ead9">3/10</b>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:9px;font-size:13px;text-align:right;color:#b86b6b">
+              <span style="text-decoration:underline">讨好主人</span><span style="text-decoration:underline">我要赎身</span><span style="text-decoration:underline">命运卡</span><span style="text-decoration:underline">退出市场</span>
+            </div>
+          </div>
+          <!-- 购买 -->
+          <div>
+            <div style="font-size:13px;color:#d8c7a8;margin-bottom:8px">购买玩家</div>
+            <div style="display:flex;align-items:center;gap:14px">
+              <input placeholder="搜索玩家…" style="width:300px;padding:9px 13px;border-radius:8px;background:#0a0b0e;border:1px solid rgba(47,93,84,.3);color:rgba(216,199,168,.4);font-size:13px;outline:none">
+              <span style="font-size:12.5px;color:#b86b6b"><span style="text-decoration:underline">查看全部</span> · <span style="text-decoration:underline">我买得起的</span></span>
+            </div>
+          </div>
+          <!-- 我的队伍 -->
+          <div style="display:flex;flex-direction:column;gap:12px;overflow:hidden">
+            <div style="font-size:13px;color:#d8c7a8">我的队伍</div>
+            <div style="display:flex;gap:13px;align-items:flex-start">
+              <div style="width:46px;height:46px;border-radius:50%;background:#2f4a46;display:flex;align-items:center;justify-content:center;font-size:17px;color:#f2ead9;border:1px solid rgba(236,233,226,.12);flex:none">天</div>
+              <div style="flex:1;font-size:12.5px;line-height:1.8;color:rgba(216,199,168,.6)"><span style="font-size:14.5px;color:#e7d9b8">天使xin宝宝</span>　身价 <b style="color:#d9a441">¥1,550</b>　现金 ¥1,780<div style="color:rgba(216,199,168,.38);font-size:11.5px;margin-top:3px">花了 ¥1,400 第 1 次买入 · 10-28 11:36</div></div>
+              <div style="display:flex;flex-direction:column;gap:7px;font-size:12px;text-align:right;color:#b86b6b"><span style="text-decoration:underline">打工</span><span style="text-decoration:underline">安抚</span><span style="text-decoration:underline">折磨</span></div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="font-size:13px;color:#d8c7a8">可买入</div>
+            <div style="display:flex;align-items:center;gap:12px;border:1px solid rgba(47,93,84,.2);background:#15171d;border-radius:11px;padding:9px 13px"><div style="width:38px;height:38px;border-radius:50%;background:#3a2d4a;display:flex;align-items:center;justify-content:center;font-size:15px;color:#f2ead9;border:1px solid rgba(236,233,226,.12);flex:none">L</div><div style="flex:1;font-size:13.5px;color:#e7d9b8">Lynsay<div style="font-size:11px;color:rgba(216,199,168,.4);margin-top:1px">主人 · Jack</div></div><span style="color:#d9a441;font-size:13px;margin-right:4px">¥1,352</span><span style="color:#f2ead9;background:#7a1f1f;border-radius:7px;padding:6px 16px;font-size:12.5px">买入</span></div>
+            <div style="display:flex;align-items:center;gap:12px;border:1px solid rgba(47,93,84,.2);background:#15171d;border-radius:11px;padding:9px 13px"><div style="width:38px;height:38px;border-radius:50%;background:#2b3d39;display:flex;align-items:center;justify-content:center;font-size:15px;color:#f2ead9;border:1px solid rgba(236,233,226,.12);flex:none">明</div><div style="flex:1;font-size:13.5px;color:#e7d9b8">明一<div style="font-size:11px;color:rgba(216,199,168,.4);margin-top:1px">自由身</div></div><span style="color:#d9a441;font-size:13px;margin-right:4px">¥845</span><span style="color:#f2ead9;background:#7a1f1f;border-radius:7px;padding:6px 16px;font-size:12.5px">买入</span></div>
+            <div style="display:flex;align-items:center;gap:12px;border:1px solid rgba(47,93,84,.2);background:#15171d;border-radius:11px;padding:9px 13px"><div style="width:38px;height:38px;border-radius:50%;background:#333a4a;display:flex;align-items:center;justify-content:center;font-size:15px;color:#f2ead9;border:1px solid rgba(236,233,226,.12);flex:none">M</div><div style="flex:1;font-size:13.5px;color:#e7d9b8">Mia<div style="font-size:11px;color:rgba(216,199,168,.4);margin-top:1px">自由身</div></div><span style="color:#d9a441;font-size:13px;margin-right:4px">¥500</span><span style="color:#f2ead9;background:#7a1f1f;border-radius:7px;padding:6px 16px;font-size:12.5px">买入</span></div>
+          </div>
+        </div>
+        <!-- right -->
+        <div style="border-left:1px solid rgba(47,93,84,.15);padding:18px 18px;display:flex;flex-direction:column;gap:18px;background:#0a0b0e">
+          <div>
+            <div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:rgba(216,199,168,.4);margin-bottom:11px">我的主人</div>
+            <div style="display:flex;gap:12px;align-items:center">
+              <div style="width:44px;height:44px;border-radius:50%;background:#3a2d4a;display:flex;align-items:center;justify-content:center;font-size:16px;color:#f2ead9;border:1px solid rgba(236,233,226,.12)">J</div>
+              <div style="font-size:12.5px;line-height:1.7;color:rgba(216,199,168,.6)"><span style="font-size:14px;color:#e7d9b8">Jack</span><br>身价 <b style="color:#d9a441">¥10,160</b> · 现金 ¥2,656</div>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:rgba(216,199,168,.4);margin-bottom:6px">事件记录</div>
+            <div style="font-size:12px;color:rgba(216,199,168,.52);line-height:1.6">
+              <div style="border-top:1px solid rgba(47,93,84,.12);padding:8px 0"><b style="color:#d8c7a8;font-weight:400">Jack</b> 以 1,040 身价买下了 Lynsay</div>
+              <div style="border-top:1px solid rgba(47,93,84,.12);padding:8px 0"><b style="color:#d8c7a8;font-weight:400">薛钰</b> 抽到命运卡:身价暴涨 +180</div>
+              <div style="border-top:1px solid rgba(47,93,84,.12);padding:8px 0"><b style="color:#d8c7a8;font-weight:400">You</b> 派 天使xin宝宝 去打工,赚了 78</div>
+              <div style="border-top:1px solid rgba(47,93,84,.12);padding:8px 0"><b style="color:#d8c7a8;font-weight:400">Lani</b> 花 650 赎身,获得 3 天保护</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div></template>
 <script>

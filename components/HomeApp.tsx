@@ -11,6 +11,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
   const router = useRouter();
   const [lang, setLang] = useState<Lang>(forcedLang || 'zh');
   const [name, setName] = useState('');
+  const [acctName, setAcctName] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [mode, setMode] = useState<'idle' | 'join'>('idle');
   const [gameMode, setGameMode] = useState<GM>('coc');
@@ -41,7 +42,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
   useEffect(() => {
     // 预填昵称：账号保存的昵称 > 上次填过的 > Google 邮箱前缀；登录用户以后不用再输名字
     fetch('/api/billing/status').then((r) => r.json()).then((d) => {
-      if (d && d.displayName) { setName((prev) => prev || d.displayName); try { localStorage.setItem('name', d.displayName); } catch {} return; }
+      if (d && d.displayName) { setAcctName(d.displayName); setName((prev) => prev || d.displayName); try { localStorage.setItem('name', d.displayName); } catch {} return; }
       try { const n = localStorage.getItem('name'); if (n && n.trim()) { setName((prev) => prev || n.trim()); return; } } catch {}
       if (d && d.email) setName((prev) => prev || String(d.email).split('@')[0]);
     }).catch(() => { try { const n = localStorage.getItem('name'); if (n && n.trim()) setName((prev) => prev || n.trim()); } catch {} });
@@ -143,13 +144,17 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
           <button onClick={() => { setShowContact(true); setContactState('idle'); }} className="inline-flex items-center gap-1.5 text-sm px-4 py-1.5 rounded-full border border-eldritch/40 text-parchment/80 hover:bg-eldritch/20 transition"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16v12H5.2L4 17.2z"/></svg>{lang === 'en' ? 'Contact' : '联系客服'}</button>
         </div>
 
-        <input
-          ref={nameRef}
-          value={name}
-          onChange={(e) => { setName(e.target.value); try { localStorage.setItem('name', e.target.value); } catch {} }}
-          placeholder={t('home_name_ph')}
-          className="w-72 px-4 py-3 rounded bg-fog border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch"
-        />
+        {acctName ? (
+          <div className="text-sm text-parchment/50">{lang === 'en' ? 'Playing as ' : '以 '}<b className="text-parchment">{name}</b>{lang === 'en' ? '' : ' 开玩'} · <a href="/account" className="underline hover:text-parchment">{lang === 'en' ? 'change name' : '改名'}</a></div>
+        ) : (
+          <input
+            ref={nameRef}
+            value={name}
+            onChange={(e) => { setName(e.target.value); try { localStorage.setItem('name', e.target.value); } catch {} }}
+            placeholder={t('home_name_ph')}
+            className="w-72 px-4 py-3 rounded bg-fog border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch"
+          />
+        )}
 
         {mode === 'idle' ? (
           <div className="flex gap-3 flex-wrap justify-center">

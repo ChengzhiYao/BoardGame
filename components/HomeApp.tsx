@@ -37,7 +37,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
       if (r.ok && d.ok) setContactMsg('');
     } catch { setContactState('err'); }
   }
-  const inviteLink = (typeof window !== 'undefined' ? window.location.origin : 'https://www.mystnight.com') + (name.trim() ? ('?from=' + encodeURIComponent(name.trim())) : '');
+  const inviteLink = (typeof window !== 'undefined' ? window.location.origin : 'https://www.mystnight.com');
   const inviteWho = name.trim() || (lang === 'en' ? 'A friend' : '有人');
   const inviteText = lang === 'en'
     ? `${inviteWho} invited you to play on MystNight!\nAn AI game master runs the whole table \u2014 murder mystery, Call of Cthulhu, lateral-thinking puzzles, D&D and more. Two players is all it takes, and every game is improvised live, so no two are ever the same.\nNo download \u2014 just open the link and play:\n${inviteLink}`

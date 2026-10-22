@@ -28,13 +28,12 @@ export default function MarketChip() {
 
   if (!d) return null;
   const open = () => { try { localStorage.setItem('mkt_seen_owner', d.ownerId || ''); } catch {} setHasNew(false); router.push('/market'); };
-  const fmt = (n: number) => '¥' + (n || 0).toLocaleString();
 
   return (
     <button onClick={open} title={en ? 'The Market' : '身价场'}
-      className="relative flex items-center gap-1.5 rounded-full bg-fog/80 border border-amber-500/30 px-2.5 py-1.5 text-xs text-parchment/80 backdrop-blur hover:border-amber-400/60">
-      <span>💰</span>
-      <span className="text-amber-300/90">{fmt(d.price)}</span>
+      className="relative flex items-center gap-1.5 rounded-full bg-fog/80 border border-eldritch/30 px-2.5 py-1.5 text-xs text-parchment/80 backdrop-blur hover:border-eldritch/60 hover:text-parchment">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z" /><line x1="7" y1="7" x2="7.01" y2="7" /></svg>
+      <span className="whitespace-nowrap">{en ? 'The Market' : '身价场'}</span>
       {hasNew && <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-blood border-2 border-fog animate-pulse" />}
     </button>
   );

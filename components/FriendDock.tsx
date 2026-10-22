@@ -552,7 +552,8 @@ export default function FriendDock() {
                   </button>
                   <button onClick={() => openProfile(pp.id)} className="flex-1 min-w-0 leading-tight text-left">
                     <div className="truncate hover:text-parchment">{pp.name}</div>
-                    <div className="text-[10px] text-parchment/35 truncate">{pp.loc ? '📍 ' + pp.loc + ' · ' : ''}{online ? L('在线', 'Online') : pp.lastSeen ? L('最近在线 ', 'Last seen ') + ago(pp.lastSeen, en) : L('从未上线', 'Never online')}</div>
+                    {pp.loc && <div className="text-[10px] text-parchment/35 truncate">📍 {pp.loc}</div>}
+                    <div className="text-[10px] text-parchment/35 truncate">{online ? L('在线', 'Online') : pp.lastSeen ? L('最近在线 ', 'Last seen ') + ago(pp.lastSeen, en) : L('从未上线', 'Never online')}</div>
                   </button>
                   {rel === '好友' ? <span className="text-[10px] text-green-400 shrink-0">{L('好友', 'Friend')}</span>
                     : rel === '待通过' ? <span className="text-[10px] text-parchment/40 shrink-0">{L('待通过', 'Pending')}</span>

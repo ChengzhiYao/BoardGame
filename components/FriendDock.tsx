@@ -135,6 +135,7 @@ export default function FriendDock() {
   const openRef = useRef(false);
   const peerRef = useRef<string | null>(null);
   const prevOnlineRef = useRef<Set<string> | null>(null);
+  const dmSending = useRef(false);
   useEffect(() => { openRef.current = open; if (open) setUnread(0); }, [open]);
   useEffect(() => { peerRef.current = peer?.uid || null; }, [peer]);
 
@@ -297,10 +298,12 @@ export default function FriendDock() {
   }
   async function loadInbox() { try { const r = await fetch('/api/dm/inbox'); const d = await r.json(); setInbox(d.threads || []); } catch {} }
   async function sendDbDm(userId: string) {
-    const t = dmText.trim(); if (!t) return;
+    const t = dmText.trim(); if (!t || dmSending.current) return;
+    dmSending.current = true; setDmText('');
     const r = await fetch('/api/dm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ toUserId: userId, text: t }) }).catch(() => null);
-    if (r && r.ok) { setThread((prev) => ({ ...prev, [userId]: [...(prev[userId] || []), { text: t, ts: Date.now(), mine: true }] })); setDmText(''); loadInbox(); try { lChan.current?.send({ type: 'broadcast', event: 'dm-ping', payload: { to: userId, from: me?.userId, ts: Date.now() } }); } catch {} }
-    else if (r && r.status === 403) setThreadGated(true);
+    if (r && r.ok) { setThread((prev) => ({ ...prev, [userId]: [...(prev[userId] || []), { text: t, ts: Date.now(), mine: true }] })); loadInbox(); try { lChan.current?.send({ type: 'broadcast', event: 'dm-ping', payload: { to: userId, from: me?.userId, ts: Date.now() } }); } catch {} }
+    else { setDmText(t); if (r && r.status === 403) setThreadGated(true); }
+    dmSending.current = false;
   }
   function showTip(t: string) { setTip(t); setTimeout(() => setTip(''), 2400); }
   async function invitePlay(opts: { uid?: string; userId?: string; name: string; online: boolean }) {

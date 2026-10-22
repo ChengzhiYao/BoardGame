@@ -24,7 +24,15 @@ export default function MarketPage() {
       const d = await r.json().catch(() => ({}));
       if (r.ok && d.ok) {
         if (d.reward) flash('+' + d.reward); else if (d.earn) flash(L('打工 +' + d.earn, 'Work +' + d.earn));
-        else if (d.gain) flash(L('讨好 +' + d.gain, '+' + d.gain)); else if (d.text) flash(d.text);
+        else if (d.gain) flash(L('讨好 +' + d.gain, '+' + d.gain));
+        else if (d.kind === 'soothe' || d.kind === 'torment') {
+          const seg: string[] = [];
+          if (d.dPrice) seg.push(L('身价', 'Price') + (d.dPrice > 0 ? ' +' : ' ') + d.dPrice);
+          if (d.dCash) seg.push(L('现金', 'Cash') + (d.dCash > 0 ? ' +' : ' ') + d.dCash);
+          const head = d.kind === 'soothe' ? L('🤲 安抚成功', '🤲 Soothed') : L('🔥 折磨成功', '🔥 Tormented');
+          flash(seg.length ? head + ' · ' + seg.join(' · ') : head);
+        }
+        else if (d.text) flash(d.text);
         else if (d.cost) flash(L('赎身成功', 'Redeemed')); else if (url.includes('buy')) flash(L('买入成功', 'Bought'));
         await load();
       } else {

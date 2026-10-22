@@ -24,5 +24,17 @@ export async function GET(req: Request) {
     admin.from('users').update(patch).eq('id', user.id).then(() => {}, () => {});
   } catch { admin.from('users').update({ last_seen: new Date().toISOString() }).eq('id', user.id).then(() => {}, () => {}); }
   const { data: prof } = await admin.from('users').select('display_name, bio, avatar_url').eq('id', user.id).maybeSingle();
-  return NextResponse.json({ loggedIn: true, userId: user.id, email: ent.email, whitelisted: ent.whitelisted, member: ent.member, credits: ent.credits, freeSecondsUsed: ent.freeSecondsUsed, freeSecondsLimit: ent.freeSecondsLimit, memberPremiumUsed: ent.memberPremiumUsed, memberPremiumLimit: ent.memberPremiumLimit, displayName: prof?.display_name || null, bio: prof?.bio || null, avatarUrl: prof?.avatar_url || null });
+  // 首次用 Google 登录：没有头像/昵称时，用 Google 账号的头像与名字作默认（之后自己上传/改名会覆盖，这里只在为空时填）
+  let displayName = prof?.display_name || null;
+  let avatarUrl = prof?.avatar_url || null;
+  try {
+    const meta: any = (user as any).user_metadata || {};
+    const gpic = meta.avatar_url || meta.picture || '';
+    const gname = meta.full_name || meta.name || '';
+    const up: any = {};
+    if (!avatarUrl && gpic) { up.avatar_url = gpic; avatarUrl = gpic; }
+    if (!displayName && gname) { up.display_name = String(gname).slice(0, 40); displayName = up.display_name; }
+    if (Object.keys(up).length) admin.from('users').update(up).eq('id', user.id).then(() => {}, () => {});
+  } catch {}
+  return NextResponse.json({ loggedIn: true, userId: user.id, email: ent.email, whitelisted: ent.whitelisted, member: ent.member, credits: ent.credits, freeSecondsUsed: ent.freeSecondsUsed, freeSecondsLimit: ent.freeSecondsLimit, memberPremiumUsed: ent.memberPremiumUsed, memberPremiumLimit: ent.memberPremiumLimit, displayName, bio: prof?.bio || null, avatarUrl });
 }

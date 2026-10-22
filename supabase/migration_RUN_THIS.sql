@@ -713,3 +713,42 @@ alter table premium_usage enable row level security;
 alter table users add column if not exists city    text;
 alter table users add column if not exists region  text;
 alter table users add column if not exists country text;
+
+-- 身价场（玩家交易市场）；可重复执行
+create table if not exists market_profiles (
+  user_id        uuid primary key references auth.users(id) on delete cascade,
+  cash           bigint not null default 1000,
+  price          bigint not null default 500,
+  owner_id       uuid references auth.users(id) on delete set null,
+  protected_until timestamptz,
+  working_until  timestamptz,
+  opted_out      boolean not null default false,
+  last_daily     date,
+  last_fate      date,
+  trades_today   int not null default 0,
+  trades_day     date,
+  bought_today   int not null default 0,
+  bought_day     date,
+  created_at     timestamptz not null default now()
+);
+create index if not exists market_owner_idx on market_profiles(owner_id);
+
+create table if not exists market_trades (
+  id         uuid primary key default gen_random_uuid(),
+  buyer_id   uuid references auth.users(id) on delete set null,
+  seller_id  uuid references auth.users(id) on delete set null,
+  target_id  uuid references auth.users(id) on delete set null,
+  price      bigint,
+  created_at timestamptz not null default now()
+);
+create index if not exists market_trades_idx on market_trades(created_at desc);
+
+create table if not exists market_feed (
+  id         uuid primary key default gen_random_uuid(),
+  text       text,
+  created_at timestamptz not null default now()
+);
+create index if not exists market_feed_idx on market_feed(created_at desc);
+alter table market_profiles enable row level security;
+alter table market_trades   enable row level security;
+alter table market_feed     enable row level security;

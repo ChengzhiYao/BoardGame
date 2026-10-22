@@ -30,6 +30,18 @@ export async function signInWithGoogle(next = '/upgrade') {
   if (error) throw new Error('登录失败：' + error.message);
 }
 
+// 邮箱验证码登录（无需 Google）：发送 6 位验证码到邮箱。
+export async function sendEmailOtp(email: string) {
+  const supabase = createClient();
+  const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
+  if (error) throw new Error(error.message);
+}
+export async function verifyEmailOtp(email: string, token: string) {
+  const supabase = createClient();
+  const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
+  if (error) throw new Error(error.message);
+}
+
 export async function signOut() {
   const supabase = createClient();
   await supabase.auth.signOut();

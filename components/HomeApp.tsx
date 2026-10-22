@@ -7,6 +7,7 @@ import { tr, getClientLang, setClientLang, type Lang } from '@/lib/i18n';
 import GameShowcase, { type GM } from '@/components/GameShowcase';
 import GameFeedback from '@/components/GameFeedback';
 import MarketChip from '@/components/MarketChip';
+import EmailLogin from '@/components/EmailLogin';
 
 export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
   const router = useRouter();
@@ -292,6 +293,7 @@ function LangToggle({ lang, onChange }: { lang: Lang; onChange: (l: Lang) => voi
 
 function AccountBadge({ t }: { t: (k: string, v?: any) => string }) {
   const [s, setS] = useState<any>(null);
+  const [emailOpen, setEmailOpen] = useState(false);
   async function load() {
     try { const r = await fetch('/api/billing/status'); setS(await r.json()); }
     catch { setS({ loggedIn: false }); }
@@ -313,11 +315,18 @@ function AccountBadge({ t }: { t: (k: string, v?: any) => string }) {
           <button onClick={async () => { await signOut(); load(); }} className="text-parchment/40 hover:text-parchment underline shrink-0">{t('logout')}</button>
         </div>
       ) : (
-        <button onClick={() => signInWithGoogle('/').catch(() => {})}
-          className="rounded-full bg-fog/80 border border-eldritch/30 px-3 py-1.5 text-parchment/70 hover:text-parchment backdrop-blur">
-          {t('login_google')}
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => signInWithGoogle('/').catch(() => {})}
+            className="rounded-full bg-fog/80 border border-eldritch/30 px-3 py-1.5 text-parchment/70 hover:text-parchment backdrop-blur">
+            {t('login_google')}
+          </button>
+          <button onClick={() => setEmailOpen(true)}
+            className="rounded-full bg-fog/80 border border-eldritch/30 px-3 py-1.5 text-parchment/60 hover:text-parchment backdrop-blur">
+            {t('login_email')}
+          </button>
+        </div>
       )}
+      {emailOpen && <EmailLogin onClose={() => setEmailOpen(false)} />}
     </div>
   );
 }

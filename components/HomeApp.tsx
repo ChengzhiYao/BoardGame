@@ -38,11 +38,15 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
     } catch { setContactState('err'); }
   }
   const inviteLink = (typeof window !== 'undefined' ? window.location.origin : 'https://www.mystnight.com') + (name.trim() ? ('?from=' + encodeURIComponent(name.trim())) : '');
+  const inviteWho = name.trim() || (lang === 'en' ? 'A friend' : '有人');
+  const inviteText = lang === 'en'
+    ? `${inviteWho} invited you to play on MystNight!\nAn AI game master runs the whole table \u2014 murder mystery, Call of Cthulhu, lateral-thinking puzzles, D&D and more. Two players is all it takes, and every game is improvised live, so no two are ever the same.\nNo download \u2014 just open the link and play:\n${inviteLink}`
+    : `${inviteWho} 邀请你来 MystNight 一起玩！\nAI 全程当主持人 \u2014\u2014 剧本杀、克苏鲁跑团、海龟汤、龙与地下城……两个人就能开一局，全程实时现编，每一局都不一样。\n免下载，点开链接就能玩：\n${inviteLink}`;
   async function copyInvite() {
-    try { await navigator.clipboard.writeText(inviteLink); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch {}
+    try { await navigator.clipboard.writeText(inviteText); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch {}
   }
   async function shareInvite() {
-    const data = { title: 'MystNight 谜夜', text: lang === 'en' ? 'Come play AI-hosted tabletop games with me on MystNight!' : '来 MystNight 和我一起玩 AI 主持的桌游吧！', url: inviteLink };
+    const data = { title: 'MystNight 谜夜', text: inviteText };
     try { if ((navigator as any).share) { await (navigator as any).share(data); return; } } catch {}
     copyInvite();
   }
@@ -231,8 +235,8 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
             <div className="px-4 py-4 space-y-3 text-left">
               <p className="text-parchment/60 text-sm leading-relaxed">{lang === 'en' ? 'Two players is all it takes. Send this link to a friend — one click and you\u2019re playing together.' : '两个人就能开局。把链接发给朋友，他点开就能和你一起玩。'}</p>
               <div className="flex items-center gap-2">
-                <input readOnly value={inviteLink} onClick={(e) => (e.target as HTMLInputElement).select()} className="flex-1 min-w-0 px-3 py-2.5 rounded bg-ink border border-eldritch/40 text-parchment/90 text-sm outline-none" />
-                <button onClick={copyInvite} className="shrink-0 px-4 py-2.5 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood text-sm">{copied ? (lang === 'en' ? 'Copied!' : '已复制') : (lang === 'en' ? 'Copy' : '复制')}</button>
+                <textarea readOnly value={inviteText} onClick={(e) => (e.target as HTMLTextAreaElement).select()} rows={5} className="flex-1 min-w-0 px-3 py-2.5 rounded bg-ink border border-eldritch/40 text-parchment/90 text-sm outline-none resize-none leading-relaxed" />
+                <button onClick={copyInvite} className="shrink-0 self-stretch px-4 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood text-sm">{copied ? (lang === 'en' ? 'Copied!' : '已复制') : (lang === 'en' ? 'Copy' : '复制')}</button>
               </div>
               <button onClick={shareInvite} className="w-full py-2.5 rounded bg-eldritch/40 hover:bg-eldritch/60 text-parchment border border-eldritch/40 text-sm inline-flex items-center justify-center gap-2"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>{lang === 'en' ? 'Share…' : '分享给好友…'}</button>
             </div>

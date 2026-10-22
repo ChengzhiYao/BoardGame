@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getClientLang } from '@/lib/i18n';
 
 export default function MarketPage() {
@@ -55,13 +55,27 @@ export default function MarketPage() {
 
   return (
     <main className="min-h-screen text-parchment px-4 sm:px-6 py-7 max-w-5xl mx-auto">
+      <style>{`
+        @keyframes mkFadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+        @keyframes mkShimmer{0%{background-position:-180% 0}100%{background-position:180% 0}}
+        @keyframes mkGlow{0%,100%{box-shadow:0 0 0 0 rgba(217,164,65,0)}50%{box-shadow:0 0 26px -8px rgba(217,164,65,.4)}}
+        @keyframes mkToast{from{opacity:0;transform:translate(-50%,12px)}to{opacity:1;transform:translate(-50%,0)}}
+        @keyframes mkSheen{0%{transform:translateX(-120%)}60%,100%{transform:translateX(220%)}}
+        .mk-row{animation:mkFadeUp .4s ease both}
+        .mk-card{position:relative;animation:mkGlow 4.5s ease-in-out infinite}
+        .mk-xp{background:linear-gradient(90deg,#b8822f,#f2d58a,#b8822f);background-size:200% 100%;animation:mkShimmer 2.6s linear infinite}
+        .mk-toast{animation:mkToast .28s ease both}
+        .mk-buy{position:relative;overflow:hidden}
+        .mk-buy::after{content:"";position:absolute;top:0;left:0;height:100%;width:40%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.25),transparent);transform:translateX(-120%)}
+        .mk-buy:hover::after{animation:mkSheen .7s ease}
+      `}</style>
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-serif">{L('身价场', 'The Market')} <span className="text-parchment/40 text-sm">· The Market</span></h1>
         <a href="/" className="text-sm text-parchment/50 hover:text-parchment">{L('← 返回', '← Home')}</a>
       </div>
 
       {/* 我的身价 */}
-      <div className="rounded-2xl border border-eldritch/30 bg-fog/60 p-4 mb-5 flex flex-col sm:flex-row gap-4 items-start">
+      <div className="mk-card rounded-2xl border border-amber-500/20 bg-fog/60 p-4 mb-5 flex flex-col sm:flex-row gap-4 items-start">
         <Av url={me.avatar} name={me.name} big />
         <div className="flex-1 text-sm leading-relaxed text-parchment/70">
           <div className="flex items-center gap-2 flex-wrap">
@@ -69,13 +83,13 @@ export default function MarketPage() {
             <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">{(en ? me.rank.en : me.rank.zh)} · Lv.{me.rank.level}</span>
           </div>
           <div className="flex items-center gap-2 mt-1 mb-0.5">
-            <div className="h-1.5 rounded-full bg-ink overflow-hidden w-40"><div className="h-full bg-amber-400/70" style={{ width: (me.rank.prog * 100) + '%' }} /></div>
+            <div className="h-1.5 rounded-full bg-ink overflow-hidden w-40"><div className="h-full mk-xp transition-[width] duration-700" style={{ width: (me.rank.prog * 100) + '%' }} /></div>
             <span className="text-[10px] text-parchment/40">{me.rank.nextMin ? `${me.rank.exp}/${me.rank.nextMin} EXP` : 'MAX'}</span>
           </div>
           <div className="mt-1 grid grid-cols-2 gap-x-6 gap-y-0.5">
-            <span>{L('身价', 'Price')} <b className="text-amber-300">{fmt(me.price)}</b></span>
-            <span>{L('总资产', 'Net worth')} <b className="text-amber-300">{fmt(me.assets)}</b></span>
-            <span>{L('现金', 'Cash')} <b className="text-parchment">{fmt(me.cash)}</b></span>
+            <span>{L('身价', 'Price')} <b className="text-amber-300"><CountUp value={me.price} prefix="¥" /></b></span>
+            <span>{L('总资产', 'Net worth')} <b className="text-amber-300"><CountUp value={me.assets} prefix="¥" /></b></span>
+            <span>{L('现金', 'Cash')} <b className="text-parchment"><CountUp value={me.cash} prefix="¥" /></b></span>
             <span>{L('持有', 'Holding')} <b className="text-parchment">{me.holdings}/{me.holdCap}</b></span>
           </div>
           <div className="mt-1.5 text-parchment/55">{me.ownerName ? L(`被 ${me.ownerName} 持有`, `Owned by ${me.ownerName}`) : protectedNow ? L('🛡 保护期中', '🛡 Protected') : L('自由身', 'Free agent')}</div>
@@ -109,10 +123,10 @@ export default function MarketPage() {
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={L('搜索玩家…', 'Search players…')} className="w-full mb-3 px-3 py-2 rounded-lg bg-ink border border-eldritch/30 text-parchment placeholder:text-parchment/30 text-sm outline-none focus:border-eldritch" />
             <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
               {list.length === 0 && <div className="text-sm text-parchment/40 py-6 text-center">{L('没有匹配的玩家', 'No players')}</div>}
-              {list.map((r: any) => (
-                <Row key={r.id} r={r} sub={r.ownerName ? L(`主人:${r.ownerName}`, `Owner: ${r.ownerName}`) : L('自由身', 'Free')} right={
+              {list.map((r: any, i: number) => (
+                <Row key={r.id} i={i} r={r} sub={r.ownerName ? L(`主人:${r.ownerName}`, `Owner: ${r.ownerName}`) : L('自由身', 'Free')} right={
                   r.status === 'buyable'
-                    ? <button disabled={!!busy || r.price > me.cash} onClick={() => act('/api/market/buy', { targetId: r.id })} className="text-xs px-3 py-1.5 rounded bg-blood/80 hover:bg-blood disabled:opacity-40 shrink-0">{L('买入', 'Buy')} {fmt(r.price)}</button>
+                    ? <button disabled={!!busy || r.price > me.cash} onClick={() => act('/api/market/buy', { targetId: r.id })} className="mk-buy text-xs px-3 py-1.5 rounded bg-blood/80 hover:bg-blood disabled:opacity-40 shrink-0">{L('买入', 'Buy')} {fmt(r.price)}</button>
                     : <span className="text-[11px] text-parchment/40 shrink-0">{({ mine: L('你持有', 'Yours'), protected: L('保护中', 'Protected'), working: L('打工中', 'Working'), capped: L('满10', 'Capped'), soldout: L('今日售罄', 'Sold out') } as any)[r.status] || ''}</span>
                 } />
               ))}
@@ -124,8 +138,8 @@ export default function MarketPage() {
             <div className="text-sm text-parchment/80 mb-2.5">{L('我的队伍', 'My team')}</div>
             <div className="space-y-2">
               {s.team.length === 0 && <div className="text-sm text-parchment/40 py-4">{L('还没有持有玩家 · 去上面买入', 'You own nobody yet')}</div>}
-              {s.team.map((t: any) => (
-                <Row key={t.id} r={t} sub={t.working ? L('打工中', 'At work') : L('空闲', 'Idle')} right={
+              {s.team.map((t: any, i: number) => (
+                <Row key={t.id} i={i} r={t} sub={t.working ? L('打工中', 'At work') : L('空闲', 'Idle')} right={
                   <div className="flex gap-1.5 shrink-0">
                     <button disabled={!!busy || t.working} onClick={() => act('/api/market/work', { targetId: t.id })} className="text-[11px] px-2 py-1 rounded bg-eldritch/60 hover:bg-eldritch disabled:opacity-40">{L('打工', 'Work')}</button>
                     <button disabled={!!busy} onClick={() => act('/api/market/interact', { targetId: t.id, kind: 'soothe' })} className="text-[11px] px-2 py-1 rounded bg-eldritch/40 hover:bg-eldritch">{L('安抚', 'Soothe')}</button>
@@ -170,11 +184,22 @@ export default function MarketPage() {
         </div>
       </div>
 
-      {toast && <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-ink border border-eldritch/40 text-parchment text-sm shadow-xl">{toast}</div>}
+      {toast && <div className="mk-toast fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-ink border border-amber-500/40 text-parchment text-sm shadow-xl">{toast}</div>}
     </main>
   );
 }
 
+function CountUp({ value, prefix = '' }: { value: number; prefix?: string }) {
+  const [disp, setDisp] = useState(value);
+  const ref = useRef(value);
+  useEffect(() => {
+    const from = ref.current, to = value; if (from === to) return;
+    const start = performance.now(), dur = 550; let raf = 0;
+    const tick = (t: number) => { const p = Math.min(1, (t - start) / dur); const e = 1 - Math.pow(1 - p, 3); const v = Math.round(from + (to - from) * e); setDisp(v); ref.current = v; if (p < 1) raf = requestAnimationFrame(tick); else ref.current = to; };
+    raf = requestAnimationFrame(tick); return () => cancelAnimationFrame(raf);
+  }, [value]);
+  return <>{prefix}{disp.toLocaleString()}</>;
+}
 function Quest({ ok, label }: { ok: boolean; label: string }) {
   return <span className={`text-xs flex items-center gap-1 ${ok ? 'text-green-400' : 'text-parchment/45'}`}>{ok ? '✓' : '○'} {label}</span>;
 }
@@ -182,9 +207,9 @@ function Av({ url, name, big }: { url?: string | null; name: string; big?: boole
   const c = big ? 'w-16 h-16 text-2xl' : 'w-8 h-8 text-sm';
   return url ? <img src={url} alt="" className={`${c} rounded-full object-cover border border-eldritch/30 shrink-0`} /> : <span className={`${c} rounded-full bg-eldritch/40 flex items-center justify-center shrink-0`}>{(name || '?').slice(0, 1).toUpperCase()}</span>;
 }
-function Row({ r, right, sub }: { r: any; right?: any; sub?: string }) {
+function Row({ r, right, sub, i }: { r: any; right?: any; sub?: string; i?: number }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-eldritch/15 bg-fog/40 px-3 py-2">
+    <div className="mk-row flex items-center gap-3 rounded-xl border border-eldritch/15 bg-fog/40 px-3 py-2 hover:border-eldritch/40 transition-colors" style={{ animationDelay: ((i || 0) * 35) + 'ms' }}>
       <Av url={r.avatar} name={r.name} />
       <div className="flex-1 min-w-0 leading-tight">
         <div className="truncate text-sm">{r.name}{typeof r.price === 'number' && <span className="text-amber-300/80 text-xs ml-2">💰 {r.price.toLocaleString()}</span>}</div>

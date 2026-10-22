@@ -3,7 +3,7 @@ import { Fragment, useState } from 'react';
 import { type Lang } from '@/lib/i18n';
 import { FREE_MODES } from '@/lib/pricing';
 
-export type GM = 'story' | 'coc' | 'jbs' | 'dnd' | 'soup' | 'td' | 'mcc' | 'botc' | 'meadow';
+export type GM = 'story' | 'coc' | 'jbs' | 'dnd' | 'soup' | 'td' | 'mcc' | 'botc' | 'meadow' | 'market';
 type Bi = { zh: string; en: string };
 const pick = (lang: Lang, b: Bi) => (lang === 'en' ? b.en : b.zh);
 
@@ -108,6 +108,18 @@ const GAMES: Game[] = [
     ],
   },
   {
+    key: 'market',
+    name: { zh: '身价场', en: 'The Market' },
+    meta: { zh: '持久 · 多人 · 交易经济', en: 'Persistent · multiplayer · trading' },
+    blurb: { zh: '一个全平台常驻的玩家交易市场:买卖其他注册玩家、抬高自己的身价,靠打工、互动、命运卡赚现金,冲总资产排行榜。', en: 'A platform-wide market: buy and sell other registered players, pump your own price, earn cash through work, interactions and fate cards, and climb the net-worth leaderboard.' },
+    rules: [
+      { zh: '所有注册玩家自动进市场(可退出)', en: 'Every registered player is in the market (opt out anytime)' },
+      { zh: '用现金买入玩家,转手涨价、多人分账', en: 'Buy players with cash; resales raise prices and split profits' },
+      { zh: '派打工、安抚/折磨、讨好主人赚钱', en: 'Send to work, soothe/torment, please your owner to earn' },
+      { zh: '持有满10变自由身,赎身获保护期', en: 'Hold 10 to go free; redeem yourself for protection' },
+    ],
+  },
+  {
     key: 'meadow',
     name: { zh: '童话草原（持久世界）', en: 'Storybook Meadow' },
     meta: { zh: '永久世界 · 一号一命 · 生存', en: 'Persistent world · one life · survival' },
@@ -148,6 +160,12 @@ export default function GameShowcase({ lang, busy, onPlay }: { lang: Lang; busy:
               <div className="text-5xl">🌾🦊🐇</div>
               <div className="font-serif text-parchment/80 text-lg">{en ? 'Storybook Meadow' : '童话草原'}</div>
               <div className="text-parchment/45 text-xs tracking-widest uppercase">{en ? 'persistent world' : '永久世界 · 即将开放'}</div>
+            </div>
+          ) : g.key === 'market' ? (
+            <div className="w-full rounded-xl border border-eldritch/30 bg-gradient-to-b from-amber-900/20 to-ink flex flex-col items-center justify-center text-center gap-2 shadow-[0_30px_70px_-35px_rgba(0,0,0,.9)]" style={{ aspectRatio: '1180 / 720' }}>
+              <div className="text-5xl">💰📈🤝</div>
+              <div className="font-serif text-parchment/80 text-lg">{en ? 'The Market' : '身价场'}</div>
+              <div className="text-amber-300/60 text-xs tracking-widest uppercase">{en ? 'live trading economy' : '持久交易经济'}</div>
             </div>
           ) : (
             <iframe src={`/screens.html#${g.key}`} title={pick(lang, g.name)} loading="lazy" scrolling="no"

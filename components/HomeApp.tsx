@@ -191,7 +191,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
         <p className="max-w-md text-parchment/45 text-sm leading-relaxed">{lang === 'en' ? 'Every mode is generated live and runs in real time for one player or a full table. Pick one — the AI sets it all up.' : '每个模式都由 AI 现场生成、实时进行，单人或一桌人都能玩。挑一个，剩下的交给 AI。'}</p>
       </div>
 
-      <GameShowcase lang={lang} busy={busy} onPlay={(m) => (m === 'meadow' ? router.push('/meadow') : createRoom(m))} />
+      <GameShowcase lang={lang} busy={busy} onPlay={(m) => (m === 'meadow' ? router.push('/meadow') : m === 'market' ? router.push('/market') : createRoom(m))} />
 
       <a href="/upgrade" className="text-parchment/40 hover:text-parchment text-sm underline">{t('home_upgrade_link')}</a>
       <a href={lang === 'en' ? '/en/blog' : '/zh/blog'} className="text-parchment/40 hover:text-parchment text-sm underline">{lang === 'en' ? 'Blog' : '博客'}</a>

@@ -1,5 +1,5 @@
 // 永久免费的游戏模式（AI 用量极少）：海龟汤 / 真心话大冒险 / 午夜猫诅咒。
-export const FREE_MODES = ['soup', 'td', 'mcc'];
+export const FREE_MODES = ['soup', 'td', 'mcc', 'market'];
 export const FREE_PLAYS_ON_SIGNUP = 2;
 
 // 免费玩家每周可免费游玩的时长（秒）：2 小时

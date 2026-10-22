@@ -377,9 +377,20 @@ export default function FriendDock() {
                 <button onClick={() => respondReq(r.id, false)} className="px-2 py-0.5 rounded bg-ink/70 border border-eldritch/30 text-parchment/60 shrink-0">{L('拒绝', 'Decline')}</button>
               </div>
             ))}
-            {notifs.filter((n) => !n.id.startsWith('req:')).map((n) => (
-              <div key={n.id} className="text-xs text-parchment/80 flex items-baseline gap-1.5"><span className="flex-1 min-w-0">🟢 {n.text}</span><span className="text-[10px] text-parchment/40 shrink-0">{new Date(n.ts).toLocaleTimeString(en ? 'en-US' : 'zh-CN', { hour: '2-digit', minute: '2-digit' })}</span></div>
-            ))}
+            {notifs.filter((n) => !n.id.startsWith('req:')).length > 0 && (
+              <div className="flex justify-end -mb-1"><button onClick={() => setNotifs((prev) => prev.filter((x) => x.id.startsWith('req:')))} className="text-[10px] text-parchment/40 hover:text-parchment/70">{L('清空', 'Clear all')}</button></div>
+            )}
+            {notifs.filter((n) => !n.id.startsWith('req:')).map((n) => {
+              const d = new Date(n.ts); const today = new Date(); const sameDay = d.toDateString() === today.toDateString();
+              const stamp = sameDay ? d.toLocaleTimeString(en ? 'en-US' : 'zh-CN', { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString(en ? 'en-US' : 'zh-CN', { month: 'numeric', day: 'numeric' }) + ' ' + d.toLocaleTimeString(en ? 'en-US' : 'zh-CN', { hour: '2-digit', minute: '2-digit' });
+              return (
+                <div key={n.id} className="group text-xs text-parchment/80 flex items-baseline gap-1.5">
+                  <span className="flex-1 min-w-0">🟢 {n.text}</span>
+                  <span className="text-[10px] text-parchment/40 shrink-0">{stamp}</span>
+                  <button onClick={() => setNotifs((prev) => prev.filter((x) => x.id !== n.id))} title={L('删除', 'Dismiss')} className="text-parchment/30 hover:text-parchment/80 shrink-0 leading-none">×</button>
+                </div>
+              );
+            })}
             {graph.incoming.length === 0 && dmUnread === 0 && notifs.filter((n) => !n.id.startsWith('req:')).length === 0 && <div className="text-xs text-parchment/35 py-6 text-center">{L('暂无消息', 'No messages')}</div>}
           </div>
   );

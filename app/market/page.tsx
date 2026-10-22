@@ -64,7 +64,14 @@ export default function MarketPage() {
       <div className="rounded-2xl border border-eldritch/30 bg-fog/60 p-4 mb-5 flex flex-col sm:flex-row gap-4 items-start">
         <Av url={me.avatar} name={me.name} big />
         <div className="flex-1 text-sm leading-relaxed text-parchment/70">
-          <div className="text-lg text-parchment">{me.name}</div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="text-lg text-parchment">{me.name}</div>
+            <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">{(en ? me.rank.en : me.rank.zh)} · Lv.{me.rank.level}</span>
+          </div>
+          <div className="flex items-center gap-2 mt-1 mb-0.5">
+            <div className="h-1.5 rounded-full bg-ink overflow-hidden w-40"><div className="h-full bg-amber-400/70" style={{ width: (me.rank.prog * 100) + '%' }} /></div>
+            <span className="text-[10px] text-parchment/40">{me.rank.nextMin ? `${me.rank.exp}/${me.rank.nextMin} EXP` : 'MAX'}</span>
+          </div>
           <div className="mt-1 grid grid-cols-2 gap-x-6 gap-y-0.5">
             <span>{L('身价', 'Price')} <b className="text-amber-300">{fmt(me.price)}</b></span>
             <span>{L('总资产', 'Net worth')} <b className="text-amber-300">{fmt(me.assets)}</b></span>
@@ -80,6 +87,14 @@ export default function MarketPage() {
           {me.ownerName && <button disabled={!!busy} onClick={() => act('/api/market/redeem')} className="text-xs px-3 py-1.5 rounded bg-fog border border-eldritch/40 hover:bg-eldritch/30">{L(`赎身 ${fmt(me.price)}`, `Redeem ${fmt(me.price)}`)}</button>}
           <button disabled={!!busy} onClick={() => act('/api/market/optout', { out: !me.optedOut })} className="text-xs px-3 py-1.5 rounded bg-fog border border-eldritch/30 text-parchment/60 hover:text-parchment">{me.optedOut ? L('重新加入', 'Rejoin') : L('退出市场', 'Leave')}</button>
         </div>
+      </div>
+
+      <div className="rounded-xl border border-eldritch/25 bg-fog/40 px-4 py-3 mb-5 flex flex-wrap items-center gap-x-5 gap-y-2">
+        <span className="text-sm text-parchment/80">{L('每日任务', 'Daily quests')}</span>
+        <Quest ok={me.quest.buy >= 1} label={L('买入 1 人', 'Buy 1')} />
+        <Quest ok={me.quest.work >= 1} label={L('打工 1 次', 'Work 1')} />
+        <Quest ok={me.quest.social >= 1} label={L('互动 1 次', 'Interact 1')} />
+        <button disabled={!me.quest.canClaim || !!busy} onClick={() => act('/api/market/quest')} className="ml-auto text-xs px-3 py-1.5 rounded bg-amber-600/70 hover:bg-amber-600 text-ink font-medium disabled:opacity-40 disabled:text-parchment">{me.quest.claimed ? L('今日已领', 'Claimed') : L('领取 +200', 'Claim +200')}</button>
       </div>
 
       <div className="grid md:grid-cols-[1fr_300px] gap-5">
@@ -115,6 +130,8 @@ export default function MarketPage() {
                     <button disabled={!!busy || t.working} onClick={() => act('/api/market/work', { targetId: t.id })} className="text-[11px] px-2 py-1 rounded bg-eldritch/60 hover:bg-eldritch disabled:opacity-40">{L('打工', 'Work')}</button>
                     <button disabled={!!busy} onClick={() => act('/api/market/interact', { targetId: t.id, kind: 'soothe' })} className="text-[11px] px-2 py-1 rounded bg-eldritch/40 hover:bg-eldritch">{L('安抚', 'Soothe')}</button>
                     <button disabled={!!busy} onClick={() => act('/api/market/interact', { targetId: t.id, kind: 'torment' })} className="text-[11px] px-2 py-1 rounded bg-blood/60 hover:bg-blood">{L('折磨', 'Torment')}</button>
+                    <button disabled={!!busy} onClick={() => { const n = window.prompt(L('给 TA 起个绰号(留空清除)', 'Nickname (blank to clear)'), ''); if (n !== null) act('/api/market/nick', { targetId: t.id, name: n }); }} className="text-[11px] px-2 py-1 rounded bg-fog border border-eldritch/30 text-parchment/60 hover:text-parchment">{L('绰号', 'Rename')}</button>
+                    <button disabled={!!busy} onClick={() => act('/api/market/release', { targetId: t.id })} className="text-[11px] px-2 py-1 rounded bg-fog border border-eldritch/30 text-parchment/50 hover:text-parchment">{L('释放', 'Release')}</button>
                   </div>
                 } />
               ))}
@@ -158,6 +175,9 @@ export default function MarketPage() {
   );
 }
 
+function Quest({ ok, label }: { ok: boolean; label: string }) {
+  return <span className={`text-xs flex items-center gap-1 ${ok ? 'text-green-400' : 'text-parchment/45'}`}>{ok ? '✓' : '○'} {label}</span>;
+}
 function Av({ url, name, big }: { url?: string | null; name: string; big?: boolean }) {
   const c = big ? 'w-16 h-16 text-2xl' : 'w-8 h-8 text-sm';
   return url ? <img src={url} alt="" className={`${c} rounded-full object-cover border border-eldritch/30 shrink-0`} /> : <span className={`${c} rounded-full bg-eldritch/40 flex items-center justify-center shrink-0`}>{(name || '?').slice(0, 1).toUpperCase()}</span>;

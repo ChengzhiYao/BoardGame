@@ -6,6 +6,7 @@ import { ensureSession, signInWithGoogle, signOut } from '@/lib/auth';
 import { tr, getClientLang, setClientLang, type Lang } from '@/lib/i18n';
 import GameShowcase, { type GM } from '@/components/GameShowcase';
 import GameFeedback from '@/components/GameFeedback';
+import MarketChip from '@/components/MarketChip';
 
 export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
   const router = useRouter();
@@ -298,7 +299,8 @@ function AccountBadge({ t }: { t: (k: string, v?: any) => string }) {
   useEffect(() => { load(); }, []);
   if (!s) return null;
   return (
-    <div className="fixed top-3 right-3 z-20 text-xs max-w-[58vw]">
+    <div className="fixed top-3 right-3 z-20 text-xs max-w-[72vw] flex items-center gap-2 justify-end">
+      {s.loggedIn && <MarketChip />}
       {s.loggedIn ? (
         <div className="flex items-center gap-1.5 sm:gap-2 rounded-full bg-fog/80 border border-eldritch/30 px-2 py-1 text-parchment/80 backdrop-blur min-w-0">
           <a href="/account" title="账号资料" className="shrink-0">

@@ -5,6 +5,9 @@ import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { getEntitlement } from '@/lib/billing/entitlement';
 
 export async function POST() {
+  // 已停用：不再给白名单发"上线提醒"邮件。
+  return NextResponse.json({ ok: true, sent: 0, disabled: true });
+  // eslint-disable-next-line no-unreachable
   const supabase = createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user || user.is_anonymous || !user.email) return NextResponse.json({ ok: false, reason: 'auth' });

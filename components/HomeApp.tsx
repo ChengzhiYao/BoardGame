@@ -22,6 +22,8 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
   const [showPromo, setShowPromo] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [showContact, setShowContact] = useState(false);
+  const [showInvite, setShowInvite] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [resuming, setResuming] = useState(false);
   const [contactEmail, setContactEmail] = useState(''); const [contactMsg, setContactMsg] = useState('');
   const [contactState, setContactState] = useState<'idle' | 'sending' | 'ok' | 'err'>('idle');
@@ -34,6 +36,15 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
       setContactState(r.ok && d.ok ? 'ok' : 'err');
       if (r.ok && d.ok) setContactMsg('');
     } catch { setContactState('err'); }
+  }
+  const inviteLink = (typeof window !== 'undefined' ? window.location.origin : 'https://www.mystnight.com') + (name.trim() ? ('?from=' + encodeURIComponent(name.trim())) : '');
+  async function copyInvite() {
+    try { await navigator.clipboard.writeText(inviteLink); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch {}
+  }
+  async function shareInvite() {
+    const data = { title: 'MystNight 谜夜', text: lang === 'en' ? 'Come play AI-hosted tabletop games with me on MystNight!' : '来 MystNight 和我一起玩 AI 主持的桌游吧！', url: inviteLink };
+    try { if ((navigator as any).share) { await (navigator as any).share(data); return; } } catch {}
+    copyInvite();
   }
   const promoAudio = useRef<HTMLAudioElement | null>(null);
   const heroRef = useRef<HTMLElement | null>(null);
@@ -144,6 +155,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
           <a href={lang === 'en' ? '/en/blog' : '/zh/blog'} className="inline-flex items-center gap-1.5 text-sm px-4 py-1.5 rounded-full border border-eldritch/40 text-parchment/80 hover:bg-eldritch/20 transition"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 1 6.5 18H20" /></svg>{lang === 'en' ? 'Blog' : '博客'}</a>
           <button onClick={() => setShowFeedback(true)} className="inline-flex items-center gap-1.5 text-sm px-4 py-1.5 rounded-full border border-blood/50 text-parchment/90 bg-blood/15 hover:bg-blood/30 transition"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>{lang === 'en' ? 'Guestbook' : '留言板'}</button>
           <button onClick={() => { setShowContact(true); setContactState('idle'); }} className="inline-flex items-center gap-1.5 text-sm px-4 py-1.5 rounded-full border border-eldritch/40 text-parchment/80 hover:bg-eldritch/20 transition"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16v12H5.2L4 17.2z"/></svg>{lang === 'en' ? 'Contact' : '联系客服'}</button>
+          <button onClick={() => { setShowInvite(true); setCopied(false); }} className="inline-flex items-center gap-1.5 text-sm px-4 py-1.5 rounded-full border border-blood/50 text-parchment/90 bg-blood/15 hover:bg-blood/30 transition"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>{lang === 'en' ? 'Invite friends' : '邀请好友'}</button>
         </div>
 
         {acctName ? (
@@ -206,6 +218,24 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
               <button onClick={() => setShowFeedback(false)} className="text-parchment/60 hover:text-parchment text-sm px-2">✕</button>
             </div>
             <div className="px-4 py-4 max-h-[75vh] overflow-y-auto text-left"><GameFeedback slug="site" en={lang === 'en'} /></div>
+          </div>
+        </div>
+      )}
+      {showInvite && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start sm:items-center justify-center p-4 overflow-y-auto" onClick={() => setShowInvite(false)}>
+          <div className="w-full max-w-md my-auto rounded-2xl bg-fog border border-eldritch/40 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-eldritch/25">
+              <span className="font-serif text-parchment">{lang === 'en' ? 'Invite friends' : '邀请好友'}</span>
+              <button onClick={() => setShowInvite(false)} className="text-parchment/60 hover:text-parchment text-sm px-2">✕</button>
+            </div>
+            <div className="px-4 py-4 space-y-3 text-left">
+              <p className="text-parchment/60 text-sm leading-relaxed">{lang === 'en' ? 'Two players is all it takes. Send this link to a friend — one click and you\u2019re playing together.' : '两个人就能开局。把链接发给朋友，他点开就能和你一起玩。'}</p>
+              <div className="flex items-center gap-2">
+                <input readOnly value={inviteLink} onClick={(e) => (e.target as HTMLInputElement).select()} className="flex-1 min-w-0 px-3 py-2.5 rounded bg-ink border border-eldritch/40 text-parchment/90 text-sm outline-none" />
+                <button onClick={copyInvite} className="shrink-0 px-4 py-2.5 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood text-sm">{copied ? (lang === 'en' ? 'Copied!' : '已复制') : (lang === 'en' ? 'Copy' : '复制')}</button>
+              </div>
+              <button onClick={shareInvite} className="w-full py-2.5 rounded bg-eldritch/40 hover:bg-eldritch/60 text-parchment border border-eldritch/40 text-sm inline-flex items-center justify-center gap-2"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>{lang === 'en' ? 'Share…' : '分享给好友…'}</button>
+            </div>
           </div>
         </div>
       )}

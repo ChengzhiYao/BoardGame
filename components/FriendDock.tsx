@@ -563,7 +563,6 @@ export default function FriendDock() {
                     {onl ? <button onClick={() => openDm({ uid: lob!.uid, name: f.name, roomId: lob!.roomId, userId: f.id })} className="text-xs px-2 py-0.5 rounded bg-blood/80 hover:bg-blood text-parchment shrink-0">{L('私聊', 'Chat')}</button> : <span className="text-[10px] text-parchment/40 shrink-0">{L('离线', 'Offline')}</span>}
                   </div>); })}
               </div>
-              {me.whitelisted && <ChatBox en={en} msgs={gMsgs} text={gText} setText={setGText} send={sendGroup} empty={L('打个招呼吧 👋', 'Say hi 👋')} />}
             </>
           )}
 

@@ -39,6 +39,14 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
   function closePromo() { setShowPromo(false); try { promoAudio.current?.pause(); promoAudio.current = null; } catch {} }
   useEffect(() => { if (!forcedLang) setLang(getClientLang()); }, [forcedLang]);
   useEffect(() => {
+    // 预填昵称：账号保存的昵称 > 上次填过的 > Google 邮箱前缀；登录用户以后不用再输名字
+    fetch('/api/billing/status').then((r) => r.json()).then((d) => {
+      if (d && d.displayName) { setName((prev) => prev || d.displayName); try { localStorage.setItem('name', d.displayName); } catch {} return; }
+      try { const n = localStorage.getItem('name'); if (n && n.trim()) { setName((prev) => prev || n.trim()); return; } } catch {}
+      if (d && d.email) setName((prev) => prev || String(d.email).split('@')[0]);
+    }).catch(() => { try { const n = localStorage.getItem('name'); if (n && n.trim()) setName((prev) => prev || n.trim()); } catch {} });
+  }, []);
+  useEffect(() => {
     (async () => {
       let pend: any = null; try { pend = JSON.parse(localStorage.getItem('pendingGame') || 'null'); } catch {}
       if (!pend || !pend.ts || Date.now() - pend.ts > 600000) { try { localStorage.removeItem('pendingGame'); } catch {} return; }

@@ -235,8 +235,8 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
             <div className="px-4 py-4 space-y-3 text-left">
               <p className="text-parchment/60 text-sm leading-relaxed">{lang === 'en' ? 'Two players is all it takes. Send this link to a friend — one click and you\u2019re playing together.' : '两个人就能开局。把链接发给朋友，他点开就能和你一起玩。'}</p>
               <div className="flex items-center gap-2">
-                <textarea readOnly value={inviteText} onClick={(e) => (e.target as HTMLTextAreaElement).select()} rows={5} className="flex-1 min-w-0 px-3 py-2.5 rounded bg-ink border border-eldritch/40 text-parchment/90 text-sm outline-none resize-none leading-relaxed" />
-                <button onClick={copyInvite} className="shrink-0 self-stretch px-4 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood text-sm">{copied ? (lang === 'en' ? 'Copied!' : '已复制') : (lang === 'en' ? 'Copy' : '复制')}</button>
+                <div className="flex-1 min-w-0 px-3 py-2.5 rounded bg-ink border border-eldritch/40 text-parchment/65 text-sm leading-relaxed overflow-hidden" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{inviteText}</div>
+                <button onClick={copyInvite} className="shrink-0 self-stretch px-5 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood text-sm whitespace-nowrap">{copied ? (lang === 'en' ? 'Copied!' : '已复制') : (lang === 'en' ? 'Copy' : '复制')}</button>
               </div>
               <button onClick={shareInvite} className="w-full py-2.5 rounded bg-eldritch/40 hover:bg-eldritch/60 text-parchment border border-eldritch/40 text-sm inline-flex items-center justify-center gap-2"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>{lang === 'en' ? 'Share…' : '分享给好友…'}</button>
             </div>

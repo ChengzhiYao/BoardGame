@@ -85,6 +85,9 @@ export default function FriendDock() {
   const [playing, setPlaying] = useState<Record<string, { roomId: string; mode: string }>>({});
   const dragRef = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
   const [unread, setUnread] = useState(0);
+  const [knockIn, setKnockIn] = useState<{ fromUid: string; fromName: string; fromUserId: string; roomId: string } | null>(null);
+  const [knockOut, setKnockOut] = useState<{ roomId: string; name: string } | null>(null);
+  const [knockBusy, setKnockBusy] = useState(false);
 
   const [roster, setRoster] = useState<string[]>([]);
   const [fOnline, setFOnline] = useState<Record<string, { roomId?: string }>>({});
@@ -201,6 +204,21 @@ export default function FriendDock() {
       const m = (p && p.payload) || {};
       if (m.to && me.userId && m.to === me.userId) loadInbox();
     });
+    // 敲门：有人申请加入我所在的房间
+    ch.on('broadcast', { event: 'knock' }, (p: any) => {
+      const m = (p && p.payload) || {};
+      if (!m.roomId || m.roomId !== roomRef.current) return;
+      if (!me.userId || m.fromUserId === me.userId) return;
+      setKnockIn({ fromUid: m.fromUid, fromName: m.fromName || '玩家', fromUserId: m.fromUserId, roomId: m.roomId });
+    });
+    // 敲门回复：房主同意/拒绝了我的申请
+    ch.on('broadcast', { event: 'knock-reply' }, (p: any) => {
+      const m = (p && p.payload) || {};
+      if (m.toUid !== me.uid) return;
+      setKnockOut(null);
+      if (m.ok && m.roomId) { router.push('/room/' + m.roomId); }
+      else { pushNotif('knockno:' + Date.now(), m.reason === 'full' ? (en ? 'Room is full' : '房间已满') : (en ? 'Request declined' : '对方拒绝了你的加入申请')); }
+    });
     ch.subscribe((s: string) => { if (s === 'SUBSCRIBED') ch.track({ uid: me.uid, userId: me.userId, name: me.name, email: me.email, avatar: me.avatar, loc: myLoc, mode: myMode, roomId: roomRef.current, ts: Date.now() }); });
     return () => { try { supabase.removeChannel(ch); } catch {} lChan.current = null; };
   }, [me]);
@@ -275,6 +293,21 @@ export default function FriendDock() {
     if (r && r.ok) { setThread((prev) => ({ ...prev, [userId]: [...(prev[userId] || []), { text: t, ts: Date.now(), mine: true }] })); setDmText(''); loadInbox(); try { lChan.current?.send({ type: 'broadcast', event: 'dm-ping', payload: { to: userId, from: me?.userId, ts: Date.now() } }); } catch {} }
     else if (r && r.status === 403) setThreadGated(true);
   }
+  function requestJoin(rid: string, name: string) {
+    if (!rid || !lChan.current || !me) return;
+    if (!me.email || !me.userId) { setOpen(true); setTab('online'); pushNotif('needlogin:' + Date.now(), en ? 'Log in to join a game' : '登录后才能加入游戏'); return; }
+    lChan.current.send({ type: 'broadcast', event: 'knock', payload: { roomId: rid, fromUid: me.uid, fromUserId: me.userId, fromName: me.name } });
+    setKnockOut({ roomId: rid, name });
+  }
+  async function replyKnock(accept: boolean) {
+    const k = knockIn; if (!k) return; setKnockBusy(true);
+    let ok = false, reason = '';
+    if (accept) {
+      try { const r = await fetch('/api/rooms/knock', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: k.roomId, userId: k.fromUserId }) }); const d = await r.json().catch(() => ({})); ok = !!(r.ok && d.ok); reason = d.reason || ''; } catch {}
+    }
+    try { lChan.current?.send({ type: 'broadcast', event: 'knock-reply', payload: { toUid: k.fromUid, ok, roomId: k.roomId, reason } }); } catch {}
+    setKnockBusy(false); setKnockIn(null);
+  }
   function sendDm() { const t = dmText.trim(); if (!t || !lChan.current || !me || !peer) return; const _pid = peer.userId; const _isFriend = !!_pid && graph.friends.some((f) => f.id === _pid); const _gated = !!me.email && me.email !== HIDDEN && !!_pid && !_isFriend; const _sent = (dms[peer.uid]?.msgs || []).filter((m) => m.mine).length; if (_gated && _sent >= 1) return; lChan.current.send({ type: 'broadcast', event: 'dm', payload: { to: peer.uid, from: me.uid, fromName: me.name, text: t, ts: Date.now() } }); setDms((prev) => { const c = prev[peer.uid] || { name: peer.name, msgs: [] }; return { ...prev, [peer.uid]: { name: c.name, msgs: [...c.msgs.slice(-59), { text: t, ts: Date.now(), mine: true }] } }; }); setDmText(''); }
 
   async function loadChangelog() { try { const r = await fetch('/api/changelog'); const d = await r.json(); setChangelog(d.entries || []); setClAdmin(!!d.isAdmin); } catch {} }
@@ -345,7 +378,7 @@ export default function FriendDock() {
               </div>
             ))}
             {notifs.filter((n) => !n.id.startsWith('req:')).map((n) => (
-              <div key={n.id} className="text-xs text-parchment/80">🟢 {n.text}</div>
+              <div key={n.id} className="text-xs text-parchment/80 flex items-baseline gap-1.5"><span className="flex-1 min-w-0">🟢 {n.text}</span><span className="text-[10px] text-parchment/40 shrink-0">{new Date(n.ts).toLocaleTimeString(en ? 'en-US' : 'zh-CN', { hour: '2-digit', minute: '2-digit' })}</span></div>
             ))}
             {graph.incoming.length === 0 && dmUnread === 0 && notifs.filter((n) => !n.id.startsWith('req:')).length === 0 && <div className="text-xs text-parchment/35 py-6 text-center">{L('暂无消息', 'No messages')}</div>}
           </div>
@@ -476,14 +509,14 @@ export default function FriendDock() {
                     <Avatar name={name} online={!!onl} />
                     <span className="truncate flex-1" title={email}>{name}</span>
                     {onl && onl.roomId && onl.roomId !== roomId
-                      ? <button onClick={() => router.push('/room/' + onl.roomId)} className="text-xs px-2 py-0.5 rounded bg-blood/80 hover:bg-blood text-parchment shrink-0">{L('加入', 'Join')}</button>
+                      ? <button onClick={() => requestJoin(onl.roomId!, name)} className="text-xs px-2 py-0.5 rounded bg-blood/80 hover:bg-blood text-parchment shrink-0">{L('加入', 'Join')}</button>
                       : <span className="text-[10px] text-parchment/40 shrink-0">{onl ? (onl.roomId ? L('同房', 'In room') : L('在线', 'Online')) : L('离线', 'Offline')}</span>}
                   </div>); })}
                 {graph.friends.map((f) => { const lob = lobbyById[f.id]; const onl = !!lob;
                   return (<div key={'g' + f.id} className="flex items-center gap-2 text-sm">
                     <Avatar url={f.avatar} name={f.name} online={onl} />
                     <div className="flex-1 min-w-0 leading-tight"><div className="truncate">{f.name}</div>{(lobbyById[f.id]?.loc || f.loc) && <div className="text-[10px] text-parchment/35 truncate">📍 {lobbyById[f.id]?.loc || f.loc}</div>}</div>
-                    {onl && lob!.roomId && lob!.roomId !== roomId && <button onClick={() => router.push('/room/' + lob!.roomId)} className="text-[10px] px-2 py-0.5 rounded bg-eldritch/40 text-parchment/70 shrink-0">{L('加入', 'Join')}</button>}
+                    {onl && lob!.roomId && lob!.roomId !== roomId && <button onClick={() => requestJoin(lob!.roomId!, f.name)} className="text-[10px] px-2 py-0.5 rounded bg-eldritch/40 text-parchment/70 shrink-0">{L('加入', 'Join')}</button>}
                     {onl ? <button onClick={() => openDm({ uid: lob!.uid, name: f.name, roomId: lob!.roomId, userId: f.id })} className="text-xs px-2 py-0.5 rounded bg-blood/80 hover:bg-blood text-parchment shrink-0">{L('私聊', 'Chat')}</button> : <span className="text-[10px] text-parchment/40 shrink-0">{L('离线', 'Offline')}</span>}
                   </div>); })}
               </div>
@@ -498,7 +531,7 @@ export default function FriendDock() {
                 <div key={p.uid} className="flex items-center gap-2 text-sm py-1">
                   <Avatar url={p.avatar} name={p.name} online />
                   <div className="flex-1 min-w-0 leading-tight"><div className="truncate">{p.name}</div>{(() => { const md = (p.userId && playing[p.userId]?.mode) || p.mode; const rid = (p.userId && playing[p.userId]?.roomId) || p.roomId; return (rid && md) ? <div className="text-[10px] text-green-400/80 truncate">🎮 {L('正在玩 ', 'Playing ')}{MODE_LABEL[md] ? (en ? MODE_LABEL[md].en : MODE_LABEL[md].zh) : md}</div> : p.loc ? <div className="text-[10px] text-parchment/35 truncate">📍 {p.loc}</div> : null; })()}</div>
-                  {(() => { const rid = (p.userId && playing[p.userId]?.roomId) || p.roomId; return rid && rid !== roomId ? <button onClick={() => router.push('/room/' + rid)} className="text-[10px] px-2 py-0.5 rounded bg-eldritch/40 text-parchment/70 shrink-0">{L('加入', 'Join')}</button> : null; })()}
+                  {(() => { const rid = (p.userId && playing[p.userId]?.roomId) || p.roomId; return rid && rid !== roomId ? <button onClick={() => requestJoin(rid, p.name)} className="text-[10px] px-2 py-0.5 rounded bg-eldritch/40 text-parchment/70 shrink-0">{L('加入', 'Join')}</button> : null; })()}
                   <button onClick={() => openDm(p)} className="text-xs px-2 py-0.5 rounded bg-blood/80 hover:bg-blood text-parchment shrink-0">{L('私聊', 'Chat')}</button>
                 </div>
               ))}
@@ -652,6 +685,28 @@ export default function FriendDock() {
         </button>
       </div>}
       </>)}
+      {knockOut && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setKnockOut(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-72 rounded-2xl border border-eldritch/40 bg-fog/95 shadow-2xl p-5 text-center">
+            <div className="text-3xl mb-2 animate-pulse">🚪</div>
+            <div className="text-sm text-parchment/85">{en ? `Asking ${knockOut.name} to let you in…` : `正在申请加入 ${knockOut.name} 的房间…`}</div>
+            <div className="text-xs text-parchment/45 mt-1">{en ? 'Waiting for them to accept' : '等待对方同意'}</div>
+            <button onClick={() => setKnockOut(null)} className="mt-4 w-full py-2 rounded-lg bg-ink/70 border border-eldritch/30 text-parchment/70 text-sm hover:bg-ink">{L('取消等待', 'Cancel')}</button>
+          </div>
+        </div>
+      )}
+      {knockIn && (
+        <div className="fixed inset-0 z-[121] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="w-72 rounded-2xl border border-blood/40 bg-fog/95 shadow-2xl p-5 text-center">
+            <div className="text-3xl mb-2">✋</div>
+            <div className="text-sm text-parchment/90"><b>{knockIn.fromName}</b>{en ? ' wants to join your room' : ' 申请加入你的房间'}</div>
+            <div className="flex gap-2 mt-4">
+              <button disabled={knockBusy} onClick={() => replyKnock(false)} className="flex-1 py-2 rounded-lg bg-ink/70 border border-eldritch/30 text-parchment/70 text-sm hover:bg-ink disabled:opacity-40">{L('拒绝', 'Decline')}</button>
+              <button disabled={knockBusy} onClick={() => replyKnock(true)} className="flex-1 py-2 rounded-lg bg-green-700/80 hover:bg-green-700 text-parchment text-sm disabled:opacity-40">{knockBusy ? L('处理中…', '…') : L('同意', 'Accept')}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

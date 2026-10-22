@@ -176,7 +176,7 @@ export default function MarketPage() {
           </div>
           <div>
             <div className="text-[11px] tracking-wider uppercase text-parchment/40 mb-2">{L('事件记录', 'Activity')}</div>
-            <div className="space-y-0">
+            <div className="space-y-0 max-h-80 overflow-y-auto pr-1">
               {s.feed.length === 0 && <div className="text-sm text-parchment/40 py-3">{L('还没有动态', 'No activity')}</div>}
               {s.feed.map((f: any, i: number) => (<div key={i} className="text-xs text-parchment/60 border-t border-eldritch/10 py-2">{f.text}</div>))}
             </div>

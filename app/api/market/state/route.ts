@@ -49,7 +49,7 @@ export async function GET() {
     const p = prof(u.id); return { id: u.id, name: nm(u.id), avatar: av(u.id), assets: (p.cash || START_CASH) + (heldSum[u.id] || 0), price: p.price };
   }).sort((a: any, b: any) => b.assets - a.assets).slice(0, 10);
 
-  const { data: fd } = await admin.from('market_feed').select('text, created_at').order('created_at', { ascending: false }).limit(15);
+  const { data: fd } = await admin.from('market_feed').select('text, created_at').order('created_at', { ascending: false }).limit(40);
   const feed = (fd || []).map((f: any) => ({ text: f.text, ts: new Date(f.created_at).getTime() }));
 
   return NextResponse.json({

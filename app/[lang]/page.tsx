@@ -12,7 +12,7 @@ export function generateMetadata({ params }: { params: { lang: string } }): Meta
     ? 'One AI engine runs eight tabletop games — murder mystery, Cthulhu, D&D, lateral-thinking soup and more. Two players or a full table, every game generated live.'
     : '叫上朋友，两个人就能开局。AI 当主持人，现场现编剧本杀、克苏鲁跑团、海龟汤、D&D 等八种玩法，每局都不一样。';
   const lang = en ? 'en' : 'zh';
-  return { title: { absolute: title }, description, alternates: { canonical: `/${lang}`, languages: { 'zh-CN': '/zh', en: '/en' } }, openGraph: { title, description, url: `/${lang}`, type: 'website', locale: en ? 'en_US' : 'zh_CN' } };
+  return { title: { absolute: title }, description, alternates: { canonical: `/${lang}`, languages: { 'zh-CN': '/zh', en: '/en', 'x-default': '/en' } }, openGraph: { title, description, url: `/${lang}`, type: 'website', locale: en ? 'en_US' : 'zh_CN' } };
 }
 
 export default function LangHome({ params }: { params: { lang: string } }) {

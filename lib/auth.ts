@@ -22,24 +22,42 @@ export async function ensureSession(displayName?: string) {
   return user;
 }
 
-// Google 登录（用于"开房当主持"，可记住身份与付费状态）。
+// Google 登录。治本：若当前已是匿名号，用 linkIdentity 把 Google 绑到"同一个" id
+// 上（匿名号转正，保留游戏记录），而不是另开新号。只有在没有会话或绑定失败
+// （例如该 Google 账号此前已单独注册过）时，才退回普通 OAuth 登录。
 export async function signInWithGoogle(next = '/upgrade') {
   const supabase = createClient();
   const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user && user.is_anonymous) {
+    const { error } = await supabase.auth.linkIdentity({ provider: 'google', options: { redirectTo } });
+    if (!error) return; // 成功发起绑定（会跳转到 Google）
+    // 绑定失败（如身份已存在/未开启手动绑定）→ 退回普通登录
+  }
   const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } });
   if (error) throw new Error('登录失败：' + error.message);
 }
 
-// 邮箱验证码登录（无需 Google）：发送 6 位验证码到邮箱。
+// 邮箱验证码登录。治本：若当前是匿名号，用 updateUser 把邮箱绑到同一个 id（转正），
+// 否则走普通 signInWithOtp 新建/登录。验证码两种类型都试一遍，谁对用谁。
 export async function sendEmailOtp(email: string) {
   const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user && user.is_anonymous) {
+    const { error } = await supabase.auth.updateUser({ email });
+    if (!error) return; // 发了"确认邮箱"验证码（转正）
+    // 该邮箱可能已被其它账号占用 → 退回普通验证码登录
+  }
   const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
   if (error) throw new Error(error.message);
 }
 export async function verifyEmailOtp(email: string, token: string) {
   const supabase = createClient();
-  const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
-  if (error) throw new Error(error.message);
+  // 转正走的是 email_change，普通登录走 email；先试 email_change 再试 email。
+  const a = await supabase.auth.verifyOtp({ email, token, type: 'email_change' });
+  if (!a.error) return;
+  const b = await supabase.auth.verifyOtp({ email, token, type: 'email' });
+  if (b.error) throw new Error(b.error.message);
 }
 
 export async function signOut() {

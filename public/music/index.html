@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1424">
+<title>给你的歌</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho&family=Noto+Sans+SC:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/music/assets/style.css?v=20261106c">
+</head>
+<body class="ready">
+<div class="backdrop" style="--bg:url(/media/01/cover.jpg)"></div>
+<canvas id="rain"></canvas>
+<main>
+  <h1 class="home-title rise">给你的歌</h1>
+  <p class="home-sub rise" id="count"></p>
+  <ul class="list rise" id="list"></ul>
+</main>
+<script src="/music/assets/songs.js?v=20261106c"></script>
+<script src="/music/assets/rain.js?v=20261106c"></script>
+<script>
+  const list = document.getElementById("list");
+  document.getElementById("count").textContent = `${SONGS.length} 首`;
+  for (const s of SONGS) {
+    const li = document.createElement("li");
+    li.innerHTML = `<a href="/music/s/${s.id}"><span class="no"></span><img loading="lazy" alt=""><div><div class="t"></div><div class="s"></div></div></a>`;
+    li.querySelector(".no").textContent = s.id;
+    li.querySelector("img").src = `/music/media/${s.id}/thumb.jpg`;
+    li.querySelector(".t").textContent = s.title;
+    li.querySelector(".s").textContent = s.subtitle || "";
+    list.appendChild(li);
+  }
+</script>
+</body>
+</html>

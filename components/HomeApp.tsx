@@ -7,6 +7,7 @@ import { tr, getClientLang, setClientLang, type Lang } from '@/lib/i18n';
 import GameShowcase, { type GM } from '@/components/GameShowcase';
 import GameFeedback from '@/components/GameFeedback';
 import MarketChip from '@/components/MarketChip';
+import MusicChip from '@/components/MusicChip';
 import EmailLogin from '@/components/EmailLogin';
 
 export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
@@ -149,7 +150,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
       />
       <div className="fixed inset-0 pointer-events-none -z-10" style={{ background: 'radial-gradient(125% 85% at 50% 0%, rgba(12,13,16,.30), rgba(12,13,16,.68) 58%, rgba(12,13,16,.93))' }} />
       <LangToggle lang={lang} onChange={switchLang} />
-      <AccountBadge t={t} />
+      <AccountBadge t={t} lang={lang} />
 
       <header ref={heroRef} className="w-full max-w-2xl flex flex-col items-center gap-5">
         <h1 className="text-4xl md:text-6xl font-serif tracking-wide text-parchment">{t('home_title')}</h1>
@@ -322,7 +323,7 @@ function LangToggle({ lang, onChange }: { lang: Lang; onChange: (l: Lang) => voi
   );
 }
 
-function AccountBadge({ t }: { t: (k: string, v?: any) => string }) {
+function AccountBadge({ t, lang }: { t: (k: string, v?: any) => string; lang?: Lang }) {
   const [s, setS] = useState<any>(null);
   const [emailOpen, setEmailOpen] = useState(false);
   async function load() {
@@ -333,6 +334,7 @@ function AccountBadge({ t }: { t: (k: string, v?: any) => string }) {
   if (!s) return null;
   return (
     <div className="fixed top-3 right-3 z-20 text-xs max-w-[72vw] flex items-center gap-2 justify-end">
+      <MusicChip en={lang === 'en'} />
       {s.loggedIn && <MarketChip />}
       {s.loggedIn ? (
         <div className="flex items-center gap-1.5 sm:gap-2 rounded-full bg-fog/80 border border-eldritch/30 px-2 py-1 text-parchment/80 backdrop-blur min-w-0">

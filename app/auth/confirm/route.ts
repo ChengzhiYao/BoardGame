@@ -2,7 +2,7 @@
 // 对 type 做容错：模板传啥都尽量验过。
 import { NextResponse } from 'next/server';
 import type { EmailOtpType } from '@supabase/supabase-js';
-import { createServerClient } from '@/lib/supabase/server';
+import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -15,8 +15,11 @@ export async function GET(req: Request) {
     const supabase = createServerClient();
     const types: EmailOtpType[] = Array.from(new Set([hinted, 'email', 'magiclink', 'signup'])) as EmailOtpType[];
     for (const type of types) {
-      const { error } = await supabase.auth.verifyOtp({ token_hash, type });
-      if (!error) return NextResponse.redirect(new URL('/welcome?next=' + encodeURIComponent(next), url.origin));
+      const { data, error } = await supabase.auth.verifyOtp({ token_hash, type });
+      if (!error) {
+        try { if (data?.user?.id) await createAdminClient().from('users').update({ last_seen: new Date().toISOString() }).eq('id', data.user.id); } catch {}
+        return NextResponse.redirect(new URL('/welcome?next=' + encodeURIComponent(next), url.origin));
+      }
     }
   }
   return NextResponse.redirect(new URL('/welcome?error=1&next=' + encodeURIComponent(next), url.origin));

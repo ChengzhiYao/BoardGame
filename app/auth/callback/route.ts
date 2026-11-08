@@ -6,9 +6,11 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const code = url.searchParams.get('code');
   const next = url.searchParams.get('next') || '/';
+  const welcome = url.searchParams.get('welcome');
   if (code) {
     const supabase = createServerClient();
     await supabase.auth.exchangeCodeForSession(code);
   }
-  return NextResponse.redirect(new URL(next, url.origin));
+  const dest = welcome ? ('/welcome?next=' + encodeURIComponent(next)) : next;
+  return NextResponse.redirect(new URL(dest, url.origin));
 }

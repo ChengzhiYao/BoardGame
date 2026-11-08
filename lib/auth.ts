@@ -44,7 +44,7 @@ export async function signInWithGoogle(next = '/upgrade') {
 export async function sendEmailOtp(email: string) {
   const supabase = createClient();
   const next = (typeof window !== 'undefined' ? (window.location.pathname + window.location.search) : '/');
-  const emailRedirectTo = (typeof window !== 'undefined' ? window.location.origin : 'https://www.mystnight.com') + '/auth/callback?next=' + encodeURIComponent(next);
+  const emailRedirectTo = (typeof window !== 'undefined' ? window.location.origin : 'https://www.mystnight.com') + '/auth/callback?welcome=1&next=' + encodeURIComponent(next);
   const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true, emailRedirectTo } });
   if (error) throw new Error(error.message);
 }

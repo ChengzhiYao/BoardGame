@@ -43,7 +43,9 @@ export async function signInWithGoogle(next = '/upgrade') {
 // 接受这个取舍；Google 登录仍用 linkIdentity 做匿名号转正（见上）。
 export async function sendEmailOtp(email: string) {
   const supabase = createClient();
-  const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
+  const next = (typeof window !== 'undefined' ? (window.location.pathname + window.location.search) : '/');
+  const emailRedirectTo = (typeof window !== 'undefined' ? window.location.origin : 'https://www.mystnight.com') + '/auth/callback?next=' + encodeURIComponent(next);
+  const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true, emailRedirectTo } });
   if (error) throw new Error(error.message);
 }
 export async function verifyEmailOtp(email: string, token: string) {

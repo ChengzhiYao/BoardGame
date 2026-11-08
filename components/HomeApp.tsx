@@ -26,6 +26,8 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
   const [showInvite, setShowInvite] = useState(false);
   const [copied, setCopied] = useState(false);
   const [resuming, setResuming] = useState(false);
+  const [loginGate, setLoginGate] = useState(false);
+  const [gateEmail, setGateEmail] = useState(false);
   const [contactEmail, setContactEmail] = useState(''); const [contactMsg, setContactMsg] = useState('');
   const [contactState, setContactState] = useState<'idle' | 'sending' | 'ok' | 'err'>('idle');
   async function sendContact() {
@@ -108,7 +110,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
       const data = await res.json();
       if (res.status === 402) {
         try { localStorage.setItem('pendingGame', JSON.stringify({ mode: m, name: nm, language: lang, ts: Date.now() })); } catch {}
-        if (data.reason === 'login') { await signInWithGoogle('/' + lang).catch(() => {}); return; }
+        if (data.reason === 'login') { setBusy(false); setResuming(false); setLoginGate(true); return; }
         router.push('/upgrade');
         return;
       }
@@ -226,6 +228,22 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
           </div>
         </div>
       )}
+      {loginGate && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setLoginGate(false)}>
+          <div className="w-full max-w-sm rounded-2xl bg-fog border border-eldritch/40 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-eldritch/25">
+              <span className="font-serif text-parchment">{lang === 'en' ? 'Log in to play' : '登录即可开玩'}</span>
+              <button onClick={() => setLoginGate(false)} className="text-parchment/60 hover:text-parchment text-sm px-2">✕</button>
+            </div>
+            <div className="px-4 py-4 space-y-3 text-left">
+              <p className="text-parchment/55 text-sm">{lang === 'en' ? 'Sign in and your game starts right after — free to play.' : '登录后马上开始这局 — 免费畅玩。'}</p>
+              <button onClick={() => signInWithGoogle('/' + lang).catch(() => {})} className="w-full py-2.5 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood text-sm">{t('login_google')}</button>
+              <button onClick={() => { setLoginGate(false); setGateEmail(true); }} className="w-full py-2.5 rounded bg-fog hover:bg-eldritch/40 text-parchment border border-eldritch/50 text-sm">{t('login_email')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {gateEmail && <EmailLogin onClose={() => setGateEmail(false)} />}
       {showInvite && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start sm:items-center justify-center p-4 overflow-y-auto" onClick={() => setShowInvite(false)}>
           <div className="w-full max-w-md my-auto rounded-2xl bg-fog border border-eldritch/40 shadow-2xl" onClick={(e) => e.stopPropagation()}>

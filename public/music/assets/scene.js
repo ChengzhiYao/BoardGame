@@ -2811,6 +2811,12 @@
       { tc: 152, x: -.8, y: .2, s: .4, type: 1, c: [.45, .55, .8] },
       { tc: 157, x: .75, y: -.25, s: .25, type: 0, c: [.5, .42, .36] },
       { tc: 162, x: .5, y: .4, s: .5, type: 2, c: [.7, .62, .55] },
+      // 擦身而过的巨石
+      { tc: 30.5, x: .7, y: -.55, s: .22, type: 4, c: [.2, .18, .16], sd: 3 },
+      { tc: 35.2, x: -.6, y: .45, s: .14, type: 4, c: [.28, .23, .19], sd: 11 },
+      { tc: 40.8, x: -.25, y: -.7, s: .3, type: 4, c: [.22, .21, .21], sd: 23 },
+      { tc: 151, x: .55, y: .5, s: .18, type: 4, c: [.24, .21, .18], sd: 31 },
+      { tc: 159.5, x: -.5, y: -.45, s: .24, type: 4, c: [.2, .19, .18], sd: 47 },
     ];
     const DT = .05, NT = Math.ceil(250 / DT), Z = new Float32Array(NT + 2);
     { let z = 0, vv = .05; for (let i = 0; i <= NT + 1; i++) { vv += (speedAt(i * DT) - vv) * .05; Z[i] = z; z += vv * DT; } }
@@ -2859,8 +2865,20 @@ vec3 galaxy(vec2 p){ // 虫洞里看到的另一片星系
   vec3 c=vec3(1.,.82,.6)*exp(-r*5.)*1.6+vec3(.5,.6,1.)*arm*exp(-r*2.2)*fbm(p*6.)*1.2;
   return c;
 }
+float crat(vec2 p){
+  vec2 id=floor(p),f=fract(p); float h=0.;
+  for(int j=-1;j<=1;j++)for(int i=-1;i<=1;i++){
+    vec2 g=vec2(i,j); vec2 c=g+h22(id+g)*.8+.1; float cr=.18+.3*h21(id+g+3.1);
+    if(h21(id+g+9.7)>.55) continue;
+    float d=length(f-c)/cr;
+    h+=-.55*smoothstep(1.,.15,d)+.25*smoothstep(.7,1.,d)*smoothstep(1.35,1.,d);
+  }
+  return h;
+}
+float rh(vec2 p,float sd){ return fbm(p*2.2+sd)*.9+crat(p*1.4+sd)*.35+crat(p*3.3+sd*1.7)*.15; }
 vec4 rock(vec2 uv,float z){
   vec3 c=vec3(0); float cov=0.;
+  vec3 Ls=normalize(vec3(.65,.35,.55));
   for(int i=0;i<4;i++){
     float fi=float(i);
     float dp=fract(fi/4.+z*1.3);
@@ -2868,27 +2886,71 @@ vec4 rock(vec2 uv,float z){
     vec2 p=uv*sc+fi*71.3;
     vec2 id=floor(p),f=fract(p)-.5;
     float hb=h21(id+7.7);
-    if(hb>.16*ast) continue;
-    vec2 o=(h22(id)-.5)*.4;
+    if(hb>.2*ast) continue;
+    float hs=h21(id+1.3);
+    float rr=mix(.025,.27,pow(hs,2.6));              // 大部分是小碎石，偶尔一块巨石
+    vec2 o=(h22(id)-.5)*max(0.,.96-2.*rr*1.75);
     vec2 dv=f-o;
-    float rr=.13+.16*h21(id+1.3);
-    float an=atan(dv.y,dv.x)+T*(h21(id)-.5)*.6;
-    float rad=rr*(1.+.32*(vn(vec2(an*1.7,hb*90.))-.5)*2.);
-    float l=length(dv)/rad;
-    float m=smoothstep(1.,.9,l);
+    if(length(dv)>rr*1.9) continue;
+    float sd=hb*413.+hs*97.;
+    float spin=(h21(id+5.)-.5)*.9*T+sd;
+    float cs=cos(spin),sn=sin(spin);
+    float el=1.+1.6*h21(id+2.2)*h21(id+8.8);          // 拉长程度不同
+    vec2 q=mat2(cs,-sn,sn,cs)*dv; q.x/=el; q*= (1.+.25*h21(id+6.));
+    vec2 dir=normalize(q+1e-5);
+    float lump=(vn(dir*1.6+sd)-.5)*.75+(vn(dir*4.1+sd*1.3)-.5)*.35+(vn(dir*10.+sd)-.5)*.12;
+    float rad=rr*(1.+lump)/el*1.1;
+    float l=length(q)/rad;
+    float aa=2.5/(R.y*sc*rad);
+    float m=smoothstep(1.,1.-aa,l);
     if(m<=0.) continue;
-    vec3 n=normalize(vec3(dv/rad,sqrt(max(0.,1.-l*l))+.25));
-    float df=max(dot(n,normalize(vec3(.7,.4,.6))),0.);
-    float tx=fbm(dv*14./rr+hb*50.);
-    vec3 rc=mix(vec3(.32,.28,.25),vec3(.45,.4,.36),h21(id+4.))*(.08+1.1*df)*(.55+.7*tx);
-    rc+=vec3(1.,.8,.6)*pow(df,8.)*.15;
+    vec2 lp=q/rr*1.15;
+    float e=.04;
+    float h0=rh(lp,sd), hx=rh(lp+vec2(e,0),sd), hy=rh(lp+vec2(0,e),sd);
+    vec2 g=vec2(hx-h0,hy-h0)/e;
+    vec2 dvr=mat2(cs,sn,-sn,cs)*(q/rad);               // 法线转回屏幕方向
+    vec2 gr=mat2(cs,sn,-sn,cs)*g;
+    float zz=sqrt(max(0.,1.-min(l*l,1.)));
+    vec3 n=normalize(vec3(dvr*1.25-gr*.16,zz*.85+.04));
+    float df=max(dot(n,Ls),0.);
+    float kind=h21(id+11.);
+    vec3 alb=kind<.5?vec3(.16,.15,.14):kind<.85?vec3(.27,.22,.18):vec3(.3,.29,.3);
+    alb*=.8+.4*fbm(lp*2.5+sd);
+    alb*=1.+.35*smoothstep(-.1,.3,h0-.45);
+    vec3 rc=alb*(df*2.3)+alb*vec3(.25,.32,.5)*.07*max(-n.x,0.);
+    rc+=vec3(1.,.9,.75)*pow(max(dot(reflect(-Ls,n),vec3(0,0,1)),0.),12.)*.05*(kind>.85?3.:1.);
+    float ao=smoothstep(-.5,.2,h0-.5);
+    rc*=.6+.4*ao;
     float fd=smoothstep(0.,.3,dp)*smoothstep(1.,.85,dp);
     c=mix(c,rc,m*fd); cov=max(cov,m*fd);
   }
   return vec4(c,cov);
 }
+vec4 bigrock(vec2 d,vec3 base,float sd,float pr){
+  float spin=T*.12+sd, cs=cos(spin), sn=sin(spin);
+  vec2 q=mat2(cs,-sn,sn,cs)*d; q.x/=1.45;
+  vec2 dir=normalize(q+1e-5);
+  float lump=(vn(dir*1.5+sd)-.5)*.7+(vn(dir*3.8+sd)-.5)*.4+(vn(dir*9.+sd)-.5)*.16+(vn(dir*22.+sd)-.5)*.05;
+  float rad=(1.+lump)*.78;
+  float l=length(q)/rad;
+  float aa=2./(R.y*pr*rad);
+  float m=smoothstep(1.,1.-aa,l);
+  if(m<=0.) return vec4(0);
+  vec2 lp=q*2.6; float e=.025;
+  float h0=rh(lp,sd), hx=rh(lp+vec2(e,0),sd), hy=rh(lp+vec2(0,e),sd);
+  vec2 g=mat2(cs,sn,-sn,cs)*(vec2(hx-h0,hy-h0)/e);
+  vec2 dvr=mat2(cs,sn,-sn,cs)*(q/rad); dvr.x*=1.;
+  float zz=sqrt(max(0.,1.-min(l*l,1.)));
+  vec3 n=normalize(vec3(dvr*1.2-g*.12,zz*.85+.04));
+  float df=max(dot(n,normalize(vec3(.65,.35,.55))),0.);
+  vec3 alb=base*(.8+.4*fbm(lp*3.+sd))*(1.+.3*smoothstep(-.1,.3,h0-.45));
+  vec3 rc=alb*df*2.2+alb*vec3(.25,.32,.5)*.06*max(-n.x,0.);
+  rc*=.6+.4*smoothstep(-.5,.2,h0-.5);
+  return vec4(rc,m);
+}
 vec4 planet(vec2 uv,vec4 p,vec4 q){
   vec2 d=(uv-p.xy)/p.z;
+  if(q.w>3.5) return bigrock(d,q.rgb,p.w,p.z);
   float r=length(d), aa=1.5/(R.y*p.z);
   float type=q.w;
   vec3 base=q.rgb;
@@ -2907,7 +2969,7 @@ vec4 planet(vec2 uv,vec4 p,vec4 q){
     float df=max(dot(n,L),0.);
     float sd=q.x*13.+q.y*7.;
     vec3 sc;
-    if(type<.5){ float t=fbm(d*3.5+sd); float cr=smoothstep(.55,.5,vn(d*9.+sd))*.25; sc=base*(.55+.7*t)-cr; }
+    if(type<.5){ float t=fbm(d*2.2+sd); sc=base*(.65+.55*t)*(1.+.35*crat(d*3.+sd)+.15*crat(d*7.+sd)); }
     else if(type<1.5){ float bnd=sin(d.y*14.+fbm(d*vec2(2.,6.)+sd)*4.); sc=mix(base,base*vec3(1.3,1.1,.9),.5+.5*bnd); }
     else if(type<2.5){ float bnd=sin(d.y*9.+fbm(d*vec2(1.5,5.)+sd)*2.5); sc=mix(base,base*1.25,.5+.5*bnd); }
     else { float t=fbm(d*4.+sd); sc=mix(base,vec3(.92,.96,1.),t*t); }
@@ -3052,7 +3114,7 @@ void main(){
         const k = 1 / depth, r = bd.s * .55 * k, x = bd.x * .55 * k, y = bd.y * .55 * k;
         if (Math.abs(x) - r > 1.6 || Math.abs(y) - r > 1.2) continue;
         const fi = Math.min(1, (14 - depth) / 4);
-        vis.push({ depth, v: [x, y, r, 0], q: [bd.c[0] * fi, bd.c[1] * fi, bd.c[2] * fi, bd.type] });
+        vis.push({ depth, v: [x, y, r, bd.sd || 0], q: [bd.c[0] * fi, bd.c[1] * fi, bd.c[2] * fi, bd.type] });
       }
       vis.sort((a, b) => b.depth - a.depth);
       const near = vis.slice(-3), Pv = new Float32Array(12), Qv = new Float32Array(12);

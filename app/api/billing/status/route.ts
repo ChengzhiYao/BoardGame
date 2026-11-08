@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { getEntitlement } from '@/lib/billing/entitlement';
+import { clientIp } from '@/lib/net';
 
 export async function GET(req: Request) {
   const supabase = createServerClient();
@@ -10,7 +11,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ loggedIn: false });
   }
   const admin = createAdminClient();
-  const ent = await getEntitlement(admin, user);
+  const ent = await getEntitlement(admin, user, clientIp(req));
   // 顺便记录最近在线 + 城市（Vercel geo header），不依赖前端 JS 版本
   try {
     const dec = (h: string) => { const v = req.headers.get(h) || ''; try { return decodeURIComponent(v); } catch { return v; } };

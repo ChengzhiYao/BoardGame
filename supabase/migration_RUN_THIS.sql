@@ -771,3 +771,13 @@ create table if not exists play_invites (
 );
 create index if not exists play_invites_pair_idx on play_invites(from_user, to_user, created_at desc);
 alter table play_invites enable row level security;
+
+-- 防刷：记录每次「注册送局数」的发放 IP，用于同 IP 限额
+create table if not exists ip_free_grants (
+  id uuid primary key default gen_random_uuid(),
+  ip text not null,
+  user_id uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+create index if not exists ip_free_grants_ip_idx on ip_free_grants(ip, created_at desc);
+alter table ip_free_grants enable row level security;

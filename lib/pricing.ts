@@ -2,6 +2,12 @@
 export const FREE_MODES = ['soup', 'td', 'mcc', 'market'];
 export const FREE_PLAYS_ON_SIGNUP = 2;
 
+// 防刷：同一 IP 在 FREE_GRANT_WINDOW_DAYS 天内最多发放 FREE_GRANTS_PER_IP 次"注册送局数"。
+// 超过后同 IP 的新账号从 0 局起（防止换邮箱无限白嫖豪华大作）。免费模式不受此限。
+// 共用 IP（宿舍/学校/公司/运营商）场景下不要设太低，默认 5 次/7 天。
+export const FREE_GRANTS_PER_IP = 5;
+export const FREE_GRANT_WINDOW_DAYS = 7;
+
 // 免费玩家每周可免费游玩的时长（秒）：2 小时
 export const FREE_WEEKLY_SECONDS = 2 * 3600;
 

@@ -1,5 +1,5 @@
 // 开房资格：白名单永久免费、否则需有局数额度。被邀请的访客（匿名/无额度）不走这里。
-import { weekStart, monthStart, FREE_WEEKLY_SECONDS, MEMBER_PREMIUM_PLAYS } from '@/lib/pricing';
+import { weekStart, monthStart, FREE_WEEKLY_SECONDS, MEMBER_PREMIUM_PLAYS, FREE_PLAYS_ON_SIGNUP, FREE_GRANTS_PER_IP, FREE_GRANT_WINDOW_DAYS } from '@/lib/pricing';
 export interface Entitlement {
   canHost: boolean;
   reason: 'ok' | 'login' | 'no_credits';
@@ -13,7 +13,7 @@ export interface Entitlement {
   memberPremiumLimit: number;
 }
 
-export async function getEntitlement(admin: any, user: any): Promise<Entitlement> {
+export async function getEntitlement(admin: any, user: any, ip?: string): Promise<Entitlement> {
   // 匿名或无邮箱（没用 Google 登录）→ 不能开房
   if (!user || user.is_anonymous || !user.email) {
     return { canHost: false, reason: 'login', whitelisted: false, member: false, credits: 0, email: user?.email || null, freeSecondsUsed: 0, freeSecondsLimit: FREE_WEEKLY_SECONDS, memberPremiumUsed: 0, memberPremiumLimit: MEMBER_PREMIUM_PLAYS };
@@ -38,12 +38,21 @@ export async function getEntitlement(admin: any, user: any): Promise<Entitlement
   }
   const whitelisted = !!wl || !!p?.is_whitelisted;
   let credits = p?.credits || 0;
-  // 每个账号一次性赠送 2 局免费额度（可玩所有游戏；只发一次；用 free_granted 标记防重复）
-  if (!whitelisted && !p?.free_granted) {
+  // 每个账号一次性赠送免费额度（只发一次；用 free_granted 标记防重复）。
+  // 防刷：同一 IP 在窗口期内发放次数达上限后，新账号只标记 free_granted 但不送局数（0 局）。
+  // 仅在拿得到 IP 的调用处（看首页 / 开房）才发放，避免无 IP 旁路绕过限额。
+  if (!whitelisted && !p?.free_granted && ip) {
     try {
-      const { data: g } = await admin.from('profiles').update({ credits: credits + 2, free_granted: true }).eq('user_id', user.id).eq('free_granted', false).select('credits');
-      if (g && g.length) credits = g[0].credits;
-    } catch { /* free_granted 列未迁移时跳过 */ }
+      const since = new Date(Date.now() - FREE_GRANT_WINDOW_DAYS * 86400000).toISOString();
+      const { count } = await admin.from('ip_free_grants').select('id', { count: 'exact', head: true }).eq('ip', ip).gte('created_at', since);
+      const overLimit = (count || 0) >= FREE_GRANTS_PER_IP;
+      const grant = overLimit ? 0 : FREE_PLAYS_ON_SIGNUP;
+      const { data: g } = await admin.from('profiles').update({ credits: credits + grant, free_granted: true }).eq('user_id', user.id).eq('free_granted', false).select('credits');
+      if (g && g.length) {
+        credits = g[0].credits;
+        if (!overLimit) { try { await admin.from('ip_free_grants').insert({ ip, user_id: user.id }); } catch {} }
+      }
+    } catch { /* 相关表/列未迁移时跳过 */ }
   }
   // 会员：免费模式无限 + 豪华大作每月 N 次；用完豪华次数后可用购买的局数
   const canHost = whitelisted || (member && memberPremiumUsed < MEMBER_PREMIUM_PLAYS) || credits > 0;

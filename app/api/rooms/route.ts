@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { getEntitlement } from '@/lib/billing/entitlement';
 import { FREE_MODES, monthStart, weekStart, FREE_WEEKLY_SECONDS } from '@/lib/pricing';
+import { clientIp } from '@/lib/net';
 
 function genToken() {
   return (
@@ -23,7 +24,7 @@ export async function POST(req: Request) {
 
   // 开房闸门：白名单或有局数额度才能开房（访客加入不经过这里）
   // 海龟汤（soup）永久免费：登录即可开，不消耗额度。
-  const ent = await getEntitlement(admin, user);
+  const ent = await getEntitlement(admin, user, clientIp(req));
   const isFree = FREE_MODES.includes(body.mode);
   if (isFree) {
     // 免费游戏也需登录（用 Google 账号才能玩）；登录后每周 2 小时免费，会员/白名单无限。

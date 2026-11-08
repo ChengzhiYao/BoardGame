@@ -429,7 +429,7 @@
   // ═════════ 拼贴：封面变成一个跟着音乐实时剪辑的 MV（怪异 jazz 风格） ═════════
   // 用你拍的 footage：在鼓点上跳切、定格、分屏、镜像、撞色；唱到关键句时浮现书法字
   SCENES.collage = (song) => {
-    const V = song.visual || {}, base = `/media/${song.id}/`;
+    const V = song.visual || {}, base = `/music/media/${song.id}/`;
     const POOLS = V.pools || {}, cues = (V.cues || []).slice().sort((a, b) => a[0] - b[0]);
     const TINTS = V.tints || [[60, 220, 170], [150, 90, 255], [255, 170, 60], [255, 70, 120], null];
     // 视频（静音、循环、隐藏），只把正在用的几个开着播放
@@ -815,7 +815,7 @@
 
   // ═════════ 十字架：封面变成一段按歌词推进的默片（你的插画），背景是灰烬、荆棘和心跳的红光；结尾黑暗散去，迎来黎明 ═════════
   SCENES.cross = (song) => {
-    const V = song.story || {}, base = `/media/${song.id}/`;
+    const V = song.story || {}, base = `/music/media/${song.id}/`;
     const shots = (V.shots || []).slice().sort((a, b) => a[0] - b[0]);
     const imgs = {};
     for (const [, k] of shots) if (!imgs[k]) { const im = new Image(); im.src = `${base}story/${k}.jpg`; imgs[k] = im; }
@@ -2065,7 +2065,7 @@
       if (G3) return; G3 = { ok: false };
       const go = () => { try { G3 = build3D(); } catch (e) { console.warn("sky3d", e); G3 = { ok: false, failed: true }; } };
       if (window.THREE) return go();
-      const s = document.createElement("script"); s.src = "/assets/three.min.js"; s.onload = go; s.onerror = () => (G3 = { ok: false, failed: true });
+      const s = document.createElement("script"); s.src = "/music/assets/three.min.js"; s.onload = go; s.onerror = () => (G3 = { ok: false, failed: true });
       document.head.appendChild(s);
     }
     function build3D() {
@@ -2546,10 +2546,10 @@
       if (wrapEl) return true;
       wrapEl = document.querySelector(".cover-wrap"); if (!wrapEl) return false;
       mv = document.createElement("video");
-      mv.src = `/media/${song.id}/${song.montage}`; mv.muted = true; mv.playsInline = true; mv.preload = "auto";
+      mv.src = `/music/media/${song.id}/${song.montage}`; mv.muted = true; mv.playsInline = true; mv.preload = "auto";
       mv.setAttribute("playsinline", ""); mv.setAttribute("muted", "");
       mv.style.cssText = "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1.2s";
-      girlEl = document.createElement("img"); girlEl.src = `/media/${song.id}/${song.girl}`; girlEl.alt = "";
+      girlEl = document.createElement("img"); girlEl.src = `/music/media/${song.id}/${song.girl}`; girlEl.alt = "";
       girlEl.style.cssText = "position:absolute;bottom:0;left:50%;height:100%;width:auto;transform:translateX(-50%);opacity:0;transition:opacity 1.2s;pointer-events:none;filter:contrast(1.05)";
       const shade = wrapEl.querySelector(".cover-shade"); wrapEl.insertBefore(mv, shade); wrapEl.insertBefore(girlEl, shade);
       girlImg = girlEl;
@@ -2661,7 +2661,7 @@
     function setup() {
       if (wrapEl) return true;
       wrapEl = document.querySelector(".cover-wrap"); mainEl = document.querySelector("main"); if (!wrapEl) return false;
-      const base = `/media/${song.id}/`;
+      const base = `/music/media/${song.id}/`;
       street = document.createElement("img"); street.src = base + "cover.jpg";
       street.style.cssText = "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;transition:filter .8s";
       const mk = () => { const im = document.createElement("img"); im.style.cssText = "position:absolute;left:50%;bottom:0;transform:translateX(-50%);max-width:100%;height:92%;object-fit:contain;object-position:bottom;opacity:0;transition:opacity .7s, transform 1.2s;pointer-events:none"; return im; };
@@ -3083,7 +3083,7 @@ void main(){
   if (song.coverVideo) {
     const wrap = document.querySelector(".cover-wrap");
     cvid = document.createElement("video");
-    cvid.src = `/media/${song.id}/${song.coverVideo}`; cvid.muted = true; cvid.loop = true; cvid.playsInline = true;
+    cvid.src = `/music/media/${song.id}/${song.coverVideo}`; cvid.muted = true; cvid.loop = true; cvid.playsInline = true;
     cvid.setAttribute("playsinline", ""); cvid.setAttribute("muted", ""); cvid.preload = "auto";
     cvid.style.cssText = "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1.5s";
     if (wrap) wrap.insertBefore(cvid, wrap.querySelector(".cover-shade"));

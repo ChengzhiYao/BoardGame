@@ -38,8 +38,6 @@ export async function signInWithGoogle(next = '/upgrade') {
   if (error) throw new Error('登录失败：' + error.message);
 }
 
-// 邮箱验证码登录。治本：若当前是匿名号，用 updateUser 把邮箱绑到同一个 id（转正），
-// 否则走普通 signInWithOtp 新建/登录。验证码两种类型都试一遍，谁对用谁。
 // 邮箱登录：一律走普通验证码（signInWithOtp / type:'email'），用「Magic link or OTP」模板，
 // 可靠地发验证码。注意：匿名用户走这条会切换成邮箱账号（原匿名号被弃用），为换取登录可靠性
 // 接受这个取舍；Google 登录仍用 linkIdentity 做匿名号转正（见上）。
@@ -50,8 +48,11 @@ export async function sendEmailOtp(email: string) {
 }
 export async function verifyEmailOtp(email: string, token: string) {
   const supabase = createClient();
-  const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
-  if (error) throw new Error(error.message);
+  // 已注册邮箱走 'email'，新邮箱首次(确认注册)走 'signup'，两种都兼容。
+  const a = await supabase.auth.verifyOtp({ email, token, type: 'email' });
+  if (!a.error) return;
+  const b = await supabase.auth.verifyOtp({ email, token, type: 'signup' });
+  if (b.error) throw new Error(b.error.message);
 }
 
 export async function signOut() {

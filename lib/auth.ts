@@ -40,30 +40,18 @@ export async function signInWithGoogle(next = '/upgrade') {
 
 // 邮箱验证码登录。治本：若当前是匿名号，用 updateUser 把邮箱绑到同一个 id（转正），
 // 否则走普通 signInWithOtp 新建/登录。验证码两种类型都试一遍，谁对用谁。
-// 记住本次验证码是"转正(email_change)"还是"普通登录(email)"，verify 时用对的类型，
-// 避免用错类型尝试把验证码作废。（同一次弹窗内 send→verify，模块变量够用。）
-let lastOtpMode: 'email' | 'email_change' = 'email';
+// 邮箱登录：一律走普通验证码（signInWithOtp / type:'email'），用「Magic link or OTP」模板，
+// 可靠地发验证码。注意：匿名用户走这条会切换成邮箱账号（原匿名号被弃用），为换取登录可靠性
+// 接受这个取舍；Google 登录仍用 linkIdentity 做匿名号转正（见上）。
 export async function sendEmailOtp(email: string) {
   const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (user && user.is_anonymous) {
-    const { error } = await supabase.auth.updateUser({ email });
-    if (!error) { lastOtpMode = 'email_change'; return; } // 发了"确认邮箱"验证码（转正）
-    // 该邮箱可能已被其它账号占用 → 退回普通验证码登录
-  }
   const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
   if (error) throw new Error(error.message);
-  lastOtpMode = 'email';
 }
 export async function verifyEmailOtp(email: string, token: string) {
   const supabase = createClient();
-  // 先按发送时记下的类型验；若因页面刷新丢了状态而失败，再退回另一种类型兜底。
-  const primary = lastOtpMode;
-  const fallback = primary === 'email' ? 'email_change' as const : 'email' as const;
-  const a = await supabase.auth.verifyOtp({ email, token, type: primary });
-  if (!a.error) return;
-  const b = await supabase.auth.verifyOtp({ email, token, type: fallback });
-  if (b.error) throw new Error(b.error.message);
+  const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
+  if (error) throw new Error(error.message);
 }
 
 export async function signOut() {

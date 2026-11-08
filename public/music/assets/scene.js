@@ -429,7 +429,7 @@
   // ═════════ 拼贴：封面变成一个跟着音乐实时剪辑的 MV（怪异 jazz 风格） ═════════
   // 用你拍的 footage：在鼓点上跳切、定格、分屏、镜像、撞色；唱到关键句时浮现书法字
   SCENES.collage = (song) => {
-    const V = song.visual || {}, base = `/music/media/${song.id}/`;
+    const V = song.visual || {}, base = `/media/${song.id}/`;
     const POOLS = V.pools || {}, cues = (V.cues || []).slice().sort((a, b) => a[0] - b[0]);
     const TINTS = V.tints || [[60, 220, 170], [150, 90, 255], [255, 170, 60], [255, 70, 120], null];
     // 视频（静音、循环、隐藏），只把正在用的几个开着播放
@@ -815,7 +815,7 @@
 
   // ═════════ 十字架：封面变成一段按歌词推进的默片（你的插画），背景是灰烬、荆棘和心跳的红光；结尾黑暗散去，迎来黎明 ═════════
   SCENES.cross = (song) => {
-    const V = song.story || {}, base = `/music/media/${song.id}/`;
+    const V = song.story || {}, base = `/media/${song.id}/`;
     const shots = (V.shots || []).slice().sort((a, b) => a[0] - b[0]);
     const imgs = {};
     for (const [, k] of shots) if (!imgs[k]) { const im = new Image(); im.src = `${base}story/${k}.jpg`; imgs[k] = im; }
@@ -2065,7 +2065,7 @@
       if (G3) return; G3 = { ok: false };
       const go = () => { try { G3 = build3D(); } catch (e) { console.warn("sky3d", e); G3 = { ok: false, failed: true }; } };
       if (window.THREE) return go();
-      const s = document.createElement("script"); s.src = "/music/assets/three.min.js"; s.onload = go; s.onerror = () => (G3 = { ok: false, failed: true });
+      const s = document.createElement("script"); s.src = "/assets/three.min.js"; s.onload = go; s.onerror = () => (G3 = { ok: false, failed: true });
       document.head.appendChild(s);
     }
     function build3D() {
@@ -2546,10 +2546,10 @@
       if (wrapEl) return true;
       wrapEl = document.querySelector(".cover-wrap"); if (!wrapEl) return false;
       mv = document.createElement("video");
-      mv.src = `/music/media/${song.id}/${song.montage}`; mv.muted = true; mv.playsInline = true; mv.preload = "auto";
+      mv.src = `/media/${song.id}/${song.montage}`; mv.muted = true; mv.playsInline = true; mv.preload = "auto";
       mv.setAttribute("playsinline", ""); mv.setAttribute("muted", "");
       mv.style.cssText = "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1.2s";
-      girlEl = document.createElement("img"); girlEl.src = `/music/media/${song.id}/${song.girl}`; girlEl.alt = "";
+      girlEl = document.createElement("img"); girlEl.src = `/media/${song.id}/${song.girl}`; girlEl.alt = "";
       girlEl.style.cssText = "position:absolute;bottom:0;left:50%;height:100%;width:auto;transform:translateX(-50%);opacity:0;transition:opacity 1.2s;pointer-events:none;filter:contrast(1.05)";
       const shade = wrapEl.querySelector(".cover-shade"); wrapEl.insertBefore(mv, shade); wrapEl.insertBefore(girlEl, shade);
       girlImg = girlEl;
@@ -2661,7 +2661,7 @@
     function setup() {
       if (wrapEl) return true;
       wrapEl = document.querySelector(".cover-wrap"); mainEl = document.querySelector("main"); if (!wrapEl) return false;
-      const base = `/music/media/${song.id}/`;
+      const base = `/media/${song.id}/`;
       street = document.createElement("img"); street.src = base + "cover.jpg";
       street.style.cssText = "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;transition:filter .8s";
       const mk = () => { const im = document.createElement("img"); im.style.cssText = "position:absolute;left:50%;bottom:0;transform:translateX(-50%);max-width:100%;height:92%;object-fit:contain;object-position:bottom;opacity:0;transition:opacity .7s, transform 1.2s;pointer-events:none"; return im; };
@@ -2801,12 +2801,23 @@
       for (const t0 of [24.4, 91.2, 101.6, 148.2]) if (t >= t0) v += .5 * Math.exp(-(t - t0) / .8);
       return v;
     };
+    // 沿途经过的星球：tc = 擦身而过的时刻，(x,y) = 经过时在屏幕上的方向，s = 大小，type = 0 岩石 1 气态 2 带环 3 冰
+    const BODIES = [
+      { tc: 26, x: -.95, y: -.35, s: .9, type: 2, c: [.78, .66, .48] },
+      { tc: 44, x: .85, y: .25, s: .35, type: 0, c: [.62, .34, .24] },
+      { tc: 60, x: -.7, y: .3, s: .3, type: 3, c: [.55, .72, .9] },
+      { tc: 63, x: -.52, y: .42, s: .07, type: 0, c: [.6, .6, .62] },
+      { tc: 82, x: .9, y: -.3, s: .7, type: 1, c: [.75, .55, .38] },
+      { tc: 152, x: -.8, y: .2, s: .4, type: 1, c: [.45, .55, .8] },
+      { tc: 157, x: .75, y: -.25, s: .25, type: 0, c: [.5, .42, .36] },
+      { tc: 162, x: .5, y: .4, s: .5, type: 2, c: [.7, .62, .55] },
+    ];
     const DT = .05, NT = Math.ceil(250 / DT), Z = new Float32Array(NT + 2);
     { let z = 0, vv = .05; for (let i = 0; i <= NT + 1; i++) { vv += (speedAt(i * DT) - vv) * .05; Z[i] = z; z += vv * DT; } }
     const zAt = t => { const f = Math.max(0, Math.min(NT, t / DT)), i = f | 0; return Z[i] + (Z[i + 1] - Z[i]) * (f - i); };
 
     const FS = `precision highp float;
-uniform vec2 R; uniform float T,Zp,warp,worm,tun,bh,bhs,pl,dawn,fl,beat,fade,neb,roll;
+uniform vec2 R; uniform float T,Zp,warp,worm,tun,bh,bhs,pl,dawn,fl,beat,fade,neb,roll,ast; uniform vec4 P[3]; uniform vec4 Q[3];
 float h21(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
 vec2 h22(vec2 p){float n=h21(p);return vec2(n,h21(p+n));}
 float vn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h21(i),h21(i+vec2(1,0)),f.x),mix(h21(i+vec2(0,1)),h21(i+vec2(1,1)),f.x),f.y);}
@@ -2848,6 +2859,70 @@ vec3 galaxy(vec2 p){ // 虫洞里看到的另一片星系
   vec3 c=vec3(1.,.82,.6)*exp(-r*5.)*1.6+vec3(.5,.6,1.)*arm*exp(-r*2.2)*fbm(p*6.)*1.2;
   return c;
 }
+vec4 rock(vec2 uv,float z){
+  vec3 c=vec3(0); float cov=0.;
+  for(int i=0;i<4;i++){
+    float fi=float(i);
+    float dp=fract(fi/4.+z*1.3);
+    float sc=mix(9.,1.1,dp*dp);
+    vec2 p=uv*sc+fi*71.3;
+    vec2 id=floor(p),f=fract(p)-.5;
+    float hb=h21(id+7.7);
+    if(hb>.16*ast) continue;
+    vec2 o=(h22(id)-.5)*.4;
+    vec2 dv=f-o;
+    float rr=.13+.16*h21(id+1.3);
+    float an=atan(dv.y,dv.x)+T*(h21(id)-.5)*.6;
+    float rad=rr*(1.+.32*(vn(vec2(an*1.7,hb*90.))-.5)*2.);
+    float l=length(dv)/rad;
+    float m=smoothstep(1.,.9,l);
+    if(m<=0.) continue;
+    vec3 n=normalize(vec3(dv/rad,sqrt(max(0.,1.-l*l))+.25));
+    float df=max(dot(n,normalize(vec3(.7,.4,.6))),0.);
+    float tx=fbm(dv*14./rr+hb*50.);
+    vec3 rc=mix(vec3(.32,.28,.25),vec3(.45,.4,.36),h21(id+4.))*(.08+1.1*df)*(.55+.7*tx);
+    rc+=vec3(1.,.8,.6)*pow(df,8.)*.15;
+    float fd=smoothstep(0.,.3,dp)*smoothstep(1.,.85,dp);
+    c=mix(c,rc,m*fd); cov=max(cov,m*fd);
+  }
+  return vec4(c,cov);
+}
+vec4 planet(vec2 uv,vec4 p,vec4 q){
+  vec2 d=(uv-p.xy)/p.z;
+  float r=length(d), aa=1.5/(R.y*p.z);
+  float type=q.w;
+  vec3 base=q.rgb;
+  vec4 res=vec4(0);
+  vec3 L=normalize(vec3(.65,.35,.55));
+  float ringF=0.; vec3 ringC=vec3(0);
+  if(type>1.5&&type<2.5){
+    float ct=cos(.35),st=sin(.35); vec2 rd=mat2(ct,-st,st,ct)*d; vec2 e=vec2(rd.x,rd.y/.26); float rr=length(e);
+    float band=smoothstep(1.35,1.42,rr)*smoothstep(2.3,2.15,rr)*(.6+.4*sin(rr*38.))*(1.-.75*smoothstep(1.76,1.79,rr)*smoothstep(1.88,1.85,rr));
+    ringC=mix(vec3(.85,.75,.6),base,.3)*(.45+.55*clamp(-rd.x*.3+.7,0.,1.));
+    if(rd.y>0.){ res=vec4(ringC,band*.9); } else { ringF=band*.9; }
+  }
+  if(r<1.+aa){
+    float z=sqrt(max(0.,1.-r*r));
+    vec3 n=vec3(d,z);
+    float df=max(dot(n,L),0.);
+    float sd=q.x*13.+q.y*7.;
+    vec3 sc;
+    if(type<.5){ float t=fbm(d*3.5+sd); float cr=smoothstep(.55,.5,vn(d*9.+sd))*.25; sc=base*(.55+.7*t)-cr; }
+    else if(type<1.5){ float bnd=sin(d.y*14.+fbm(d*vec2(2.,6.)+sd)*4.); sc=mix(base,base*vec3(1.3,1.1,.9),.5+.5*bnd); }
+    else if(type<2.5){ float bnd=sin(d.y*9.+fbm(d*vec2(1.5,5.)+sd)*2.5); sc=mix(base,base*1.25,.5+.5*bnd); }
+    else { float t=fbm(d*4.+sd); sc=mix(base,vec3(.92,.96,1.),t*t); }
+    vec3 pc=sc*(.03+1.05*df);
+    pc+=mix(base,vec3(.6,.75,1.),.5)*pow(1.-z,3.)*(.25+.9*df)*.8;
+    float m=smoothstep(1.+aa,1.-aa,r);
+    res=vec4(mix(res.rgb,pc,m),max(res.a,m));
+  }
+  if(ringF>0.){ res=vec4(mix(res.rgb,ringC,ringF),max(res.a,ringF)); }
+  float glow=exp(-max(r-1.,0.)*6.)*step(1.,r)*.12;
+  res.rgb+=mix(base,vec3(.6,.75,1.),.5)*glow*(1.-res.a);
+  res.a=max(res.a,glow*.0);
+  return res;
+}
+
 void main(){
   vec2 uv=(gl_FragCoord.xy-.5*R)/R.y;
   float cr=cos(roll),sr=sin(roll); uv=mat2(cr,-sr,sr,cr)*uv;
@@ -2861,6 +2936,8 @@ void main(){
   if(rs>0.){ su=uv+normalize(uv+1e-4)*rs*rs*1.6/max(L,rs*.9); }
   vec3 bg=stars(su,Zp,warp,0.)+nebula(su,Zp)*neb;
   col=bg;
+  if(ast>0.){ vec4 rk=rock(uv,Zp); col=mix(col,rk.rgb,rk.a); }
+  for(int i=0;i<3;i++){ if(P[i].z>0.){ vec4 pp=planet(uv,P[i],Q[i]); col=mix(col,pp.rgb,pp.a); } }
   // —— 虫洞 ——
   if(wr>0.){
     float inside=smoothstep(wr,wr*.97,L);
@@ -2942,7 +3019,7 @@ void main(){
       prog = gl.createProgram(); gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog); gl.useProgram(prog);
       const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
       const loc = gl.getAttribLocation(prog, "p"); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-      for (const k of ["R", "T", "Zp", "warp", "worm", "tun", "bh", "bhs", "pl", "dawn", "fl", "beat", "fade", "neb", "roll"]) U[k] = gl.getUniformLocation(prog, k);
+      for (const k of ["R", "T", "Zp", "warp", "worm", "tun", "bh", "bhs", "pl", "dawn", "fl", "beat", "fade", "neb", "roll", "ast", "P", "Q"]) U[k] = gl.getUniformLocation(prog, k);
       return (ok = true);
     }
     function init() {}
@@ -2968,6 +3045,20 @@ void main(){
       gl.uniform1f(U.worm, worm); gl.uniform1f(U.tun, tun); gl.uniform1f(U.bh, bh); gl.uniform1f(U.bhs, bhs);
       gl.uniform1f(U.pl, pl); gl.uniform1f(U.dawn, dawn); gl.uniform1f(U.fl, flash); gl.uniform1f(U.beat, playing ? beat : 0);
       gl.uniform1f(U.fade, fade); gl.uniform1f(U.neb, neb); gl.uniform1f(U.roll, Math.sin(now * .03) * .08 + tun * now * .15);
+      const zn = zAt(now), vis = [];
+      for (const bd of BODIES) {
+        const depth = (zAt(bd.tc) - zn) * 6 + .32;
+        if (depth < .06 || depth > 14) continue;
+        const k = 1 / depth, r = bd.s * .55 * k, x = bd.x * .55 * k, y = bd.y * .55 * k;
+        if (Math.abs(x) - r > 1.6 || Math.abs(y) - r > 1.2) continue;
+        const fi = Math.min(1, (14 - depth) / 4);
+        vis.push({ depth, v: [x, y, r, 0], q: [bd.c[0] * fi, bd.c[1] * fi, bd.c[2] * fi, bd.type] });
+      }
+      vis.sort((a, b) => b.depth - a.depth);
+      const near = vis.slice(-3), Pv = new Float32Array(12), Qv = new Float32Array(12);
+      near.forEach((o, i) => { Pv.set(o.v, i * 4); Qv.set(o.q, i * 4); });
+      gl.uniform4fv(U.P, Pv); gl.uniform4fv(U.Q, Qv);
+      gl.uniform1f(U.ast, Math.max(sm(26, 30, now) * (1 - sm(44, 48, now)), sm(148, 151, now) * (1 - sm(163, 167, now))) * (1 - tun));
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     }
     return { init, draw, wet: false };
@@ -2992,7 +3083,7 @@ void main(){
   if (song.coverVideo) {
     const wrap = document.querySelector(".cover-wrap");
     cvid = document.createElement("video");
-    cvid.src = `/music/media/${song.id}/${song.coverVideo}`; cvid.muted = true; cvid.loop = true; cvid.playsInline = true;
+    cvid.src = `/media/${song.id}/${song.coverVideo}`; cvid.muted = true; cvid.loop = true; cvid.playsInline = true;
     cvid.setAttribute("playsinline", ""); cvid.setAttribute("muted", ""); cvid.preload = "auto";
     cvid.style.cssText = "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1.5s";
     if (wrap) wrap.insertBefore(cvid, wrap.querySelector(".cover-shade"));

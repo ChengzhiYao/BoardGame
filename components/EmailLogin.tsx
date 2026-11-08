@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { sendEmailOtp } from '@/lib/auth';
+import { sendEmailOtp, verifyEmailOtp } from '@/lib/auth';
 import { getClientLang } from '@/lib/i18n';
 
 export default function EmailLogin({ onClose }: { onClose: () => void }) {
@@ -10,6 +10,7 @@ export default function EmailLogin({ onClose }: { onClose: () => void }) {
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const [code, setCode] = useState('');
   const pollRef = useRef<any>(null);
 
   const valid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
@@ -18,6 +19,11 @@ export default function EmailLogin({ onClose }: { onClose: () => void }) {
     setBusy(true); setErr('');
     try { await sendEmailOtp(email.trim()); setStep('sent'); } catch (e: any) { setErr(e.message || L('发送失败', 'Failed to send')); }
     setBusy(false);
+  }
+  async function verify() {
+    if (code.trim().length < 6) { setErr(L('请输入邮件里的验证码', 'Enter the code from the email')); return; }
+    setBusy(true); setErr('');
+    try { await verifyEmailOtp(email.trim(), code.trim()); window.location.reload(); } catch (e: any) { setErr(e.message || L('验证码无效或已过期', 'Invalid or expired code')); setBusy(false); }
   }
 
   // 已发送后：在本页轮询登录状态。若用户在同一浏览器点了邮件里的链接（cookie 共享），
@@ -46,17 +52,18 @@ export default function EmailLogin({ onClose }: { onClose: () => void }) {
             </>
           ) : (
             <>
-              <div className="text-center py-2">
+              <div className="text-center py-1">
                 <div className="text-3xl mb-2">📧</div>
-                <p className="text-parchment/80 text-sm">{L('登录邮件已发到', 'Sign-in link sent to')}<br /><b className="text-parchment">{email}</b></p>
-                <p className="text-parchment/50 text-xs mt-2 leading-relaxed">{L('点开邮件里的「登录链接」即可登录(可能在垃圾箱)。登录成功后本页会自动继续。', "Open the email and click the sign-in link (check spam). This page continues automatically once you're in.")}</p>
+                <p className="text-parchment/80 text-sm">{L('登录邮件已发到', 'Email sent to')}<br /><b className="text-parchment">{email}</b>{L('(可能在垃圾箱)', ' (check spam)')}</p>
               </div>
-              <div className="flex items-center justify-center gap-1.5 text-xs text-parchment/40"><span className="w-2 h-2 rounded-full bg-eldritch/60 animate-pulse" />{L('等待你点开链接…', 'Waiting for you to click the link…')}</div>
-              <div className="rounded-lg bg-ink/50 border border-eldritch/20 px-3 py-2.5 text-[11px] text-parchment/50 leading-relaxed">
-                {L('若链接在另一个浏览器 / App 里打开并显示「登录成功」,直接用那个窗口玩即可,这个窗口可以关掉。', 'If the link opened in another browser/app and showed “Signed in”, just use that window — you can close this one.')}
+              <p className="text-parchment/55 text-xs leading-relaxed">{L('① 点邮件里的「登录链接」即可登录(同一浏览器打开,本页会自动继续)。', '① Click the sign-in link in the email (if opened in this browser, this page continues automatically).')}</p>
+              <div className="flex items-center justify-center gap-1.5 text-xs text-parchment/40"><span className="w-2 h-2 rounded-full bg-eldritch/60 animate-pulse" />{L('等待你点开链接…', 'Waiting for the link…')}</div>
+              <div className="border-t border-eldritch/20 pt-3">
+                <p className="text-parchment/55 text-xs leading-relaxed mb-2">{L('② 或者把邮件里的验证码填到这里,直接在本窗口登录(换了浏览器也适用):', '② Or enter the code from the email to sign in right here (works even across browsers):')}</p>
+                <input value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 8))} onKeyDown={(e) => e.key === 'Enter' && verify()} placeholder={L('邮件里的验证码', 'Code from email')} inputMode="numeric" className="w-full px-3 py-2.5 rounded bg-ink border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch text-sm tracking-[.3em] text-center" />
+                <button onClick={verify} disabled={busy || code.length < 6} className="w-full mt-2 py-2.5 rounded bg-blood/80 hover:bg-blood border border-blood disabled:opacity-40 text-sm">{busy ? L('登录中…', 'Signing in…') : L('验证并登录', 'Verify & sign in')}</button>
               </div>
-              <button onClick={() => window.location.reload()} className="w-full py-2 rounded-lg bg-eldritch/40 hover:bg-eldritch/60 text-parchment/80 border border-eldritch/40 text-xs">{L('我已经登录了 · 刷新本页', "I'm signed in · refresh this page")}</button>
-              <button onClick={() => { setStep('email'); setErr(''); }} className="w-full text-xs text-parchment/40 hover:text-parchment">{L('← 换个邮箱 / 重新发送', '← Change email / resend')}</button>
+              <button onClick={() => { setStep('email'); setErr(''); setCode(''); }} className="w-full text-xs text-parchment/40 hover:text-parchment pt-1">{L('← 换个邮箱 / 重新发送', '← Change email / resend')}</button>
             </>
           )}
           {err && <p className="text-blood text-sm">{err}</p>}

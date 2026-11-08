@@ -20,7 +20,7 @@ export default function EmailLogin({ onClose }: { onClose: () => void }) {
     setBusy(false);
   }
   async function verify() {
-    if (code.trim().length < 6) { setErr(L('请输入 6 位验证码', 'Enter the 6-digit code')); return; }
+    if (code.trim().length < 6) { setErr(L('请输入验证码', 'Enter the code from the email')); return; }
     setBusy(true); setErr('');
     try { await verifyEmailOtp(email.trim(), code.trim()); window.location.reload(); } catch (e: any) { setErr(e.message || L('验证码错误', 'Invalid code')); setBusy(false); }
   }
@@ -35,14 +35,14 @@ export default function EmailLogin({ onClose }: { onClose: () => void }) {
         <div className="px-4 py-4 space-y-3">
           {step === 'email' ? (
             <>
-              <p className="text-parchment/55 text-sm">{L('输入邮箱,我们会发一个 6 位验证码过去。', "Enter your email and we'll send a 6-digit code.")}</p>
+              <p className="text-parchment/55 text-sm">{L('输入邮箱,我们会把验证码发过去。', "Enter your email and we'll send you a verification code.")}</p>
               <input autoFocus value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()} placeholder={L('你的邮箱', 'Your email')} className="w-full px-3 py-2.5 rounded bg-ink border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch text-sm" />
               <button onClick={send} disabled={busy || !valid} className="w-full py-2.5 rounded bg-blood/80 hover:bg-blood border border-blood disabled:opacity-40 text-sm">{busy ? L('发送中…', 'Sending…') : L('发送验证码', 'Send code')}</button>
             </>
           ) : (
             <>
               <p className="text-parchment/55 text-sm">{L('验证码已发到 ', 'Code sent to ')}<b className="text-parchment">{email}</b>{L('(可能在垃圾箱)。', ' (check spam).')}</p>
-              <input autoFocus value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} onKeyDown={(e) => e.key === 'Enter' && verify()} placeholder={L('6 位验证码', '6-digit code')} inputMode="numeric" className="w-full px-3 py-2.5 rounded bg-ink border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch text-sm tracking-[.3em] text-center" />
+              <input autoFocus value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 8))} onKeyDown={(e) => e.key === 'Enter' && verify()} placeholder={L('邮件里的验证码', 'Code from email')} inputMode="numeric" className="w-full px-3 py-2.5 rounded bg-ink border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch text-sm tracking-[.3em] text-center" />
               <button onClick={verify} disabled={busy || code.length < 6} className="w-full py-2.5 rounded bg-blood/80 hover:bg-blood border border-blood disabled:opacity-40 text-sm">{busy ? L('登录中…', 'Signing in…') : L('验证并登录', 'Verify & sign in')}</button>
               <button onClick={() => { setStep('email'); setCode(''); setErr(''); }} className="w-full text-xs text-parchment/40 hover:text-parchment">{L('← 换个邮箱 / 重新发送', '← Change email / resend')}</button>
             </>

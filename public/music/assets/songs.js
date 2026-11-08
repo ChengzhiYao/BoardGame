@@ -368,7 +368,8 @@ window.SONGS = [
     subtitle: "把我的爱，送过这片黑夜",
     date: "",
     place: "",
-    scene: "cosmos",                // 3D 宇宙航行：星海 → 虫洞 → 隧道 → 黑洞 → 超光速 → 行星上空的晨光
+    scene: "cosmos",
+    coverFill: "64% 50%",           // 横版封面铺满方框，焦点放在那颗心上                // 3D 宇宙航行：星海 → 虫洞 → 隧道 → 黑洞 → 超光速 → 行星上空的晨光
     theme: { night: "#05060c", nightRgb: "5,6,12", glow: "232,236,255", accent: "#b9c6ff" },
     note: []
   }

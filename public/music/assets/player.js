@@ -18,7 +18,8 @@
     if (th.accent) rs.setProperty("--accent", th.accent);
   }
   $("#cover").addEventListener("load", e => {
-    const im = e.target; if (im.naturalWidth / im.naturalHeight > 1.15) $(".cover-wrap").classList.add("wide");
+    const im = e.target; if (song.coverFill) { im.style.objectPosition = song.coverFill; return; }   // 横图也铺满整个方框（按指定焦点裁切）
+    if (im.naturalWidth / im.naturalHeight > 1.15) $(".cover-wrap").classList.add("wide");
   });
   $("#cover").src = `${media}/cover.jpg`;
   $("#cover").alt = song.title;

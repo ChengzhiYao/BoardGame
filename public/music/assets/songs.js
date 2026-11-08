@@ -361,5 +361,15 @@ window.SONGS = [
       "有一段时间我对中世纪时期挺着迷，很好奇黑死病流行的时候大家都是抱着什么心情活下去的，都会有什么情绪。",
       "虽然我生活在现在这种相对安全稳定的时代，但是我感觉已经是很艰难了。"
     ]
+  },
+  {
+    id: "15",
+    title: "Send My Love Across the Night",
+    subtitle: "把我的爱，送过这片黑夜",
+    date: "",
+    place: "",
+    scene: "cosmos",                // 3D 宇宙航行：星海 → 虫洞 → 隧道 → 黑洞 → 超光速 → 行星上空的晨光
+    theme: { night: "#05060c", nightRgb: "5,6,12", glow: "232,236,255", accent: "#b9c6ff" },
+    note: []
   }
 ];

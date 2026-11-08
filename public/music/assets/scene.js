@@ -2784,6 +2784,195 @@
     return { init, draw, wet: false };
   };
 
+  // ═════════ Send My Love Across the Night：3D 宇宙航行 ═════════
+  // 全屏 WebGL 着色器：在星海里飞行（星星从中心迎面扑来、速度快时拉成光线）、穿过星云；
+  // 副歌时前方出现一个球形虫洞（里面是另一片星系、边缘有引力透镜的光环），“send my love across the night”冲进去 → 虫洞隧道；
+  // 出来是一个巨大的黑洞（吸积盘 + 越过顶上的透镜光弧）；“darkness nearly swallows me whole”时被拉近；
+  // “Yet a spark keeps me alive”一道闪光；随后超光速跨越星空；最后来到一颗行星上空，地平线升起晨光
+  SCENES.cosmos = (song) => {
+    const ev = song.events || {};
+    const sm = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+    let gl = null, prog = null, cv = null, U = {}, ok = false, lastNow = 0, flash = 0, beatE = 0;
+    // 速度曲线 → 积分成“飞了多远”，拖动进度条也能对上
+    const speedAt = t => {
+      let v = .05;
+      if (t > 4) v = .08; if (t > 24) v = .16; if (t > 46) v = .22; if (t > 67) v = .18; if (t > 85.8) v = .3;
+      if (t > 91.2) v = .55; if (t > 108.5) v = .05; if (t > 143.2) v = .25; if (t > 148.2) v = .7; if (t > 166) v = .2; if (t > 176) v = .06; if (t > 200) v = .03;
+      for (const t0 of [24.4, 91.2, 101.6, 148.2]) if (t >= t0) v += .5 * Math.exp(-(t - t0) / .8);
+      return v;
+    };
+    const DT = .05, NT = Math.ceil(250 / DT), Z = new Float32Array(NT + 2);
+    { let z = 0, vv = .05; for (let i = 0; i <= NT + 1; i++) { vv += (speedAt(i * DT) - vv) * .05; Z[i] = z; z += vv * DT; } }
+    const zAt = t => { const f = Math.max(0, Math.min(NT, t / DT)), i = f | 0; return Z[i] + (Z[i + 1] - Z[i]) * (f - i); };
+
+    const FS = `precision highp float;
+uniform vec2 R; uniform float T,Zp,warp,worm,tun,bh,bhs,pl,dawn,fl,beat,fade,neb,roll;
+float h21(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
+vec2 h22(vec2 p){float n=h21(p);return vec2(n,h21(p+n));}
+float vn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h21(i),h21(i+vec2(1,0)),f.x),mix(h21(i+vec2(0,1)),h21(i+vec2(1,1)),f.x),f.y);}
+float fbm(vec2 p){float s=0.,a=.5;for(int i=0;i<5;i++){s+=a*vn(p);p=p*2.03+17.1;a*=.5;}return s;}
+vec3 stars(vec2 uv,float z,float st,float seed){
+  vec3 c=vec3(0);
+  for(int i=0;i<7;i++){
+    float fi=float(i);
+    float dp=fract(fi/7.+z);
+    float sc=mix(22.,.9,dp*dp);
+    float fd=smoothstep(0.,.25,dp)*smoothstep(1.,.8,dp);
+    vec2 p=uv*sc+fi*37.1+seed;
+    vec2 id=floor(p),f=fract(p)-.5;
+    vec2 o=h22(id)-.5;
+    vec2 dv=f-o*.75;
+    vec2 dr=normalize(uv+1e-4);
+    float al=dot(dv,dr),pe=dot(dv,vec2(-dr.y,dr.x));
+    al/=1.+st*dp*14.*length(uv);
+    float d=length(vec2(al,pe));
+    float b=h21(id+3.1);
+    float on=step(.62,b);
+    float s=(smoothstep(.05,0.,d)*.8+.0025/(d*d+.0025)*.25)*on*(.3+b);
+    vec3 col=mix(vec3(.7,.82,1.),vec3(1.,.86,.7),h21(id+9.));
+    c+=col*s*fd*(.6+.4*sin(T*3.+b*40.));
+  }
+  return c;
+}
+vec3 nebula(vec2 uv,float z){
+  vec2 q=uv*1.2+vec2(z*.03,z*.05);
+  float n=fbm(q+fbm(q*1.7+T*.01));
+  float m=fbm(q*2.2-3.);
+  vec3 c=mix(vec3(.18,.08,.32),vec3(.05,.16,.38),m);
+  c=mix(c,vec3(.55,.25,.35),smoothstep(.55,.8,fbm(q*.8+9.)));
+  return c*pow(n,2.6)*1.6;
+}
+vec3 galaxy(vec2 p){ // 虫洞里看到的另一片星系
+  float r=length(p),a=atan(p.y,p.x);
+  float arm=.5+.5*sin(a*2.-log(r+.05)*5.+T*.05);
+  vec3 c=vec3(1.,.82,.6)*exp(-r*5.)*1.6+vec3(.5,.6,1.)*arm*exp(-r*2.2)*fbm(p*6.)*1.2;
+  return c;
+}
+void main(){
+  vec2 uv=(gl_FragCoord.xy-.5*R)/R.y;
+  float cr=cos(roll),sr=sin(roll); uv=mat2(cr,-sr,sr,cr)*uv;
+  float L=length(uv);
+  vec3 col=vec3(0);
+  // —— 背景：引力透镜（虫洞/黑洞周围的星光被推开） ——
+  vec2 su=uv;
+  float wr=worm*.75;
+  if(wr>0.){ su=uv*(1.+wr*wr*.9/(L*L+.002)); }
+  float rs=bhs*bh;
+  if(rs>0.){ su=uv+normalize(uv+1e-4)*rs*rs*1.6/max(L,rs*.9); }
+  vec3 bg=stars(su,Zp,warp,0.)+nebula(su,Zp)*neb;
+  col=bg;
+  // —— 虫洞 ——
+  if(wr>0.){
+    float inside=smoothstep(wr,wr*.97,L);
+    vec2 ip=uv/max(wr,.001);
+    vec2 lens=ip*(1.-.35*dot(ip,ip));
+    vec3 other=galaxy(lens*.9)+stars(lens*1.6,Zp*.3,0.,51.)*1.3;
+    col=mix(col,other,inside);
+    col+=vec3(.6,.75,1.)*exp(-pow((L-wr)/(.006+wr*.012),2.))*.45+vec3(.5,.6,1.)*exp(-pow((L-wr)/(.03+wr*.05),2.))*.18;
+    col+=vec3(.5,.6,1.)*exp(-max(L-wr,0.)*8./max(wr,.05))*.15*(1.-inside);
+  }
+  // —— 虫洞隧道 ——
+  if(tun>0.){
+    float a=atan(uv.y,uv.x)/6.2832;
+    float d=.32/max(L,.02);
+    float t1=fbm(vec2(a*6.,d*.6+Zp*2.2));
+    float t2=pow(fbm(vec2(a*40.,d*.15+Zp*4.)),3.)*3.;
+    vec3 tc=mix(vec3(.12,.18,.45),vec3(.85,.9,1.),t1*t1)*t1*1.3+vec3(1.,.8,.6)*t2;
+    tc*=smoothstep(.0,.25,L)*(.6+.4*smoothstep(1.4,.3,L))*(.55+.45*sin(d*9.+Zp*26.+a*6.2832));
+    tc+=vec3(1.,.95,.85)*exp(-L*7.)*1.4;
+    col=mix(col,tc,tun);
+  }
+  // —— 黑洞 ——
+  if(rs>0.){
+    float sh=smoothstep(rs*1.01,rs*.97,L);
+    vec2 q=vec2(uv.x,(uv.y+rs*.04)/.11);
+    float rq=length(q);
+    float ang=atan(q.y,q.x);
+    float disk=smoothstep(rs*1.3,rs*1.55,rq)*smoothstep(rs*3.3,rs*1.8,rq)*(1.4-rq/(rs*3.3));
+    float tex=.45+.75*fbm(vec2(ang*2.-T*.5*rs/max(rq,.01)*3.,rq*14./rs*.2));
+    float dop=1.+.55*(-uv.x/max(rq,.01));
+    vec3 dc=vec3(1.,.72,.42)*tex*dop*1.4;
+    float near=disk*step(q.y,0.);
+    float far=disk*step(0.,q.y)*(1.-sh);
+    float arcT=smoothstep(rs*1.1,rs*1.22,L)*smoothstep(rs*2.1,rs*1.45,L)*smoothstep(-.1*rs,.5*rs,uv.y);
+    float arcB=smoothstep(rs*1.04,rs*1.1,L)*smoothstep(rs*1.35,rs*1.15,L)*smoothstep(.1*rs,-.4*rs,uv.y);
+    float tA=.5+.8*fbm(vec2(atan(uv.y,uv.x)*3.-T*.4,L*10./rs));
+    col*=1.-sh;
+    col+=vec3(1.,.78,.5)*(arcT*1.1+arcB*.6)*tA*bh*(1.+.6*(-uv.x/max(L,.01)));
+    col+=dc*far*bh;
+    col=mix(col,col*(1.-near)+dc*near,bh);
+    col+=vec3(1.,.85,.6)*exp(-pow((L-rs*1.06)/(rs*.035),2.))*.8*bh;
+    col+=vec3(1.,.7,.4)*exp(-L/(rs*3.))*.12*bh*(1.-sh);
+  }
+  // —— 行星与晨光 ——
+  if(pl>0.){
+    float Rp=1.6; vec2 pc=vec2(.05,-Rp-.12-(1.-pl)*1.2);
+    float pd=length(uv-pc);
+    float body=smoothstep(Rp+.004,Rp-.004,pd);
+    vec2 sp=(uv-pc)/Rp;
+    float land=fbm(sp*vec2(5.,9.)+vec2(T*.004,0.));
+    vec3 surf=mix(vec3(.02,.05,.12),vec3(.06,.08,.1),smoothstep(.45,.6,land));
+    float sa=asin(clamp((.5*R.x/R.y*.6-.05)/Rp,-.6,.6)); vec2 sun=pc+vec2(sin(sa),cos(sa))*(Rp+.004);
+    float lit=smoothstep(.9,0.,length(uv-sun))*dawn;
+    surf+=vec3(.9,.55,.35)*lit*.35*(.5+land);
+    col=mix(col,surf,body);
+    float atm=exp(-abs(pd-Rp)/.018)*(.35+.65*smoothstep(1.4,0.,length(uv-sun)));
+    col+=mix(vec3(.25,.45,1.),vec3(1.,.65,.4),dawn*smoothstep(1.,0.,length(uv-sun)))*atm*(.6+dawn);
+    float sd=length(uv-sun);
+    col+=vec3(1.,.85,.65)*(exp(-sd*9.)*1.6+exp(-sd*2.5)*.35)*dawn;
+    col+=vec3(1.,.8,.6)*exp(-abs(uv.y-sun.y)*120.)*exp(-abs(uv.x-sun.x)*1.2)*.6*dawn;
+  }
+  col+=vec3(1.,.95,.9)*fl;
+  col*=1.+beat*.12;
+  col=1.-exp(-col*1.25);
+  col*=1.-.35*dot(uv*.7,uv*.7);
+  gl_FragColor=vec4(col*fade,1.);
+}`;
+    function setup() {
+      if (cv) return ok;
+      cv = document.createElement("canvas");
+      cv.style.cssText = "position:fixed;inset:0;width:100%;height:100%;z-index:-3;pointer-events:none;background:#000";
+      document.body.insertBefore(cv, document.body.firstChild);
+      const bd = document.querySelector(".backdrop"); if (bd) bd.style.display = "none";
+      gl = cv.getContext("webgl", { antialias: false, alpha: false, preserveDrawingBuffer: false });
+      if (!gl) return (ok = false);
+      const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.warn(gl.getShaderInfoLog(s)); return null; } return s; };
+      const vs = sh(gl.VERTEX_SHADER, "attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}"), fs = sh(gl.FRAGMENT_SHADER, FS);
+      if (!vs || !fs) return (ok = false);
+      prog = gl.createProgram(); gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog); gl.useProgram(prog);
+      const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+      const loc = gl.getAttribLocation(prog, "p"); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+      for (const k of ["R", "T", "Zp", "warp", "worm", "tun", "bh", "bhs", "pl", "dawn", "fl", "beat", "fade", "neb", "roll"]) U[k] = gl.getUniformLocation(prog, k);
+      return (ok = true);
+    }
+    function init() {}
+    function draw(I, level, fx) {
+      if (!setup()) return;
+      const now = window.__time || 0, playing = !!window.__playing, prev = lastNow; lastNow = now;
+      // 画布分辨率：按屏幕的 0.6 倍渲染再放大（宇宙本来就柔和，换来流畅）
+      const sc = Math.min(window.devicePixelRatio || 1, 1.5) * .6, w = Math.round(innerWidth * sc), h = Math.round(innerHeight * sc);
+      if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; gl.viewport(0, 0, w, h); }
+      const b = window.__bass || 0; beatE += (b - beatE) * .1; const beat = Math.max(0, b - beatE) * 2;
+      if (playing) for (const [t0, a] of [[24.4, .35], [91.2, .9], [101.6, .5], [108.5, 1], [138.3, .9], [148.2, .4], [185.1, .4]]) if (t0 > prev && t0 <= now && now - t0 < .5) flash = Math.max(flash, a);
+      flash *= .93;
+      const v = (zAt(now + .1) - zAt(now)) / .1;
+      const worm = sm(84.5, 91.4, now) * (1 - sm(91.2, 91.9, now)) * (.15 + 1.9 * Math.pow(sm(84.5, 91.4, now), 2.2));
+      const tun = sm(90.9, 91.6, now) * (1 - sm(107.8, 108.8, now));
+      const bh = sm(108.4, 111, now) * (1 - sm(144, 150, now));
+      const bhs = .1 + .12 * sm(110, 130, now) + .16 * sm(133, 137.5, now) - .1 * sm(140, 146, now);
+      const pl = sm(165, 176, now), dawn = sm(180, 194, now);
+      const neb = .55 + .45 * (1 - tun) - .4 * bh;
+      const fade = (now === 0 ? .7 : Math.min(1, .3 + now / 3)) * (1 - sm(232, 239.8, now));
+      gl.uniform2f(U.R, w, h); gl.uniform1f(U.T, now); gl.uniform1f(U.Zp, zAt(now));
+      gl.uniform1f(U.warp, Math.min(1.5, Math.max(0, (v - .12) * 2.2)));
+      gl.uniform1f(U.worm, worm); gl.uniform1f(U.tun, tun); gl.uniform1f(U.bh, bh); gl.uniform1f(U.bhs, bhs);
+      gl.uniform1f(U.pl, pl); gl.uniform1f(U.dawn, dawn); gl.uniform1f(U.fl, flash); gl.uniform1f(U.beat, playing ? beat : 0);
+      gl.uniform1f(U.fade, fade); gl.uniform1f(U.neb, neb); gl.uniform1f(U.roll, Math.sin(now * .03) * .08 + tun * now * .15);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    }
+    return { init, draw, wet: false };
+  };
+
   SCENES.none = () => ({ init() {}, draw() {} });
 
   // ═════════ 引擎 ═════════

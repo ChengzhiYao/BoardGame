@@ -52,6 +52,10 @@ export default function EmailLogin({ onClose }: { onClose: () => void }) {
                 <p className="text-parchment/50 text-xs mt-2 leading-relaxed">{L('点开邮件里的「登录链接」即可登录(可能在垃圾箱)。登录成功后本页会自动继续。', "Open the email and click the sign-in link (check spam). This page continues automatically once you're in.")}</p>
               </div>
               <div className="flex items-center justify-center gap-1.5 text-xs text-parchment/40"><span className="w-2 h-2 rounded-full bg-eldritch/60 animate-pulse" />{L('等待你点开链接…', 'Waiting for you to click the link…')}</div>
+              <div className="rounded-lg bg-ink/50 border border-eldritch/20 px-3 py-2.5 text-[11px] text-parchment/50 leading-relaxed">
+                {L('若链接在另一个浏览器 / App 里打开并显示「登录成功」,直接用那个窗口玩即可,这个窗口可以关掉。', 'If the link opened in another browser/app and showed “Signed in”, just use that window — you can close this one.')}
+              </div>
+              <button onClick={() => window.location.reload()} className="w-full py-2 rounded-lg bg-eldritch/40 hover:bg-eldritch/60 text-parchment/80 border border-eldritch/40 text-xs">{L('我已经登录了 · 刷新本页', "I'm signed in · refresh this page")}</button>
               <button onClick={() => { setStep('email'); setErr(''); }} className="w-full text-xs text-parchment/40 hover:text-parchment">{L('← 换个邮箱 / 重新发送', '← Change email / resend')}</button>
             </>
           )}

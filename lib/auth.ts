@@ -22,18 +22,12 @@ export async function ensureSession(displayName?: string) {
   return user;
 }
 
-// Google 登录。治本：若当前已是匿名号，用 linkIdentity 把 Google 绑到"同一个" id
-// 上（匿名号转正，保留游戏记录），而不是另开新号。只有在没有会话或绑定失败
-// （例如该 Google 账号此前已单独注册过）时，才退回普通 OAuth 登录。
+// Google 登录。
 export async function signInWithGoogle(next = '/upgrade') {
   const supabase = createClient();
   const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
-  const { data: { user } } = await supabase.auth.getUser();
-  if (user && user.is_anonymous) {
-    const { error } = await supabase.auth.linkIdentity({ provider: 'google', options: { redirectTo } });
-    if (!error) return; // 成功发起绑定（会跳转到 Google）
-    // 绑定失败（如身份已存在/未开启手动绑定）→ 退回普通登录
-  }
+  // 一律普通 OAuth：linkIdentity 对"Google 已注册过"的老用户会在回调失败、导致登录不上，
+  // 故不再做匿名号绑定，优先保证登录可靠。
   const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } });
   if (error) throw new Error('登录失败：' + error.message);
 }

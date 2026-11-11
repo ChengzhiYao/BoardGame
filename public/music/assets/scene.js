@@ -3659,20 +3659,20 @@ void main(){
       return true;
     }
     // 把画按 cover 方式铺进一个框，并以少女为中心慢慢推近
-    function place(im, x, y, w, h, z, fxp, fyp) {
-      const s = Math.max(w / im.naturalWidth, h / im.naturalHeight) * z, dw = im.naturalWidth * s, dh = im.naturalHeight * s;
+    function place(im, x, y, w, h, z, fxp, fyp, fitH) {
+      const s = (fitH ? h / im.naturalHeight : Math.max(w / im.naturalWidth, h / im.naturalHeight)) * z, dw = im.naturalWidth * s, dh = im.naturalHeight * s;
       let ox = x + w / 2 - fxp * dw, oy = y + h / 2 - fyp * dh;
-      ox = Math.min(x, Math.max(x + w - dw, ox)); oy = Math.min(y, Math.max(y + h - dh, oy));
+      ox = dw <= w ? x + (w - dw) / 2 : Math.min(x, Math.max(x + w - dw, ox)); oy = Math.min(y, Math.max(y + h - dh, oy));
       return { ox, oy, s, dw, dh };
     }
     function plateAt(t) { const f = t / STEP, i = Math.floor(f), k = sm(1 - XF / STEP, 1, f - i); return { a: SEQ[i % SEQ.length], b: SEQ[(i + 1) % SEQ.length], k }; }
-    function paint(g, x, y, w, h, now, z, alphaMul) {
+    function paint(g, x, y, w, h, now, z, alphaMul, fitH) {
       const P = plateAt(now);
       const fxp = .5 + (GIRL[0] - .5) * sm(0, 106, now) * .55, fyp = .5 + (GIRL[1] - .5) * sm(0, 106, now) * .5;
       let L = null;
       for (const [k, al] of [[P.a, 1], [P.b, P.k]]) {
         const im = imgs[k]; if (!im || !im.complete || !im.naturalWidth || al <= 0) continue;
-        L = place(im, x, y, w, h, z, fxp, fyp);
+        L = place(im, x, y, w, h, z, fxp, fyp, fitH);
         g.globalAlpha = al * alphaMul; g.drawImage(im, L.ox, L.oy, L.dw, L.dh);
       }
       g.globalAlpha = 1; return L;
@@ -3682,10 +3682,13 @@ void main(){
       if (!setup()) return;
       const now = window.__time || 0, playing = !!window.__playing, prev = lastNow; lastNow = now;
       const dt = Math.min(.1, Math.max(0, now - prev)), seek = Math.abs(now - prev) > .5;
-      const z = 1.06 + .22 * sm(0, 106, now);
+      const z = 1 + .05 * sm(0, 106, now);
       // ── 背景：同一个废墟，跟着音乐换状态，镜头慢慢推向少女 ──
       ctx.fillStyle = "#07080b"; ctx.fillRect(0, 0, W, H);
-      const L = paint(ctx, 0, 0, W, H, now, z, .78);
+      // 宽屏上按高度完整显示整幅画（不裁切、不放大），两边渐隐到黑里
+      const L = paint(ctx, 0, 0, W, H, now, z, .78, true);
+      if (L && L.dw < W + 2) { const e = Math.min(W * .12, L.dw * .1);
+        for (const [x0, dir] of [[L.ox, 1], [L.ox + L.dw, -1]]) { const g = ctx.createLinearGradient(x0, 0, x0 + dir * e, 0); g.addColorStop(0, "#07080b"); g.addColorStop(1, "rgba(7,8,11,0)"); ctx.fillStyle = g; ctx.fillRect(Math.min(x0, x0 + dir * e), 0, e, H); } }
       // ── 流星（画上本来的流星之外，再加真正在动的）──
       if (seek) mets = [];
       if (false) { let n = density(now) * dt * 3.2; while (Math.random() < n) { n -= 1;
@@ -3725,7 +3728,7 @@ void main(){
         const rad = (parseFloat(getComputedStyle(wrapEl).borderTopLeftRadius) || 0) * dpr;
         fx.save(); fx.beginPath(); if (fx.roundRect) fx.roundRect(x, y, w, h, rad); else fx.rect(x, y, w, h); fx.clip();
         const P = plateAt(now);
-        { fx.globalAlpha = Math.min(1, now / 2); paint(fx, x, y, w, h, now, 1 + .12 * sm(0, 106, now), Math.min(1, now / 2)); }
+        { fx.globalAlpha = Math.min(1, now / 2); paint(fx, x, y, w, h, now, 1 + .03 * sm(0, 106, now), Math.min(1, now / 2)); }
         fx.restore();
       }
     }
@@ -3743,7 +3746,8 @@ void main(){
   document.body.appendChild(fxc);
   const fx = fxc.getContext("2d");
   const scene = (SCENES[song.scene] || SCENES.none)(song);
-  function resize() { W = cv.width = fxc.width = innerWidth * dpr; H = cv.height = fxc.height = innerHeight * dpr; scene.init(); }
+  function resize() { const cw = document.documentElement.clientWidth || innerWidth;   // 不含滚动条的宽度，画布才不会被横向挤压
+    W = cv.width = fxc.width = Math.round(cw * dpr); H = cv.height = fxc.height = Math.round(innerHeight * dpr); scene.init(); }
   addEventListener("resize", resize); resize();
 
   // 会动的封面：songs.js 里写 coverVideo: "clips/xxx.mp4"，开始播放后封面换成这段循环动画

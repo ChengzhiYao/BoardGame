@@ -377,7 +377,7 @@ window.SONGS = [
   {
     id: "17",
     title: "废墟中的少女",
-    subtitle: "轻哼与呼吸之间",
+    subtitle: "",
     rev: 7,
     date: "2026.01.04",
     place: "",

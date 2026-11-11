@@ -379,8 +379,24 @@ window.SONGS = [
   },
   {
     id: "16",
+    title: "Number Twelve",
+    subtitle: "第十二号",
+    rev: 1,
+    date: "2025.12.21",
+    place: "",
+    scene: "twelve",                // 前景：没有名字的人造人（12 号）；背景：一个孩子独自在废墟里游荡、寻找
+    montage: "montage.mp4",         // 废墟、雾、空城的实拍片段，按歌词剪好，和歌一样长
+    coverFill: "30% 50%",
+    theme: { night: "#0c0b0a", nightRgb: "12,11,10", glow: "238,230,218", accent: "#d6c3a3" },
+    note: [
+      "写这首歌的时候我很迷茫，感觉自己像一个没有名字的人造人一样。只知道自己是第 12 号。",
+      "12 号代表着一切的终结和开始，是轮回中非常重要的一个节点。我自己就好像卡在这个节点上了，不知道自己在寻找什么，也不知道自己何去何从。"
+    ]
+  },
+  {
+    id: "17",
     title: "Send My Love Across the Night",
-    rev: 2,
+    rev: 3,
     subtitle: "把我的爱，送过这片黑夜",
     date: "",
     place: "",

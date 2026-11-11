@@ -3355,6 +3355,146 @@ void main(){
     return { init, draw, wet: false };
   };
 
+  // ═════════ 16 Number Twelve：没有名字的人造人 ═════════
+  // 背景：一个孩子独自在废墟里游荡（实拍片段，按歌词剪好，和音乐同步），上面叠一层淡淡的 12 号画面（双重曝光）；
+  // 封面框里：12 号的几张画跟着歌词切换，叠着一只 12 小时的钟——每一声 Tick，指针跳一格；
+  // 「Again and again」时画面被撕开、又拼回去，指针倒着转；最后一声「twelve」，指针停在 12 上
+  SCENES.twelve = (song) => {
+    const sm = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+    const IMGS = { a12: "a12.jpg", ruins: "ruins.jpg", hand: "hand.jpg", face: "face.jpg", eyes: "eyes.jpg" };
+    // 封面框里的画面：[开始时间, 哪张画, 焦点x]
+    const SHOTS = [[0, "face", .5], [21.5, "eyes", .5], [33.1, "a12", .3], [41.6, "ruins", .5], [55.3, "hand", .55], [61.9, "face", .5],
+      [83.4, "ruins", .5], [96.3, "a12", .3], [106.8, "hand", .55], [124.6, "ruins", .5], [131.1, "face", .5], [143.8, "eyes", .5]];
+    // 每一声 Tick 的时间
+    const TICK_LINES = [[0, 1.04], [5.08, 6.32], [10.24, 11.56], [15.9, 16.82], [32.3, 33.18], [96.44, 98]];
+    const TICKS = []; for (const [a, b] of TICK_LINES) for (let k = 0; k < 3; k++) TICKS.push(a + (b - a) * k / 3 + .05);
+    for (const t of [144.1, 147.9, 151.7]) TICKS.push(t);
+    const TWELVES = [11.9, 18.9, 26.6, 29.1, 33.2, 33.6, 34.0, 37.0, 37.4, 37.8, 98.0, 98.45, 98.9, 101.8, 102.25, 102.7, 131.5, 155.5];
+    const AGAIN = [[65.5, 81], [133.9, 143.3]];      // 倒着转、画面撕裂的段落
+    const DOUBLE = { face: .2, eyes: .22, a12: .18, ruins: .14, hand: .2 };
+    let wrapEl, bgv, ck, cg, imgs = {}, layers = [], cur = "", lastNow = 0, flash = 0, sparks = [];
+
+    function setup() {
+      if (wrapEl) return true;
+      wrapEl = document.querySelector(".cover-wrap"); if (!wrapEl) return false;
+      const shade = wrapEl.querySelector(".cover-shade");
+      for (const k in IMGS) { const im = new Image(); im.src = `/music/media/${song.id}/${IMGS[k]}?r=${song.rev || 0}`; imgs[k] = im; }
+      // 两层图片轮流淡入淡出
+      for (let i = 0; i < 2; i++) {
+        const el = document.createElement("img"); el.alt = "";
+        el.style.cssText = "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1.4s ease, transform 14s linear;transform:scale(1.04);pointer-events:none";
+        wrapEl.insertBefore(el, shade); layers.push(el);
+      }
+      ck = document.createElement("canvas");
+      ck.style.cssText = "position:absolute;inset:0;width:100%;height:100%;pointer-events:none";
+      wrapEl.insertBefore(ck, shade); cg = ck.getContext("2d");
+      bgv = document.createElement("video"); bgv.src = `/music/media/${song.id}/${song.montage}?r=${song.rev || 0}`; bgv.muted = true; bgv.playsInline = true; bgv.preload = "auto";
+      bgv.setAttribute("playsinline", ""); bgv.setAttribute("muted", "");
+      bgv.style.cssText = "position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:-3;opacity:0;transition:opacity 1.5s;filter:brightness(.62) contrast(1.05);pointer-events:none";
+      document.body.insertBefore(bgv, document.body.firstChild);
+      const bd = document.querySelector(".backdrop"); if (bd) bd.style.opacity = .35;
+      return true;
+    }
+    const shotAt = t => { let s = SHOTS[0]; for (const x of SHOTS) if (t >= x[0]) s = x; return s; };
+    // 钟的指针：每一声 Tick 跳一格（30°）；Again 的段落倒着转；最后停在 12
+    function handAngle(t) {
+      let n = 0; for (const x of TICKS) if (t >= x) n += sm(x, x + .08, t); else break;
+      let a = n * 30;
+      a -= 1080 * sm(AGAIN[0][0], AGAIN[0][1], t) + 720 * sm(AGAIN[1][0], AGAIN[1][1], t);
+      a += 4 * Math.max(0, t - 1);            // 平时也在慢慢走
+      if (t > 155.3) { const k = sm(155.3, 155.7, t), tgt = Math.round(a / 360) * 360; a = a + (tgt - a) * k; }
+      return a * Math.PI / 180;
+    }
+    function init() {}
+    function draw(I, level, fx) {
+      if (!setup()) return;
+      const now = window.__time || 0, playing = !!window.__playing, prev = lastNow; lastNow = now;
+      const dt = Math.min(.1, Math.max(0, now - prev)), seek = Math.abs(now - prev) > .5;
+      // ── 背景视频严格跟音乐同步 ──
+      if (bgv.readyState >= 1) {
+        if (playing) { if (bgv.paused) bgv.play().catch(() => {}); if (Math.abs(bgv.currentTime - now) > .2) bgv.currentTime = now; bgv.style.opacity = 1; }
+        else { if (!bgv.paused) bgv.pause(); if (now > 0 && Math.abs(bgv.currentTime - now) > .1) bgv.currentTime = now; }
+      }
+      // ── 封面框：换画 ──
+      const sh = (playing || now > 0) ? shotAt(now) : null;
+      if (sh && sh[1] !== cur) {
+        cur = sh[1]; const [a, b] = layers[0].style.opacity === "1" ? [layers[0], layers[1]] : [layers[1], layers[0]];
+        b.src = imgs[cur].src; b.style.objectPosition = `${sh[2] * 100}% 50%`;
+        b.style.transition = "none"; b.style.transform = "scale(1.12)"; void b.offsetWidth;
+        b.style.transition = "opacity 1.4s ease, transform 14s linear"; b.style.opacity = "1"; b.style.transform = "scale(1.02)";
+        a.style.opacity = "0";
+      }
+      // ── 背景：12 号的画淡淡叠在废墟上（双重曝光）──
+      if (cur && imgs[cur].complete && imgs[cur].naturalWidth) {
+        const im = imgs[cur], s = Math.max(W / im.naturalWidth, H / im.naturalHeight) * (1.06 + .04 * Math.sin(now * .05));
+        ctx.save(); ctx.globalCompositeOperation = "screen"; ctx.globalAlpha = (DOUBLE[cur] || .18) * (playing ? 1 : .6);
+        ctx.drawImage(im, (W - im.naturalWidth * s) / 2, (H - im.naturalHeight * s) / 2, im.naturalWidth * s, im.naturalHeight * s); ctx.restore();
+      }
+      const vg = ctx.createRadialGradient(W / 2, H * .42, Math.min(W, H) * .25, W / 2, H * .42, Math.max(W, H) * .78);
+      vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0,.72)"); ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+      // 灰烬里的火星，慢慢往上飘
+      if (playing && !seek && Math.random() < dt * 9) sparks.push({ x: Math.random() * W, y: H + 10, vy: -(20 + Math.random() * 45) * dpr, vx: (Math.random() - .5) * 12 * dpr, r: (.6 + Math.random() * 1.4) * dpr, ph: Math.random() * 6, life: 0 });
+      ctx.save(); ctx.globalCompositeOperation = "lighter";
+      for (const p of sparks) { p.life += dt; p.x += (p.vx + Math.sin(now * 1.3 + p.ph) * 8 * dpr) * dt; p.y += p.vy * dt;
+        const a = Math.min(1, p.life) * (.35 + .35 * Math.sin(now * 4 + p.ph)) * Math.max(0, 1 - p.life / 14);
+        ctx.fillStyle = `rgba(255,${150 + (p.ph * 15 | 0)},90,${a})`; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.283); ctx.fill(); }
+      ctx.restore(); sparks = sparks.filter(p => p.y > -20 && p.life < 14);
+
+      // ── 封面框里的钟 ──
+      const r = wrapEl.getBoundingClientRect(), cw = Math.round(r.width * dpr), chh = Math.round(r.height * dpr);
+      if (ck.width !== cw || ck.height !== chh) { ck.width = cw; ck.height = chh; }
+      cg.clearRect(0, 0, cw, chh);
+      if (!playing && now === 0) return;
+      const inAgain = AGAIN.some(([a, b]) => now >= a && now < b);
+      // 「Again and again」：画面被撕开，一条条错位，再拼回去
+      if (inAgain) {
+        const vis = layers.find(l => l.style.opacity === "1");
+        const im = vis && imgs[cur];
+        if (im && im.complete) {
+          const s = Math.max(cw / im.naturalWidth, chh / im.naturalHeight) * 1.02, ox = (cw - im.naturalWidth * s) * sh[2], oy = (chh - im.naturalHeight * s) / 2;
+          const beat = (now * 2.9) % 1, n = 6 + (Math.random() * 6 | 0);
+          for (let i = 0; i < n; i++) {
+            if (Math.random() > .5 + .4 * (1 - beat)) continue;
+            const hh = (6 + Math.random() * 40) * dpr, y0 = Math.random() * (chh - hh), dx = (Math.random() - .5) * 70 * dpr * (1 - beat * .7);
+            cg.drawImage(im, (0 - ox) / s, (y0 - oy) / s, cw / s, hh / s, dx, y0, cw, hh);
+          }
+          cg.fillStyle = "rgba(0,0,0,.18)"; for (let y = 0; y < chh; y += 3 * dpr) cg.fillRect(0, y, cw, dpr);
+        }
+      }
+      // 每一声「twelve」：钟面上的 XII 亮一下
+      if (playing) for (const t of TWELVES) if (t > prev && t <= now && now - t < .4) flash = Math.max(flash, t > 155 ? 1 : .55);
+      flash *= .92;
+      const cx = cw / 2, cy = chh * .42, R = Math.min(cw, chh) * .36;
+      const show = .55 + .45 * sm(0, 2, now);
+      cg.save(); cg.translate(cx, cy);
+      cg.strokeStyle = `rgba(240,232,216,${.28 * show})`; cg.lineWidth = 1 * dpr;
+      cg.beginPath(); cg.arc(0, 0, R, 0, 6.2832); cg.stroke();
+      cg.strokeStyle = `rgba(240,232,216,${.14 * show})`; cg.beginPath(); cg.arc(0, 0, R * .93, 0, 6.2832); cg.stroke();
+      for (let i = 0; i < 60; i++) {
+        const a = i / 60 * 6.2832, big = i % 5 === 0, l = big ? R * .085 : R * .03;
+        cg.strokeStyle = `rgba(240,232,216,${(big ? .45 : .2) * show})`; cg.lineWidth = (big ? 1.4 : .8) * dpr;
+        cg.beginPath(); cg.moveTo(Math.sin(a) * R, -Math.cos(a) * R); cg.lineTo(Math.sin(a) * (R - l), -Math.cos(a) * (R - l)); cg.stroke();
+      }
+      // XII
+      cg.font = `${R * .16}px "Cormorant Garamond", "Times New Roman", serif`; cg.textAlign = "center"; cg.textBaseline = "middle";
+      cg.shadowColor = `rgba(255,214,150,${flash})`; cg.shadowBlur = 18 * dpr * flash;
+      cg.fillStyle = `rgba(255,${238 - flash * 20},${220 - flash * 60},${(.5 + .5 * flash) * show})`; cg.fillText("XII", 0, -R * .78);
+      cg.shadowBlur = 0;
+      // 指针
+      const ang = handAngle(now);
+      cg.rotate(ang);
+      cg.strokeStyle = `rgba(250,244,232,${.75 * show})`; cg.lineWidth = 1.4 * dpr;
+      cg.beginPath(); cg.moveTo(0, R * .14); cg.lineTo(0, -R * .86); cg.stroke();
+      cg.rotate(-ang);
+      cg.fillStyle = `rgba(250,244,232,${.85 * show})`; cg.beginPath(); cg.arc(0, 0, 2.6 * dpr, 0, 6.2832); cg.fill();
+      cg.restore();
+      // 最后一声 twelve：一道光
+      if (flash > .02) { cg.fillStyle = `rgba(255,236,205,${flash * .18})`; cg.fillRect(0, 0, cw, chh); }
+      if (now > 156) { cg.fillStyle = `rgba(0,0,0,${sm(158, 168, now) * .85})`; cg.fillRect(0, 0, cw, chh); }
+    }
+    return { init, draw, wet: false };
+  };
+
   SCENES.none = () => ({ init() {}, draw() {} });
 
   // ═════════ 引擎 ═════════

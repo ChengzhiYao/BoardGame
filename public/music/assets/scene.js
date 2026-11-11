@@ -3735,6 +3735,135 @@ void main(){
     return { init, draw, wet: false };
   };
 
+  // ═════════ 鼓動（Kodo）：孤独的吸血鬼骑士 ═════════
+  // 永夜里一轮苍白的月亮，画面随着心跳一下下搏动；血一滴滴落进黑暗里，像墨在水里一样慢慢晕开，
+  // 再一点点褪色、消失——拥有过的一切都会被时间带走。「血と涙が視界を染めて」时视野被染红、月亮变成血月；
+  // 「あの光へ手を伸ばしている」时上方透出一道光；最后只剩下等待
+  SCENES.kodo = (song) => {
+    const sm = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+    const hash = n => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+    // 血滴落下的时间（跟着歌词，副歌后越来越密）
+    const DROPS = [];
+    for (const t of [23.6, 31.2, 35.7, 43.1, 48.0, 53.4, 58.9, 66, 73.0, 77.8, 83.6, 86, 88.5, 91, 94.5, 100.4, 106.1, 111.4, 118.2, 125.7, 127.6, 129.5, 131.5,
+      133.5, 135.5, 142.4, 147.9, 156, 160, 164, 168, 173.9, 181.9, 194.8, 202, 205, 208, 211, 214, 217, 220, 223, 226]) DROPS.push(t);
+    const N = 16;
+    let gl, prog, cv, U = {}, ok = false, lastNow = 0, beatE = 0, beatV = 0;
+    const FS = `precision highp float;
+uniform vec2 R; uniform float T,beat,stain,lightV,scream,moonR,moonL,fade; uniform vec4 B[${N}];
+float h21(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
+float vn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h21(i),h21(i+vec2(1,0)),f.x),mix(h21(i+vec2(0,1)),h21(i+vec2(1,1)),f.x),f.y);}
+float fbm(vec2 p){float s=0.,a=.5;for(int i=0;i<5;i++){s+=a*vn(p);p=p*2.03+17.1;a*=.5;}return s;}
+void main(){
+  vec2 fc=gl_FragCoord.xy; vec2 p=(fc-.5*R)/R.y;
+  float ar=R.x/R.y;
+  p*=1.-beat*.012;                       // 心跳：整个画面轻轻一缩
+  // 永夜：深色的雾在慢慢流动
+  float fog=fbm(p*1.3+vec2(T*.012,-T*.008)+fbm(p*2.+T*.01)*.6);
+  vec3 col=mix(vec3(.014,.01,.013),vec3(.07,.04,.05),fog*fog*1.3);
+  // 月亮：有明暗斑块、边缘变暗、外面一圈光晕，云从前面慢慢飘过
+  vec2 mc=vec2(ar*.5-.3,.29); vec2 mq=(p-mc)/.105; float mr=length(mq);
+  float maria=smoothstep(.42,.72,fbm(mq*1.1+3.7))*.42+(fbm(mq*3.5+1.3)-.5)*.16;
+  vec3 mcol=mix(vec3(.93,.91,.87),vec3(.82,.1,.08),moonR);
+  float disc=smoothstep(1.,.97,mr);
+  vec3 moon=mcol*(1.-maria)*pow(max(0.,1.-mr*mr),.22);
+  float halo=exp(-max(mr-1.,0.)*1.6)*.16+exp(-max(mr-1.,0.)*5.)*.22;
+  float cl=smoothstep(.45,.75,fbm(p*vec2(1.4,3.2)+vec2(T*.02,0.)));
+  col=mix(col,moon,disc*moonL*(1.-cl*.65));
+  col+=mcol*halo*moonL*(1.-cl*.4)*(1.-disc);
+  // 血：落进黑暗里，像墨在水里一样拉出一缕缕往下沉的丝，再慢慢褪色、散掉
+  for(int i=0;i<${N};i++){
+    vec4 b=B[i]; if(b.z<0.) continue;
+    float age=b.z; vec2 c=b.xy; float sd=b.w*17.3;
+    float fallT=.5;
+    if(age<fallT){
+      float k=age/fallT; vec2 dp=vec2(c.x,mix(.6,c.y,k*k));
+      vec2 q=(p-dp)*vec2(1.,.55); float d=length(q);
+      col=mix(col,vec3(.6,.03,.05),smoothstep(.011,.007,d));
+      col+=vec3(1.,.75,.75)*smoothstep(.004,.0,length(p-dp-vec2(-.003,.005)))*.7;
+      continue;
+    }
+    float a2=age-fallT;
+    vec2 q=p-c;
+    float L=.06+.55*(1.-exp(-a2*.09))*b.w;
+    float wd=.03+.1*(1.-exp(-a2*.12))*b.w;
+    float yy=clamp(-q.y/L,0.,1.);
+    vec2 w1=vec2(fbm(q*3.+sd+vec2(0.,a2*.06)),fbm(q*3.+sd+5.2-vec2(0.,a2*.05)));
+    vec2 qw=q+(w1-.5)*(.18+.25*yy)*b.w;
+    float fil=fbm(qw*vec2(7.,3.5)+sd*2.+vec2(0.,a2*.08));
+    float rg=1.-abs(2.*fbm(qw*vec2(11.,4.)+sd*3.+vec2(0.,a2*.1))-1.); rg=pow(rg,6.);   // 细丝
+    float cone=exp(-pow(qw.x/(wd*(.4+1.4*yy)),2.))*smoothstep(.02,-.02,qw.y)*smoothstep(-L*1.05,-L*.5,qw.y);
+    float head=exp(-dot(qw,qw)/(wd*wd*.25));
+    float dens=(cone*(pow(fil,2.4)*1.6+rg*1.6)+head*.7)*exp(-a2/24.)*smoothstep(0.,.25,a2);
+    vec3 ink=mix(vec3(.35,.01,.03),vec3(.98,.16,.15),clamp(pow(fil,1.5)+rg*.6,0.,1.));
+    ink=mix(vec3(.16,.07,.08),ink,exp(-a2/16.));
+    col=mix(col,ink,clamp(dens,0.,1.)*.85);
+    col+=vec3(.9,.15,.15)*exp(-a2*2.5)*exp(-dot(q,q)*500.)*.5;
+  }
+  col+=vec3(.55,.0,.03)*scream*(.15+beat*.35)*smoothstep(.2,.9,length(p));   // 嘶吼：四周随着心跳泛红
+  // 视野被血和泪染红
+  if(stain>0.){
+    float e=length(p*vec2(.85,1.))+(fbm(p*3.+T*.05)-.5)*.35;
+    float m=smoothstep(.95-stain*.75,.55-stain*.7,-e+.95);
+    col=mix(col,vec3(.38,.01,.03)+vec3(.25,.02,.03)*fbm(p*7.),m*.92);
+  }
+  // 上方透出的一道光
+  if(lightV>0.){
+    vec2 lc=vec2(0.,.75); float l=exp(-length((p-lc)*vec2(1.6,1.))*2.2);
+    float rays=.5+.5*sin(atan(p.x-lc.x,p.y-lc.y)*24.+T*.4);
+    col+=vec3(1.,.95,.88)*(l*.9+l*rays*.25)*lightV;
+  }
+  col*=1.+beat*.18;
+  col+=vec3(.5,0.,.02)*beat*.06*smoothstep(.3,.9,length(p));   // 心跳时边缘泛红
+  col+=(h21(fc+fract(T*13.)*71.)-.5)*.02;
+  col*=1.-.4*dot(p*.8,p*.8);
+  gl_FragColor=vec4(clamp(col,0.,1.)*fade,1.);
+}`;
+    function setup() {
+      if (cv) return ok;
+      cv = document.createElement("canvas");
+      cv.style.cssText = "position:fixed;inset:0;width:100%;height:100%;z-index:-3;pointer-events:none;background:#000";
+      document.body.insertBefore(cv, document.body.firstChild);
+      const bd = document.querySelector(".backdrop"); if (bd) bd.style.display = "none";
+      gl = cv.getContext("webgl", { antialias: false, alpha: false });
+      if (!gl) return (ok = false);
+      const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.warn(gl.getShaderInfoLog(s)); return null; } return s; };
+      const vs = sh(gl.VERTEX_SHADER, "attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}"), fs = sh(gl.FRAGMENT_SHADER, FS);
+      if (!vs || !fs) return (ok = false);
+      prog = gl.createProgram(); gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog); gl.useProgram(prog);
+      const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+      const loc = gl.getAttribLocation(prog, "p"); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+      for (const k of ["R", "T", "beat", "stain", "lightV", "scream", "moonR", "moonL", "fade", "B"]) U[k] = gl.getUniformLocation(prog, k);
+      return (ok = true);
+    }
+    function init() {}
+    function draw(I, level, fx) {
+      if (!setup()) return;
+      const now = window.__time || 0, playing = !!window.__playing; lastNow = now;
+      const sc = Math.min(window.devicePixelRatio || 1, 1.5) * .85, w = Math.round(innerWidth * sc), h = Math.round(innerHeight * sc);
+      if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; gl.viewport(0, 0, w, h); }
+      const bs = window.__bass || 0; beatE += (bs - beatE) * .08; beatV = Math.max(beatV * .82, playing ? Math.max(0, bs - beatE) * 2.5 : 0);
+      // 没有明显鼓点的段落，也保持一个慢慢的心跳（约 64 次/分）
+      const hb = t => { const ph = (t * 64 / 60) % 1; return Math.exp(-ph * 14) + .6 * Math.exp(-Math.max(0, ph - .18) * 14) * (ph > .18 ? 1 : 0); };
+      const beat = Math.min(1.2, beatV + (playing ? hb(now) * .55 : 0));
+      const ar = w / h, Bv = new Float32Array(N * 4).fill(-1);
+      const recent = DROPS.filter(t => t <= now && now - t < 60).slice(-N);
+      recent.forEach((t, i) => {
+        const k = DROPS.indexOf(t), sx = (hash(k * 3.1) - .5) * ar * .85, sy = (hash(k * 7.7) - .5) * .7 - .05;
+        Bv.set([sx, sy, now - t, .7 + hash(k * 1.9) * .7], i * 4);
+      });
+      const stain = sm(127.4, 132, now) * (1 - sm(139, 147, now));
+      const lightV = sm(147.6, 150, now) * (1 - sm(153, 158, now)) * .9;
+      const scream = sm(83.3, 84.5, now) * (1 - sm(92.5, 94, now)) + sm(154.3, 156, now) * (1 - sm(170, 173.5, now)) * .8;
+      const moonR = Math.max(stain, sm(197, 205, now) * (1 - sm(228, 236, now)));
+      const moonL = (.35 + .65 * sm(1, 20, now)) * (1 - .5 * sm(184, 197, now) + .5 * sm(197, 205, now));
+      const fade = Math.min(1, .35 + now / 3) * (1 - sm(234, 239.5, now));
+      gl.uniform2f(U.R, w, h); gl.uniform1f(U.T, now); gl.uniform1f(U.beat, beat); gl.uniform1f(U.stain, stain); gl.uniform1f(U.lightV, lightV);
+      gl.uniform1f(U.scream, scream); gl.uniform1f(U.moonR, moonR); gl.uniform1f(U.moonL, moonL); gl.uniform1f(U.fade, fade); gl.uniform4fv(U.B, Bv);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    }
+    return { init, draw, wet: false };
+  };
+
   SCENES.none = () => ({ init() {}, draw() {} });
 
   // ═════════ 引擎 ═════════

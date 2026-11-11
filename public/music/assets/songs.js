@@ -391,7 +391,22 @@ window.SONGS = [
   },
   {
     id: "18",
-    rev: 7,
+    title: "Kodo",
+    subtitle: "鼓動 · 心跳",
+    rev: 8,
+    date: "2026.01.23",
+    place: "",
+    scene: "kodo",                  // 孤独的吸血鬼骑士：永夜、苍白的月亮、心跳；血滴落进黑暗慢慢晕开又褪去；视野被染红、血月；伸向光
+    theme: { night: "#0b0506", nightRgb: "11,5,6", glow: "240,210,210", accent: "#c8333a" },
+    note: [
+      "这首歌里面孤独的吸血鬼骑士，就是我自己。",
+      "拥有永远的生命，却无法像人类一样感受这个世界的美好。所有拥有过的一切、触碰过的一切、爱过的人和事物，都会随着时间失去。",
+      "感觉自己就像这个世界的过客一样。"
+    ]
+  },
+  {
+    id: "19",
+    rev: 8,
     title: "黒い輪あそび",
     subtitle: "黑色的转圈游戏",
     date: "2025.10.18",
@@ -426,9 +441,9 @@ window.SONGS = [
     ]
   },
   {
-    id: "19",
+    id: "20",
     title: "Send My Love Across the Night",
-    rev: 7,
+    rev: 8,
     subtitle: "把我的爱，送过这片黑夜",
     date: "",
     place: "",

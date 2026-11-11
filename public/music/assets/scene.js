@@ -3959,6 +3959,112 @@ void main(){
     return { init, draw, wet: false };
   };
 
+  // ═════════ もう疲れた：对这个世界最后的抗议 ═════════
+  // 满屏是乱涂的颜料和那张咧着嘴的脸。随着鼓点轻轻震；
+  // 画面像被抽干力气一样一点点往下「化」掉（一条条往下淌）；
+  // 黑色的乱线一笔一笔涂上来，越涂越满；「どこが美しい？」颜色被抽干；「繰り返す苦痛」画面一遍遍重复；
+  // 最后，所有东西一起沉进黑暗里
+  SCENES.tired = (song) => {
+    const sm = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+    let gl, prog, cv, U = {}, ok = false, tex, imgReady = false, IW = 1536, IH = 1024, sc2, sg, lastNow = 0, beatE = 0, kick = 0, pen = null;
+    const FS = `precision highp float;
+uniform sampler2D tex; uniform vec2 R,IM; uniform vec3 S;
+uniform float T,sat,sag,split,kick,rep,dark,fade,cold;
+float h21(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
+float vn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h21(i),h21(i+vec2(1,0)),f.x),mix(h21(i+vec2(0,1)),h21(i+vec2(1,1)),f.x),f.y);}
+vec2 toImg(vec2 p){ float ar=IM.x/IM.y, sar=R.x/R.y; float k=max(sar/ar,1.); vec2 q=p/(S.z*k); q.x/=ar; return vec2(S.x,1.-S.y)+q; }
+vec3 smp(vec2 u){ u=clamp(u,.001,.999); return texture2D(tex,u).rgb; }
+void main(){
+  vec2 fc=gl_FragCoord.xy; vec2 p=(fc-.5*R)/R.y;
+  p+=vec2(sin(T*53.),cos(T*41.))*kick*.004;
+  // 一遍遍重复：画面切成几条，每条都是同一段
+  if(rep>0.){ float n=floor(mix(1.,5.,rep)); float y=fract((p.y+.5)*n)/n-.5+ .5/n; p.y=mix(p.y,y*(1.+.2*rep),rep); }
+  // 往下化：每一列往下淌的程度不同
+  float col=fc.x/R.y*60.;
+  float drip=vn(vec2(col*.25,3.))*.65+vn(vec2(col*1.3,7.))*.25+vn(vec2(col*4.,11.))*.1;
+  p.y+=sag*(.04+.22*pow(drip,2.2))*smoothstep(-.6,.5,p.y);
+  vec2 u=toImg(p); float sp=split*.004+kick*.003;
+  vec3 c=vec3(smp(u+vec2(sp,0.)).r,smp(u).g,smp(u-vec2(sp,0.)).b);
+  float l=dot(c,vec3(.299,.587,.114));
+  c=mix(vec3(l),c,sat);
+  c=mix(c,vec3(l)*vec3(.82,.9,1.05),cold);
+  c*=1.+kick*.12;
+  float e=length(p*vec2(.8,1.));
+  c*=1.-dark*smoothstep(.15,.95-dark*.45,e);     // 四周的黑暗慢慢合拢
+  c+=(h21(fc+fract(T*29.)*77.)-.5)*.05;
+  c*=1.-.35*dot(p,p);
+  gl_FragColor=vec4(clamp(c,0.,1.)*fade,1.);
+}`;
+    function setup() {
+      if (cv) return ok;
+      cv = document.createElement("canvas");
+      cv.style.cssText = "position:fixed;inset:0;width:100%;height:100%;z-index:-3;pointer-events:none;background:#000";
+      document.body.insertBefore(cv, document.body.firstChild);
+      sc2 = document.createElement("canvas");          // 乱线一笔笔累积在这张画布上
+      sc2.style.cssText = "position:fixed;inset:0;width:100%;height:100%;z-index:-2;pointer-events:none";
+      document.body.insertBefore(sc2, cv.nextSibling); sg = sc2.getContext("2d");
+      const bd = document.querySelector(".backdrop"); if (bd) bd.style.display = "none";
+      gl = cv.getContext("webgl", { antialias: false, alpha: false });
+      if (!gl) return (ok = false);
+      const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.warn(gl.getShaderInfoLog(s)); return null; } return s; };
+      const vs = sh(gl.VERTEX_SHADER, "attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}"), fs = sh(gl.FRAGMENT_SHADER, FS);
+      if (!vs || !fs) return (ok = false);
+      prog = gl.createProgram(); gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog); gl.useProgram(prog);
+      const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+      const loc = gl.getAttribLocation(prog, "p"); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+      for (const k of ["tex", "R", "IM", "S", "T", "sat", "sag", "split", "kick", "rep", "dark", "fade", "cold"]) U[k] = gl.getUniformLocation(prog, k);
+      tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
+      for (const [k, v] of [[gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE], [gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+      const im = new Image(); im.onload = () => { gl.bindTexture(gl.TEXTURE_2D, tex); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, im); IW = im.width; IH = im.height; imgReady = true; };
+      im.src = `/music/media/${song.id}/cover.jpg?r=${song.rev || 0}`;
+      return (ok = true);
+    }
+    function init() {}
+    // 一笔乱线：带一点抖动的连续折线，像用炭笔狠狠划过去
+    function stroke(Wc, Hc, red) {
+      const n = 8 + (Math.random() * 18 | 0); let x = Math.random() * Wc, y = Math.random() * Hc, a = Math.random() * 6.28;
+      const len = Math.min(Wc, Hc) * (.03 + Math.random() * .06);
+      sg.beginPath(); sg.moveTo(x, y);
+      for (let i = 0; i < n; i++) { a += (Math.random() - .5) * 2.2; x += Math.cos(a) * len; y += Math.sin(a) * len; sg.lineTo(x, y); }
+      sg.strokeStyle = red ? `rgba(${150 + Math.random() * 60 | 0},${10 + Math.random() * 20 | 0},${15 + Math.random() * 20 | 0},${.35 + Math.random() * .35})` : `rgba(8,6,6,${.25 + Math.random() * .4})`;
+      sg.lineWidth = (.6 + Math.random() * 2.4) * Math.min(window.devicePixelRatio || 1, 2); sg.lineJoin = "round"; sg.stroke();
+    }
+    function draw(I, level, fx) {
+      if (!setup()) return;
+      const now = window.__time || 0, playing = !!window.__playing, prev = lastNow; lastNow = now;
+      const dt = Math.min(.1, Math.max(0, now - prev)), seek = Math.abs(now - prev) > .5;
+      const sc = Math.min(window.devicePixelRatio || 1, 1.5) * .8, w = Math.round(innerWidth * sc), h = Math.round(innerHeight * sc);
+      if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; gl.viewport(0, 0, w, h); }
+      const bs = window.__bass || 0; beatE += (bs - beatE) * .1; kick = Math.max(kick * .84, playing ? Math.max(0, bs - beatE) * 2 : 0);
+      // 镜头：慢慢在这张乱糟糟的画上游移，偶尔贴近那张脸
+      const face = sm(10, 20, now) * (1 - sm(42, 52, now)) + sm(85, 95, now) * (1 - sm(105, 112, now));
+      const fxp = .5 + .06 * Math.sin(now * .05) - .02 * face, fyp = .45 + .04 * Math.cos(now * .04) - .1 * face, z = 1.08 + .45 * face + .05 * Math.sin(now * .07);
+      const tiredness = sm(0, 134, now);
+      const sag = .15 + .5 * sm(52, 58, now) * (1 - sm(61, 64, now)) + .35 * tiredness + .9 * sm(125, 134, now);
+      const sat = 1 - .35 * tiredness - .6 * sm(73.5, 75, now) * (1 - sm(79, 85, now));
+      const cold = .7 * sm(73.5, 75, now) * (1 - sm(79, 85, now));
+      const rep = sm(79.5, 80.2, now) * (1 - sm(84.5, 85.5, now)) + .5 * sm(95.3, 96, now) * (1 - sm(104.8, 105.8, now));
+      const dark = .15 + .35 * tiredness + .5 * sm(117.6, 134, now);
+      const fade = Math.min(1, .3 + now / 2) * (1 - sm(131, 134, now) * .92);
+      gl.uniform1i(U.tex, 0); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.uniform2f(U.R, w, h); gl.uniform2f(U.IM, IW, IH); gl.uniform3f(U.S, fxp, fyp, z);
+      gl.uniform1f(U.T, now); gl.uniform1f(U.sat, sat); gl.uniform1f(U.sag, sag); gl.uniform1f(U.split, 1 + 2 * kick); gl.uniform1f(U.kick, kick);
+      gl.uniform1f(U.rep, rep); gl.uniform1f(U.dark, Math.min(1, dark)); gl.uniform1f(U.fade, imgReady ? fade : 0); gl.uniform1f(U.cold, cold);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      // —— 乱线累积 ——
+      const dp = Math.min(window.devicePixelRatio || 1, 2), Wc = Math.round(innerWidth * dp), Hc = Math.round(innerHeight * dp);
+      if (sc2.width !== Wc || sc2.height !== Hc || seek) { sc2.width = Wc; sc2.height = Hc; }
+      if (playing && !seek) {
+        const rate = (2 + 10 * level + 8 * kick + 6 * tiredness) * (1 - sm(117, 125, now));
+        let n = rate * dt; while (Math.random() < n) { n -= 1; stroke(Wc, Hc, Math.random() < .18); }
+        // 慢慢褪掉一点，不至于全黑
+        sg.globalCompositeOperation = "destination-out"; sg.fillStyle = `rgba(0,0,0,${.012 + .1 * sm(125, 133, now)})`; sg.fillRect(0, 0, Wc, Hc); sg.globalCompositeOperation = "source-over";
+      }
+    }
+    return { init, draw, wet: false };
+  };
+
   SCENES.none = () => ({ init() {}, draw() {} });
 
   // ═════════ 引擎 ═════════

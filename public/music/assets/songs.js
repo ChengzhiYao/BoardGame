@@ -422,8 +422,24 @@ window.SONGS = [
   },
   {
     id: "20",
+    title: "もう疲れた",
+    subtitle: "已经累了",
+    rev: 12,
+    date: "2026.03.06",
+    place: "",
+    scene: "tired",                 // 乱涂的颜料和咧嘴的脸；画面像被抽干力气一样往下淌；黑色乱线越涂越满；最后一起沉进黑暗
+    coverFill: "40% 50%",
+    theme: { night: "#0a0807", nightRgb: "10,8,7", glow: "236,226,214", accent: "#c94a3c" },
+    note: [
+      "这首歌，是我对这个世界最后的抗议吧。",
+      "我已经非常非常疲倦了，这时候的我已经想放弃一切了。我也不在乎别人怎么看我，也不在乎家里人理解不理解我了。",
+      "我什么都不在乎了。"
+    ]
+  },
+  {
+    id: "21",
     title: "Send My Love Across the Night",
-    rev: 11,
+    rev: 12,
     subtitle: "把我的爱，送过这片黑夜",
     date: "",
     place: "",

@@ -3864,6 +3864,101 @@ void main(){
     return { init, draw, wet: false };
   };
 
+  // ═════════ 全力以赴的笨蛋（おつかれさま）═════════
+  // 夜里的雨，一直下。躺在湿透的草地上的他。屏幕像一块玻璃，雨点打上去、顺着往下滑（像眼泪）；
+  // 越唱越重：雨更大、风更斜，英文段偶尔远处打闪；
+  // 唱到「おつかれさま」那一刻雨停了，云散开，一层很暖的光落下来，萤火一样的小光点慢慢升起——像终于有人对他说了这句话
+  SCENES.otsukare = (song) => {
+    const sm = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+    const CALM = 100.6;                                  // 「おつかれさま」
+    const FLASH = [58.7, 62.2, 64.3, 86.1, 88.6, 90.9];  // 英文段远处的闪电
+    let im = null, lastNow = 0, rain = [], drops = [], motes = [], fl = 0, ready = false;
+    function setup() {
+      if (im) return true;
+      im = new Image(); im.onload = () => (ready = true); im.src = `/music/media/${song.id}/cover.jpg?r=${song.rev || 0}`;
+      const bd = document.querySelector(".backdrop"); if (bd) bd.style.display = "none";
+      return true;
+    }
+    const rainAmt = t => (.35 + .3 * sm(10, 26, t) + .25 * sm(36, 46, t) + .3 * sm(56, 60, t) * (1 - sm(68, 72, t)) + .2 * sm(80, 86, t)) * (1 - sm(CALM - 1.2, CALM + 1.5, t));
+    function init() { rain = []; drops = []; }
+    function draw(I, level, fx) {
+      if (!setup()) return;
+      const now = window.__time || 0, playing = !!window.__playing, prev = lastNow; lastNow = now;
+      const dt = Math.min(.1, Math.max(0, now - prev)), seek = Math.abs(now - prev) > .5;
+      const warm = sm(CALM - .5, CALM + 4, now), ra = rainAmt(now);
+      ctx.fillStyle = "#05070c"; ctx.fillRect(0, 0, W, H);
+      // ── 他（封面），宽屏上按高度完整显示，两边渐隐 ──
+      let L = null;
+      if (ready) {
+        const z = 1 + .06 * sm(0, 135, now), s = Math.max(H / im.naturalHeight, W > H ? 0 : W / im.naturalWidth) * z;
+        const dw = im.naturalWidth * s, dh = im.naturalHeight * s, ox = (W - dw) / 2, oy = (H - dh) / 2 - (dh - H) * .1;
+        ctx.globalAlpha = .8 + .2 * warm; ctx.drawImage(im, ox, oy, dw, dh); ctx.globalAlpha = 1; L = { ox, oy, dw, dh };
+        if (dw < W) { const e = Math.min(W * .12, dw * .1);
+          for (const [x0, dir] of [[ox, 1], [ox + dw, -1]]) { const g = ctx.createLinearGradient(x0, 0, x0 + dir * e, 0); g.addColorStop(0, "#05070c"); g.addColorStop(1, "rgba(5,7,12,0)"); ctx.fillStyle = g; ctx.fillRect(Math.min(x0, x0 + dir * e), 0, e, H); } }
+      }
+      // ── 天色：雨里是冷的蓝；おつかれさま 之后，暖光从上面落下来 ──
+      ctx.save();
+      ctx.globalCompositeOperation = "multiply"; ctx.fillStyle = `rgba(${170 + warm * 85 | 0},${185 + warm * 60 | 0},${228 - warm * 18 | 0},1)`; ctx.fillRect(0, 0, W, H);
+      ctx.globalCompositeOperation = "screen";
+      if (warm > 0) { const g = ctx.createRadialGradient(W * .55, -H * .15, 0, W * .55, -H * .15, Math.max(W, H) * 1.1);
+        g.addColorStop(0, `rgba(255,214,150,${.6 * warm})`); g.addColorStop(.5, `rgba(255,185,110,${.2 * warm})`); g.addColorStop(1, "rgba(0,0,0,0)"); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); }
+      // 闪电
+      if (playing) for (const t of FLASH) if (t > prev && t <= now && now - t < .3) fl = Math.max(fl, .5 + Math.random() * .3);
+      if (fl > .01) { ctx.fillStyle = `rgba(200,215,255,${fl * .35})`; ctx.fillRect(0, 0, W, H); if (Math.random() < .2) fl *= .5; }
+      fl *= .85;
+      ctx.restore();
+      // ── 雨丝（斜着落，越到副歌越密）──
+      if (seek) { rain = []; drops = []; motes = []; }
+      const wind = .18 + .12 * sm(56, 60, now) * (1 - sm(68, 72, now)) + .08 * Math.sin(now * .3);
+      const target = Math.round(ra * 520 * Math.min(1.4, W * H / (1400 * 900 * dpr * dpr) + .3));
+      while (rain.length < target) rain.push({ x: Math.random() * W * 1.3 - W * .15, y: Math.random() * H, v: (1400 + Math.random() * 900) * dpr, l: (14 + Math.random() * 26) * dpr, a: .08 + Math.random() * .22 });
+      if (rain.length > target) rain.length = target;
+      ctx.save(); ctx.lineCap = "round";
+      for (const r of rain) {
+        if (playing) { r.y += r.v * dt; r.x += r.v * wind * dt; if (r.y > H + 30) { r.y = -40 - Math.random() * 100; r.x = Math.random() * W * 1.3 - W * .15; } }
+        ctx.strokeStyle = `rgba(200,215,240,${r.a})`; ctx.lineWidth = Math.max(1, dpr * .9);
+        ctx.beginPath(); ctx.moveTo(r.x, r.y); ctx.lineTo(r.x - r.l * wind, r.y - r.l); ctx.stroke();
+      }
+      ctx.restore();
+      // ── 屏幕上的水珠：打上去、停一会、顺着往下滑，留下一道水痕（像眼泪）──
+      if (playing && !seek && L && Math.random() < dt * 14 * ra) {
+        const r0 = (3 + Math.pow(Math.random(), 2.5) * 12) * dpr;
+        drops.push({ x: Math.random() * W, y: Math.random() * H * .9, r: r0, vy: 0, hold: .4 + Math.random() * 3, life: 0, trail: [] });
+      }
+      for (const d of drops) {
+        d.life += dt;
+        if (d.life > d.hold && d.r > 4 * dpr) { d.vy = Math.min(d.vy + 260 * dpr * dt, 220 * dpr); d.y += d.vy * dt; d.x += Math.sin(d.y * .03) * .3; if (d.trail.length === 0 || d.y - d.trail[d.trail.length - 1][1] > 3 * dpr) d.trail.push([d.x, d.y]); }
+        const fade = Math.min(1, d.life * 6) * (warm > 0 ? 1 - warm : 1);
+        if (fade <= .01) continue;
+        // 水痕
+        if (d.trail.length > 1) { ctx.strokeStyle = `rgba(210,225,245,${.07 * fade})`; ctx.lineWidth = d.r * .7; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(d.trail[0][0], d.trail[0][1]); for (const p of d.trail) ctx.lineTo(p[0], p[1]); ctx.stroke(); }
+        // 水珠里倒映着上下颠倒、放大的画面
+        ctx.save(); ctx.globalAlpha = .85 * fade; ctx.beginPath(); ctx.ellipse(d.x, d.y, d.r, d.r * 1.12, 0, 0, 6.283); ctx.clip();
+        if (ready) { const k = 2.4, sw = d.r * 2 * k; const sx = (d.x - L.ox) / L.dw * im.naturalWidth, sy = (d.y - L.oy) / L.dh * im.naturalHeight, ss = sw / L.dw * im.naturalWidth;
+          ctx.translate(d.x, d.y); ctx.scale(1, -1); ctx.drawImage(im, sx - ss / 2, sy - ss / 2, ss, ss, -d.r * 1.1, -d.r * 1.2, d.r * 2.2, d.r * 2.4); ctx.setTransform(1, 0, 0, 1, 0, 0); }
+        ctx.restore();
+        const g = ctx.createRadialGradient(d.x - d.r * .35, d.y - d.r * .4, 0, d.x, d.y, d.r * 1.15);
+        g.addColorStop(0, `rgba(255,255,255,${.5 * fade})`); g.addColorStop(.25, `rgba(255,255,255,${.06 * fade})`); g.addColorStop(.85, "rgba(0,0,0,0)"); g.addColorStop(1, `rgba(0,0,0,${.35 * fade})`);
+        ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(d.x, d.y, d.r, d.r * 1.12, 0, 0, 6.283); ctx.fill();
+      }
+      drops = drops.filter(d => d.y < H + 20 && d.life < 14).slice(-90);
+      // ── 雨停之后：萤火一样的暖色光点慢慢往上飘 ──
+      if (playing && !seek && warm > .2 && Math.random() < dt * 10 * warm * (1 - sm(128, 135, now))) motes.push({ x: Math.random() * W, y: H * (.55 + Math.random() * .5), vy: -(10 + Math.random() * 22) * dpr, ph: Math.random() * 6.28, r: (1 + Math.random() * 1.8) * dpr, life: 0 });
+      ctx.save(); ctx.globalCompositeOperation = "lighter";
+      for (const m of motes) {
+        m.life += dt; m.y += m.vy * dt; m.x += Math.sin(now * .8 + m.ph) * 12 * dpr * dt;
+        const a = Math.min(1, m.life / 1.5) * Math.max(0, 1 - m.life / 12) * (.5 + .5 * Math.sin(now * 2.3 + m.ph));
+        const g = ctx.createRadialGradient(m.x, m.y, 0, m.x, m.y, m.r * 6); g.addColorStop(0, `rgba(255,230,170,${.8 * a})`); g.addColorStop(.3, `rgba(255,200,120,${.18 * a})`); g.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = g; ctx.fillRect(m.x - m.r * 6, m.y - m.r * 6, m.r * 12, m.r * 12);
+      }
+      ctx.restore(); motes = motes.filter(m => m.life < 12);
+      const vg = ctx.createRadialGradient(W / 2, H * .45, Math.min(W, H) * .3, W / 2, H * .45, Math.max(W, H) * .8);
+      vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, `rgba(0,0,0,${.6 - .25 * warm})`); ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+      const end = sm(131, 135.5, now); if (end > 0) { ctx.fillStyle = `rgba(0,0,0,${end * .6})`; ctx.fillRect(0, 0, W, H); }
+    }
+    return { init, draw, wet: false };
+  };
+
   SCENES.none = () => ({ init() {}, draw() {} });
 
   // ═════════ 引擎 ═════════

@@ -4,12 +4,12 @@
   if (!song) { document.querySelector("main").innerHTML = "<p style='padding:40px 0'>找不到这首歌。</p>"; return; }
 
   const $ = s => document.querySelector(s);
-  const media = `/music/media/${song.id}`;
+  const media = `/music/media/${song.id}`, rv = song.rev ? `?r=${song.rev}` : "";   // rev：同一个编号换了歌时，让浏览器重新下载
   const fmt = t => { t = Math.max(0, t | 0); return `${(t / 60) | 0}:${String(t % 60).padStart(2, "0")}`; };
 
   // ── 填内容 ──
   document.title = song.title;
-  document.documentElement.style.setProperty("--bg", `url(${media}/cover.jpg)`);
+  document.documentElement.style.setProperty("--bg", `url(${media}/cover.jpg${rv})`);
   if (song.theme) {
     const th = song.theme, rs = document.documentElement.style;
     if (th.night) { rs.setProperty("--night", th.night); document.querySelector('meta[name="theme-color"]').content = th.night; }
@@ -21,7 +21,7 @@
     const im = e.target; if (song.coverFill) { im.style.objectPosition = song.coverFill; return; }   // 横图也铺满整个方框（按指定焦点裁切）
     if (im.naturalWidth / im.naturalHeight > 1.15) $(".cover-wrap").classList.add("wide");
   });
-  $("#cover").src = `${media}/cover.jpg`;
+  $("#cover").src = `${media}/cover.jpg${rv}`;
   $("#cover").alt = song.title;
   $(".gate-no").textContent = `No. ${song.id}`;
   $(".gate-title").textContent = song.title;
@@ -36,7 +36,7 @@
 
   // ── 音频 ──
   const audio = new Audio();
-  audio.src = `${media}/audio.m4a`;
+  audio.src = `${media}/audio.m4a${rv}`;
   audio.preload = "metadata";
   audio.setAttribute("playsinline", "");
 
@@ -75,7 +75,7 @@
   if ("mediaSession" in navigator) {
     navigator.mediaSession.metadata = new MediaMetadata({
       title: song.title, artist: song.subtitle || "",
-      artwork: [{ src: `${media}/cover.jpg`, sizes: "1024x1024", type: "image/jpeg" }]
+      artwork: [{ src: `${media}/cover.jpg${rv}`, sizes: "1024x1024", type: "image/jpeg" }]
     });
   }
 
@@ -141,7 +141,7 @@
   // 数据格式（songs.js）：lyrics: [{ t: 开始秒, e: 结束秒, w: [[字, 开始, 结束], ...], tr: "翻译(可选)" }, ...]
   // 没有 w 的行会按时长平均分给每个字
   // 歌词放在 /media/<id>/lyrics.json，没有这个文件就不显示歌词区
-  fetch(`${media}/lyrics.json`).then(r => (r.ok ? r.json() : [])).catch(() => []).then(setupLyrics);
+  fetch(`${media}/lyrics.json${rv}`).then(r => (r.ok ? r.json() : [])).catch(() => []).then(setupLyrics);
   function setupLyrics(lines) {
   if (!Array.isArray(lines) || !lines.length) { $("#lyricsBox").remove(); return; }
   root.classList.add("has-lyrics");

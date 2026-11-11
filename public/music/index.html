@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho&family=Noto+Sans+SC:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/music/assets/style.css?v=20261111a">
+<link rel="stylesheet" href="/music/assets/style.css?v=20261111b">
 </head>
 <body class="ready">
 <div class="backdrop" style="--bg:url(/media/01/cover.jpg)"></div>
@@ -18,8 +18,8 @@
   <p class="home-sub rise" id="count"></p>
   <ul class="list rise" id="list"></ul>
 </main>
-<script src="/music/assets/songs.js?v=20261111a"></script>
-<script src="/music/assets/rain.js?v=20261111a"></script>
+<script src="/music/assets/songs.js?v=20261111b"></script>
+<script src="/music/assets/rain.js?v=20261111b"></script>
 <script>
   const list = document.getElementById("list");
   document.getElementById("count").textContent = `${SONGS.length} 首`;
@@ -27,7 +27,7 @@
     const li = document.createElement("li");
     li.innerHTML = `<a href="/music/s/${s.id}"><span class="no"></span><img loading="lazy" alt=""><div><div class="t"></div><div class="s"></div></div></a>`;
     li.querySelector(".no").textContent = s.id;
-    li.querySelector("img").src = `/music/media/${s.id}/thumb.jpg`;
+    li.querySelector("img").src = `/music/media/${s.id}/thumb.jpg${s.rev ? "?r=" + s.rev : ""}`;
     li.querySelector(".t").textContent = s.title;
     li.querySelector(".s").textContent = s.subtitle || "";
     list.appendChild(li);

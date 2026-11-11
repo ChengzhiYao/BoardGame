@@ -3258,7 +3258,7 @@ void main(){
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
       for (const [k, v] of [[gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE], [gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
       const im = new Image(); im.onload = () => { gl.bindTexture(gl.TEXTURE_2D, tex); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, im); IW = im.width; IH = im.height; imgReady = true; };
-      im.src = `/music/media/${song.id}/bg.jpg`;
+      im.src = `/music/media/${song.id}/bg.jpg?r=${song.rev || 0}`;
       return (ok = true);
     }
     // 某一时刻的取景：前奏和尾声是整幅画面，中段按小节（或每一拍）切镜头

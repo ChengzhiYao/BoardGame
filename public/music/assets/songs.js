@@ -365,6 +365,7 @@ window.SONGS = [
   {
     id: "15",
     title: "近づく",
+    rev: 2,
     subtitle: "想靠近，又不敢靠近",
     date: "2025.11.21",
     place: "",
@@ -379,6 +380,7 @@ window.SONGS = [
   {
     id: "16",
     title: "Send My Love Across the Night",
+    rev: 2,
     subtitle: "把我的爱，送过这片黑夜",
     date: "",
     place: "",

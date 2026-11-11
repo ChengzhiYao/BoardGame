@@ -3644,8 +3644,9 @@ void main(){
   SCENES.ruins = (song) => {
     const sm = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
     // 背景画面（同一个场景的几种状态）：[开始时间, 图]
-    const PLATES = [[0, "quiet"], [14, "few"], [30, "more"], [46.5, "storm"], [83, "fading"], [94, "still"]];
-    const FILES = { storm: "p_storm.jpg", more: "p_more.jpg", fading: "p_fading.jpg", few: "p_few.jpg", still: "p_still.jpg", quiet: "p_still.jpg" };
+    // 这几张画是同一场流星雨连续落下的几帧，按顺序循环播放，流星就一遍遍落下来
+    const SEQ = ["storm", "more", "fading", "still", "few"], STEP = .75, XF = .32;
+    const FILES = { storm: "p_storm.jpg", more: "p_more.jpg", fading: "p_fading.jpg", few: "p_few.jpg", still: "p_still.jpg" };
     const GIRL = [.255, .845], LAMP = [.18, .535];      // 少女、路灯在画里的位置
     let imgs = {}, lastNow = 0, mets = [], dust = [], wrapEl = null;
     const density = t => .15 + .5 * sm(12, 30, t) + 1.6 * sm(44, 50, t) * (1 - sm(82, 92, t)) - .15 * sm(92, 100, t);
@@ -3664,7 +3665,7 @@ void main(){
       ox = Math.min(x, Math.max(x + w - dw, ox)); oy = Math.min(y, Math.max(y + h - dh, oy));
       return { ox, oy, s, dw, dh };
     }
-    function plateAt(t) { let a = PLATES[0], i = 0; PLATES.forEach((p, k) => { if (t >= p[0]) { a = p; i = k; } }); const n = PLATES[i + 1]; return { a: a[1], b: n ? n[1] : a[1], k: n ? sm(n[0] - 3, n[0], t) : 0 }; }
+    function plateAt(t) { const f = t / STEP, i = Math.floor(f), k = sm(1 - XF / STEP, 1, f - i); return { a: SEQ[i % SEQ.length], b: SEQ[(i + 1) % SEQ.length], k }; }
     function paint(g, x, y, w, h, now, z, alphaMul) {
       const P = plateAt(now);
       const fxp = .5 + (GIRL[0] - .5) * sm(0, 106, now) * .55, fyp = .5 + (GIRL[1] - .5) * sm(0, 106, now) * .5;
@@ -3687,7 +3688,7 @@ void main(){
       const L = paint(ctx, 0, 0, W, H, now, z, .78);
       // ── 流星（画上本来的流星之外，再加真正在动的）──
       if (seek) mets = [];
-      if (playing && !seek) { let n = density(now) * dt * 3.2; while (Math.random() < n) { n -= 1;
+      if (false) { let n = density(now) * dt * 3.2; while (Math.random() < n) { n -= 1;
         const big = Math.random() < .12;
         mets.push({ x: .3 + Math.random() * .85, y: -.05 + Math.random() * .35, len: (big ? .22 : .08 + Math.random() * .1), sp: (big ? .5 : .35 + Math.random() * .4), w: big ? 2.2 : 1 + Math.random() * .8, life: 0, max: .7 + Math.random() * .9 }); } }
       const ang = Math.PI * .79, cx = Math.cos(ang), cy = Math.sin(ang);
@@ -3724,7 +3725,7 @@ void main(){
         const rad = (parseFloat(getComputedStyle(wrapEl).borderTopLeftRadius) || 0) * dpr;
         fx.save(); fx.beginPath(); if (fx.roundRect) fx.roundRect(x, y, w, h, rad); else fx.rect(x, y, w, h); fx.clip();
         const P = plateAt(now);
-        if (P.a !== "quiet" || P.k > 0) { fx.globalAlpha = Math.min(1, now / 2); paint(fx, x, y, w, h, now, 1 + .12 * sm(0, 106, now), Math.min(1, now / 2)); }
+        { fx.globalAlpha = Math.min(1, now / 2); paint(fx, x, y, w, h, now, 1 + .12 * sm(0, 106, now), Math.min(1, now / 2)); }
         fx.restore();
       }
     }

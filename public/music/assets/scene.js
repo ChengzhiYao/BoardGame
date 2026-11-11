@@ -4065,6 +4065,114 @@ void main(){
     return { init, draw, wet: false };
   };
 
+  // ═════════ 光明之路（Shining Road）：再一次，飞翔 ═════════
+  // 站在悬崖边、向着太阳伸出手的她。开头还是「夜の底」，天色慢慢亮起来；
+  // 「さあ、行こう！」时太阳完全升起，光芒一圈圈转动；金色的羽毛乘着风往上飘，小鸟成群飞过；
+  // 「空はまだ開いている！」光一下子炸开、羽毛扬起；「高く、高く」镜头抬向天空
+  SCENES.shining = (song) => {
+    const sm = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+    const SUN = [.665, .225];                                     // 太阳在画里的位置
+    const BURST = [85.9, 163.36, 192.62];                         // 光炸开的时刻
+    let im = null, ready = false, lastNow = 0, feathers = [], birds = [], motes = [], spr = [], flash = 0, beatE = 0, kick = 0;
+    function featherSprite(seed) {
+      const c = document.createElement("canvas"); c.width = 90; c.height = 260; const g = c.getContext("2d");
+      const R = k => { const x = Math.sin(seed * 91.7 + k * 12.9) * 43758.5; return x - Math.floor(x); };
+      const len = 220, bend = (R(1) - .5) * 18, qx = t => 45 + bend * Math.sin(t * 2.8);
+      g.translate(0, 18);
+      for (let i = 0; i < 120; i++) { const t = .06 + .92 * i / 120, side = i % 2 ? 1 : -1, wl = 26 * Math.sin(Math.min(1, t * 1.1) * Math.PI) ** .6;
+        const x0 = qx(t), y0 = t * len, a = side > 0 ? -.6 : -Math.PI + .6;
+        g.strokeStyle = `rgba(255,${240 + R(i) * 15 | 0},${215 + R(i + 9) * 30 | 0},${.55 + R(i + 3) * .35})`; g.lineWidth = 1.3;
+        g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo(x0 + Math.cos(a) * wl * .5, y0 - 4, x0 + Math.cos(a) * wl, y0 + Math.sin(a) * wl * .5); g.stroke(); }
+      g.strokeStyle = "rgba(255,250,235,.95)"; g.lineWidth = 1.6; g.beginPath(); for (let k = 0; k <= 30; k++) g.lineTo(qx(k / 30), k / 30 * len * 1.04); g.stroke();
+      return c;
+    }
+    function setup() {
+      if (im) return true;
+      im = new Image(); im.onload = () => (ready = true); im.src = `/music/media/${song.id}/cover.jpg?r=${song.rev || 0}`;
+      for (let i = 0; i < 5; i++) spr.push(featherSprite(i + 1));
+      const bd = document.querySelector(".backdrop"); if (bd) bd.style.display = "none";
+      return true;
+    }
+    function addFeather(burst) {
+      const s = (.25 + Math.random() * .4) * Math.min(W, H) / 900;
+      feathers.push(burst
+        ? { x: W * (.35 + Math.random() * .4), y: H * (.5 + Math.random() * .3), vx: (Math.random() - .3) * 260 * dpr, vy: -(120 + Math.random() * 300) * dpr, s, r: Math.random() * 6.28, vr: (Math.random() - .5) * 3, ph: Math.random() * 6.28, life: 0, max: 7 + Math.random() * 4 }
+        : { x: -W * .05 + Math.random() * W * .6, y: H * (.6 + Math.random() * .45), vx: (40 + Math.random() * 90) * dpr, vy: -(25 + Math.random() * 55) * dpr, s, r: Math.random() * 6.28, vr: (Math.random() - .5) * 1.2, ph: Math.random() * 6.28, life: 0, max: 14 + Math.random() * 6 });
+    }
+    function init() { feathers = []; birds = []; motes = []; }
+    function draw(I, level, fx) {
+      if (!setup()) return;
+      const now = window.__time || 0, playing = !!window.__playing, prev = lastNow; lastNow = now;
+      const dt = Math.min(.1, Math.max(0, now - prev)), seek = Math.abs(now - prev) > .5;
+      const bs = window.__bass || 0; beatE += (bs - beatE) * .1; kick = Math.max(kick * .86, playing ? Math.max(0, bs - beatE) * 2 : 0);
+      // 天色：夜 → 黎明 → 朝阳
+      const dawn = sm(4, 63, now), full = sm(58, 66, now);
+      const up = sm(136, 140, now) * (1 - sm(150, 158, now));       // 高く、高く：镜头抬向天空
+      ctx.fillStyle = "#070912"; ctx.fillRect(0, 0, W, H);
+      let L = null;
+      if (ready) {
+        const z = 1.04 + .06 * sm(0, 232, now) + .12 * up;
+        const s = Math.max(W / im.naturalWidth, H / im.naturalHeight) * z, dw = im.naturalWidth * s, dh = im.naturalHeight * s;
+        const fxp = .55 + .05 * Math.sin(now * .03), fyp = .5 - .25 * up;
+        let ox = W / 2 - fxp * dw, oy = H / 2 - fyp * dh; ox = Math.min(0, Math.max(W - dw, ox)); oy = Math.min(0, Math.max(H - dh, oy));
+        ctx.globalAlpha = .45 + .55 * dawn; ctx.drawImage(im, ox, oy, dw, dh); ctx.globalAlpha = 1; L = { ox, oy, dw, dh };
+      }
+      // 夜色：一层冷蓝，随黎明慢慢退去
+      ctx.save(); ctx.globalCompositeOperation = "multiply";
+      ctx.fillStyle = `rgb(${110 + 145 * dawn | 0},${120 + 135 * dawn | 0},${170 + 85 * dawn | 0})`; ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+      // ── 太阳的光芒：慢慢转动，跟着鼓点呼吸 ──
+      if (L) {
+        const sx = L.ox + SUN[0] * L.dw, sy = L.oy + SUN[1] * L.dh, Rr = Math.max(W, H) * 1.2, a0 = now * .03;
+        if (playing) for (const t of BURST) if (t > prev && t <= now && now - t < .4) { flash = 1; for (let i = 0; i < 26; i++) addFeather(true); }
+        flash *= .965;
+        const glow = (.25 + .45 * full + .3 * kick * full + .6 * flash) * dawn;
+        ctx.save(); ctx.globalCompositeOperation = "lighter";
+        for (let i = 0; i < 18; i++) {
+          const a = a0 + i / 18 * Math.PI * 2 + Math.sin(i * 7.3) * .08, wdt = .025 + .02 * Math.sin(i * 3.1 + now * .4);
+          const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, Rr);
+          g.addColorStop(0, `rgba(255,236,190,${.16 * glow})`); g.addColorStop(.35, `rgba(255,214,150,${.05 * glow})`); g.addColorStop(1, "rgba(255,200,140,0)");
+          ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.arc(sx, sy, Rr, a - wdt, a + wdt); ctx.closePath(); ctx.fill();
+        }
+        const g2 = ctx.createRadialGradient(sx, sy, 0, sx, sy, Math.min(W, H) * (.45 + .3 * flash));
+        g2.addColorStop(0, `rgba(255,248,225,${.55 * glow})`); g2.addColorStop(.25, `rgba(255,220,160,${.2 * glow})`); g2.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = g2; ctx.fillRect(0, 0, W, H);
+        if (flash > .02) { ctx.fillStyle = `rgba(255,240,215,${flash * .28})`; ctx.fillRect(0, 0, W, H); }
+        ctx.restore();
+      }
+      // ── 鸟群：从太阳那边飞过 ──
+      if (seek) { feathers = []; birds = []; motes = []; }
+      if (playing && !seek && full > .5 && Math.random() < dt * .25) {
+        const n = 3 + (Math.random() * 6 | 0), y0 = H * (.12 + Math.random() * .25), dir = Math.random() < .5 ? 1 : -1, sp = (60 + Math.random() * 50) * dpr;
+        for (let i = 0; i < n; i++) birds.push({ x: dir > 0 ? -40 - i * 30 * dpr : W + 40 + i * 30 * dpr, y: y0 + (Math.random() - .5) * 60 * dpr + i * 6 * dpr, vx: dir * sp * (.9 + Math.random() * .2), s: (4 + Math.random() * 4) * dpr, ph: Math.random() * 6.28, f: 5 + Math.random() * 3 });
+      }
+      ctx.save(); ctx.strokeStyle = "rgba(40,30,40,.75)"; ctx.lineCap = "round";
+      for (const b of birds) { if (playing) b.x += b.vx * dt; const fl = Math.sin(now * b.f + b.ph); ctx.lineWidth = Math.max(1, b.s * .22);
+        ctx.beginPath(); ctx.moveTo(b.x - b.s, b.y - fl * b.s * .55); ctx.quadraticCurveTo(b.x - b.s * .4, b.y - b.s * .1, b.x, b.y); ctx.quadraticCurveTo(b.x + b.s * .4, b.y - b.s * .1, b.x + b.s, b.y - fl * b.s * .55); ctx.stroke(); }
+      ctx.restore(); birds = birds.filter(b => b.x > -200 && b.x < W + 200);
+      // ── 金色的羽毛，乘着风往上飘 ──
+      if (playing && !seek) { const rate = (.4 + 1.6 * full + 2.5 * sm(120, 126, now) * (1 - sm(150, 156, now))) * dawn; if (Math.random() < dt * rate) addFeather(false); }
+      ctx.save(); ctx.globalCompositeOperation = "lighter";
+      for (const f of feathers) {
+        f.life += dt; if (f.vy < -140 * dpr) f.vy *= .985; f.vx *= .995;
+        f.x += (f.vx + Math.sin(now * .9 + f.ph) * 30 * dpr) * dt; f.y += f.vy * dt; f.r += f.vr * dt;
+        const a = Math.min(1, f.life * 1.5) * Math.max(0, 1 - f.life / f.max);
+        ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.r); ctx.scale(f.s * (.55 + .45 * Math.abs(Math.cos(now * 1.4 + f.ph))), f.s); ctx.globalAlpha = a * .85;
+        ctx.drawImage(spr[(f.ph * 10 | 0) % spr.length], -45, -130); ctx.restore();
+      }
+      ctx.restore(); feathers = feathers.filter(f => f.life < f.max && f.y > -300);
+      // 风里的光点
+      if (playing && !seek && Math.random() < dt * 14 * dawn) motes.push({ x: -10, y: Math.random() * H, vx: (80 + Math.random() * 160) * dpr, vy: -(5 + Math.random() * 25) * dpr, r: (.6 + Math.random() * 1.4) * dpr, life: 0 });
+      ctx.save(); ctx.globalCompositeOperation = "lighter";
+      for (const m of motes) { if (playing) { m.x += m.vx * dt; m.y += m.vy * dt; } m.life += dt; ctx.fillStyle = `rgba(255,235,190,${.5 * Math.min(1, m.life)})`; ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, 6.283); ctx.fill(); }
+      ctx.restore(); motes = motes.filter(m => m.x < W + 20);
+      const vg = ctx.createRadialGradient(W / 2, H * .45, Math.min(W, H) * .35, W / 2, H * .45, Math.max(W, H) * .85);
+      vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, `rgba(0,0,0,${.55 - .3 * dawn})`); ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+      const end = sm(222, 231, now); if (end > 0) { ctx.fillStyle = `rgba(255,245,225,${end * .35})`; ctx.fillRect(0, 0, W, H); }
+    }
+    return { init, draw, wet: false };
+  };
+
   SCENES.none = () => ({ init() {}, draw() {} });
 
   // ═════════ 引擎 ═════════

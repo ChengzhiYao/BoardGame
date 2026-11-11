@@ -438,8 +438,24 @@ window.SONGS = [
   },
   {
     id: "21",
+    title: "Shining Road",
+    subtitle: "光明之路",
+    rev: 13,
+    date: "2026.06.27",
+    place: "",
+    scene: "shining",               // 悬崖边向太阳伸手的她：夜 → 黎明 → 朝阳；光芒转动、金色羽毛乘风上飘、鸟群飞过；副歌光炸开
+    coverFill: "40% 50%",
+    theme: { night: "#0d0f1c", nightRgb: "13,15,28", glow: "255,236,200", accent: "#f2c27a" },
+    note: [
+      "写这首歌的时候，我已经遇到你了。",
+      "这时候的我，感觉内心充满了力量，也不再想逃避自己的梦想了。我想再努力一次，不想背叛那个热诚的自己，我不想屈服。",
+      "我想再一次扇动自己的翅膀，直面天空。再一次，飞翔。"
+    ]
+  },
+  {
+    id: "22",
     title: "Send My Love Across the Night",
-    rev: 12,
+    rev: 13,
     subtitle: "把我的爱，送过这片黑夜",
     date: "",
     place: "",

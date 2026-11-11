@@ -376,7 +376,22 @@ window.SONGS = [
   },
   {
     id: "17",
-    rev: 6,
+    title: "废墟中的少女",
+    subtitle: "轻哼与呼吸之间",
+    rev: 7,
+    date: "2026.01.04",
+    place: "",
+    scene: "ruins",                 // 没有歌词：被摧毁的城市、巨大的骸骨、路灯下长椅上的少女；流星雨涨起又退去，最后归于宁静
+    coverFill: "22% 50%",
+    theme: { night: "#0a0a0d", nightRgb: "10,10,13", glow: "240,224,200", accent: "#d9b98a" },
+    note: [
+      "当时我的世界，就像画面中的少女，停滞在一片被摧毁殆尽的废墟之中。",
+      "在疯狂的余波之后，重新归于宁静。"
+    ]
+  },
+  {
+    id: "18",
+    rev: 7,
     title: "黒い輪あそび",
     subtitle: "黑色的转圈游戏",
     date: "2025.10.18",
@@ -411,9 +426,9 @@ window.SONGS = [
     ]
   },
   {
-    id: "18",
+    id: "19",
     title: "Send My Love Across the Night",
-    rev: 6,
+    rev: 7,
     subtitle: "把我的爱，送过这片黑夜",
     date: "",
     place: "",

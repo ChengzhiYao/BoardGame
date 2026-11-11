@@ -3638,6 +3638,99 @@ void main(){
     return { init, draw, wet: false };
   };
 
+  // ═════════ 废墟中的少女：疯狂的余波之后，重新归于宁静 ═════════
+  // 一整片被摧毁的城市、巨大的骸骨、一盏路灯下长椅上的少女。
+  // 前面流星零零落落；音乐涨起来时流星雨越来越密（疯狂的余波）；最后流星一颗颗消失，只剩路灯、灰尘和她
+  SCENES.ruins = (song) => {
+    const sm = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+    // 背景画面（同一个场景的几种状态）：[开始时间, 图]
+    const PLATES = [[0, "quiet"], [14, "few"], [30, "more"], [46.5, "storm"], [83, "fading"], [94, "still"]];
+    const FILES = { storm: "p_storm.jpg", more: "p_more.jpg", fading: "p_fading.jpg", few: "p_few.jpg", still: "p_still.jpg", quiet: "p_still.jpg" };
+    const GIRL = [.255, .845], LAMP = [.18, .535];      // 少女、路灯在画里的位置
+    let imgs = {}, lastNow = 0, mets = [], dust = [], wrapEl = null;
+    const density = t => .15 + .5 * sm(12, 30, t) + 1.6 * sm(44, 50, t) * (1 - sm(82, 92, t)) - .15 * sm(92, 100, t);
+    function setup() {
+      if (wrapEl) return true;
+      wrapEl = document.querySelector(".cover-wrap"); if (!wrapEl) return false;
+      for (const k in FILES) { if (imgs[FILES[k]]) { imgs[k] = imgs[FILES[k]]; continue; } const im = new Image(); im.src = `/music/media/${song.id}/${FILES[k]}?r=${song.rev || 0}`; imgs[k] = imgs[FILES[k]] = im; }
+      const bd = document.querySelector(".backdrop"); if (bd) bd.style.display = "none";
+      for (let i = 0; i < 70; i++) dust.push({ x: Math.random(), y: Math.random(), s: .4 + Math.random() * 1.2, v: .002 + Math.random() * .006, ph: Math.random() * 6.28 });
+      return true;
+    }
+    // 把画按 cover 方式铺进一个框，并以少女为中心慢慢推近
+    function place(im, x, y, w, h, z, fxp, fyp) {
+      const s = Math.max(w / im.naturalWidth, h / im.naturalHeight) * z, dw = im.naturalWidth * s, dh = im.naturalHeight * s;
+      let ox = x + w / 2 - fxp * dw, oy = y + h / 2 - fyp * dh;
+      ox = Math.min(x, Math.max(x + w - dw, ox)); oy = Math.min(y, Math.max(y + h - dh, oy));
+      return { ox, oy, s, dw, dh };
+    }
+    function plateAt(t) { let a = PLATES[0], i = 0; PLATES.forEach((p, k) => { if (t >= p[0]) { a = p; i = k; } }); const n = PLATES[i + 1]; return { a: a[1], b: n ? n[1] : a[1], k: n ? sm(n[0] - 3, n[0], t) : 0 }; }
+    function paint(g, x, y, w, h, now, z, alphaMul) {
+      const P = plateAt(now);
+      const fxp = .5 + (GIRL[0] - .5) * sm(0, 106, now) * .55, fyp = .5 + (GIRL[1] - .5) * sm(0, 106, now) * .5;
+      let L = null;
+      for (const [k, al] of [[P.a, 1], [P.b, P.k]]) {
+        const im = imgs[k]; if (!im || !im.complete || !im.naturalWidth || al <= 0) continue;
+        L = place(im, x, y, w, h, z, fxp, fyp);
+        g.globalAlpha = al * alphaMul; g.drawImage(im, L.ox, L.oy, L.dw, L.dh);
+      }
+      g.globalAlpha = 1; return L;
+    }
+    function init() {}
+    function draw(I, level, fx) {
+      if (!setup()) return;
+      const now = window.__time || 0, playing = !!window.__playing, prev = lastNow; lastNow = now;
+      const dt = Math.min(.1, Math.max(0, now - prev)), seek = Math.abs(now - prev) > .5;
+      const z = 1.06 + .22 * sm(0, 106, now);
+      // ── 背景：同一个废墟，跟着音乐换状态，镜头慢慢推向少女 ──
+      ctx.fillStyle = "#07080b"; ctx.fillRect(0, 0, W, H);
+      const L = paint(ctx, 0, 0, W, H, now, z, .78);
+      // ── 流星（画上本来的流星之外，再加真正在动的）──
+      if (seek) mets = [];
+      if (playing && !seek) { let n = density(now) * dt * 3.2; while (Math.random() < n) { n -= 1;
+        const big = Math.random() < .12;
+        mets.push({ x: .3 + Math.random() * .85, y: -.05 + Math.random() * .35, len: (big ? .22 : .08 + Math.random() * .1), sp: (big ? .5 : .35 + Math.random() * .4), w: big ? 2.2 : 1 + Math.random() * .8, life: 0, max: .7 + Math.random() * .9 }); } }
+      const ang = Math.PI * .79, cx = Math.cos(ang), cy = Math.sin(ang);
+      ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.lineCap = "round";
+      for (const m of mets) {
+        m.life += dt; const a = Math.min(1, m.life / .08) * Math.max(0, 1 - m.life / m.max);
+        const hx = (m.x + cx * m.sp * m.life) * W, hy = (m.y + cy * m.sp * m.life) * H * 1.5;
+        const tx = hx - cx * m.len * W, ty = hy - cy * m.len * H * 1.5;
+        const gr = ctx.createLinearGradient(hx, hy, tx, ty);
+        gr.addColorStop(0, `rgba(255,236,200,${.9 * a})`); gr.addColorStop(.15, `rgba(255,200,140,${.5 * a})`); gr.addColorStop(1, "rgba(255,180,120,0)");
+        ctx.strokeStyle = gr; ctx.lineWidth = m.w * dpr; ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(tx, ty); ctx.stroke();
+        ctx.fillStyle = `rgba(255,245,225,${a})`; ctx.beginPath(); ctx.arc(hx, hy, m.w * 1.1 * dpr, 0, 6.283); ctx.fill();
+      }
+      mets = mets.filter(m => m.life < m.max);
+      // 路灯的光：很轻地呼吸、偶尔闪一下
+      if (L) {
+        const lx = L.ox + LAMP[0] * L.dw, ly = L.oy + LAMP[1] * L.dh, R0 = Math.min(W, H) * .32;
+        const fl = .85 + .1 * Math.sin(now * 1.7) + (Math.random() < .01 ? -.3 : 0);
+        const g = ctx.createRadialGradient(lx, ly, 0, lx, ly, R0); g.addColorStop(0, `rgba(255,190,110,${.22 * fl})`); g.addColorStop(.35, `rgba(255,170,90,${.07 * fl})`); g.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = g; ctx.fillRect(lx - R0, ly - R0, R0 * 2, R0 * 2);
+      }
+      // 空气里的灰尘
+      for (const d of dust) { if (playing) { d.y -= d.v * dt * 6; d.x += Math.sin(now * .3 + d.ph) * .0004; if (d.y < -.02) { d.y = 1.02; d.x = Math.random(); } }
+        ctx.fillStyle = `rgba(255,220,180,${.12 + .1 * Math.sin(now + d.ph)})`; ctx.beginPath(); ctx.arc(d.x * W, d.y * H, d.s * dpr, 0, 6.283); ctx.fill(); }
+      ctx.restore();
+      const vg = ctx.createRadialGradient(W / 2, H * .45, Math.min(W, H) * .3, W / 2, H * .45, Math.max(W, H) * .8);
+      vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0,.6)"); ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+      // 结尾慢慢暗下去，只剩路灯
+      const end = sm(98, 106, now); if (end > 0) { ctx.fillStyle = `rgba(0,0,0,${end * .7})`; ctx.fillRect(0, 0, W, H); }
+
+      // ── 封面框里：同样的画面跟着换（不加流星，安静一点）──
+      if (playing || now > 0) {
+        const r = wrapEl.getBoundingClientRect(), x = r.left * dpr, y = r.top * dpr, w = r.width * dpr, h = r.height * dpr;
+        const rad = (parseFloat(getComputedStyle(wrapEl).borderTopLeftRadius) || 0) * dpr;
+        fx.save(); fx.beginPath(); if (fx.roundRect) fx.roundRect(x, y, w, h, rad); else fx.rect(x, y, w, h); fx.clip();
+        const P = plateAt(now);
+        if (P.a !== "quiet" || P.k > 0) { fx.globalAlpha = Math.min(1, now / 2); paint(fx, x, y, w, h, now, 1 + .12 * sm(0, 106, now), Math.min(1, now / 2)); }
+        fx.restore();
+      }
+    }
+    return { init, draw, wet: false };
+  };
+
   SCENES.none = () => ({ init() {}, draw() {} });
 
   // ═════════ 引擎 ═════════

@@ -3274,7 +3274,8 @@ void main(){
     function init() {}
     function draw(I, level, fx) {
       if (!setup()) return;
-      const now = window.__time || 0, playing = !!window.__playing, prev = lastNow; lastNow = now;
+      const now = (window.__time || 0) + 3,   // 时间线按带 3 秒前奏的版本写的，音频文件少了这 3 秒
+            playing = !!window.__playing, prev = lastNow; lastNow = now;
       const dt = Math.min(.1, Math.max(0, now - prev)), seek = Math.abs(now - prev) > .5;
       const sc = Math.min(window.devicePixelRatio || 1, 1.5) * .75, w = Math.round(innerWidth * sc), h = Math.round(innerHeight * sc);
       if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; gl.viewport(0, 0, w, h); }
@@ -3315,7 +3316,7 @@ void main(){
       const pulse = sm(133.8, 135, now) * (1 - sm(143, 146, now)) * kick * 1.6 + out * kick * .4;
       const fall = Math.pow(falling, 2.2) * 1.15;
       const crt = sm(156.6, 157.7, now);
-      const fade = (now === 0 ? .85 : Math.min(1, .25 + now / 2.5)) * (1 - hush * .82) * (1 - sm(157.7, 158.2, now) * .0);
+      const fade = Math.min(1, .25 + Math.max(0, now - 3) / 2.5) * (1 - hush * .82) * (1 - sm(157.7, 158.2, now) * .0);
 
       gl.uniform1i(U.tex, 0); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex);
       gl.uniform2f(U.R, w, h); gl.uniform2f(U.IM, IW, IH);

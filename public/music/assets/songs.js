@@ -365,7 +365,7 @@ window.SONGS = [
   {
     id: "15",
     title: "近づく",
-    rev: 2,
+    rev: 3,
     subtitle: "想靠近，又不敢靠近",
     date: "2025.11.21",
     place: "",

@@ -4173,6 +4173,102 @@ void main(){
     return { init, draw, wet: false };
   };
 
+  // ═════════ Smiling Before Goodbye：和过去的自己告别 ═════════
+  // 黄昏的花田、铁路道口、微笑着的他。道口的红灯一左一右交替闪着；花瓣被风吹着飘过；
+  // 「Where have all the flowers gone?」颜色一点点褪掉；「We smile」时暖光重新回来；
+  // 最后一句「goodbye」，一列火车从道口后面驶过，过去的一切跟着它离开，天色暗下来，亮起一颗星
+  SCENES.goodbye = (song) => {
+    const sm = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+    const LAMPS = [[.1785, .4255], [.2065, .4255]];          // 道口两盏红灯在画里的位置
+    const TRAIN = [-2, -1];                                  // （火车会盖在花和道口前面，显得假，先不用）
+    let im = null, ready = false, lastNow = 0, petals = [], petalSpr = [];
+    function petal(seed) {
+      const c = document.createElement("canvas"); c.width = 40; c.height = 24; const g = c.getContext("2d");
+      const tint = seed % 3 === 0 ? [255, 210, 220] : [255, 246, 236];
+      const gr = g.createLinearGradient(0, 12, 40, 12); gr.addColorStop(0, `rgba(${tint},.95)`); gr.addColorStop(1, `rgba(${tint},.55)`);
+      g.fillStyle = gr; g.beginPath(); g.moveTo(2, 12); g.bezierCurveTo(10, -1, 30, 1, 38, 9); g.lineTo(35, 12); g.lineTo(38, 15); g.bezierCurveTo(30, 23, 10, 25, 2, 12); g.fill();
+      g.strokeStyle = "rgba(200,170,160,.35)"; g.lineWidth = .8; g.beginPath(); g.moveTo(3, 12); g.lineTo(33, 12); g.stroke();
+      return c;
+    }
+    function setup() {
+      if (im) return true;
+      im = new Image(); im.onload = () => (ready = true); im.src = `/music/media/${song.id}/cover.jpg?r=${song.rev || 0}`;
+      for (let i = 0; i < 6; i++) petalSpr.push(petal(i));
+      const bd = document.querySelector(".backdrop"); if (bd) bd.style.display = "none";
+      return true;
+    }
+    function init() { petals = []; }
+    function draw(I, level, fx) {
+      if (!setup()) return;
+      const now = window.__time || 0, playing = !!window.__playing, prev = lastNow; lastNow = now;
+      const dt = Math.min(.1, Math.max(0, now - prev)), seek = Math.abs(now - prev) > .5;
+      const grey = sm(186, 194, now) * (1 - sm(238, 248, now));           // 花和颜色都去哪了
+      const dusk = sm(150, 300, now);                                       // 天慢慢暗下去
+      const warmBack = sm(244, 252, now) * (1 - sm(286, 296, now));         // We smile：暖光回来
+      ctx.fillStyle = "#0b0a0c"; ctx.fillRect(0, 0, W, H);
+      let L = null;
+      if (ready) {
+        const z = 1.02 + .08 * sm(0, 304, now), s = Math.max(W / im.naturalWidth, H / im.naturalHeight) * z, dw = im.naturalWidth * s, dh = im.naturalHeight * s;
+        const fxp = W > H ? 0 : .6, fyp = .5;   // 宽屏靠左对齐，封面上的标题不被裁掉
+        let ox = W / 2 - fxp * dw, oy = H / 2 - fyp * dh; ox = Math.min(0, Math.max(W - dw, ox)); oy = Math.min(0, Math.max(H - dh, oy));
+        ctx.filter = grey > .01 ? `saturate(${1 - .85 * grey}) brightness(${1 - .15 * grey})` : "none";
+        ctx.drawImage(im, ox, oy, dw, dh); ctx.filter = "none"; L = { ox, oy, dw, dh };
+      }
+      if (seek) petals = [];
+      if (L) {
+        const P = (u, v) => [L.ox + u * L.dw, L.oy + v * L.dh];
+        // ── 火车：从道口后面驶过（只在他左边的那段地平线上看得到）──
+        const tk = (now - TRAIN[0]) / (TRAIN[1] - TRAIN[0]);
+        if (tk > 0 && tk < 1) {
+          const [x0, yTop] = P(0, .548), [xClip, yBot] = P(.505, .584), hh = yBot - yTop, carW = L.dw * .095, n = 10, tx = x0 - carW * n + tk * (carW * n + (xClip - x0) + carW);
+          ctx.save(); ctx.beginPath(); ctx.rect(x0, yTop - 4, xClip - x0, hh + 8); ctx.clip();
+          for (let i = 0; i < n; i++) { const cx = tx + i * carW, gap = 1.5 * dpr;
+            const body = ctx.createLinearGradient(0, yTop, 0, yBot); body.addColorStop(0, "rgba(58,48,50,.96)"); body.addColorStop(.18, "rgba(30,26,30,.97)"); body.addColorStop(1, "rgba(16,14,18,.98)");
+            ctx.fillStyle = body; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(cx, yTop, carW - gap, hh, [hh * .25, hh * .25, 1, 1]); else ctx.rect(cx, yTop, carW - gap, hh); ctx.fill();
+            ctx.fillStyle = "rgba(255,196,130,.75)"; ctx.fillRect(cx + carW * .06, yTop + hh * .3, carW * .86, Math.max(1, hh * .16));   // 一排连起来的车窗灯光
+            ctx.fillStyle = "rgba(20,18,22,.9)"; for (let k = 1; k < 7; k++) ctx.fillRect(cx + carW * (.06 + k * .123), yTop + hh * .3, Math.max(1, dpr), Math.max(1, hh * .16)); }
+          ctx.restore();
+        }
+        // ── 道口的红灯，一左一右交替闪 ──
+        const ring = sm(0, 2, now) * (1 - sm(292, 300, now));
+        const ph = Math.floor(now * 1.6) % 2;
+        ctx.save(); ctx.globalCompositeOperation = "lighter";
+        LAMPS.forEach(([u, v], i) => {
+          const on = (i === ph ? 1 : .08) * ring; if (on < .02) return;
+          const [x, y] = P(u, v), r = L.dw * .03;
+          const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, `rgba(255,90,60,${.9 * on})`); g.addColorStop(.25, `rgba(255,60,40,${.35 * on})`); g.addColorStop(1, "rgba(255,40,30,0)");
+          ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2);
+        });
+        ctx.restore();
+      }
+      // ── 天色：金色黄昏 → 暮色；We smile 时暖光回来 ──
+      ctx.save(); ctx.globalCompositeOperation = "multiply";
+      const dk = dusk * (1 - .6 * warmBack);
+      ctx.fillStyle = `rgb(${255 - 120 * dk | 0},${255 - 105 * dk | 0},${255 - 50 * dk | 0})`; ctx.fillRect(0, 0, W, H);
+      ctx.globalCompositeOperation = "screen";
+      const sun = (.25 + .35 * warmBack) * (1 - .7 * grey) * (1 - .6 * dusk + .6 * warmBack);
+      const g = ctx.createRadialGradient(W * .3, H * .48, 0, W * .3, H * .48, Math.max(W, H) * .8);
+      g.addColorStop(0, `rgba(255,190,110,${.5 * sun})`); g.addColorStop(.4, `rgba(255,150,80,${.15 * sun})`); g.addColorStop(1, "rgba(0,0,0,0)"); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      // 最后亮起一颗星
+      const star = sm(292, 298, now);
+      if (star > 0 && L) { const x = L.ox + .82 * L.dw, y = L.oy + .12 * L.dh, r = 3 * dpr * (1 + .2 * Math.sin(now * 3));
+        const sg = ctx.createRadialGradient(x, y, 0, x, y, r * 8); sg.addColorStop(0, `rgba(255,250,235,${star})`); sg.addColorStop(.2, `rgba(255,240,210,${.3 * star})`); sg.addColorStop(1, "rgba(0,0,0,0)"); ctx.fillStyle = sg; ctx.fillRect(x - r * 8, y - r * 8, r * 16, r * 16); }
+      ctx.restore();
+      // ── 被风吹过的花瓣 ──
+      const rate = (1.2 + 2.5 * level) * (1 - .8 * grey) * (1 - sm(296, 304, now));
+      if (playing && !seek && Math.random() < dt * rate * 3) petals.push({ x: W + 20, y: Math.random() * H * .9, vx: -(90 + Math.random() * 120) * dpr, vy: (10 + Math.random() * 30) * dpr, r: Math.random() * 6.28, vr: (Math.random() - .5) * 4, s: (.35 + Math.random() * .5) * dpr, ph: Math.random() * 6.28, spr: petalSpr[(Math.random() * petalSpr.length) | 0] });
+      for (const p of petals) {
+        if (playing) { p.x += p.vx * dt; p.y += (p.vy + Math.sin(now * 1.7 + p.ph) * 25 * dpr) * dt; p.r += p.vr * dt; }
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.scale(p.s, p.s * (.4 + .6 * Math.abs(Math.sin(now * 2 + p.ph)))); ctx.globalAlpha = .85 * (1 - .6 * grey);
+        ctx.drawImage(p.spr, -20, -12); ctx.restore();
+      }
+      petals = petals.filter(p => p.x > -60 && p.y < H + 40);
+      const vg = ctx.createRadialGradient(W / 2, H * .45, Math.min(W, H) * .35, W / 2, H * .45, Math.max(W, H) * .8);
+      vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, `rgba(0,0,0,${.35 + .3 * dusk})`); ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+    }
+    return { init, draw, wet: false };
+  };
+
   SCENES.none = () => ({ init() {}, draw() {} });
 
   // ═════════ 引擎 ═════════

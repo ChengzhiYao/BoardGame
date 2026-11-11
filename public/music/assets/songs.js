@@ -454,8 +454,23 @@ window.SONGS = [
   },
   {
     id: "22",
+    title: "Smiling Before Goodbye",
+    subtitle: "告别前的微笑",
+    rev: 14,
+    date: "2026.08.26",
+    place: "",
+    scene: "goodbye",               // 黄昏花田、铁路道口：红灯交替闪、花瓣随风飘；花和颜色褪去又回来；最后天暗下来，亮起一颗星
+    coverFill: "72% 50%",
+    theme: { night: "#0d0b0c", nightRgb: "13,11,12", glow: "255,226,190", accent: "#e9a46a" },
+    note: [
+      "写这首歌的时候，其实也算是我在跟过去的自己告别吧。",
+      "所有的事情都有结束的一天。过去的开心、难过、挣扎、痛苦、纠结，所有的这些情绪，到这一刻我突然释然了，变得可以一笑而过了。"
+    ]
+  },
+  {
+    id: "23",
     title: "Send My Love Across the Night",
-    rev: 13,
+    rev: 14,
     subtitle: "把我的爱，送过这片黑夜",
     date: "",
     place: "",

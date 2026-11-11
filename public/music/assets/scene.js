@@ -2546,10 +2546,10 @@
       if (wrapEl) return true;
       wrapEl = document.querySelector(".cover-wrap"); if (!wrapEl) return false;
       mv = document.createElement("video");
-      mv.src = `/music/media/${song.id}/${song.montage}`; mv.muted = true; mv.playsInline = true; mv.preload = "auto";
+      mv.src = `/music/media/${song.id}/${song.montage}?r=${song.rev || 0}`; mv.muted = true; mv.playsInline = true; mv.preload = "auto";
       mv.setAttribute("playsinline", ""); mv.setAttribute("muted", "");
       mv.style.cssText = "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1.2s";
-      girlEl = document.createElement("img"); girlEl.src = `/music/media/${song.id}/${song.girl}`; girlEl.alt = "";
+      girlEl = document.createElement("img"); girlEl.src = `/music/media/${song.id}/${song.girl}?r=${song.rev || 0}`; girlEl.alt = "";
       girlEl.style.cssText = "position:absolute;bottom:0;left:50%;height:100%;width:auto;transform:translateX(-50%);opacity:0;transition:opacity 1.2s;pointer-events:none;filter:contrast(1.05)";
       const shade = wrapEl.querySelector(".cover-shade"); wrapEl.insertBefore(mv, shade); wrapEl.insertBefore(girlEl, shade);
       girlImg = girlEl;
@@ -2662,7 +2662,7 @@
       if (wrapEl) return true;
       wrapEl = document.querySelector(".cover-wrap"); mainEl = document.querySelector("main"); if (!wrapEl) return false;
       const base = `/music/media/${song.id}/`;
-      street = document.createElement("img"); street.src = base + "cover.jpg";
+      street = document.createElement("img"); street.src = base + "cover.jpg" + (song.rev ? "?r=" + song.rev : "");
       street.style.cssText = "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;transition:filter .8s";
       const mk = () => { const im = document.createElement("img"); im.style.cssText = "position:absolute;left:50%;bottom:0;transform:translateX(-50%);max-width:100%;height:92%;object-fit:contain;object-position:bottom;opacity:0;transition:opacity .7s, transform 1.2s;pointer-events:none"; return im; };
       layA = mk(); layB = mk();
@@ -2674,7 +2674,7 @@
       const cv0 = document.querySelector("#cover"); if (cv0) cv0.style.visibility = "hidden";
       for (const k of song.chars || []) { const im = new Image(); im.src = `${base}c/${k}.webp`; imgs[k] = im; }
       bgEl = document.createElement("div");
-      bgEl.style.cssText = `position:fixed;inset:-4%;z-index:-3;background:url(${base}cover.jpg) center/cover;filter:brightness(.42) sepia(.35);animation:kb14 60s ease-in-out infinite alternate;pointer-events:none`;
+      bgEl.style.cssText = `position:fixed;inset:-4%;z-index:-3;background:url(${base}cover.jpg${song.rev ? "?r=" + song.rev : ""}) center/cover;filter:brightness(.42) sepia(.35);animation:kb14 60s ease-in-out infinite alternate;pointer-events:none`;
       const st = document.createElement("style"); st.textContent = "@keyframes kb14{from{transform:scale(1)}to{transform:scale(1.12) translate(-2%,1%)}}"; document.head.appendChild(st);
       document.body.insertBefore(bgEl, document.body.firstChild);
       const bd = document.querySelector(".backdrop"); if (bd) bd.style.display = "none";

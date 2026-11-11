@@ -364,6 +364,20 @@ window.SONGS = [
   },
   {
     id: "15",
+    title: "近づく",
+    subtitle: "想靠近，又不敢靠近",
+    date: "2025.11.21",
+    place: "",
+    scene: "approach",              // 黑白 VHS：呼吸里靠近又退开 → 螺旋 → 失控 → 全部崩坏 → 坠落、消失
+    coverFill: "47% 50%",
+    theme: { night: "#0a0a0a", nightRgb: "10,10,10", glow: "235,235,235", accent: "#d8d8d8" },
+    note: [
+      "人是一个矛盾的个体，在想要靠近的同时又排斥着。两种情绪可以同时存在。",
+      "我也不例外，渴望被爱的同时又非常排斥被爱，不知道该怎么办。这种矛盾感让我疯狂。"
+    ]
+  },
+  {
+    id: "16",
     title: "Send My Love Across the Night",
     subtitle: "把我的爱，送过这片黑夜",
     date: "",

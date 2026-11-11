@@ -3126,6 +3126,234 @@ void main(){
     return { init, draw, wet: false };
   };
 
+  // ═════════ 15 近づく：想靠近，又不敢靠近 ═════════
+  // 黑白 VHS 画面里那个戴笑脸面具的人。前奏只有呼吸——镜头吸气时靠近、呼气时退开；
+  // 螺旋楼梯那段画面开始旋转；猫狗吵闹那段镜头乱切、画面撕裂；「もういい…全部」彻底崩坏，黑羽毛炸开；
+  // 静默之后回到呼吸，心跳敲着画面；「そして落ちていく」开始坠落，最后像老电视一样关机、消失。
+  SCENES.approach = (song) => {
+    const sm = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+    const hash = n => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+    const BEAT = .3455, B0 = 34.06;                  // 鼓点：约 174 BPM
+    // 镜头取景：[焦点x, 焦点y, 放大倍数]（坐标是封面图里的位置）
+    const SHOTS = [[.5, .5, 1], [.47, .2, 2.6], [.42, .1, 2.2], [.49, .36, 2.4], [.7, .42, 1.7], [.47, .2, 4.2], [.45, .78, 2], [.6, .3, 1.35]];
+    let gl, prog, cv, U = {}, ok = false, tex = null, imgReady = false, IW = 1536, IH = 1024;
+    let fc, fx2, feathers = [], sprites = [], lastNow = 0, beatE = 0, kick = 0, hit = 0;
+
+    const FS = `precision highp float;
+uniform sampler2D tex; uniform vec2 R,IM; uniform vec3 S0,S1;
+uniform float T,mixS,twirl,split,tear,blocks,ghost,inv,light,lightR,dark,fall,fallV,crt,fade,beat,pulse,grain,strobe,seed;
+float h21(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
+vec2 toImg(vec2 p,vec3 s){ // p: 屏幕坐标（以中心为原点、按高归一）
+  float ar=IM.x/IM.y, sar=R.x/R.y;
+  float k=max(sar/ar,1.);              // cover 铺满
+  vec2 q=p/(s.z*k); q.x/=ar;
+  return vec2(s.x,1.-s.y)+q;
+}
+float lum(vec2 u){ if(u.x<0.||u.x>1.||u.y<0.||u.y>1.) return 0.; return dot(texture2D(tex,u).rgb,vec3(.299,.587,.114)); }
+vec3 samp(vec2 p,vec3 s,float sp){
+  vec2 o=vec2(sp,0.);                  // 色差按屏幕距离算，放大镜头时不会糊成彩虹
+  return vec3(lum(toImg(p+o,s)),lum(toImg(p,s)),lum(toImg(p-o,s)));
+}
+void main(){
+  vec2 fc=gl_FragCoord.xy;
+  vec2 p=(fc-.5*R)/R.y;
+  // 老电视关机：先压成一条线，再缩成一个点
+  float cy=1.-smoothstep(0.,.55,crt)*.995, cx=1.-smoothstep(.5,1.,crt)*.995;
+  if(crt>0.){ if(abs(p.y)>.5*cy+.0015||abs(p.x)>.5*R.x/R.y*cx+.0015){ gl_FragColor=vec4(0,0,0,1); return; } p.y/=cy; p.x/=cx; }
+  // 坠落：画面往上滑走
+  p.y-=fall;
+  // 撕裂：横向条带错位（跟着鼓点）
+  float row=floor(fc.y/R.y*48.), tq=floor(T*14.+seed);
+  float tr=h21(vec2(row,tq)); float tb=step(1.-tear*.55,tr)*(h21(vec2(row+7.,tq))-.5)*tear*.5;
+  float fine=(h21(vec2(floor(fc.y*.5),tq))-.5)*.004*(.3+tear);
+  p.x+=tb+fine;
+  // 跟踪噪带：一条横带慢慢往上滚
+  float band=fract(T*.07+seed*.1); float bd=exp(-pow((fc.y/R.y-band)*14.,2.));
+  p.x+=(h21(vec2(floor(fc.y),T))-.5)*.02*bd;
+  // 方块错位
+  vec2 bid=floor(fc/R.y*vec2(9.,9.)); float bh=h21(bid+tq*1.7);
+  if(bh<blocks*.35){ p+=(vec2(h21(bid+3.1+tq),h21(bid+5.7+tq))-.5)*.35; }
+  // 螺旋：绕着画面中心旋转，越靠近中心转得越多
+  float r=length(p); float a=twirl*exp(-r*1.6)*6.2832;
+  p=mat2(cos(a),-sin(a),sin(a),cos(a))*p;
+  float sp=split*.012+beat*.004;
+  vec3 c=samp(p,S0,sp);
+  if(mixS>0.){ c=mix(c,samp(p,S1,sp),mixS); }
+  // 残影：另一个自己在旁边，靠近又退开
+  if(ghost>0.){ vec3 g=samp(p+vec2(.06*sin(T*1.7)+.03,.0)*ghost,S0,sp*2.); c=max(c,g*.55*ghost); }
+  // 呼吸的光：一束光打在人身上，吸气时亮
+  vec2 lc=vec2(0.,.06);
+  float sp2=exp(-dot(p-lc,p-lc)/(lightR*lightR));
+  c*=mix(dark,1.,clamp(light*(.35+.65*sp2),0.,1.4));
+  c*=1.+pulse*.55*exp(-r*1.8);
+  // 坠落时的竖向速度线
+  if(fallV>0.){ float col=floor(fc.x/3.); float hv=h21(vec2(col,1.)); float yy=fract(fc.y/R.y*.6+T*fallV*(.5+hv)+hv*9.);
+    c+=vec3(step(.985,hv)*smoothstep(.0,.3,yy)*smoothstep(.6,.3,yy))*fallV*.9; }
+  c=mix(c,1.-c,inv);
+  if(crt>0.) c=mix(c,vec3(1.),smoothstep(.25,.7,crt)*.85);
+  c+=strobe;
+  // VHS：扫描线、颗粒、色噪
+  c*=.86+.14*sin(fc.y*3.14159*.9);
+  float n=h21(fc+fract(T*61.7)*vec2(97.,13.));
+  c+=(n-.5)*grain;
+  c+=bd*(n-.4)*.35;
+  c*=1.-.45*dot(p*.9,p*.9);
+  gl_FragColor=vec4(clamp(c,0.,1.)*fade,1.);
+}`;
+
+    // 黑羽毛：先在离屏画布里画好几种形状，再当贴图用
+    function makeFeather(seed) {
+      const W = 120, H = 360, c = document.createElement("canvas"); c.width = W; c.height = H;
+      const g = c.getContext("2d"); const R = (k) => hash(seed * 13.1 + k);
+      const bend = (R(1) - .5) * 26, len = H * (.82 + R(2) * .14), w0 = W * (.28 + R(3) * .12);
+      const qx = (t) => W / 2 + bend * Math.sin(t * Math.PI * .9);
+      g.translate(0, H * .06);
+      // 羽片：一根根羽枝
+      for (let i = 0; i < 150; i++) {
+        const t = .08 + .9 * (i / 150), side = i % 2 ? 1 : -1;
+        const wl = w0 * Math.sin(Math.min(1, t * 1.15) * Math.PI) ** .7 * (1 - .15 * R(10 + i));
+        if (R(200 + i) < .05) continue;            // 偶尔断开的缝隙
+        const x0 = qx(t), y0 = t * len, ang = (side > 0 ? -.55 : -Math.PI + .55) - .1 * side;
+        const x1 = x0 + Math.cos(ang) * wl, y1 = y0 + Math.sin(ang) * wl * .55 - 2;
+        const gv = 22 + R(400 + i) * 26 + (side > 0 ? 34 : 0) | 0;   // 迎光的一侧亮一点，羽毛才看得出来
+        g.strokeStyle = `rgba(${gv},${gv},${gv + 4},.95)`;
+        g.lineWidth = 1.6; g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo((x0 + x1) / 2, y0 - 3, x1, y1); g.stroke();
+      }
+      // 羽轴的一点高光
+      g.strokeStyle = "rgba(120,120,125,.55)"; g.lineWidth = 1.4; g.beginPath();
+      for (let k = 0; k <= 30; k++) { const t = k / 30; g.lineTo(qx(t), t * len); } g.stroke();
+      g.strokeStyle = "rgba(10,10,12,.9)"; g.lineWidth = 2.2; g.beginPath(); g.moveTo(qx(.92), .92 * len); g.lineTo(qx(1) + 1, len + 12); g.stroke();
+      return c;
+    }
+    function spawn(mode, n, W, H) {
+      for (let i = 0; i < n; i++) {
+        const s = (.35 + Math.random() * .75) * Math.min(W, H) / 900;
+        let f = { spr: sprites[(Math.random() * sprites.length) | 0], s, rot: Math.random() * 6.28, vr: (Math.random() - .5) * 2, ph: Math.random() * 6.28, life: 0 };
+        if (mode === "burst") { const a = Math.random() * 6.28, v = (300 + Math.random() * 900) * Math.min(W, H) / 900; Object.assign(f, { x: W * .5 + (Math.random() - .5) * 40, y: H * .38, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 120, vr: (Math.random() - .5) * 9, drag: 1.6 }); }
+        else if (mode === "rise") Object.assign(f, { x: Math.random() * W, y: H + 80 + Math.random() * H * .3, vx: (Math.random() - .5) * 40, vy: -(500 + Math.random() * 700) * H / 900, drag: 0 });
+        else Object.assign(f, { x: Math.random() * W, y: -60 - Math.random() * H * .4, vx: (Math.random() - .5) * 30, vy: (40 + Math.random() * 50) * H / 900, drag: 0, sway: 1 });
+        feathers.push(f);
+      }
+    }
+    function setup() {
+      if (cv) return ok;
+      cv = document.createElement("canvas");
+      cv.style.cssText = "position:fixed;inset:0;width:100%;height:100%;z-index:-3;pointer-events:none;background:#000";
+      document.body.insertBefore(cv, document.body.firstChild);
+      fc = document.createElement("canvas");
+      fc.style.cssText = "position:fixed;inset:0;width:100%;height:100%;z-index:-2;pointer-events:none";
+      document.body.insertBefore(fc, cv.nextSibling); fx2 = fc.getContext("2d");
+      const bd = document.querySelector(".backdrop"); if (bd) bd.style.display = "none";
+      for (let i = 0; i < 6; i++) sprites.push(makeFeather(i + 1));
+      gl = cv.getContext("webgl", { antialias: false, alpha: false });
+      if (!gl) return (ok = false);
+      const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.warn(gl.getShaderInfoLog(s)); return null; } return s; };
+      const vs = sh(gl.VERTEX_SHADER, "attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}"), fs = sh(gl.FRAGMENT_SHADER, FS);
+      if (!vs || !fs) return (ok = false);
+      prog = gl.createProgram(); gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog); gl.useProgram(prog);
+      const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+      const loc = gl.getAttribLocation(prog, "p"); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+      for (const k of ["tex", "R", "IM", "S0", "S1", "T", "mixS", "twirl", "split", "tear", "blocks", "ghost", "inv", "light", "lightR", "dark", "fall", "fallV", "crt", "fade", "beat", "pulse", "grain", "strobe", "seed"]) U[k] = gl.getUniformLocation(prog, k);
+      tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
+      for (const [k, v] of [[gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE], [gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+      const im = new Image(); im.onload = () => { gl.bindTexture(gl.TEXTURE_2D, tex); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, im); IW = im.width; IH = im.height; imgReady = true; };
+      im.src = `/music/media/${song.id}/bg.jpg`;
+      return (ok = true);
+    }
+    // 某一时刻的取景：前奏和尾声是整幅画面，中段按小节（或每一拍）切镜头
+    function shotAt(t) {
+      let per = 0;
+      if (t > 53.4 && t < 83.6) per = BEAT * 4;
+      else if (t >= 83.6 && t < 94.2) per = BEAT * 2;
+      else if (t >= 94.2 && t < 119) per = BEAT;
+      if (!per) return { a: SHOTS[0], b: SHOTS[0], k: 0 };
+      const n = Math.floor((t - B0) / per), a = SHOTS[(hash(n) * SHOTS.length) | 0];
+      return { a, b: a, k: 0, n };
+    }
+    function init() {}
+    function draw(I, level, fx) {
+      if (!setup()) return;
+      const now = window.__time || 0, playing = !!window.__playing, prev = lastNow; lastNow = now;
+      const dt = Math.min(.1, Math.max(0, now - prev)), seek = Math.abs(now - prev) > .5;
+      const sc = Math.min(window.devicePixelRatio || 1, 1.5) * .75, w = Math.round(innerWidth * sc), h = Math.round(innerHeight * sc);
+      if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; gl.viewport(0, 0, w, h); }
+      const b = window.__bass || 0; beatE += (b - beatE) * .1; const beat = playing ? Math.max(0, b - beatE) * 2 : 0;
+      kick = Math.max(kick * .86, beat);
+
+      // —— 时间线 ——
+      const intro = 1 - sm(33, 34.5, now), out = sm(121.5, 123.5, now) * (1 - sm(144, 147, now));
+      const breathT = now < 60 ? now : now - 122.4;
+      const breath = .5 - .5 * Math.cos(breathT / 4.15 * 6.2832);         // 一呼一吸约 4 秒
+      const verse = sm(33.6, 35, now) * (1 - sm(52.5, 54, now));
+      const chaos = sm(53.2, 54, now) * (1 - sm(119, 119.4, now));
+      const peak = sm(83.4, 84.2, now) * (1 - sm(119, 119.4, now));
+      const ruin = sm(94, 94.4, now) * (1 - sm(118.8, 119.3, now));
+      const hush = sm(119, 119.3, now) * (1 - sm(121.4, 123, now));
+      const falling = sm(144, 157, now);
+      // 镜头
+      const sh = shotAt(now);
+      let S = sh.a.slice();
+      if (!sh.n && sh.n !== 0) {
+        // 前奏：吸气靠近，呼气退开，同时整体一点点逼近
+        const push = 1 + .5 * sm(0, 33, now) * intro + verse * .45 + out * (.25 + .2 * sm(122, 144, now));
+        S = [.47, .42 - .22 * Math.min(1, (push - 1) / .9), push * (1 + .07 * breath * (intro + out))];
+      }
+      S[2] *= 1 + kick * .04 * chaos;
+      { const ar = IW / IH, sar = w / h, k = Math.max(sar / ar, 1), hy = .5 / (S[2] * k), hx = sar / 2 / (S[2] * k) / ar;
+        S[0] = hx >= .5 ? .5 : Math.min(1 - hx, Math.max(hx, S[0])); S[1] = hy >= .5 ? .5 : Math.min(1 - hy, Math.max(hy, S[1])); }
+      const twirl = verse * (.04 + .1 * sm(33.6, 52, now)) * Math.sin(now * .35) + ruin * .05 * Math.sin(now * 1.3) + falling * .08;
+      const tear = .08 + verse * .25 + chaos * (.25 + kick * 1.4) + peak * .4 + ruin * (.35 + kick * .9) + hush * .1 + falling * .5;
+      const blocks = chaos * kick * .5 + peak * .2 + ruin * (.18 + kick * .5);
+      const split = .25 + verse * .6 + chaos * (1 - ruin) * (.7 + kick * 1.6) + ruin * (.5 + kick * .9) + falling * 1.2;
+      const ghost = verse * .6 * (.5 + .5 * Math.sin(now * .9)) + out * .35 * breath;
+      const nb = Math.floor((now - B0) / BEAT);
+      const inv = ruin * (hash(nb * 3.3) < .22 ? 1 : 0) + peak * (1 - ruin) * (hash(nb * 5.1) < .1 ? 1 : 0);
+      const strobe = (peak * (1 - ruin) * (hash(nb * 7.7) < .3 ? .35 : 0) + ruin * kick * .25) * (playing ? 1 : 0);
+      const light = sm(144, 146.5, now) * (1.05 + kick * .3) + (intro + out) * (.35 + .75 * breath) + (verse + chaos) * (1 - hush) * (1 - out) * (.95 + kick * .3);
+      const dark = .04 + .1 * chaos;
+      const pulse = sm(133.8, 135, now) * (1 - sm(143, 146, now)) * kick * 1.6 + out * kick * .4;
+      const fall = Math.pow(falling, 2.2) * 1.15;
+      const crt = sm(156.6, 157.7, now);
+      const fade = (now === 0 ? .85 : Math.min(1, .25 + now / 2.5)) * (1 - hush * .82) * (1 - sm(157.7, 158.2, now) * .0);
+
+      gl.uniform1i(U.tex, 0); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.uniform2f(U.R, w, h); gl.uniform2f(U.IM, IW, IH);
+      gl.uniform3f(U.S0, S[0], S[1], S[2]); gl.uniform3f(U.S1, 0, 0, 1); gl.uniform1f(U.mixS, 0);
+      gl.uniform1f(U.T, now); gl.uniform1f(U.twirl, twirl); gl.uniform1f(U.split, split); gl.uniform1f(U.tear, Math.min(1.6, tear));
+      gl.uniform1f(U.blocks, Math.min(1, blocks)); gl.uniform1f(U.ghost, ghost); gl.uniform1f(U.inv, inv); gl.uniform1f(U.strobe, strobe);
+      gl.uniform1f(U.light, imgReady ? light : 0); gl.uniform1f(U.lightR, .45 + .25 * breath * (intro + out) + .4 * chaos); gl.uniform1f(U.dark, dark);
+      gl.uniform1f(U.fall, fall); gl.uniform1f(U.fallV, 0); gl.uniform1f(U.crt, crt); gl.uniform1f(U.fade, fade);
+      gl.uniform1f(U.beat, beat * chaos); gl.uniform1f(U.pulse, pulse); gl.uniform1f(U.grain, .1 + .08 * chaos + .2 * hush); gl.uniform1f(U.seed, Math.floor(now / 2.7));
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+      // —— 黑羽毛 ——
+      const W = innerWidth, H = innerHeight, dpr = Math.min(window.devicePixelRatio || 1, 2);
+      if (fc.width !== Math.round(W * dpr)) { fc.width = Math.round(W * dpr); fc.height = Math.round(H * dpr); }
+      if (seek) feathers = [];
+      if (playing && !seek) {
+        if (prev < 94.2 && now >= 94.2) spawn("burst", 70, W, H);                 // 全部毁灭——羽毛炸开
+        if (ruin > 0 && Math.random() < dt * 14) spawn("burst", 1, W, H);
+        if (out > 0 && Math.random() < dt * 1.6 * (1 - falling)) spawn("drift", 1, W, H);
+        if (falling > .05 && Math.random() < dt * 22 * falling) spawn("rise", 1, W, H);
+      }
+      fx2.setTransform(dpr, 0, 0, dpr, 0, 0); fx2.clearRect(0, 0, W, H);
+      const fallOff = crt > 0 ? 1 - crt : 1;
+      for (const f of feathers) {
+        f.life += dt;
+        if (f.drag) { const k = Math.exp(-f.drag * dt); f.vx *= k; f.vy = f.vy * k + 60 * dt; }
+        if (f.sway) { f.vx = Math.sin(now * 1.3 + f.ph) * 38; f.vr = Math.sin(now * 1.1 + f.ph) * .9; }
+        f.x += f.vx * dt; f.y += f.vy * dt; f.rot += f.vr * dt;
+        fx2.save(); fx2.translate(f.x, f.y); fx2.rotate(f.rot);
+        const flip = Math.cos(now * 2.2 + f.ph); fx2.scale(f.s * (.6 + .4 * Math.abs(flip)), f.s);
+        fx2.globalAlpha = fallOff * Math.min(1, f.life * 4);
+        fx2.drawImage(f.spr, -60, -180); fx2.restore();
+      }
+      feathers = feathers.filter(f => f.y < H + 300 && f.y > -500 && f.x > -300 && f.x < W + 300 && f.life < 30);
+    }
+    return { init, draw, wet: false };
+  };
+
   SCENES.none = () => ({ init() {}, draw() {} });
 
   // ═════════ 引擎 ═════════

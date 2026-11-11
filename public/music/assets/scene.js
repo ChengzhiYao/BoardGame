@@ -3495,6 +3495,149 @@ void main(){
     return { init, draw, wet: false };
   };
 
+  // ═════════ 堕ちろ（Fallen）：在黑暗里挣扎的人 ═════════
+  // 几乎全黑的画面里只有他。四周的黑暗像烟一样往里爬，鼓点一下下把它震回去（感官在抗拒）；
+  // 每一句命令（忘れろ、黙れ、疑え……）都有一个巨大的汉字砸在他身后；
+  // 「堕ちろ」画面整个往下坠、拖出一串残影；「壊れろ」画面碎成玻璃片；「祈れ」头顶落下一道光
+  SCENES.fallen = (song) => {
+    const sm = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+    const FALL = [20.98, 39.0, 44.76, 78.3, 83.98], BREAK = [23.2, 40.38, 46.04, 79.82, 85.58], PRAY = [24.88, 41.74, 47.5, 81.3, 87.06];
+    // 每一个命令词：[时间, 字, 大小]
+    const WORDS = [[4.12, "息", .8], [6.34, "目", .8], [8.94, "始", .9], [20.98, "堕", 1.25], [23.2, "壊", 1.15], [24.88, "祈", 1.05],
+      [27.44, "信", .85], [29.04, "縋", .85], [33.36, "耐", .85], [34.92, "演", .85], [39.0, "堕", 1.25], [40.38, "壊", 1.15], [41.74, "祈", 1.05],
+      [44.76, "堕", 1.25], [46.04, "壊", 1.15], [47.5, "祈", 1.05], [53.28, "忘", .9], [54.92, "捨", .9], [59.06, "黙", .9], [60.74, "塞", .9],
+      [64.78, "沈", .9], [66.18, "裂", .95], [70.08, "疑", .85], [70.96, "拒", .85], [71.64, "従", .85], [72.28, "考", .85], [73.24, "跪", .85],
+      [74.22, "媚", .85], [78.3, "堕", 1.25], [79.82, "壊", 1.15], [81.3, "祈", 1.05], [83.98, "堕", 1.3], [85.58, "壊", 1.2], [87.06, "祈", 1.1], [87.5, "終", 1.4]];
+    const last = (arr, t, win) => { let r = -1e9; for (const x of arr) if (x <= t && t - x < win) r = x; return r; };
+    let gl, prog, cv, U = {}, ok = false, tex, imgReady = false, IW = 1536, IH = 1024, tc, tg, lastNow = 0, beatE = 0, kick = 0, shake = 0;
+
+    const FS = `precision highp float;
+uniform sampler2D tex; uniform vec2 R,IM; uniform vec3 S;
+uniform float T,drop,trail,shard,shardSeed,beam,darkV,light,flick,kick,shake,fade,split,inv;
+float h21(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
+vec2 h22(vec2 p){float n=h21(p);return vec2(n,h21(p+n));}
+float vn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h21(i),h21(i+vec2(1,0)),f.x),mix(h21(i+vec2(0,1)),h21(i+vec2(1,1)),f.x),f.y);}
+float fbm(vec2 p){float s=0.,a=.5;for(int i=0;i<5;i++){s+=a*vn(p);p=p*2.03+17.1;a*=.5;}return s;}
+vec2 toImg(vec2 p){ float ar=IM.x/IM.y, sar=R.x/R.y; float k=max(sar/ar,1.); vec2 q=p/(S.z*k); q.x/=ar; return vec2(S.x,1.-S.y)+q; }
+float lum(vec2 u){ if(u.x<0.||u.x>1.||u.y<0.||u.y>1.) return .02; return dot(texture2D(tex,u).rgb,vec3(.299,.587,.114)); }
+vec3 img(vec2 p,float sp){ vec2 o=vec2(sp,0.); return vec3(lum(toImg(p+o)),lum(toImg(p)),lum(toImg(p-o))); }
+void main(){
+  vec2 fc=gl_FragCoord.xy; vec2 p=(fc-.5*R)/R.y;
+  p+=vec2(sin(T*61.)*.6,cos(T*47.)*.6)*shake*.012;
+  // 壊れろ：碎成玻璃片，每一片各自错开、转一点
+  float crack=0., shardL=1.;
+  if(shard>0.){
+    vec2 g=p*4.2+shardSeed; vec2 ig=floor(g),fg=fract(g); float d1=9.,d2=9.; vec2 cid=vec2(0);
+    for(int j=-1;j<=1;j++)for(int i=-1;i<=1;i++){ vec2 o=vec2(i,j); vec2 c=o+h22(ig+o); float d=length(fg-c); if(d<d1){d2=d1;d1=d;cid=ig+o;} else if(d<d2) d2=d; }
+    float a=(h21(cid)-.5)*.16*shard; vec2 c0=(cid+.5-shardSeed)/4.2;
+    p=c0+mat2(cos(a),-sin(a),sin(a),cos(a))*(p-c0)+(h22(cid+3.)-.5)*.07*shard;
+    float rr=length(p-vec2(.12,.05));
+    crack=smoothstep(.012,.0,d2-d1)*shard*(.25+.75*h21(cid+7.))*smoothstep(1.1,.2,rr);
+    shardL=(.82+.36*h21(cid+11.))*(1.+.25*shard*smoothstep(.06,.0,d2-d1));
+  }
+  // 堕ちろ：往下坠，上面拖着一串残影
+  p.y+=drop;
+  vec3 c=img(p,split);
+  if(trail>0.){ for(int k=1;k<6;k++){ float fk=float(k); c=max(c,img(p+vec2(0.,fk*.045*trail),split*2.)*(1.-fk/6.)*.75*trail); } }
+  // 光：主光 + 坏掉的日光灯一样的闪
+  float key=exp(-dot(p-vec2(.25,.15),p-vec2(.25,.15))*1.6);
+  c*=(.18+light*(.55+.9*key))*(1.-flick*.75);
+  // 祈れ：头顶落下一道光
+  if(beam>0.){ float bx=abs(p.x-.18); float b=exp(-bx*bx*90.)*(.6+.4*smoothstep(.6,-.5,p.y));
+    float dust=step(.985,h21(floor(fc/2.)+floor(T*20.)))*exp(-bx*bx*40.);
+    c+=vec3(1.,.97,.9)*(b*.55+dust*.6)*beam; c*=1.+beam*.5*exp(-bx*bx*30.); }
+  // 黑暗从四周爬进来（烟一样），鼓点把它震回去
+  float n=fbm(p*2.6+vec2(T*.05,-T*.11));
+  float edge=length(p*vec2(.75,1.))+(n-.5)*.55;
+  float m=smoothstep(.75-darkV*.55+kick*.12,.25-darkV*.35+kick*.12,-edge+.9);
+  c*=1.-m*.96;
+  c*=mix(1.,shardL,shard);
+  c+=vec3(.92,.95,1.)*crack*.9;
+  c=mix(c,1.-c,inv);
+  c*=.9+.1*sin(fc.y*2.1);
+  c+=(h21(fc+fract(T*37.)*91.)-.5)*.07;
+  c*=1.-.5*dot(p,p);
+  gl_FragColor=vec4(clamp(c,0.,1.)*fade,1.);
+}`;
+    function setup() {
+      if (cv) return ok;
+      cv = document.createElement("canvas");
+      cv.style.cssText = "position:fixed;inset:0;width:100%;height:100%;z-index:-3;pointer-events:none;background:#000";
+      document.body.insertBefore(cv, document.body.firstChild);
+      tc = document.createElement("canvas");
+      tc.style.cssText = "position:fixed;inset:0;width:100%;height:100%;z-index:-2;pointer-events:none";
+      document.body.insertBefore(tc, cv.nextSibling); tg = tc.getContext("2d");
+      const bd = document.querySelector(".backdrop"); if (bd) bd.style.display = "none";
+      gl = cv.getContext("webgl", { antialias: false, alpha: false });
+      if (!gl) return (ok = false);
+      const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.warn(gl.getShaderInfoLog(s)); return null; } return s; };
+      const vs = sh(gl.VERTEX_SHADER, "attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}"), fs = sh(gl.FRAGMENT_SHADER, FS);
+      if (!vs || !fs) return (ok = false);
+      prog = gl.createProgram(); gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog); gl.useProgram(prog);
+      const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+      const loc = gl.getAttribLocation(prog, "p"); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+      for (const k of ["tex", "R", "IM", "S", "T", "drop", "trail", "shard", "shardSeed", "beam", "darkV", "light", "flick", "kick", "shake", "fade", "split", "inv"]) U[k] = gl.getUniformLocation(prog, k);
+      tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
+      for (const [k, v] of [[gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE], [gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+      const im = new Image(); im.onload = () => { gl.bindTexture(gl.TEXTURE_2D, tex); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, im); IW = im.width; IH = im.height; imgReady = true; };
+      im.src = `/music/media/${song.id}/bg.jpg?r=${song.rev || 0}`;
+      return (ok = true);
+    }
+    function init() {}
+    function draw(I, level, fx) {
+      if (!setup()) return;
+      const now = window.__time || 0, playing = !!window.__playing, prev = lastNow; lastNow = now;
+      const sc = Math.min(window.devicePixelRatio || 1, 1.5) * .75, w = Math.round(innerWidth * sc), h = Math.round(innerHeight * sc);
+      if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; gl.viewport(0, 0, w, h); }
+      const b = window.__bass || 0; beatE += (b - beatE) * .1; const beat = playing ? Math.max(0, b - beatE) * 2 : 0;
+      kick = Math.max(kick * .84, beat);
+      const intro = 1 - sm(19.5, 21, now);
+      const lf = last(FALL, now, 2), lb = last(BREAK, now, 2), lp = last(PRAY, now, 3);
+      const fa = now - lf, ba = now - lb, pa = now - lp;
+      const drop = fa < 1.2 ? Math.sin(Math.min(1, fa / .55) * Math.PI) * .32 * Math.exp(-fa * 1.2) : 0;
+      const trail = fa < 1.2 ? Math.exp(-fa * 2.6) : 0;
+      const shard = ba < 1.6 ? (ba < .08 ? ba / .08 : Math.exp(-(ba - .08) * 2.4)) : 0;
+      const beam = pa < 3 ? Math.min(1, pa / .12) * Math.exp(-pa * .9) : 0;
+      // 前奏：坏掉的灯一点点亮起来；「目を開け」时闪一下
+      const flick = intro * (now < 6.34 ? .7 : (Math.sin(now * 37) > .6 ? .55 : 0) * (1 - sm(9, 19, now))) + (playing && Math.random() < .03 * (1 - intro) ? .4 : 0);
+      const light = (.35 + .65 * sm(4, 19, now)) * (1 + kick * .25) * (1 - sm(101.6, 102.2, now));
+      const darkV = .35 + .5 * sm(10, 20, now) + .25 * Math.sin(now * .4) * (1 - intro) + .3 * sm(51, 53, now) * (1 - sm(53.2, 54, now)) + .3 * sm(89, 101, now);
+      shake = Math.max(shake * .85, kick * (1 - intro) * .9, fa < .3 ? 1.6 : 0, ba < .25 ? 1.3 : 0);
+      const push = 1.08 + .1 * sm(0, 20, now) + kick * .05 * (1 - intro) + .12 * sm(87.5, 89, now);
+      const ar = IW / IH, sar = w / h, kk = Math.max(sar / ar, 1), hx = sar / 2 / (push * kk) / ar;
+      const fxp = hx >= .5 ? .5 : Math.min(1 - hx, Math.max(hx, sar < 1 ? .66 : .6));
+      const inv = playing && (ba < .06 || (now > 87.5 && now < 87.56)) ? 1 : 0;
+      gl.uniform1i(U.tex, 0); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.uniform2f(U.R, w, h); gl.uniform2f(U.IM, IW, IH); gl.uniform3f(U.S, fxp, .46, push);
+      gl.uniform1f(U.T, now); gl.uniform1f(U.drop, drop); gl.uniform1f(U.trail, trail); gl.uniform1f(U.shard, shard); gl.uniform1f(U.shardSeed, (lb * 7.3) % 10);
+      gl.uniform1f(U.beam, beam); gl.uniform1f(U.darkV, Math.min(1.2, darkV)); gl.uniform1f(U.light, imgReady ? light : 0); gl.uniform1f(U.flick, flick);
+      gl.uniform1f(U.kick, kick * (1 - intro)); gl.uniform1f(U.shake, shake); gl.uniform1f(U.fade, Math.min(1, .3 + now / 2) * (1 - sm(101.8, 102.4, now)));
+      gl.uniform1f(U.split, .002 + kick * .006 + trail * .01 + shard * .012); gl.uniform1f(U.inv, inv);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+      // —— 命令词：巨大的汉字砸下来 ——
+      const W2 = innerWidth, H2 = innerHeight, dp = Math.min(window.devicePixelRatio || 1, 2);
+      if (tc.width !== Math.round(W2 * dp)) { tc.width = Math.round(W2 * dp); tc.height = Math.round(H2 * dp); }
+      tg.setTransform(dp, 0, 0, dp, 0, 0); tg.clearRect(0, 0, W2, H2);
+      let wd = null; for (const x of WORDS) if (x[0] <= now && now - x[0] < 1.6) wd = x;
+      if (wd) {
+        const age = now - wd[0], hit = Math.min(1, age / .07), a = (age < .07 ? hit : Math.exp(-(age - .07) * 2.2)) * .9;
+        const big = Math.min(W2, H2) * .62 * wd[2] * (1.35 - .35 * hit + age * .04);
+        const x0 = W2 * (W2 > H2 ? .3 : .5), y0 = H2 * (W2 > H2 ? .5 : .62);
+        tg.save(); tg.translate(x0 + (Math.random() - .5) * 10 * Math.exp(-age * 6), y0); tg.textAlign = "center"; tg.textBaseline = "middle";
+        tg.font = `${big}px "Zen Old Mincho", "Noto Serif SC", serif`;
+        tg.globalCompositeOperation = "lighter";
+        tg.fillStyle = `rgba(255,40,40,${a * .35})`; tg.fillText(wd[1], -6 * (1 - hit * .5), 0);
+        tg.fillStyle = `rgba(40,200,255,${a * .3})`; tg.fillText(wd[1], 6 * (1 - hit * .5), 0);
+        tg.globalCompositeOperation = "source-over";
+        tg.fillStyle = `rgba(250,250,250,${a * .78})`; tg.fillText(wd[1], 0, 0);
+        tg.restore();
+      }
+    }
+    return { init, draw, wet: false };
+  };
+
   SCENES.none = () => ({ init() {}, draw() {} });
 
   // ═════════ 引擎 ═════════

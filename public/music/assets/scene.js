@@ -3645,7 +3645,7 @@ void main(){
     const sm = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
     // 背景画面（同一个场景的几种状态）：[开始时间, 图]
     // 这几张画是同一场流星雨连续落下的几帧，按顺序循环播放，流星就一遍遍落下来
-    const SEQ = ["storm", "more", "fading", "still", "few"], STEP = .75, XF = .32;
+    const SEQ = ["storm", "more", "fading"], STEP = .85, XF = .35;   // 另外两张天空的笔触不一样，不放进循环
     const FILES = { storm: "p_storm.jpg", more: "p_more.jpg", fading: "p_fading.jpg", few: "p_few.jpg", still: "p_still.jpg" };
     const GIRL = [.255, .845], LAMP = [.18, .535];      // 少女、路灯在画里的位置
     let imgs = {}, lastNow = 0, mets = [], dust = [], wrapEl = null;

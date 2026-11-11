@@ -392,7 +392,7 @@ window.SONGS = [
   {
     id: "18",
     title: "Kodo",
-    subtitle: "鼓動 · 心跳",
+    subtitle: "孤独",
     rev: 8,
     date: "2026.01.23",
     place: "",

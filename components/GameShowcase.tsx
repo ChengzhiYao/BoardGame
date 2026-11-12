@@ -3,7 +3,7 @@ import { Fragment, useState } from 'react';
 import { type Lang } from '@/lib/i18n';
 import { FREE_MODES } from '@/lib/pricing';
 
-export type GM = 'story' | 'coc' | 'jbs' | 'dnd' | 'soup' | 'td' | 'mcc' | 'botc' | 'meadow' | 'market';
+export type GM = 'story' | 'coc' | 'jbs' | 'dnd' | 'soup' | 'td' | 'mcc' | 'botc' | 'market';
 type Bi = { zh: string; en: string };
 const pick = (lang: Lang, b: Bi) => (lang === 'en' ? b.en : b.zh);
 
@@ -119,34 +119,20 @@ const GAMES: Game[] = [
       { zh: '持有满10变自由身,赎身获保护期', en: 'Hold 10 to go free; redeem yourself for protection' },
     ],
   },
-  {
-    key: 'meadow',
-    name: { zh: '童话草原（持久世界）', en: 'Storybook Meadow' },
-    meta: { zh: '永久世界 · 一号一命 · 生存', en: 'Persistent world · one life · survival' },
-    blurb: { zh: '一本童话书里的小草原：你随机生为一只会说话的动物，肉食或草食。世界按真实时间流动、永不重置，你要在食物链里活下去、繁衍、传承血脉。', en: 'A meadow inside a storybook: you are born a talking animal, predator or prey. The world flows in real time and never resets — survive the food chain, breed, pass on your bloodline.' },
-    rules: [
-      { zh: '做人格测试，决定你生为哪种动物', en: 'A personality test decides which animal you become' },
-      { zh: '觅食或捕猎，时刻提防被吃掉', en: 'Forage or hunt; always watch for predators' },
-      { zh: '世界随真实时间流动，离线也在变', en: 'The world flows in real time, even offline' },
-      { zh: '死亡是永久的，但血脉可以传承', en: 'Death is permanent — but your bloodline lives on' },
-    ],
-  },
 ];
 
 export default function GameShowcase({ lang, busy, onPlay }: { lang: Lang; busy: boolean; onPlay: (m: GM) => void }) {
   const en = lang === 'en';
   const isFree = (k: GM) => FREE_MODES.includes(k);
   const free = GAMES.filter((g) => isFree(g.key));
-  const paid = GAMES.filter((g) => !isFree(g.key) && g.key !== 'meadow');
-  const soon = GAMES.filter((g) => g.key === 'meadow');
-  const ordered = [...free, ...paid, ...soon];
-  const groupOf = (g: Game) => (isFree(g.key) ? 'free' : g.key === 'meadow' ? 'soon' : 'paid');
-  const [filter, setFilter] = useState<'all' | 'free' | 'premium' | 'soon'>('all');
-  const tabs: { k: 'all' | 'free' | 'premium' | 'soon'; label: string }[] = [
+  const paid = GAMES.filter((g) => !isFree(g.key));
+  const ordered = [...free, ...paid];
+  const groupOf = (g: Game) => (isFree(g.key) ? 'free' : 'paid');
+  const [filter, setFilter] = useState<'all' | 'free' | 'premium'>('all');
+  const tabs: { k: 'all' | 'free' | 'premium'; label: string }[] = [
     { k: 'all', label: en ? 'All' : '全部' },
     { k: 'free', label: en ? 'Free' : '免费畅玩' },
     { k: 'premium', label: en ? 'Premium ✦' : '豪华大作 ✦' },
-    { k: 'soon', label: en ? 'Soon' : '即将开放' },
   ];
   const shown = filter === 'all' ? ordered : ordered.filter((g) => groupOf(g) === (filter === 'premium' ? 'paid' : filter));
 
@@ -155,17 +141,9 @@ export default function GameShowcase({ lang, busy, onPlay }: { lang: Lang; busy:
     return (
       <section key={g.key} className="grid md:grid-cols-2 gap-7 md:gap-10 items-center">
         <div className={i % 2 ? 'md:order-2' : ''}>
-          {g.key === 'meadow' ? (
-            <div className="w-full rounded-xl border border-eldritch/30 bg-gradient-to-b from-eldritch/15 to-ink flex flex-col items-center justify-center text-center gap-2 shadow-[0_30px_70px_-35px_rgba(0,0,0,.9)]" style={{ aspectRatio: '1180 / 720' }}>
-              <div className="text-5xl">🌾🦊🐇</div>
-              <div className="font-serif text-parchment/80 text-lg">{en ? 'Storybook Meadow' : '童话草原'}</div>
-              <div className="text-parchment/45 text-xs tracking-widest uppercase">{en ? 'persistent world' : '永久世界 · 即将开放'}</div>
-            </div>
-          ) : (
-            <iframe src={`/screens.html#${g.key}`} title={pick(lang, g.name)} loading="lazy" scrolling="no"
-              className="w-full block rounded-xl border border-eldritch/30 bg-ink pointer-events-none shadow-[0_30px_70px_-35px_rgba(0,0,0,.9)]"
-              style={{ aspectRatio: '1180 / 720' }} />
-          )}
+          <iframe src={`/screens.html#${g.key}`} title={pick(lang, g.name)} loading="lazy" scrolling="no"
+            className="w-full block rounded-xl border border-eldritch/30 bg-ink pointer-events-none shadow-[0_30px_70px_-35px_rgba(0,0,0,.9)]"
+            style={{ aspectRatio: '1180 / 720' }} />
         </div>
         <div className={`text-left ${i % 2 ? 'md:order-1' : ''}`}>
           <div className="flex items-center gap-2 mb-2">

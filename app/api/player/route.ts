@@ -7,7 +7,7 @@ const HIDDEN = 'hattieichinose@gmail.com';
 
 const MODE_ZH: Record<string, string> = {
   coc: '克苏鲁的呼唤', soup: '海龟汤', td: '真心话大冒险', jbs: '剧本杀',
-  botc: '血染钟楼', mcc: '午夜猫咒', dnd: '龙与地下城', story: '讲故事', meadow: '童话草原',
+  botc: '血染钟楼', mcc: '午夜猫咒', dnd: '龙与地下城', story: '讲故事',
 };
 
 export async function GET(req: Request) {

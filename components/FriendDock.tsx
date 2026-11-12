@@ -9,9 +9,9 @@ const HIDDEN = 'hattieichinose@gmail.com';
 const MODE_LABEL: Record<string, { zh: string; en: string }> = {
   coc: { zh: '调查跑团', en: 'Cthulhu' }, soup: { zh: '海龟汤', en: 'Soup' }, td: { zh: '真心话大冒险', en: 'Truth or Dare' },
   jbs: { zh: '剧本杀', en: 'Murder Mystery' }, botc: { zh: '血染钟楼', en: 'Bloodbound' }, mcc: { zh: '午夜猫诅咒', en: 'Cat Curse' },
-  dnd: { zh: '龙与地下城', en: 'D&D' }, story: { zh: '讲故事', en: 'Storyteller' }, meadow: { zh: '童话草原', en: 'Meadow' },
+  dnd: { zh: '龙与地下城', en: 'D&D' }, story: { zh: '讲故事', en: 'Storyteller' },
 };
-const MODE_EN: Record<string, string> = { coc: 'Call of Cthulhu', soup: 'Lateral Thinking', td: 'Truth or Dare', jbs: 'Murder Mystery', botc: 'Bloodbound', mcc: 'Midnight Cat Curse', dnd: 'D&D', story: 'Storyteller', meadow: 'Storybook Meadow' };
+const MODE_EN: Record<string, string> = { coc: 'Call of Cthulhu', soup: 'Lateral Thinking', td: 'Truth or Dare', jbs: 'Murder Mystery', botc: 'Bloodbound', mcc: 'Midnight Cat Curse', dnd: 'D&D', story: 'Storyteller' };
 
 type Msg = { text: string; ts: number; mine: boolean };
 type Peer = { uid: string; name: string; roomId?: string; userId?: string; avatar?: string | null; loc?: string; mode?: string };

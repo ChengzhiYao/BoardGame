@@ -4477,87 +4477,291 @@ void main(){
 
 
   // ═════════ この季節の終わり：写给过去、现在和未来的自己 ═════════
-  // 背景是他自己做的 MV（夏末的墓园、手里拿着白花的他，和他身后颜色不同的影子），跟音乐同步播放。
-  // 上面叠一层跟歌词走的光：「残酷な日差し」刺眼的阳光、地面的热浪；远处的海一闪一闪；
-  // 「夏も冬も秋も過ぎて、美しい春が」颜色跟着季节转一圈，最后飘起淡粉色的花瓣；
-  // 「光と海がひとつに溶ける」光把画面融成一片；「氷のように冷たくて」颜色变冷、霜从四周爬进来；
-  // 「静けさの中で終わる」一切安静下来；「何を失くしたのかさえ少しずつ忘れてゆく」画面一块块褪成空白；
-  // 「それでも涙だけは」眼泪一样的水珠顺着屏幕往下流
+  // 背景：海边山坡上一棵孤零零的树，前面是一丛白百合（和封面里他手上的花一样），远处是海。
+  // 季节跟着歌词走：开头是夏天「残酷な日差し」刺眼的阳光、地面的热浪；
+  // 「夏も冬も秋も過ぎて、美しい春が」时，树、天、地面、飘落的东西跟着转一圈：夏 → 冬 → 秋 → 春；
+  // 「光と海がひとつに溶ける」光把画面融成一片；「氷のように冷たくて」冬天，霜从四周爬进来；
+  // 「静けさの中で終わる」雪静静地下；「何を失くしたのかさえ忘れてゆく」画面一块块褪成空白（秋天）；
+  // 「それでも涙だけは」眼泪一样的水珠顺着屏幕往下流；最后停在春天。
+  // 封面里：把他从黑底里抠出来，身后是这片风景（褪了色、像回忆），再叠两个放大的、半透明的他。
   SCENES.summerend = (song) => {
     const sm = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
     const TL = song.tl || {};
     const env = (L, t, fi = 1, fo = 1.5) => { let v = 0; for (const [a, b] of L || []) v = Math.max(v, sm(a - fi, a + fi, t) * (1 - sm(b - fo, b + fo, t))); return v; };
-    let gl, prog, cv, U = {}, ok = false, tex, vid, vReady = false, lastNow = 0, petals = [], tears = [], spr = [];
+    // 季节关键帧 [时间, 季节, 过渡秒数]：0 夏 1 秋 2 冬 3 春
+    const KEYS = [[0, 0, 1]];
+    for (const [s0, w0, a0, h0] of TL.seasons || []) KEYS.push([s0, 0, 1.2], [w0, 2, 1.4], [a0, 1, 1.4], [h0, 3, 1.6]);
+    for (const k of TL.sk || []) KEYS.push(k);
+    KEYS.sort((a, b) => a[0] - b[0]);
+    function seasonW(t) {
+      let w = [1, 0, 0, 0];
+      for (const [kt, s, d] of KEYS) { const f = sm(kt - d, kt, t); if (f <= 0) break; w = w.map((v, i) => v * (1 - f) + (i === s ? f : 0)); }
+      return w;
+    }
+    const HZ = .5;
+    const groundV = (u) => .28 + .30 * (1 - sm(-.05, .62, u));
+    let gl, prog, cv, U = {}, ok = false, lastNow = 0, CX = .5;
+    let fall = [], tears = [], spr = { petal: [], pink: [], leaf: [] }, flake;
+    let tree = null, lily = null, treeKey = "", lilyKey = "";
+
     const FS = `precision highp float;
-uniform sampler2D V; uniform vec2 R,VS; uniform float T,heat,melt,cold,quiet,forget,fade,sat,spring,winter,autumn,pale;
+uniform vec2 R; uniform float T,su,au,wi,sp,heat,melt,cold,quiet,forget,fade,sat,pale,CX;
+const float HZ=.5;
 float h21(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
 float vn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h21(i),h21(i+vec2(1,0)),f.x),mix(h21(i+vec2(0,1)),h21(i+vec2(1,1)),f.x),f.y);}
 float fbm(vec2 p){float s=0.,a=.5;for(int i=0;i<5;i++){s+=a*vn(p);p=p*2.03+17.1;a*=.5;}return s;}
+float fb3(vec2 p){float s=0.,a=.5;for(int i=0;i<3;i++){s+=a*vn(p);p=p*2.03+17.1;a*=.5;}return s/.875;}
+float ground(float u){
+  float k=clamp((u+.05)/.67,0.,1.); k=k*k*(3.-2.*k);
+  return .28+.30*(1.-k)+.010*(vn(vec2(u*9.,1.))-.5)+.0035*(vn(vec2(u*45.,2.))-.5);
+}
 void main(){
-  vec2 fc=gl_FragCoord.xy, q=fc/R;
-  // 画面按 cover 方式铺满，宽屏时稍微偏右（人物在中间偏右）
-  float ar=R.x/R.y, va=VS.x/VS.y; vec2 uv=q;
-  if(ar>va){ float k=va/ar; uv.y=.5+(q.y-.5)*k; } else { float k=ar/va; uv.x=clamp(.56,k*.5,1.-k*.5)+(q.x-.5)*k; }
-  uv.y=1.-uv.y;
-  // 热浪：越靠近地面越扭
-  float hz=heat*.0035*smoothstep(.35,1.,uv.y);
-  uv+=vec2(fbm(vec2(uv.x*14.,uv.y*9.-T*1.6))-.5,fbm(vec2(uv.x*11.+3.,uv.y*7.-T*1.3))-.5)*hz;
-  vec3 c=texture2D(V,uv).rgb;
+  vec2 fc=gl_FragCoord.xy, q=fc/R; float ar=R.x/R.y, px=1./R.y;
+  float u=CX+(q.x-.5)*ar/1.7778, v=q.y;
+  // 夏天的热浪：地面附近的空气在扭
+  float hw=heat*su*.0022*smoothstep(.62,.3,v);
+  u+=(fb3(vec2(u*30.,v*22.-T*1.4))-.5)*hw; v+=(fb3(vec2(u*24.+3.,v*18.-T*1.1))-.5)*hw;
+  vec3 skyTop=su*vec3(.15,.36,.70)+au*vec3(.27,.30,.45)+wi*vec3(.47,.52,.59)+sp*vec3(.38,.55,.80);
+  vec3 skyHz =su*vec3(.80,.87,.93)+au*vec3(.97,.74,.50)+wi*vec3(.78,.80,.83)+sp*vec3(.95,.86,.87);
+  vec2 sunP=su*vec2(.80,.88)+au*vec2(.80,.565)+wi*vec2(.70,.80)+sp*vec2(.74,.82);
+  vec3 sunC=su*vec3(1.,.95,.82)+au*vec3(1.,.70,.40)+wi*vec3(.92,.94,.97)+sp*vec3(1.,.91,.86);
+  float sunI=su*(1.+.4*heat)+au*.95+wi*.22+sp*.7;
+  float sd=length((vec2(u,v)-sunP)*vec2(1.7778,1.));
+  float g=ground(u);
+  vec3 c;
+  if(v>HZ){
+    // ── 天空 ──
+    float tv=clamp((v-HZ)/(1.-HZ),0.,1.);
+    c=mix(skyHz,skyTop,pow(tv,.6));
+    c+=sunC*(exp(-sd*4.)*.30+exp(-sd*22.)*.35)*sunI;
+    c=mix(c,vec3(1.,.99,.96)*1.25,smoothstep(.026,.021,sd)*min(1.,sunI)*(1.-.7*wi));
+    // 云：靠近地平线压扁
+    float cov=su*.34+au*.46+wi*.62+sp*.42;
+    vec2 cp=vec2(u*1.7+T*.004,(v-HZ)*4.2/(.3+tv))+vec2(0.,2.);
+    float cn=fbm(cp);
+    float cd=smoothstep(1.-cov,1.-cov+.22,cn)*smoothstep(HZ-.01,HZ+.04,v);
+    vec2 sdir=normalize(sunP-vec2(u,v)+1e-4);
+    float lit=clamp(.55+(cn-fbm(cp+sdir*vec2(.25,.6)))*3.,0.,1.)*(1.-.5*wi)+.5*wi;
+    vec3 cs=mix(mix(skyTop,skyHz,.45)*.85+vec3(.08),vec3(.55,.57,.61),wi*.6);
+    vec3 cl=mix(vec3(.98),sunC,.35+.3*au);
+    c=mix(c,mix(cs,cl,lit),cd*.92);
+    c+=sunC*exp(-sd*9.)*cd*.25*sunI;
+    // 远处的岛
+    float ih=.016*smoothstep(.84,.95,u)*smoothstep(1.25,1.05,u)*(.6+.4*vn(vec2(u*28.,3.)))+.006*smoothstep(-.3,-.1,u)*smoothstep(.1,-.05,u);
+    if(v<HZ+ih&&v>=HZ) c=mix(c,mix(skyHz,skyTop,.5)*.85,.55);
+  } else {
+    // ── 海 ──
+    float dz=HZ-v+.003, z=1./dz;
+    vec3 deep=su*vec3(.04,.20,.36)+au*vec3(.10,.13,.22)+wi*vec3(.17,.21,.26)+sp*vec3(.08,.24,.36);
+    c=mix(mix(skyHz,deep,.6),deep,smoothstep(0.,.05,dz));
+    c+=skyHz*.10*smoothstep(.04,0.,dz);
+    float wn=fb3(vec2(u*1.78*z*.35,z*.9+T*.12));
+    c*=.9+.22*wn;
+    float col=exp(-pow((u-sunP.x)*1.7778*(3.+z*.02),2.));
+    float gl=pow(vn(vec2(u*1.78*z*2.2,z*3.5+T*1.3)),9.)*col;
+    c+=sunC*gl*(1.2+1.5*heat+2.5*melt)*min(1.,sunI);
+    c+=sunC*col*.10*sunI*smoothstep(.06,0.,dz);
+  }
+  if(v<=g+px*1.5){
+    // ── 地面：草坡 / 雪坡 ──
+    float e=max(0.,g-v);
+    vec3 gb=su*vec3(.42,.50,.21)+au*vec3(.58,.43,.21)+wi*vec3(1.,1.,1.)+sp*vec3(.40,.57,.26);
+    float patch=mix(fbm(vec2(u*5.,v*13.)),.6,wi*.6);
+    float gs=fb3(vec2(u*1.78*260.,v*38.));
+    float wl=fb3(vec2(u*3.2-T*.10,v*9.+T*.02));
+    float tex=(.78+.36*patch)*(.84+.32*gs*(1.-wi))*(.88+.24*wl*(1.-.8*wi));
+    vec3 gc=gb*tex;
+    gc=mix(gc,gc*vec3(.82,.88,1.05),wi*smoothstep(.0,.3,e));            // 雪的阴影偏蓝
+    gc*=mix(1.,mix(.55,.85,wi),smoothstep(0.,.33,e));                                // 越靠近自己越暗
+    gc+=sunC*.14*exp(-e*70.)*sunI;                                       // 坡顶被光勾一道边
+    gc=mix(gc,mix(skyHz,gc,.6),exp(-e*25.)*.35);                         // 远处的空气
+    // 草里星星点点的白花（冬天被雪盖住），春天多一些淡粉和黄
+    vec2 fcell=vec2(u*1.78,v)*R.y/3.2, fp=floor(fcell);
+    float fl=step(.993-.006*sp-.002*su,h21(fp))*(1.-wi)*smoothstep(.0,.04,e)*smoothstep(.5,.3,length(fract(fcell)-.5));
+    vec3 fcol=mix(vec3(.96,.95,.92),h21(fp+7.)>.5?vec3(.98,.80,.86):vec3(.98,.92,.62),sp*.6);
+    gc=mix(gc,fcol*(.7+.3*(1.-smoothstep(0.,.3,e))),fl*.85);
+    // 雪地里一闪一闪
+    gc+=vec3(1.)*step(.997,h21(floor(fc/1.5)+floor(T*3.)))*wi*.35;
+    c=mix(c,gc,smoothstep(g+px*1.2,g-px*1.2,v));
+  }
   float l=dot(c,vec3(.299,.587,.114));
-  // 季节：冬的冷、秋的琥珀、春的粉
-  c=mix(c,vec3(l)*vec3(.78,.88,1.08)+.04,winter*.75);
-  c=mix(c,c*vec3(1.12,.92,.68)+vec3(.04,.02,0.),autumn*.7);
-  c=mix(c,c*vec3(1.06,.96,1.)+vec3(.08,.03,.06),spring*.7);
-  // 夏天的阳光：右上方刺眼的光，整个画面被晒得发白
-  vec2 sp=vec2(.82,-.05); float sd=length((uv-sp)*vec2(1.6,1.));
-  c+=vec3(1.,.93,.78)*(exp(-sd*2.6)*.75+exp(-sd*7.)*.5)*heat;
-  c=mix(c,1.-(1.-c)*(1.-c),heat*.35);
-  // 光和海融在一起
-  c+=vec3(1.,.97,.92)*melt*(.25+.55*smoothstep(.45,1.,l));
-  // 远处的海面：一闪一闪
-  float sea=smoothstep(.02,.0,abs(uv.y-.305))*smoothstep(.12,.16,uv.x)*smoothstep(.36,.3,uv.x);
-  float gl2=pow(vn(vec2(uv.x*420.,uv.y*1400.+T*2.5)),16.)*sea;
-  c+=vec3(1.,.97,.9)*gl2*(.8+1.2*heat+2.*melt);
-  // 冷：颜色被抽走，蓝得像冰；霜从四周往里爬
-  c=mix(c,vec3(l)*vec3(.72,.86,1.12)+vec3(0.,.02,.06),cold*.85);
-  vec2 e=q-.5; float ed=length(e*vec2(ar/1.6,1.))*1.35;
-  float fr=fbm(q*vec2(ar,1.)*5.)*.6+fbm(q*vec2(ar,1.)*22.)*.4;
-  float frost=smoothstep(1.05-cold*.3,1.2-cold*.3,ed+fr*.35)*cold;
-  float cr=fbm(q*vec2(ar,1.)*60.);                       // 细碎的冰晶
-  c=mix(c,vec3(.84,.91,1.)*(.8+.35*cr),frost*.7);
-  c+=vec3(.85,.93,1.)*pow(cr,6.)*frost*.6;
-  // 安静：饱和度慢慢降下来
-  float ll=dot(c,vec3(.299,.587,.114)); c=mix(vec3(ll),c,sat*(1.-.6*quiet));
-  // 忘记：画面一块块褪成空白
-  float fm=fbm(q*vec2(ar,1.)*3.2+vec2(0.,T*.01));
-  float keep=smoothstep(.15,.45,length((q-vec2(.5,.45))*vec2(ar,1.)*.7));   // 中间的他留着
-  float gone=smoothstep(fm-.05,fm+.05,forget*.62)*keep;
-  c=mix(c,vec3(.93,.92,.9)*(.92+.08*fm),gone*.85);
+  // 夏天的阳光把画面晒得发白；光和海融在一起
+  c=mix(c,1.-(1.-c)*(1.-c),heat*su*.25);
+  c+=vec3(1.,.97,.92)*melt*(.22+.5*smoothstep(.4,1.,l));
+  // 冷：颜色被抽走；霜从四周爬进来
+  if(cold>0.){
+    c=mix(c,vec3(l)*vec3(.74,.87,1.1)+vec3(0.,.02,.05),cold*.7);
+    vec2 e2=q-.5; float ed=length(e2*vec2(ar/1.6,1.))*1.35;
+    float fr=fbm(q*vec2(ar,1.)*5.)*.6+fbm(q*vec2(ar,1.)*22.)*.4;
+    float frost=smoothstep(1.05-cold*.3,1.2-cold*.3,ed+fr*.35)*cold;
+    float cr=fbm(q*vec2(ar,1.)*60.);
+    c=mix(c,vec3(.84,.91,1.)*(.8+.35*cr),frost*.7);
+    c+=vec3(.85,.93,1.)*pow(cr,8.)*frost*.4;
+  }
+  float ll=dot(c,vec3(.299,.587,.114)); c=mix(vec3(ll),c,sat*(1.-.55*quiet));
+  if(forget>0.){
+    float fm=fbm(q*vec2(ar,1.)*3.2+vec2(0.,T*.01));
+    float gone=smoothstep(fm-.14,fm+.14,forget*.7);
+    c=mix(c,vec3(.93,.92,.9)*(.92+.08*fm),min(1.,forget*.35+gone*.6));
+  }
   c=mix(c,vec3(.95,.94,.92),pale);
-  c*=1.-.32*dot(e,e)*(1.+quiet);
-  c*=.8-.22*smoothstep(.45,1.,1.-q.y);                    // 压暗一点，标题和歌词才看得清
-  c+=(h21(fc+fract(T*13.)*71.)-.5)*.018;
+  vec2 e=q-.5; c*=1.-.28*dot(e,e)*(1.+quiet);
+  c*=.84-.2*smoothstep(.45,1.,1.-q.y);                    // 压暗一点，标题和歌词才看得清
+  c+=(h21(fc+fract(T*13.)*71.)-.5)*.016;
   gl_FragColor=vec4(clamp(c,0.,1.)*fade,1.);
 }`;
-    function petalSprite(pink) {
+
+    // ───── 小图：花瓣、落叶、雪 ─────
+    function petalSprite(tint) {
       const c = document.createElement("canvas"); c.width = 40; c.height = 26; const g = c.getContext("2d");
-      const tint = pink ? "255,214,226" : "255,250,244";
       const gr = g.createLinearGradient(0, 13, 40, 13); gr.addColorStop(0, `rgba(${tint},.95)`); gr.addColorStop(1, `rgba(${tint},.6)`);
       g.fillStyle = gr; g.beginPath(); g.moveTo(2, 13); g.bezierCurveTo(10, 0, 30, 2, 38, 11); g.bezierCurveTo(36, 13, 36, 14, 38, 16); g.bezierCurveTo(30, 24, 10, 26, 2, 13); g.fill();
       g.strokeStyle = "rgba(190,175,170,.35)"; g.lineWidth = .8; g.beginPath(); g.moveTo(3, 13); g.lineTo(32, 13); g.stroke();
       return c;
     }
+    function leafSprite(col) {
+      const c = document.createElement("canvas"); c.width = 44; c.height = 28; const g = c.getContext("2d");
+      g.fillStyle = `rgb(${col})`; g.beginPath(); g.moveTo(3, 14); g.bezierCurveTo(12, 1, 32, 2, 41, 14); g.bezierCurveTo(32, 26, 12, 27, 3, 14); g.fill();
+      g.strokeStyle = "rgba(60,30,10,.45)"; g.lineWidth = 1; g.beginPath(); g.moveTo(1, 14); g.lineTo(38, 14); g.stroke();
+      g.globalCompositeOperation = "source-atop"; const sh = g.createLinearGradient(0, 0, 0, 28); sh.addColorStop(0, "rgba(255,240,200,.25)"); sh.addColorStop(1, "rgba(40,15,0,.3)"); g.fillStyle = sh; g.fillRect(0, 0, 44, 28);
+      return c;
+    }
+    function flakeSprite() {
+      const c = document.createElement("canvas"); c.width = c.height = 16; const g = c.getContext("2d");
+      const gr = g.createRadialGradient(8, 8, 0, 8, 8, 8); gr.addColorStop(0, "rgba(255,255,255,.95)"); gr.addColorStop(.45, "rgba(250,252,255,.7)"); gr.addColorStop(1, "rgba(240,246,255,0)");
+      g.fillStyle = gr; g.fillRect(0, 0, 16, 16); return c;
+    }
+
+    // ───── 树：一次生成，按季节画成几张图，播放时按比例叠 ─────
+    function rng(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }
+    function buildTree(Hpx) {
+      const r = rng(20261018), unit = Hpx;          // 1 = 屏幕高度
+      const segs = [], tips = [];
+      function br(x, y, a, len, w, d) {
+        const bend = (r() - .5) * .3, mx = x + Math.sin(a + bend) * len * .5, my = y - Math.cos(a + bend) * len * .5;
+        const ex = x + Math.sin(a) * len, ey = y - Math.cos(a) * len;
+        segs.push({ x, y, mx, my, ex, ey, w0: w, w1: w * .78, d });
+        if (d >= 8 || len < .01) { tips.push([ex, ey, d]); return; }
+        if (d >= 4) tips.push([mx, my, d]);
+        // 主枝继续往前走，旁边分出一两根侧枝；越往上越往外摊开
+        const up = -a * .4;
+        br(ex, ey, a + up + (r() - .5) * .35, len * (.78 + r() * .1), w * .78, d + 1);
+        const side = (d + (r() < .25 ? 1 : 0)) % 2 ? 1 : -1, ns = d < 1 ? 0 : (r() < .45 ? 2 : 1);
+        for (let i = 0; i < ns; i++) {
+          const sgn = i === 0 ? side : -side;
+          br(ex, ey, a + sgn * (.55 + r() * .45), len * (.62 + r() * .14), w * .6, d + 1);
+        }
+      }
+      br(0, 0, .03, .12, .022, 0);
+      // 范围
+      let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+      for (const s of segs) { x0 = Math.min(x0, s.ex, s.x); x1 = Math.max(x1, s.ex, s.x); y0 = Math.min(y0, s.ey, s.y); y1 = Math.max(y1, s.ey, s.y); }
+      const pad = .07; x0 -= pad; x1 += pad; y0 -= pad; y1 += .02;
+      const cw = Math.ceil((x1 - x0) * unit), ch = Math.ceil((y1 - y0) * unit), X = (x) => (x - x0) * unit, Y = (y) => (y - y0) * unit;
+      const mk = () => { const c = document.createElement("canvas"); c.width = cw; c.height = ch; return c; };
+      // 枝干
+      const bc = mk(), bg = bc.getContext("2d");
+      const drawBranches = (g, col, top) => {
+        for (const s of segs) {
+          const ang = Math.atan2(s.ey - s.y, s.ex - s.x), nx = -Math.sin(ang), ny = Math.cos(ang);
+          const w0 = s.w0 * unit * .5, w1 = s.w1 * unit * .5;
+          g.fillStyle = col; g.beginPath();
+          g.moveTo(X(s.x) + nx * w0, Y(s.y) + ny * w0); g.quadraticCurveTo(X(s.mx) + nx * (w0 + w1) / 2, Y(s.my) + ny * (w0 + w1) / 2, X(s.ex) + nx * w1, Y(s.ey) + ny * w1);
+          g.lineTo(X(s.ex) - nx * w1, Y(s.ey) - ny * w1); g.quadraticCurveTo(X(s.mx) - nx * (w0 + w1) / 2, Y(s.my) - ny * (w0 + w1) / 2, X(s.x) - nx * w0, Y(s.y) - ny * w0);
+          g.closePath(); g.fill();
+          if (top) { // 积雪：落在枝条朝上的一侧
+            const up = ny < 0 ? 1 : -1, sw = Math.max(.8, w0 * .55);
+            if (Math.abs(Math.cos(ang)) > .35 && s.d >= 1) { g.strokeStyle = top; g.lineWidth = sw; g.lineCap = "round"; g.beginPath(); g.moveTo(X(s.x) + nx * w0 * up, Y(s.y) + ny * w0 * up); g.quadraticCurveTo(X(s.mx) + nx * w0 * up, Y(s.my) + ny * w0 * up, X(s.ex) + nx * w1 * up, Y(s.ey) + ny * w1 * up); g.stroke(); }
+          }
+        }
+      };
+      drawBranches(bg, "rgb(46,38,34)");
+      // 树干上一点光
+      const snowC = mk(); drawBranches(snowC.getContext("2d"), "rgba(0,0,0,0)", "rgba(244,247,252,.95)");
+      // 叶子 / 花：每个枝头一团小点
+      const dots = [];
+      const cxm = tips.reduce((a, t) => a + t[0], 0) / tips.length, cym = tips.reduce((a, t) => a + t[1], 0) / tips.length;
+      for (const [tx, ty, d] of tips) {
+        const term = d >= 8 || segs.length < 0, n = 16, rad = .022;
+        for (let i = 0; i < n; i++) {
+          const a = r() * 6.283, rr = Math.sqrt(r()) * rad, x = tx + Math.cos(a) * rr, y = ty + Math.sin(a) * rr * .8;
+          const lx = (x - cxm) * .8 - (y - cym) * 1.1;                    // 光从右上方来
+          dots.push({ x, y, L: Math.max(0, Math.min(1, .5 + lx * 4 + (r() - .5) * .5)), s: .0024 + r() * .0026, a: r() * 3.14, k: r() });
+        }
+      }
+      dots.sort((a, b) => a.L - b.L);
+      const pal = {
+        0: [[30, 52, 28], [92, 122, 52], [150, 172, 82]],
+        1: [[110, 38, 18], [196, 96, 34], [240, 170, 62]],
+        3: [[214, 150, 170], [244, 205, 214], [255, 240, 242]],
+      };
+      const leafC = {};
+      for (const k of [0, 1, 3]) {
+        const c = mk(), g = c.getContext("2d"), P = pal[k];
+        for (const p of dots) {
+          if (k === 1 && p.k < .3) continue;
+          const t = p.L, A = t < .5 ? P[0] : P[1], B = t < .5 ? P[1] : P[2], f = t < .5 ? t * 2 : t * 2 - 2 + 1;
+          const j = (p.k - .5) * 18;
+          g.fillStyle = `rgb(${A[0] + (B[0] - A[0]) * f + j | 0},${A[1] + (B[1] - A[1]) * f + j | 0},${A[2] + (B[2] - A[2]) * f + j * .6 | 0})`;
+          g.beginPath(); g.ellipse(X(p.x), Y(p.y), p.s * unit * (k === 3 ? .9 : 1.1), p.s * unit * .6, p.a, 0, 6.283); g.fill();
+        }
+        leafC[k] = c;
+      }
+      return { bc, snowC, leafC, ox: -x0 * unit, oy: -y0 * unit, w: cw, h: ch, unit, top: y0, cx: cxm, cy: cym };
+    }
+
+    // ───── 白百合：前景两丛，跟封面里他手上的花一样 ─────
+    function buildLily(Hpx) {
+      const S = Math.round(Hpx * .34), c = document.createElement("canvas"); c.width = c.height = S; const g = c.getContext("2d"), r = rng(77);
+      const u = S / 100;
+      const stems = [[50, 100, 40, 30, -20], [50, 100, 62, 22, 14], [50, 100, 28, 46, -38], [50, 100, 72, 42, 30]];
+      // 叶子
+      for (let i = 0; i < 9; i++) {
+        const bx = 50 + (r() - .5) * 18, len = 30 + r() * 30, a = (r() - .5) * 1.6;
+        g.strokeStyle = `rgb(${38 + r() * 20 | 0},${62 + r() * 24 | 0},${36 + r() * 12 | 0})`; g.lineWidth = u * (2.2 + r() * 1.3); g.lineCap = "round";
+        g.beginPath(); g.moveTo(bx * u, 100 * u); g.quadraticCurveTo((bx + Math.sin(a) * len * .4) * u, (100 - len * .7) * u, (bx + Math.sin(a) * len) * u, (100 - len * Math.cos(a * .6)) * u); g.stroke();
+      }
+      const heads = [];
+      for (const [x0, y0, x1, y1, ang] of stems) {
+        g.strokeStyle = "rgb(56,84,44)"; g.lineWidth = u * 1.3; g.beginPath(); g.moveTo(x0 * u, y0 * u); g.quadraticCurveTo((x0 + x1) / 2 * u, (y0 + y1) / 2 * u + 8 * u, x1 * u, y1 * u); g.stroke();
+        heads.push([x1, y1, ang]);
+      }
+      for (const [hx, hy, ang] of heads) {
+        g.save(); g.translate(hx * u, hy * u); g.rotate(ang * 1.9 * Math.PI / 180); g.scale(u * 1.15, u * 1.15);
+        // 侧面的百合：细长的花筒，口上张开六片尖花瓣，花瓣尖往外卷；后面的花瓣暗一点
+        const petal = (a, len, wid, light, curl) => {
+          g.save(); g.translate(0, -8); g.rotate(a);
+          const gr = g.createLinearGradient(0, 0, 0, -len);
+          gr.addColorStop(0, `rgb(${222 * light | 0},${228 * light | 0},${206 * light | 0})`); gr.addColorStop(.4, `rgb(${246 * light | 0},${245 * light | 0},${238 * light | 0})`); gr.addColorStop(1, `rgb(${252 * light | 0},${251 * light | 0},${247 * light | 0})`);
+          g.fillStyle = gr; g.beginPath(); g.moveTo(-wid * .35, 0);
+          g.bezierCurveTo(-wid, -len * .45, -wid * .5 + curl * len * .2, -len * .85, curl * len * .32, -len);
+          g.bezierCurveTo(wid * .5 + curl * len * .2, -len * .82, wid, -len * .45, wid * .35, 0); g.closePath(); g.fill();
+          g.strokeStyle = `rgba(160,166,140,${.5 * light})`; g.lineWidth = .35; g.beginPath(); g.moveTo(0, -.5); g.quadraticCurveTo(curl * len * .05, -len * .6, curl * len * .3, -len * .97); g.stroke();
+          g.restore();
+        };
+        // 花筒
+        let tg = g.createLinearGradient(0, 0, 0, -9); tg.addColorStop(0, "rgb(96,126,70)"); tg.addColorStop(.6, "rgb(214,222,196)"); tg.addColorStop(1, "rgb(236,236,228)");
+        g.fillStyle = tg; g.beginPath(); g.moveTo(-.8, 0); g.quadraticCurveTo(-1.2, -5, -3, -8.6); g.lineTo(3, -8.6); g.quadraticCurveTo(1.2, -5, .8, 0); g.closePath(); g.fill();
+        for (const [a, l] of [[-.5, .74], [.5, .74], [0, .8]]) petal(a, 10.5, 3.4, l, a ? Math.sign(a) : 0);
+        // 花蕊
+        g.lineWidth = .3; g.strokeStyle = "rgba(150,165,110,.9)";
+        for (const a of [-.2, -.07, .07, .2]) { const ex = Math.sin(a) * 10, ey = -8 - Math.cos(a) * 10; g.beginPath(); g.moveTo(0, -7); g.lineTo(ex, ey); g.stroke(); g.fillStyle = "rgb(168,104,52)"; g.beginPath(); g.ellipse(ex, ey, .9, .45, a, 0, 6.283); g.fill(); }
+        for (const [a, l] of [[-.95, 1], [.95, 1], [-.25, .97], [.3, .97]]) petal(a, 11, 3.6, l, Math.sign(a));
+        g.restore();
+      }
+      return { c, S };
+    }
+
     function setup() {
       if (cv) return ok;
       cv = document.createElement("canvas");
       cv.style.cssText = "position:fixed;inset:0;width:100%;height:100%;z-index:-3;pointer-events:none;background:#000";
       document.body.insertBefore(cv, document.body.firstChild);
       const bd = document.querySelector(".backdrop"); if (bd) bd.style.display = "none";
-      for (let i = 0; i < 4; i++) spr.push(petalSprite(false)); for (let i = 0; i < 4; i++) spr.push(petalSprite(true));
-      vid = document.createElement("video"); vid.src = `/music/media/${song.id}/${song.bgVideo}?r=${song.rev || 0}`; vid.muted = true; vid.playsInline = true; vid.preload = "auto";
-      vid.setAttribute("playsinline", ""); vid.setAttribute("muted", ""); vid.crossOrigin = "anonymous";
-      vid.addEventListener("loadeddata", () => (vReady = true)); vid.load();
-      gl = cv.getContext("webgl", { antialias: false, alpha: false });
+      for (let i = 0; i < 4; i++) { spr.petal.push(petalSprite("255,250,244")); spr.pink.push(petalSprite("255,214,226")); }
+      for (const col of ["196,96,34", "222,140,48", "150,58,26", "176,120,40"]) spr.leaf.push(leafSprite(col));
+      flake = flakeSprite();
+      gl = cv.getContext("webgl", { antialias: false, alpha: false, preserveDrawingBuffer: true });
       if (!gl) return (ok = false);
       const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.warn(gl.getShaderInfoLog(s)); return null; } return s; };
       const vs = sh(gl.VERTEX_SHADER, "attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}"), fs = sh(gl.FRAGMENT_SHADER, FS);
@@ -4565,50 +4769,140 @@ void main(){
       prog = gl.createProgram(); gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog); gl.useProgram(prog);
       const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
       const loc = gl.getAttribLocation(prog, "p"); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-      for (const k of ["V", "R", "VS", "T", "heat", "melt", "cold", "quiet", "forget", "fade", "sat", "spring", "winter", "autumn", "pale"]) U[k] = gl.getUniformLocation(prog, k);
-      tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
-      for (const [k, v] of [[gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE], [gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+      for (const k of ["R", "T", "su", "au", "wi", "sp", "heat", "melt", "cold", "quiet", "forget", "fade", "sat", "pale", "CX"]) U[k] = gl.getUniformLocation(prog, k);
       return (ok = true);
     }
-    function init() { petals = []; tears = []; }
+
+    // ───── 封面 ─────
+    let cc, ccv, fig, figOK = false, gcv, gc, wrapEl, shown = false;
+    function coverSetup() {
+      if (ccv) return true;
+      wrapEl = document.querySelector(".cover-wrap"); if (!wrapEl) return false;
+      fig = new Image(); fig.onload = () => (figOK = true); fig.src = `/music/media/${song.id}/figure.webp?r=${song.rev || 0}`;
+      ccv = document.createElement("canvas");
+      ccv.style.cssText = "position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:0;transition:opacity 1.5s";
+      wrapEl.insertBefore(ccv, wrapEl.querySelector(".cover-shade")); cc = ccv.getContext("2d");
+      gcv = document.createElement("canvas"); gc = gcv.getContext("2d");
+      return true;
+    }
+    // 从背景（天、海、草坡 + 树和花）里取一块正方形，cx 是取景中心在屏幕上的横向位置
+    function sceneSquare(g, S, cx, z, cy = .5) {
+      for (const src of [cv, cvMain]) {
+        const sw = src.width, sh = src.height, sz = Math.min(sw, sh) / z;
+        const sx = Math.max(0, Math.min(sw - sz, cx * sw - sz / 2)), sy = Math.max(0, Math.min(sh - sz, cy * sh - sz / 2));
+        g.drawImage(src, sx, sy, sz, sz, 0, 0, S, S);
+      }
+    }
+    const cvMain = ctx.canvas;
+    function coverDraw(now, P) {
+      if (!coverSetup() || !figOK) return;
+      const S = Math.min(1100, Math.round(wrapEl.clientWidth * Math.min(window.devicePixelRatio || 1, 2)));
+      if (!S) return;
+      if (ccv.width !== S) { ccv.width = ccv.height = S; gcv.width = gcv.height = S; }
+      if (!shown) { shown = true; ccv.style.opacity = "1"; }
+      cc.globalCompositeOperation = "source-over"; cc.globalAlpha = 1;
+      cc.fillStyle = "#0a0b0d"; cc.fillRect(0, 0, S, S);
+      // 1) 身后：同一片风景（树那一边），褪了色、暗下来，像回忆
+      const tcx = P.treeX;
+      cc.globalAlpha = .26 + .1 * P.melt - .08 * P.quiet;
+      sceneSquare(cc, S, tcx + .03 * Math.sin(now * .021), 1.15 + .06 * Math.sin(now * .013), .42);
+      cc.globalAlpha = .5; cc.globalCompositeOperation = "saturation"; cc.fillStyle = "#808080"; cc.fillRect(0, 0, S, S);
+      cc.globalCompositeOperation = "source-over"; cc.globalAlpha = 1;
+      let g = cc.createRadialGradient(S * .5, S * .42, S * .16, S * .5, S * .5, S * .78);
+      g.addColorStop(0, "rgba(8,9,11,.18)"); g.addColorStop(1, "rgba(8,9,11,.92)"); cc.fillStyle = g; cc.fillRect(0, 0, S, S);
+      // 2) 叠影：两个放大的他，影子里是风景
+      const z = 1.03 + .03 * Math.sin(now * .04), fw = S * z, fh = fw * 1.5, fx = (S - fw) / 2, fy = -(fh - S) * .22;
+      const ghosts = [
+        { s: .66, dx: -.3 + .02 * Math.sin(now * .05), dy: .13 + .01 * Math.sin(now * .07), a: .62, cx: .78 + .05 * Math.sin(now * .017), z: 1.4 },
+        { s: .66, dx: .3 + .02 * Math.sin(now * .043 + 2), dy: .13, a: .55, cx: tcx, z: 1.9 },
+      ];
+      const ga = (1 - .85 * P.forget) * (1 - .4 * P.quiet);
+      if (ga > .01) for (const o of ghosts) {
+        gc.globalCompositeOperation = "source-over"; gc.globalAlpha = 1; gc.clearRect(0, 0, S, S);
+        sceneSquare(gc, S, o.cx, o.z, .45);
+        gc.globalCompositeOperation = "saturation"; gc.globalAlpha = .2; gc.fillStyle = "#808080"; gc.fillRect(0, 0, S, S);
+        gc.globalCompositeOperation = "destination-in"; gc.globalAlpha = 1;
+        const w = fw * o.s, h = w * 1.5; gc.drawImage(fig, S * .5 - w / 2 + o.dx * S, fy * o.s + o.dy * S, w, h);
+        cc.globalCompositeOperation = "screen"; cc.globalAlpha = o.a * ga; cc.drawImage(gcv, 0, 0);
+      }
+      // 3) 他身后淡淡的光晕，然后是他本人
+      cc.globalCompositeOperation = "screen"; cc.globalAlpha = 1;
+      g = cc.createRadialGradient(S * .5, S * .33, 0, S * .5, S * .38, S * .42);
+      const hc = P.cold > .5 ? "200,215,235" : "236,226,205";
+      g.addColorStop(0, `rgba(${hc},${.18 + .08 * P.level})`); g.addColorStop(1, `rgba(${hc},0)`); cc.fillStyle = g; cc.fillRect(0, 0, S, S);
+      cc.globalCompositeOperation = "source-over";
+      cc.drawImage(fig, fx, fy, fw, fh);
+      if (P.pale > .01) { cc.globalAlpha = P.pale * .8; cc.fillStyle = "rgb(236,234,230)"; cc.fillRect(0, 0, S, S); cc.globalAlpha = 1; }
+    }
+
+    function init() { fall = []; tears = []; }
     function draw(I, level, fx) {
       if (!setup()) return;
       const now = window.__time || 0, playing = !!window.__playing, prev = lastNow; lastNow = now;
       const dt = Math.min(.1, Math.max(0, now - prev)), seek = Math.abs(now - prev) > .5;
-      // MV 跟着音乐走
-      const vEnd = (vid.duration || 234.5) - .05, vt = Math.min(now, vEnd);
-      if (playing && now < vEnd) { if (vid.paused) vid.play().catch(() => {}); if (Math.abs(vid.currentTime - vt) > .25) vid.currentTime = vt; }
-      else { if (!vid.paused) vid.pause(); if (Math.abs(vid.currentTime - vt) > .1) vid.currentTime = vt; }
-      const sc = Math.min(window.devicePixelRatio || 1, 2), w = Math.round(innerWidth * Math.min(sc, 1.5)), h = Math.round(innerHeight * Math.min(sc, 1.5));
+      // 画布：总像素控制在一百四十万左右
+      const k = Math.min(1.5, Math.sqrt(1.4e6 / (innerWidth * innerHeight)), window.devicePixelRatio || 1);
+      const w = Math.round(innerWidth * k), h = Math.round(innerHeight * k);
       if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; gl.viewport(0, 0, w, h); }
-      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex);
-      if (vReady && vid.readyState >= 2) { try { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, vid); } catch (e) {} }
-      // 季节转一圈：夏 → 冬 → 秋 → 春
-      let winter = 0, autumn = 0, spring = 0;
-      for (const [s0, w0, a0, h0, e0] of TL.seasons || []) {
-        winter = Math.max(winter, sm(w0 - .6, w0 + .6, now) * (1 - sm(a0 - .6, a0 + .4, now)));
-        autumn = Math.max(autumn, sm(a0 - .4, a0 + .6, now) * (1 - sm(h0 - .6, h0 + .4, now)));
-        spring = Math.max(spring, sm(h0 - .4, h0 + 1, now) * (1 - sm(e0 - 1, e0 + 3, now)));
-      }
-      const heat = .25 + .75 * env(TL.heat, now, 2, 3), melt = env(TL.melt, now, .8, 2), cold = env(TL.cold, now, .8, 2.5), quiet = env(TL.quiet, now, 1.5, 3);
+      const ar = W / H; CX = ar >= 1.7778 ? .5 : .5 - .2 * Math.min(1, (1.7778 - ar) / 1.2);
+      const [su, au, wi, sp] = seasonW(now);
+      const heat = env(TL.heat, now, 2, 3), melt = env(TL.melt, now, .8, 2), cold = env(TL.cold, now, .8, 2.5), quiet = env(TL.quiet, now, 1.5, 3);
       const forget = env(TL.forget, now, 3, 4), tearV = env(TL.tears, now, .5, 3);
-      const end = TL.end || 243, pale = .5 * sm(end - 14, end - 2, now);
-      const sat = 1 - .35 * sm(30, end, now);                       // 整首歌里，夏天的颜色一点点褪掉
-      const fade = Math.min(1, .25 + now / 2.5) * (1 - .75 * sm(end - 3, end + .5, now));
-      gl.uniform1i(U.V, 0); gl.uniform2f(U.R, w, h); gl.uniform2f(U.VS, vid.videoWidth || 1280, vid.videoHeight || 720); gl.uniform1f(U.T, now);
-      for (const [k, v] of [["heat", heat * (1 - cold) * (1 - .7 * winter)], ["melt", melt], ["cold", cold], ["quiet", quiet], ["forget", forget], ["fade", vReady ? fade : 0], ["sat", sat], ["spring", spring], ["winter", winter], ["autumn", autumn], ["pale", pale]]) gl.uniform1f(U[k], v);
+      const end = TL.end || 243, pale = .45 * sm(end - 12, end - 1, now);
+      const sat = 1 - .3 * sm(30, end, now);
+      const fade = Math.min(1, .35 + now / 2.5) * (1 - .75 * sm(end - 3, end + .5, now));
+      gl.uniform2f(U.R, w, h); gl.uniform1f(U.T, now); gl.uniform1f(U.CX, CX);
+      for (const [kk, vv] of [["su", su], ["au", au], ["wi", wi], ["sp", sp], ["heat", heat], ["melt", melt], ["cold", cold], ["quiet", quiet], ["forget", forget], ["fade", fade], ["sat", sat], ["pale", pale]]) gl.uniform1f(U[kk], vv);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
-      // ── 风里的花瓣：平时是白的，春天那一句变成淡粉，而且多一些 ──
-      if (seek) { petals = []; tears = []; }
-      const rate = (.8 + 1.2 * level + 5 * spring) * (1 - .7 * quiet) * (1 - .8 * cold) * (1 - sm(end - 8, end, now));
-      if (playing && !seek && Math.random() < dt * rate) petals.push({ x: -30, y: H * (.05 + Math.random() * .75), vx: (60 + Math.random() * 80) * dpr, vy: (8 + Math.random() * 22) * dpr, r: Math.random() * 6.28, vr: (Math.random() - .5) * 3, s: (.3 + Math.random() * .45) * dpr, ph: Math.random() * 6.28, pink: Math.random() < spring * .9 });
-      for (const p of petals) {
-        if (playing) { const slow = 1 - .55 * quiet; p.x += p.vx * dt * slow; p.y += (p.vy + Math.sin(now * 1.3 + p.ph) * 22 * dpr) * dt * slow; p.r += p.vr * dt * slow; }
-        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.scale(p.s, p.s * (.35 + .65 * Math.abs(Math.sin(now * 1.8 + p.ph)))); ctx.globalAlpha = .8 * (1 - .6 * forget);
-        ctx.drawImage(spr[(p.pink ? 4 : 0) + ((p.ph * 10 | 0) % 4)], -20, -13); ctx.restore();
+      // 世界坐标 → 屏幕：横向 1 个单位 = 1.7778 × 屏高
+      const sx = (u) => W / 2 + (u - CX) * 1.7778 * H, sy = (v) => H * (1 - v);
+      // ── 树 ──
+      const key = String(Math.round(H / 40));
+      if (key !== treeKey) { treeKey = key; tree = buildTree(H * .76); }
+      const tu = .2, base = groundV(tu) - .012, tX = sx(tu), tY = sy(base);
+      const sway = .010 * Math.sin(now * .55) + .006 * Math.sin(now * 1.3 + 1) + .004 * level;
+      const veil = fade * (1 - .45 * forget) * (1 - .6 * pale);
+      ctx.save(); ctx.globalAlpha = veil;
+      ctx.setTransform(1, 0, -sway, 1, tX + sway * tY, 0);   // 以树根为轴，上面轻轻晃
+      const dx = -tree.ox, dy = tY - tree.oy;
+      ctx.drawImage(tree.bc, dx, dy);
+      if (wi > .01) { ctx.globalAlpha = veil * wi; ctx.drawImage(tree.snowC, dx, dy); }
+      for (const [s, ww] of [[0, su], [1, au], [3, sp]]) if (ww > .01) { ctx.globalAlpha = veil * Math.min(1, ww * 1.15); ctx.drawImage(tree.leafC[s], dx, dy); }
+      ctx.restore();
+      // ── 前景的白百合 ──
+      const lk = String(Math.round(Math.min(H, W * .95) / 40));
+      if (lk !== lilyKey) { lilyKey = lk; lily = buildLily(Math.min(H, W * .95) * 1.3); }
+      const lA = fade * (1 - .55 * wi) * (1 - .5 * forget) * (1 - .7 * pale);
+      for (const [lx, flip, sc, ph] of [[.035, 1, 1, 0], [.97, -1, .82, 2]]) {
+        const S = lily.S * sc, bx = W * lx, by = H + S * .06, sw2 = .05 * Math.sin(now * .8 + ph) + .025 * Math.sin(now * 1.9 + ph);
+        ctx.save(); ctx.globalAlpha = lA; ctx.translate(bx, by); ctx.scale(flip, 1); ctx.transform(1, 0, -sw2, 1, 0, 0);
+        ctx.drawImage(lily.c, -S / 2, -S, S, S); ctx.restore();
       }
-      petals = petals.filter(p => p.x < W + 60 && p.y < H + 40);
+      coverDraw(now, { melt, cold, quiet, forget, pale, level: level || 0, treeX: Math.max(.15, Math.min(.85, (tX + (tree.cx * tree.unit)) / W)) });
+      // ── 飘落：夏天几片白花瓣，秋天落叶，冬天下雪，春天粉色花瓣 ──
+      if (seek) { fall = []; tears = []; }
+      if (playing && !seek) {
+        const rate = (1 + 1.5 * level) * (1 - sm(end - 8, end, now));
+        const spawn = (r, f) => { const n = r * dt; for (let i = 0; i < Math.floor(n) + (Math.random() < n % 1 ? 1 : 0); i++) fall.push(f()); };
+        spawn(rate * (1.2 * su * (1 - .6 * quiet) + 7 * sp), () => ({ t: 0, pink: Math.random() < sp, x: -30, y: H * (.05 + Math.random() * .7), vx: (60 + Math.random() * 80) * dpr, vy: (8 + Math.random() * 22) * dpr, r: Math.random() * 6.28, vr: (Math.random() - .5) * 3, s: (.3 + Math.random() * .45) * dpr, ph: Math.random() * 6.28 }));
+        spawn(rate * 3.2 * au, () => ({ t: 1, x: tX + (Math.random() - .3) * tree.w * .9, y: tY - tree.h * (.4 + Math.random() * .5), vx: (20 + Math.random() * 50) * dpr, vy: (35 + Math.random() * 35) * dpr, r: Math.random() * 6.28, vr: (Math.random() - .5) * 4, s: (.35 + Math.random() * .4) * dpr, ph: Math.random() * 6.28, i: Math.random() * 4 | 0 }));
+        spawn((22 * wi + 30 * cold) * (1 - .3 * quiet), () => { const z = Math.random(); return { t: 2, x: Math.random() * W * 1.1, y: -10, vx: (8 + 10 * z) * dpr, vy: (22 + 50 * z) * dpr, s: (.25 + z * .75) * dpr, ph: Math.random() * 6.28 }; });
+      }
+      for (const p of fall) {
+        if (playing) {
+          const slow = 1 - .5 * quiet;
+          if (p.t === 2) { p.x += (p.vx + Math.sin(now * .9 + p.ph) * 14 * dpr) * dt * slow; p.y += p.vy * dt * slow; }
+          else { p.x += p.vx * dt * slow; p.y += (p.vy + Math.sin(now * 1.3 + p.ph) * 22 * dpr) * dt * slow; p.r += p.vr * dt * slow; }
+        }
+        ctx.save(); ctx.translate(p.x, p.y); ctx.globalAlpha = .85 * (1 - .6 * forget) * fade;
+        if (p.t === 2) { ctx.drawImage(flake, -8 * p.s, -8 * p.s, 16 * p.s, 16 * p.s); }
+        else {
+          ctx.rotate(p.r); ctx.scale(p.s, p.s * (.35 + .65 * Math.abs(Math.sin(now * 1.8 + p.ph))));
+          if (p.t === 1) ctx.drawImage(spr.leaf[p.i], -22, -14); else ctx.drawImage((p.pink ? spr.pink : spr.petal)[(p.ph * 10 | 0) % 4], -20, -13);
+        }
+        ctx.restore();
+      }
+      fall = fall.filter(p => p.x < W + 60 && p.y < H + 40 && p.x > -80);
       // ── 眼泪：屏幕上的水珠，停一下再顺着往下流，留下一道水痕 ──
       if (playing && !seek && tearV > .3 && Math.random() < dt * 2.2 * tearV) tears.push({ x: W * (.15 + Math.random() * .7), y: H * (.05 + Math.random() * .4), r: (3 + Math.random() * 4) * dpr, v: 0, hold: .3 + Math.random() * 1.2, life: 0, trail: [] });
       for (const d of tears) {

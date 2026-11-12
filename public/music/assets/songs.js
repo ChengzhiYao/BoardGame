@@ -440,11 +440,12 @@ window.SONGS = [
     id: "21",
     title: "Shining Road",
     subtitle: "光明之路",
-    rev: 13,
+    rev: 15,
     date: "2026.06.27",
     place: "",
-    scene: "shining",               // 悬崖边向太阳伸手的她：夜 → 黎明 → 朝阳；光芒转动、金色羽毛乘风上飘、鸟群飞过；副歌光炸开
-    coverFill: "40% 50%",
+    scene: "skyflight",              // 3D 云层：暴雨乌云里摸索 → 冲出云海 → 穿过彩虹 → 飞进宇宙
+    tl: { pre: 37.8, go: 47.1, sky: [68.5, 148.5], high: 118.1, rb: 150.2, space: 173.4, end: 207 },
+    coverFill: "42% 50%",
     theme: { night: "#0d0f1c", nightRgb: "13,15,28", glow: "255,236,200", accent: "#f2c27a" },
     note: [
       "写这首歌的时候，我已经遇到你了。",

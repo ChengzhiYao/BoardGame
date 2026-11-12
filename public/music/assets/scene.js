@@ -4269,6 +4269,213 @@ void main(){
     return { init, draw, wet: false };
   };
 
+  // ═════════ 光明之路（Shining Road）：穿过云层，飞向宇宙 ═════════
+  // 3D 的云。开头在乌云和暴雨里摸索方向，镜头左右张望，闪电在云里亮起；
+  // 「もっと遠くまで」开始往上爬，「さあ、行こう！」冲出云层，夕阳下的云海；
+  // 「空はまだ開いている！」光炸开；「高く、高く」抬头往上；第二次副歌穿过一道彩虹；
+  // 最后越过强风一路往上，天变黑、地平线弯成弧形、满天星星——自由
+  SCENES.skyflight = (song) => {
+    const sm = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+    const TL = song.tl || {};
+    const tPre = TL.pre ?? 47, tGo = TL.go ?? 57, tSky = TL.sky || [78, 150], tHigh = TL.high ?? 125, tRb = TL.rb ?? 152, tSpace = TL.space ?? 172, tEnd = TL.end ?? 207;
+    const TOP = 3;
+    let gl, prog, cv, U = {}, ok = false, lastNow = 0, beatE = 0, kick = 0, rain = [], zTab = null;
+    // 闪电：只在暴雨段，时间固定（拖进度条也一样）
+    const BOLTS = []; { let t = 3.2, k = 1; while (t < tGo - 4) { BOLTS.push([t, k]); const r = Math.sin(k * 91.3) * 43758.5; t += 3 + 5 * (r - Math.floor(r)); k++; } }
+    const FS = `precision highp float;
+uniform vec2 R; uniform float T,storm,space,flash,cov,rbA,burst,fade,curv,glare; uniform sampler2D NZ;
+uniform vec3 CP,CF,CR,CU,LP,SUN,RB;
+float noise(vec3 x){vec3 p=floor(x),f=fract(x);f=f*f*(3.-2.*f);vec2 uv=(p.xy+vec2(37.,17.)*p.z)+f.xy;vec2 rg=texture2D(NZ,(uv+.5)/256.).yx;return mix(rg.x,rg.y,f.z);}
+float map(vec3 p,float t){
+  vec2 dh=p.xz-CP.xz; float y=p.y+dot(dh,dh)*curv;
+  if(y<0.||y>${TOP}.) return 0.;
+  vec3 q=p*vec3(.42,.55,.42)+vec3(T*.04,-T*.01,T*.015);
+  float f=.5*noise(q); q=q*2.03; f+=.25*noise(q); q=q*2.01;
+  float l1=1.-smoothstep(18.,55.,t), l2=1.-smoothstep(6.,22.,t);
+  f+=.125*noise(q)*l1+.0625*(1.-l1); q=q*2.02; f+=.045*noise(q)*l2+.022*(1.-l2);
+  float h=y/${TOP}.;
+  float d=clamp((f-(1.-cov)-.42*h*h)*3.2,0.,1.)*smoothstep(0.,.35,y)*smoothstep(${TOP}.,${TOP}.-.25,y);
+  return d*mix(1.,smoothstep(.9,2.6,length(p-CP)),storm);
+}
+float h31(vec3 p){p=fract(p*.3183+.1);p*=17.;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}
+vec3 sky(vec3 rd){
+  float sd=max(dot(rd,SUN),0.);
+  vec3 c=mix(vec3(1.,.56,.32),vec3(.36,.36,.68),smoothstep(-.02,.35,rd.y));
+  c=mix(c,vec3(.14,.15,.36),smoothstep(.3,.95,rd.y));
+  c+=vec3(1.,.55,.25)*pow(sd,6.)*.32+vec3(1.,.75,.45)*pow(sd,40.)*.35*(1.+glare)+vec3(1.,.85,.6)*pow(sd,700.)*1.2*(1.+.5*glare)+vec3(1.,.93,.78)*smoothstep(.99988,.99993,sd)*2.2*(1.-space);
+  vec3 st=mix(vec3(.05,.055,.07),vec3(.1,.11,.14),smoothstep(-.3,.6,rd.y));
+  c=mix(c,st,storm);
+  // 宇宙：黑色的天、星星、地球边缘那一圈蓝色的大气
+  float kd=max(CP.y-${TOP}.,.01)*curv*4.; float dip=sqrt(kd/(1.+kd));
+  float e=rd.y+dip;
+  vec3 s=vec3(.004,.006,.014);
+  vec3 g=rd*260.; vec3 cl=floor(g); float hs=h31(cl);
+  if(hs>.985){ vec3 o=g-cl-.5; float st2=smoothstep(.22,.0,length(o))*(hs-.985)*70.; s+=vec3(.9,.92,1.)*st2*(.6+.4*sin(T*2.+hs*90.)); }
+  s+=vec3(.3,.55,1.)*exp(-max(e,0.)*22.)*.75+vec3(.4,.6,1.)*exp(-max(e,0.)*6.)*.12;
+  s+=vec3(1.,.9,.75)*(pow(sd,300.)*.7+pow(sd,14.)*.06)+vec3(1.)*smoothstep(.99988,.99993,sd)*4.;
+  c=mix(c,mix(vec3(.1,.17,.42),vec3(.25,.4,.75),exp(-max(rd.y+dip,0.)*5.)),smoothstep(0.,.55,space));
+  return mix(c,s,smoothstep(.3,1.,space));
+}
+vec3 rainbow(float x){ // x: 0 内侧(紫) → 1 外侧(红)
+  vec3 c=.5+.5*cos(6.2832*(vec3(0.,.33,.67)-x*.85+.05));
+  return c*smoothstep(0.,.18,x)*smoothstep(1.,.82,x);
+}
+void main(){
+  vec2 fc=gl_FragCoord.xy; vec2 uv=(fc-.5*R)/R.y;
+  vec3 rd=normalize(CF*1.25+uv.x*CR+uv.y*CU), ro=CP;
+  vec3 bg=sky(rd);
+  // 云层的进入、离开距离（带一点地球的弧度）
+  float a=max((1.-rd.y*rd.y)*curv,1e-7), b=rd.y, t0=0., t1=0.; bool hitB=false; float farHit=-1.;
+  float far=mix(110.,16.,storm)*(1.-.85*space);
+  { float c=ro.y-${TOP}.; float D=b*b-4.*a*c; float rT1=1e9,rT2=1e9;
+    if(D>=0.){ float s=sqrt(D); float q=-.5*(b+(b<0.?-s:s)); float r1=q/a,r2=c/q; rT1=min(r1,r2); rT2=max(r1,r2); }
+    float c2=ro.y; float D2=b*b-4.*a*c2; float rB=1e9;
+    if(D2>=0.){ float s=sqrt(D2); float q=-.5*(b+(b<0.?-s:s)); float r1=q/a,r2=c2/q; float m=min(r1,r2); rB=m>0.?m:max(r1,r2); if(rB<0.)rB=1e9; }
+    if(ro.y>${TOP}.){ if(rT1>0.&&rT1<1e8){ t0=rT1; t1=min(rB,rT2); if(t0>=far) farHit=t0; } else { t0=1.; t1=0.; } }
+    else { t0=0.; t1=min(rT1>0.?rT1:rT2, rB); }
+    hitB=rB<=t1&&rB<far; t1=min(t1,far);
+  }
+  vec4 sum=vec4(0.); float Trb=1., tp=rd.z>0.?(RB.z-ro.z)/rd.z:-1.;
+  if(tp<t0) Trb=1.;
+  if(t1>t0){
+    float t=t0+max(.09,.055*t0)*h31(vec3(fc,3.7)); float dt;
+    vec3 shadeD=mix(vec3(.34,.30,.52),vec3(.07,.075,.09),storm), shadeL=mix(vec3(1.,.74,.5),vec3(.34,.36,.42),storm);
+    shadeL=mix(shadeL,vec3(1.,.97,.92),space*.6);
+    for(int i=0;i<84;i++){
+      if(sum.a>.985||t>t1) break;
+      vec3 p=ro+rd*t; float d=map(p,t);
+      dt=max(.08,.042*t);
+      if(tp>0.&&t<tp) Trb=1.-sum.a;
+      if(d>.01){
+        float dl=map(p+SUN*.6,t);
+        float dif=clamp((d-dl)/.8,0.,1.);
+        float hy=clamp(p.y/${TOP}.,0.,1.);
+        vec3 lin=mix(vec3(.5,.48,.7),vec3(.2,.21,.26)+vec3(.5,.52,.6)*hy*hy,storm)+dif*shadeL*1.7;
+        vec3 col=mix(shadeL*.9+.2,shadeD,smoothstep(0.,1.,d))*lin;
+        col+=vec3(1.,.7,.4)*pow(max(dot(rd,SUN),0.),6.)*(1.-d)*.45*(1.-storm);
+        col+=vec3(.75,.8,1.)*flash*3.*exp(-length(p-LP)*.55);
+        col=mix(col,bg,1.-exp(-t*mix(.012,.0035,space)));
+        float al=1.-exp(-d*dt*mix(4.,3.,storm));
+        sum+=vec4(col*al,al)*(1.-sum.a);
+      }
+      t+=dt;
+    }
+    if(tp>0.&&t<tp) Trb=1.-sum.a;
+    // 下面是看不到底的云海：没画满的地方用云的底色补上
+    if(hitB&&t>=t1){ vec3 fl=mix(mix(vec3(.62,.46,.5),vec3(.06,.065,.08),storm),bg,1.-exp(-t1*mix(.012,.0035,space))); sum.rgb+=fl*(1.-sum.a); sum.a=1.; }
+  }
+  // 太远、来不及一步步算的云海：直接用远处云的颜色，盖上一层大气的蓝
+  if(farHit>0.){ vec3 hp=ro+rd*farHit; vec2 hq=hp.xz*.06; float cn=.5*noise(vec3(hq,1.))+.25*noise(vec3(hq*2.1,5.))+.15*noise(vec3(hq*4.3,9.));
+    vec3 ec=(.55+.75*smoothstep(.35,.75,cn))*mix(vec3(.82,.74,.78),vec3(1.05,1.08,1.15),space)*(.55+.45*smoothstep(-.2,.6,dot(normalize(vec3(rd.x,0.,rd.z)),normalize(vec3(SUN.x,0.,SUN.z)))));
+    ec=mix(ec,mix(bg,vec3(.35,.55,1.)*.75,space),1.-exp(-farHit*mix(.012,.0022,space))); sum.rgb+=ec*(1.-sum.a); sum.a=1.; }
+  vec3 col=bg*(1.-sum.a)+sum.rgb;
+  // 彩虹：一道很大的圆弧，立在前面的云海上，越飞越近，从身边穿过去
+  if(rbA>0.&&tp>.2){
+    vec3 hp=ro+rd*tp; float r=length(hp.xy-RB.xy);
+    float x=(r-2.)/.75;
+    if(x>0.&&x<1.) col+=rainbow(x)*.42*rbA*Trb*smoothstep(.2,2.5,tp)*smoothstep(${TOP}.-.6,${TOP}.+.4,hp.y);
+  }
+  col+=vec3(.85,.88,1.)*flash*.12*storm;
+  col+=vec3(1.,.85,.62)*burst*.35;
+  col=1.-exp(-col*1.25);
+  col+=(h31(vec3(fc,fract(T*7.)*13.))-.5)*.012;
+  float vg=1.-.28*dot(uv*.85,uv*.85);
+  gl_FragColor=vec4(clamp(col*vg,0.,1.)*fade,1.);
+}`;
+    function setup() {
+      if (cv) return ok;
+      cv = document.createElement("canvas");
+      cv.style.cssText = "position:fixed;inset:0;width:100%;height:100%;z-index:-3;pointer-events:none;background:#000";
+      document.body.insertBefore(cv, document.body.firstChild);
+      const bd = document.querySelector(".backdrop"); if (bd) bd.style.display = "none";
+      gl = cv.getContext("webgl", { antialias: false, alpha: false });
+      if (!gl) return (ok = false);
+      const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.warn(gl.getShaderInfoLog(s)); return null; } return s; };
+      const vs = sh(gl.VERTEX_SHADER, "attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}"), fs = sh(gl.FRAGMENT_SHADER, FS);
+      if (!vs || !fs) return (ok = false);
+      prog = gl.createProgram(); gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog); gl.useProgram(prog);
+      const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+      const loc = gl.getAttribLocation(prog, "p"); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+      for (const k of ["R", "T", "storm", "space", "flash", "cov", "rbA", "burst", "fade", "curv", "glare", "NZ", "CP", "CF", "CR", "CU", "LP", "SUN", "RB"]) U[k] = gl.getUniformLocation(prog, k);
+      // 噪声贴图：G 通道是 R 通道错开 (37,17) 的拷贝，用来做便宜的 3D 噪声
+      const N = 256, r = new Uint8Array(N * N); for (let i = 0; i < N * N; i++) r[i] = Math.random() * 256 | 0;
+      const px = new Uint8Array(N * N * 4);
+      for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const i = (y * N + x) * 4; px[i] = r[y * N + x]; px[i + 1] = r[((y - 17) & 255) * N + ((x - 37) & 255)]; px[i + 3] = 255; }
+      const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, N, N, 0, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      for (const [k, v] of [[gl.TEXTURE_WRAP_S, gl.REPEAT], [gl.TEXTURE_WRAP_T, gl.REPEAT], [gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+      // 飞行的距离：按速度积分好，拖进度条也能直接查到
+      zTab = new Float32Array(Math.ceil(tEnd * 4) + 40); let z = 0;
+      for (let i = 0; i < zTab.length; i++) { zTab[i] = z; z += speed(i / 4) / 4; }
+      return (ok = true);
+    }
+    function speed(t) { return .55 + .45 * sm(tPre - 2, tGo, t) + 1.4 * sm(tGo - 1, tGo + 4, t) + .7 * sm(tSky[0] - 1, tSky[0] + 2, t) * (1 - sm(tSky[0] + 8, tSky[0] + 14, t)) + .6 * sm(tHigh - 2, tHigh + 3, t) + 3 * sm(tSpace, tSpace + 12, t) * (1 - .7 * sm(tEnd - 20, tEnd - 4, t)); }
+    const zAt = t => { if (!zTab) return 0; const i = Math.max(0, t * 4), j = Math.min(zTab.length - 2, i | 0); return zTab[j] + (zTab[j + 1] - zTab[j]) * (i - j); };
+    const xAt = t => .9 * Math.sin(t * .045) + .4 * Math.sin(t * .11 + 2);
+    const alt = t => 1.4 + .25 * Math.sin(t * .37) * (1 - sm(tPre, tGo, t)) + 2.35 * sm(tPre - 1, tGo + .5, t) + .3 * Math.sin(t * .21) * sm(tGo, tGo + 6, t)
+      + 1.3 * sm(tHigh - 1, tHigh + 5, t) * (1 - sm(tHigh + 12, tHigh + 22, t)) + 110 * Math.pow(sm(tSpace, tEnd - 6, t), 1.7);
+    function init() { rain = []; }
+    function draw(I, level, fx) {
+      if (!setup()) return;
+      const now = window.__time || 0, playing = !!window.__playing, prev = lastNow; lastNow = now;
+      const dt = Math.min(.1, Math.max(0, now - prev)), seek = Math.abs(now - prev) > .5;
+      const cssW = document.documentElement.clientWidth || innerWidth, cssH = innerHeight;
+      const k = Math.min(Math.min(window.devicePixelRatio || 1, 2), Math.sqrt(360000 / (cssW * cssH))), w = Math.round(cssW * k), h = Math.round(cssH * k);
+      if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; gl.viewport(0, 0, w, h); }
+      const bs = window.__bass || 0; beatE += (bs - beatE) * .1; kick = Math.max(kick * .86, playing ? Math.max(0, bs - beatE) * 2 : 0);
+      const storm = 1 - sm(tGo - 5, tGo + 2, now), space = sm(tSpace + 6, tEnd - 12, now);
+      // 镜头：暴雨里左右张望、颠簸；冲出云层后平稳；「高く」时抬头；最后看向地平线和星空
+      const search = 1 - sm(tPre, tGo, now);
+      const yaw = (.42 * Math.sin(now * .13) + .22 * Math.sin(now * .29 + 1.3)) * search + .07 * Math.sin(now * .05) * (1 - search) * (1 - sm(tRb - 8, tRb - 4, now) * (1 - sm(tRb + 2, tRb + 6, now)));
+      const shake = storm * (.012 + .02 * kick);
+      const pitch = .02 + .16 * sm(tPre, tGo - 2, now) * (1 - sm(tGo, tGo + 4, now)) - .07 * sm(tGo, tGo + 5, now) + .4 * sm(tHigh - .5, tHigh + 3, now) * (1 - sm(tHigh + 8, tHigh + 15, now))
+        + .12 * sm(tSpace - 2, tSpace + 6, now) * (1 - sm(tSpace + 14, tSpace + 24, now)) - .34 * sm(tSpace + 4, tEnd - 10, now) + shake * Math.sin(now * 23);
+      const roll = .07 * Math.sin(now * .31) * storm - .35 * (.42 * .13 * Math.cos(now * .13) + .22 * .29 * Math.cos(now * .29 + 1.3)) * search * 6 * .25 + .04 * Math.sin(now * .09) * (1 - storm) + shake * Math.sin(now * 31);
+      const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
+      const F = [sy * cp, sp, cy * cp], R0 = [cy, 0, -sy], U0 = [-sy * sp, cp, -cy * sp];
+      const cr = Math.cos(roll), sr = Math.sin(roll);
+      const Rr = R0.map((v, i) => v * cr + U0[i] * sr), Ur = U0.map((v, i) => -R0[i] * sr + v * cr);
+      // 闪电
+      let flash = 0, LP = [0, 1.5, 0];
+      for (const [t, k2] of BOLTS) { const a = now - t; if (a >= 0 && a < 1.2) { const f = a < .08 ? 1 : a < .16 ? .25 : a < .26 ? .85 : Math.exp(-(a - .26) * 6) * .6; flash = Math.max(flash, f * (.6 + .4 * Math.abs(Math.sin(k2 * 7.1))));
+        LP = [xAt(now) + Math.sin(k2 * 3.7) * 5, 1 + Math.abs(Math.sin(k2 * 5.3)) * 1.6, zAt(now) + 4 + Math.abs(Math.sin(k2 * 2.3)) * 7]; } }
+      let burst = 0; for (const t of tSky) { const a = now - t; if (a >= 0 && a < 6) burst = Math.max(burst, Math.exp(-a * 1.1)); }
+      const glare = 1.5 * burst + .4 * kick * (1 - storm);
+      const sunY = -.02 + .13 * sm(tGo - 3, tGo + 25, now) - .03 * space;
+      const S = [-.28, sunY, 1], sl = Math.hypot(...S); S.forEach((v, i) => (S[i] = v / sl));
+      const rbA = sm(tRb - 16, tRb - 9, now) * (1 - sm(tRb + .5, tRb + 2.5, now));
+      const cov = .6 - .04 * storm - .04 * sm(tGo, tGo + 10, now) + .03 * space;
+      const fade = Math.min(1, .3 + now / 2.5) * (1 - .55 * sm(tEnd - 3, tEnd + 1, now));
+      gl.uniform2f(U.R, w, h); gl.uniform1f(U.T, now); gl.uniform1f(U.storm, storm); gl.uniform1f(U.space, space); gl.uniform1f(U.flash, flash);
+      gl.uniform1f(U.cov, cov); gl.uniform1f(U.rbA, rbA); gl.uniform1f(U.burst, burst); gl.uniform1f(U.fade, fade); gl.uniform1f(U.curv, 1 / 1500); gl.uniform1f(U.glare, glare);
+      gl.uniform3f(U.CP, xAt(now), alt(now), zAt(now)); gl.uniform3fv(U.CF, F); gl.uniform3fv(U.CR, Rr); gl.uniform3fv(U.CU, Ur);
+      gl.uniform3fv(U.LP, LP); gl.uniform3fv(U.SUN, S); gl.uniform3f(U.RB, xAt(tRb), TOP - .35, zAt(tRb));
+      gl.uniform1i(U.NZ, 0);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      // ── 暴雨：迎面打过来的雨丝（全分辨率画在上层）──
+      if (seek) rain = [];
+      const rainAmt = storm * (1 - sm(tPre + 2, tGo - 1, now) * .7);
+      const nR = Math.round(260 * rainAmt * Math.min(1.5, W * H / (1400 * 900 * dpr * dpr) + .4));
+      while (rain.length < nR) rain.push({ x: (Math.random() - .5) * 14, y: (Math.random() - .5) * 9 + 1, z: .4 + Math.random() * 6 });
+      if (rain.length > nR) rain.length = nR;
+      if (nR > 0) {
+        const f = H * .62, vz = (speed(now) * 2.2 + 1.5), fall = 5.5;
+        ctx.save(); ctx.lineCap = "round";
+        for (const d of rain) {
+          if (playing) { d.z -= vz * dt; d.y -= fall * dt; d.x += .8 * dt; }
+          if (d.z < .25 || d.y < -3) { d.x = (Math.random() - .5) * 14; d.y = (Math.random() - .5) * 8 + 2.5; d.z = 3 + Math.random() * 4; continue; }
+          const sx = W / 2 + d.x / d.z * f, sy2 = H / 2 - d.y / d.z * f, ex = W / 2 + (d.x - .8 * .05) / (d.z + vz * .05) * f, ey = H / 2 - (d.y + fall * .05) / (d.z + vz * .05) * f;
+          const a = Math.min(.45, .7 / d.z) * rainAmt * (1 + 1.5 * flash);
+          ctx.strokeStyle = `rgba(200,210,230,${a})`; ctx.lineWidth = Math.max(.7, 1.6 / d.z) * dpr;
+          ctx.beginPath(); ctx.moveTo(sx, sy2); ctx.lineTo(ex, ey); ctx.stroke();
+        }
+        ctx.restore();
+      }
+    }
+    return { init, draw, wet: false };
+  };
+
+
   SCENES.none = () => ({ init() {}, draw() {} });
 
   // ═════════ 引擎 ═════════

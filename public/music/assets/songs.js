@@ -472,7 +472,7 @@ window.SONGS = [
     id: "23",
     title: "この季節の終わり",
     subtitle: "这个季节的尽头",
-    rev: 17,
+    rev: 18,
     date: "2026.10.18",
     place: "",
     scene: "summerend",              // 海边山坡上的一棵树和一丛白百合，四季跟着歌词变；封面里他身后是这片风景和他的叠影

@@ -4773,64 +4773,64 @@ void main(){
       return (ok = true);
     }
 
-    // ───── 封面 ─────
-    let cc, ccv, fig, figOK = false, gcv, gc, wrapEl, shown = false;
+    // ───── 封面：身后是他自己的那张场景图（夏末的墓园），镜头慢慢移，颜色跟着季节变 ─────
+    let cc, ccv, fig, figOK = false, bgi, bgOK = false, gcv, gc, wrapEl, shown = false;
     function coverSetup() {
       if (ccv) return true;
       wrapEl = document.querySelector(".cover-wrap"); if (!wrapEl) return false;
       fig = new Image(); fig.onload = () => (figOK = true); fig.src = `/music/media/${song.id}/figure.webp?r=${song.rev || 0}`;
+      bgi = new Image(); bgi.onload = () => (bgOK = true); bgi.src = `/music/media/${song.id}/bg.webp?r=${song.rev || 0}`;
       ccv = document.createElement("canvas");
       ccv.style.cssText = "position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:0;transition:opacity 1.5s";
       wrapEl.insertBefore(ccv, wrapEl.querySelector(".cover-shade")); cc = ccv.getContext("2d");
       gcv = document.createElement("canvas"); gc = gcv.getContext("2d");
       return true;
     }
-    // 从背景（天、海、草坡 + 树和花）里取一块正方形，cx 是取景中心在屏幕上的横向位置
-    function sceneSquare(g, S, cx, z, cy = .5) {
-      for (const src of [cv, cvMain]) {
-        const sw = src.width, sh = src.height, sz = Math.min(sw, sh) / z;
-        const sx = Math.max(0, Math.min(sw - sz, cx * sw - sz / 2)), sy = Math.max(0, Math.min(sh - sz, cy * sh - sz / 2));
-        g.drawImage(src, sx, sy, sz, sz, 0, 0, S, S);
-      }
+    // 从场景图里取一块正方形：cx、cy 是取景中心（0–1），z 越大越近
+    function bgSquare(g, S, cx, cy, z) {
+      const iw = bgi.naturalWidth, ih = bgi.naturalHeight, sz = Math.min(iw, ih) / z;
+      const sx = Math.max(0, Math.min(iw - sz, cx * iw - sz / 2)), sy = Math.max(0, Math.min(ih - sz, cy * ih - sz / 2));
+      g.drawImage(bgi, sx, sy, sz, sz, 0, 0, S, S);
     }
-    const cvMain = ctx.canvas;
+    // 季节调色：夏原样，秋偏暖，冬偏冷发灰，春偏粉
+    function grade(g, S, P, k) {
+      const tints = [[P.au, "rgb(214,128,52)", .30], [P.wi, "rgb(168,186,212)", .42], [P.sp, "rgb(236,170,190)", .24]];
+      if (P.wi > .01) { g.globalCompositeOperation = "saturation"; g.globalAlpha = .55 * P.wi * k; g.fillStyle = "#808080"; g.fillRect(0, 0, S, S); }
+      for (const [w, c, a] of tints) if (w > .01) { g.globalCompositeOperation = "color"; g.globalAlpha = w * a * k; g.fillStyle = c; g.fillRect(0, 0, S, S); }
+      if (P.forget > .01) { g.globalCompositeOperation = "saturation"; g.globalAlpha = .7 * P.forget * k; g.fillStyle = "#808080"; g.fillRect(0, 0, S, S); }
+      g.globalCompositeOperation = "source-over"; g.globalAlpha = 1;
+    }
     function coverDraw(now, P) {
-      if (!coverSetup() || !figOK) return;
+      if (!coverSetup() || !figOK || !bgOK) return;
       const S = Math.min(1100, Math.round(wrapEl.clientWidth * Math.min(window.devicePixelRatio || 1, 2)));
       if (!S) return;
       if (ccv.width !== S) { ccv.width = ccv.height = S; gcv.width = gcv.height = S; }
       if (!shown) { shown = true; ccv.style.opacity = "1"; }
       cc.globalCompositeOperation = "source-over"; cc.globalAlpha = 1;
       cc.fillStyle = "#0a0b0d"; cc.fillRect(0, 0, S, S);
-      // 1) 身后：同一片风景（树那一边），褪了色、暗下来，像回忆
-      const tcx = P.treeX;
-      cc.globalAlpha = .26 + .1 * P.melt - .08 * P.quiet;
-      sceneSquare(cc, S, tcx + .03 * Math.sin(now * .021), 1.15 + .06 * Math.sin(now * .013), .42);
-      cc.globalAlpha = .5; cc.globalCompositeOperation = "saturation"; cc.fillStyle = "#808080"; cc.fillRect(0, 0, S, S);
-      cc.globalCompositeOperation = "source-over"; cc.globalAlpha = 1;
-      let g = cc.createRadialGradient(S * .5, S * .42, S * .16, S * .5, S * .5, S * .78);
-      g.addColorStop(0, "rgba(8,9,11,.18)"); g.addColorStop(1, "rgba(8,9,11,.92)"); cc.fillStyle = g; cc.fillRect(0, 0, S, S);
-      // 2) 叠影：两个放大的他，影子里是风景
-      const z = 1.03 + .03 * Math.sin(now * .04), fw = S * z, fh = fw * 1.5, fx = (S - fw) / 2, fy = -(fh - S) * .22;
+      // 1) 身后的场景：从左边的小路慢慢移到右边的墓碑，再回来（约四分钟一个来回）
+      const ph = .5 - .5 * Math.cos(now * .026);
+      cc.globalAlpha = .62 + .12 * P.melt - .12 * P.quiet;
+      bgSquare(cc, S, .3 + .42 * ph, .5, 1.04 + .08 * Math.sin(now * .017));
+      cc.globalAlpha = 1; grade(cc, S, P, 1);
+      let g = cc.createRadialGradient(S * .5, S * .4, S * .2, S * .5, S * .5, S * .8);
+      g.addColorStop(0, "rgba(8,9,11,0)"); g.addColorStop(1, "rgba(8,9,11,.7)"); cc.fillStyle = g; cc.fillRect(0, 0, S, S);
+      // 2) 叠影：两边各一个半透明的他，影子里是这张图的另一处（天空和树荫）
+      const fw = S * .9, fh = fw * 1.5, fx = (S - fw) / 2, fy = S * .05 + Math.sin(now * .04) * S * .006;
       const ghosts = [
-        { s: .66, dx: -.3 + .02 * Math.sin(now * .05), dy: .13 + .01 * Math.sin(now * .07), a: .62, cx: .78 + .05 * Math.sin(now * .017), z: 1.4 },
-        { s: .66, dx: .3 + .02 * Math.sin(now * .043 + 2), dy: .13, a: .55, cx: tcx, z: 1.9 },
+        { s: .74, dx: -.31 + .015 * Math.sin(now * .05), dy: .1 + .008 * Math.sin(now * .07), a: .5, cx: .36 + .05 * Math.sin(now * .019), cy: .28, z: 1.6 },
+        { s: .74, dx: .31 + .015 * Math.sin(now * .043 + 2), dy: .1, a: .5, cx: .5 + .05 * Math.sin(now * .023 + 1), cy: .26, z: 1.8 },
       ];
       const ga = (1 - .85 * P.forget) * (1 - .4 * P.quiet);
       if (ga > .01) for (const o of ghosts) {
         gc.globalCompositeOperation = "source-over"; gc.globalAlpha = 1; gc.clearRect(0, 0, S, S);
-        sceneSquare(gc, S, o.cx, o.z, .45);
-        gc.globalCompositeOperation = "saturation"; gc.globalAlpha = .2; gc.fillStyle = "#808080"; gc.fillRect(0, 0, S, S);
+        bgSquare(gc, S, o.cx, o.cy, o.z); grade(gc, S, P, 1);
         gc.globalCompositeOperation = "destination-in"; gc.globalAlpha = 1;
-        const w = fw * o.s, h = w * 1.5; gc.drawImage(fig, S * .5 - w / 2 + o.dx * S, fy * o.s + o.dy * S, w, h);
+        const w = fw * o.s, h = w * 1.5; gc.drawImage(fig, S * .5 - w / 2 + o.dx * S, fy + o.dy * S, w, h);
         cc.globalCompositeOperation = "screen"; cc.globalAlpha = o.a * ga; cc.drawImage(gcv, 0, 0);
       }
-      // 3) 他身后淡淡的光晕，然后是他本人
-      cc.globalCompositeOperation = "screen"; cc.globalAlpha = 1;
-      g = cc.createRadialGradient(S * .5, S * .33, 0, S * .5, S * .38, S * .42);
-      const hc = P.cold > .5 ? "200,215,235" : "236,226,205";
-      g.addColorStop(0, `rgba(${hc},${.18 + .08 * P.level})`); g.addColorStop(1, `rgba(${hc},0)`); cc.fillStyle = g; cc.fillRect(0, 0, S, S);
-      cc.globalCompositeOperation = "source-over";
+      cc.globalCompositeOperation = "source-over"; cc.globalAlpha = 1;
+      // 3) 他本人：整个上半身在框里，头顶留一点空
       cc.drawImage(fig, fx, fy, fw, fh);
       if (P.pale > .01) { cc.globalAlpha = P.pale * .8; cc.fillStyle = "rgb(236,234,230)"; cc.fillRect(0, 0, S, S); cc.globalAlpha = 1; }
     }
@@ -4878,7 +4878,7 @@ void main(){
         ctx.save(); ctx.globalAlpha = lA; ctx.translate(bx, by); ctx.scale(flip, 1); ctx.transform(1, 0, -sw2, 1, 0, 0);
         ctx.drawImage(lily.c, -S / 2, -S, S, S); ctx.restore();
       }
-      coverDraw(now, { melt, cold, quiet, forget, pale, level: level || 0, treeX: Math.max(.15, Math.min(.85, (tX + (tree.cx * tree.unit)) / W)) });
+      coverDraw(now, { su, au, wi, sp, melt, cold, quiet, forget, pale, level: level || 0, treeX: Math.max(.15, Math.min(.85, (tX + (tree.cx * tree.unit)) / W)) });
       // ── 飘落：夏天几片白花瓣，秋天落叶，冬天下雪，春天粉色花瓣 ──
       if (seek) { fall = []; tears = []; }
       if (playing && !seek) {

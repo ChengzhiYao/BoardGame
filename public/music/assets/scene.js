@@ -4476,6 +4476,155 @@ void main(){
   };
 
 
+  // ═════════ この季節の終わり：写给过去、现在和未来的自己 ═════════
+  // 背景是他自己做的 MV（夏末的墓园、手里拿着白花的他，和他身后颜色不同的影子），跟音乐同步播放。
+  // 上面叠一层跟歌词走的光：「残酷な日差し」刺眼的阳光、地面的热浪；远处的海一闪一闪；
+  // 「夏も冬も秋も過ぎて、美しい春が」颜色跟着季节转一圈，最后飘起淡粉色的花瓣；
+  // 「光と海がひとつに溶ける」光把画面融成一片；「氷のように冷たくて」颜色变冷、霜从四周爬进来；
+  // 「静けさの中で終わる」一切安静下来；「何を失くしたのかさえ少しずつ忘れてゆく」画面一块块褪成空白；
+  // 「それでも涙だけは」眼泪一样的水珠顺着屏幕往下流
+  SCENES.summerend = (song) => {
+    const sm = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+    const TL = song.tl || {};
+    const env = (L, t, fi = 1, fo = 1.5) => { let v = 0; for (const [a, b] of L || []) v = Math.max(v, sm(a - fi, a + fi, t) * (1 - sm(b - fo, b + fo, t))); return v; };
+    let gl, prog, cv, U = {}, ok = false, tex, vid, vReady = false, lastNow = 0, petals = [], tears = [], spr = [];
+    const FS = `precision highp float;
+uniform sampler2D V; uniform vec2 R,VS; uniform float T,heat,melt,cold,quiet,forget,fade,sat,spring,winter,autumn,pale;
+float h21(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
+float vn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h21(i),h21(i+vec2(1,0)),f.x),mix(h21(i+vec2(0,1)),h21(i+vec2(1,1)),f.x),f.y);}
+float fbm(vec2 p){float s=0.,a=.5;for(int i=0;i<5;i++){s+=a*vn(p);p=p*2.03+17.1;a*=.5;}return s;}
+void main(){
+  vec2 fc=gl_FragCoord.xy, q=fc/R;
+  // 画面按 cover 方式铺满，宽屏时稍微偏右（人物在中间偏右）
+  float ar=R.x/R.y, va=VS.x/VS.y; vec2 uv=q;
+  if(ar>va){ float k=va/ar; uv.y=.5+(q.y-.5)*k; } else { float k=ar/va; uv.x=clamp(.56,k*.5,1.-k*.5)+(q.x-.5)*k; }
+  uv.y=1.-uv.y;
+  // 热浪：越靠近地面越扭
+  float hz=heat*.0035*smoothstep(.35,1.,uv.y);
+  uv+=vec2(fbm(vec2(uv.x*14.,uv.y*9.-T*1.6))-.5,fbm(vec2(uv.x*11.+3.,uv.y*7.-T*1.3))-.5)*hz;
+  vec3 c=texture2D(V,uv).rgb;
+  float l=dot(c,vec3(.299,.587,.114));
+  // 季节：冬的冷、秋的琥珀、春的粉
+  c=mix(c,vec3(l)*vec3(.78,.88,1.08)+.04,winter*.75);
+  c=mix(c,c*vec3(1.12,.92,.68)+vec3(.04,.02,0.),autumn*.7);
+  c=mix(c,c*vec3(1.06,.96,1.)+vec3(.08,.03,.06),spring*.7);
+  // 夏天的阳光：右上方刺眼的光，整个画面被晒得发白
+  vec2 sp=vec2(.82,-.05); float sd=length((uv-sp)*vec2(1.6,1.));
+  c+=vec3(1.,.93,.78)*(exp(-sd*2.6)*.75+exp(-sd*7.)*.5)*heat;
+  c=mix(c,1.-(1.-c)*(1.-c),heat*.35);
+  // 光和海融在一起
+  c+=vec3(1.,.97,.92)*melt*(.25+.55*smoothstep(.45,1.,l));
+  // 远处的海面：一闪一闪
+  float sea=smoothstep(.02,.0,abs(uv.y-.305))*smoothstep(.12,.16,uv.x)*smoothstep(.36,.3,uv.x);
+  float gl2=pow(vn(vec2(uv.x*420.,uv.y*1400.+T*2.5)),16.)*sea;
+  c+=vec3(1.,.97,.9)*gl2*(.8+1.2*heat+2.*melt);
+  // 冷：颜色被抽走，蓝得像冰；霜从四周往里爬
+  c=mix(c,vec3(l)*vec3(.72,.86,1.12)+vec3(0.,.02,.06),cold*.85);
+  vec2 e=q-.5; float ed=length(e*vec2(ar/1.6,1.))*1.35;
+  float fr=fbm(q*vec2(ar,1.)*5.)*.6+fbm(q*vec2(ar,1.)*22.)*.4;
+  float frost=smoothstep(1.05-cold*.3,1.2-cold*.3,ed+fr*.35)*cold;
+  float cr=fbm(q*vec2(ar,1.)*60.);                       // 细碎的冰晶
+  c=mix(c,vec3(.84,.91,1.)*(.8+.35*cr),frost*.7);
+  c+=vec3(.85,.93,1.)*pow(cr,6.)*frost*.6;
+  // 安静：饱和度慢慢降下来
+  float ll=dot(c,vec3(.299,.587,.114)); c=mix(vec3(ll),c,sat*(1.-.6*quiet));
+  // 忘记：画面一块块褪成空白
+  float fm=fbm(q*vec2(ar,1.)*3.2+vec2(0.,T*.01));
+  float keep=smoothstep(.15,.45,length((q-vec2(.5,.45))*vec2(ar,1.)*.7));   // 中间的他留着
+  float gone=smoothstep(fm-.05,fm+.05,forget*.62)*keep;
+  c=mix(c,vec3(.93,.92,.9)*(.92+.08*fm),gone*.85);
+  c=mix(c,vec3(.95,.94,.92),pale);
+  c*=1.-.32*dot(e,e)*(1.+quiet);
+  c*=.8-.22*smoothstep(.45,1.,1.-q.y);                    // 压暗一点，标题和歌词才看得清
+  c+=(h21(fc+fract(T*13.)*71.)-.5)*.018;
+  gl_FragColor=vec4(clamp(c,0.,1.)*fade,1.);
+}`;
+    function petalSprite(pink) {
+      const c = document.createElement("canvas"); c.width = 40; c.height = 26; const g = c.getContext("2d");
+      const tint = pink ? "255,214,226" : "255,250,244";
+      const gr = g.createLinearGradient(0, 13, 40, 13); gr.addColorStop(0, `rgba(${tint},.95)`); gr.addColorStop(1, `rgba(${tint},.6)`);
+      g.fillStyle = gr; g.beginPath(); g.moveTo(2, 13); g.bezierCurveTo(10, 0, 30, 2, 38, 11); g.bezierCurveTo(36, 13, 36, 14, 38, 16); g.bezierCurveTo(30, 24, 10, 26, 2, 13); g.fill();
+      g.strokeStyle = "rgba(190,175,170,.35)"; g.lineWidth = .8; g.beginPath(); g.moveTo(3, 13); g.lineTo(32, 13); g.stroke();
+      return c;
+    }
+    function setup() {
+      if (cv) return ok;
+      cv = document.createElement("canvas");
+      cv.style.cssText = "position:fixed;inset:0;width:100%;height:100%;z-index:-3;pointer-events:none;background:#000";
+      document.body.insertBefore(cv, document.body.firstChild);
+      const bd = document.querySelector(".backdrop"); if (bd) bd.style.display = "none";
+      for (let i = 0; i < 4; i++) spr.push(petalSprite(false)); for (let i = 0; i < 4; i++) spr.push(petalSprite(true));
+      vid = document.createElement("video"); vid.src = `/music/media/${song.id}/${song.bgVideo}?r=${song.rev || 0}`; vid.muted = true; vid.playsInline = true; vid.preload = "auto";
+      vid.setAttribute("playsinline", ""); vid.setAttribute("muted", ""); vid.crossOrigin = "anonymous";
+      vid.addEventListener("loadeddata", () => (vReady = true)); vid.load();
+      gl = cv.getContext("webgl", { antialias: false, alpha: false });
+      if (!gl) return (ok = false);
+      const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.warn(gl.getShaderInfoLog(s)); return null; } return s; };
+      const vs = sh(gl.VERTEX_SHADER, "attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}"), fs = sh(gl.FRAGMENT_SHADER, FS);
+      if (!vs || !fs) return (ok = false);
+      prog = gl.createProgram(); gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog); gl.useProgram(prog);
+      const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+      const loc = gl.getAttribLocation(prog, "p"); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+      for (const k of ["V", "R", "VS", "T", "heat", "melt", "cold", "quiet", "forget", "fade", "sat", "spring", "winter", "autumn", "pale"]) U[k] = gl.getUniformLocation(prog, k);
+      tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
+      for (const [k, v] of [[gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE], [gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+      return (ok = true);
+    }
+    function init() { petals = []; tears = []; }
+    function draw(I, level, fx) {
+      if (!setup()) return;
+      const now = window.__time || 0, playing = !!window.__playing, prev = lastNow; lastNow = now;
+      const dt = Math.min(.1, Math.max(0, now - prev)), seek = Math.abs(now - prev) > .5;
+      // MV 跟着音乐走
+      const vEnd = (vid.duration || 234.5) - .05, vt = Math.min(now, vEnd);
+      if (playing && now < vEnd) { if (vid.paused) vid.play().catch(() => {}); if (Math.abs(vid.currentTime - vt) > .25) vid.currentTime = vt; }
+      else { if (!vid.paused) vid.pause(); if (Math.abs(vid.currentTime - vt) > .1) vid.currentTime = vt; }
+      const sc = Math.min(window.devicePixelRatio || 1, 2), w = Math.round(innerWidth * Math.min(sc, 1.5)), h = Math.round(innerHeight * Math.min(sc, 1.5));
+      if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; gl.viewport(0, 0, w, h); }
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex);
+      if (vReady && vid.readyState >= 2) { try { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, vid); } catch (e) {} }
+      // 季节转一圈：夏 → 冬 → 秋 → 春
+      let winter = 0, autumn = 0, spring = 0;
+      for (const [s0, w0, a0, h0, e0] of TL.seasons || []) {
+        winter = Math.max(winter, sm(w0 - .6, w0 + .6, now) * (1 - sm(a0 - .6, a0 + .4, now)));
+        autumn = Math.max(autumn, sm(a0 - .4, a0 + .6, now) * (1 - sm(h0 - .6, h0 + .4, now)));
+        spring = Math.max(spring, sm(h0 - .4, h0 + 1, now) * (1 - sm(e0 - 1, e0 + 3, now)));
+      }
+      const heat = .25 + .75 * env(TL.heat, now, 2, 3), melt = env(TL.melt, now, .8, 2), cold = env(TL.cold, now, .8, 2.5), quiet = env(TL.quiet, now, 1.5, 3);
+      const forget = env(TL.forget, now, 3, 4), tearV = env(TL.tears, now, .5, 3);
+      const end = TL.end || 243, pale = .5 * sm(end - 14, end - 2, now);
+      const sat = 1 - .35 * sm(30, end, now);                       // 整首歌里，夏天的颜色一点点褪掉
+      const fade = Math.min(1, .25 + now / 2.5) * (1 - .75 * sm(end - 3, end + .5, now));
+      gl.uniform1i(U.V, 0); gl.uniform2f(U.R, w, h); gl.uniform2f(U.VS, vid.videoWidth || 1280, vid.videoHeight || 720); gl.uniform1f(U.T, now);
+      for (const [k, v] of [["heat", heat * (1 - cold) * (1 - .7 * winter)], ["melt", melt], ["cold", cold], ["quiet", quiet], ["forget", forget], ["fade", vReady ? fade : 0], ["sat", sat], ["spring", spring], ["winter", winter], ["autumn", autumn], ["pale", pale]]) gl.uniform1f(U[k], v);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      // ── 风里的花瓣：平时是白的，春天那一句变成淡粉，而且多一些 ──
+      if (seek) { petals = []; tears = []; }
+      const rate = (.8 + 1.2 * level + 5 * spring) * (1 - .7 * quiet) * (1 - .8 * cold) * (1 - sm(end - 8, end, now));
+      if (playing && !seek && Math.random() < dt * rate) petals.push({ x: -30, y: H * (.05 + Math.random() * .75), vx: (60 + Math.random() * 80) * dpr, vy: (8 + Math.random() * 22) * dpr, r: Math.random() * 6.28, vr: (Math.random() - .5) * 3, s: (.3 + Math.random() * .45) * dpr, ph: Math.random() * 6.28, pink: Math.random() < spring * .9 });
+      for (const p of petals) {
+        if (playing) { const slow = 1 - .55 * quiet; p.x += p.vx * dt * slow; p.y += (p.vy + Math.sin(now * 1.3 + p.ph) * 22 * dpr) * dt * slow; p.r += p.vr * dt * slow; }
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.scale(p.s, p.s * (.35 + .65 * Math.abs(Math.sin(now * 1.8 + p.ph)))); ctx.globalAlpha = .8 * (1 - .6 * forget);
+        ctx.drawImage(spr[(p.pink ? 4 : 0) + ((p.ph * 10 | 0) % 4)], -20, -13); ctx.restore();
+      }
+      petals = petals.filter(p => p.x < W + 60 && p.y < H + 40);
+      // ── 眼泪：屏幕上的水珠，停一下再顺着往下流，留下一道水痕 ──
+      if (playing && !seek && tearV > .3 && Math.random() < dt * 2.2 * tearV) tears.push({ x: W * (.15 + Math.random() * .7), y: H * (.05 + Math.random() * .4), r: (3 + Math.random() * 4) * dpr, v: 0, hold: .3 + Math.random() * 1.2, life: 0, trail: [] });
+      for (const d of tears) {
+        if (playing) { d.life += dt; if (d.life > d.hold) { d.v = Math.min(d.v + 180 * dpr * dt, 160 * dpr); d.y += d.v * dt; d.x += Math.sin(d.y * .02) * .25; if (!d.trail.length || d.y - d.trail[d.trail.length - 1][1] > 3 * dpr) d.trail.push([d.x, d.y]); } }
+        const a = Math.min(1, d.life * 5) * Math.max(0, 1 - Math.max(0, d.life - 9) / 3);
+        if (d.trail.length > 1) { ctx.strokeStyle = `rgba(225,235,250,${.12 * a})`; ctx.lineWidth = d.r * .6; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(d.trail[0][0], d.trail[0][1]); for (const p of d.trail) ctx.lineTo(p[0], p[1]); ctx.stroke(); }
+        const g = ctx.createRadialGradient(d.x - d.r * .35, d.y - d.r * .4, 0, d.x, d.y, d.r * 1.2);
+        g.addColorStop(0, `rgba(255,255,255,${.7 * a})`); g.addColorStop(.3, `rgba(235,242,255,${.15 * a})`); g.addColorStop(.85, `rgba(200,215,235,${.08 * a})`); g.addColorStop(1, `rgba(20,25,35,${.35 * a})`);
+        ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(d.x, d.y, d.r, d.r * 1.25, 0, 0, 6.283); ctx.fill();
+      }
+      tears = tears.filter(d => d.y < H + 20 && d.life < 12);
+    }
+    return { init, draw, wet: false };
+  };
+
+
   SCENES.none = () => ({ init() {}, draw() {} });
 
   // ═════════ 引擎 ═════════

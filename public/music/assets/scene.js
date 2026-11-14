@@ -429,7 +429,7 @@
   // ═════════ 拼贴：封面变成一个跟着音乐实时剪辑的 MV（怪异 jazz 风格） ═════════
   // 用你拍的 footage：在鼓点上跳切、定格、分屏、镜像、撞色；唱到关键句时浮现书法字
   SCENES.collage = (song) => {
-    const V = song.visual || {}, base = `/music/media/${song.id}/`;
+    const V = song.visual || {}, base = `${MEDIA_BASE}/${song.id}/`;
     const POOLS = V.pools || {}, cues = (V.cues || []).slice().sort((a, b) => a[0] - b[0]);
     const TINTS = V.tints || [[60, 220, 170], [150, 90, 255], [255, 170, 60], [255, 70, 120], null];
     // 视频（静音、循环、隐藏），只把正在用的几个开着播放
@@ -815,7 +815,7 @@
 
   // ═════════ 十字架：封面变成一段按歌词推进的默片（你的插画），背景是灰烬、荆棘和心跳的红光；结尾黑暗散去，迎来黎明 ═════════
   SCENES.cross = (song) => {
-    const V = song.story || {}, base = `/music/media/${song.id}/`;
+    const V = song.story || {}, base = `${MEDIA_BASE}/${song.id}/`;
     const shots = (V.shots || []).slice().sort((a, b) => a[0] - b[0]);
     const imgs = {};
     for (const [, k] of shots) if (!imgs[k]) { const im = new Image(); im.src = `${base}story/${k}.jpg`; imgs[k] = im; }
@@ -2546,10 +2546,10 @@
       if (wrapEl) return true;
       wrapEl = document.querySelector(".cover-wrap"); if (!wrapEl) return false;
       mv = document.createElement("video");
-      mv.src = `/music/media/${song.id}/${song.montage}?r=${song.rev || 0}`; mv.muted = true; mv.playsInline = true; mv.preload = "auto";
+      mv.src = `${MEDIA_BASE}/${song.id}/${song.montage}?r=${song.rev || 0}`; mv.muted = true; mv.playsInline = true; mv.preload = "auto";
       mv.setAttribute("playsinline", ""); mv.setAttribute("muted", "");
       mv.style.cssText = "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1.2s";
-      girlEl = document.createElement("img"); girlEl.src = `/music/media/${song.id}/${song.girl}?r=${song.rev || 0}`; girlEl.alt = "";
+      girlEl = document.createElement("img"); girlEl.src = `${MEDIA_BASE}/${song.id}/${song.girl}?r=${song.rev || 0}`; girlEl.alt = "";
       girlEl.style.cssText = "position:absolute;bottom:0;left:50%;height:100%;width:auto;transform:translateX(-50%);opacity:0;transition:opacity 1.2s;pointer-events:none;filter:contrast(1.05)";
       const shade = wrapEl.querySelector(".cover-shade"); wrapEl.insertBefore(mv, shade); wrapEl.insertBefore(girlEl, shade);
       girlImg = girlEl;
@@ -2661,7 +2661,7 @@
     function setup() {
       if (wrapEl) return true;
       wrapEl = document.querySelector(".cover-wrap"); mainEl = document.querySelector("main"); if (!wrapEl) return false;
-      const base = `/music/media/${song.id}/`;
+      const base = `${MEDIA_BASE}/${song.id}/`;
       street = document.createElement("img"); street.src = base + "cover.jpg" + (song.rev ? "?r=" + song.rev : "");
       street.style.cssText = "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;transition:filter .8s";
       const mk = () => { const im = document.createElement("img"); im.style.cssText = "position:absolute;left:50%;bottom:0;transform:translateX(-50%);max-width:100%;height:92%;object-fit:contain;object-position:bottom;opacity:0;transition:opacity .7s, transform 1.2s;pointer-events:none"; return im; };
@@ -3258,7 +3258,7 @@ void main(){
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
       for (const [k, v] of [[gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE], [gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
       const im = new Image(); im.onload = () => { gl.bindTexture(gl.TEXTURE_2D, tex); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, im); IW = im.width; IH = im.height; imgReady = true; };
-      im.src = `/music/media/${song.id}/bg.jpg?r=${song.rev || 0}`;
+      im.src = `${MEDIA_BASE}/${song.id}/bg.jpg?r=${song.rev || 0}`;
       return (ok = true);
     }
     // 某一时刻的取景：前奏和尾声是整幅画面，中段按小节（或每一拍）切镜头
@@ -3378,7 +3378,7 @@ void main(){
       if (wrapEl) return true;
       wrapEl = document.querySelector(".cover-wrap"); if (!wrapEl) return false;
       const shade = wrapEl.querySelector(".cover-shade");
-      for (const k in IMGS) { const im = new Image(); im.src = `/music/media/${song.id}/${IMGS[k]}?r=${song.rev || 0}`; imgs[k] = im; }
+      for (const k in IMGS) { const im = new Image(); im.src = `${MEDIA_BASE}/${song.id}/${IMGS[k]}?r=${song.rev || 0}`; imgs[k] = im; }
       // 两层图片轮流淡入淡出
       for (let i = 0; i < 2; i++) {
         const el = document.createElement("img"); el.alt = "";
@@ -3388,7 +3388,7 @@ void main(){
       ck = document.createElement("canvas");
       ck.style.cssText = "position:absolute;inset:0;width:100%;height:100%;pointer-events:none";
       wrapEl.insertBefore(ck, shade); cg = ck.getContext("2d");
-      bgv = document.createElement("video"); bgv.src = `/music/media/${song.id}/${song.montage}?r=${song.rev || 0}`; bgv.muted = true; bgv.playsInline = true; bgv.preload = "auto";
+      bgv = document.createElement("video"); bgv.src = `${MEDIA_BASE}/${song.id}/${song.montage}?r=${song.rev || 0}`; bgv.muted = true; bgv.playsInline = true; bgv.preload = "auto";
       bgv.setAttribute("playsinline", ""); bgv.setAttribute("muted", "");
       bgv.style.cssText = "position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:-3;opacity:0;transition:opacity 1.5s;filter:brightness(.62) contrast(1.05);pointer-events:none";
       document.body.insertBefore(bgv, document.body.firstChild);
@@ -3581,7 +3581,7 @@ void main(){
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
       for (const [k, v] of [[gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE], [gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
       const im = new Image(); im.onload = () => { gl.bindTexture(gl.TEXTURE_2D, tex); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, im); IW = im.width; IH = im.height; imgReady = true; };
-      im.src = `/music/media/${song.id}/bg.jpg?r=${song.rev || 0}`;
+      im.src = `${MEDIA_BASE}/${song.id}/bg.jpg?r=${song.rev || 0}`;
       return (ok = true);
     }
     function init() {}
@@ -3653,7 +3653,7 @@ void main(){
     function setup() {
       if (wrapEl) return true;
       wrapEl = document.querySelector(".cover-wrap"); if (!wrapEl) return false;
-      for (const k in FILES) { if (imgs[FILES[k]]) { imgs[k] = imgs[FILES[k]]; continue; } const im = new Image(); im.src = `/music/media/${song.id}/${FILES[k]}?r=${song.rev || 0}`; imgs[k] = imgs[FILES[k]] = im; }
+      for (const k in FILES) { if (imgs[FILES[k]]) { imgs[k] = imgs[FILES[k]]; continue; } const im = new Image(); im.src = `${MEDIA_BASE}/${song.id}/${FILES[k]}?r=${song.rev || 0}`; imgs[k] = imgs[FILES[k]] = im; }
       const bd = document.querySelector(".backdrop"); if (bd) bd.style.display = "none";
       for (let i = 0; i < 70; i++) dust.push({ x: Math.random(), y: Math.random(), s: .4 + Math.random() * 1.2, v: .002 + Math.random() * .006, ph: Math.random() * 6.28 });
       return true;
@@ -3875,7 +3875,7 @@ void main(){
     let im = null, lastNow = 0, rain = [], drops = [], motes = [], fl = 0, ready = false;
     function setup() {
       if (im) return true;
-      im = new Image(); im.onload = () => (ready = true); im.src = `/music/media/${song.id}/cover.jpg?r=${song.rev || 0}`;
+      im = new Image(); im.onload = () => (ready = true); im.src = `${MEDIA_BASE}/${song.id}/cover.jpg?r=${song.rev || 0}`;
       const bd = document.querySelector(".backdrop"); if (bd) bd.style.display = "none";
       return true;
     }
@@ -4017,7 +4017,7 @@ void main(){
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
       for (const [k, v] of [[gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE], [gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
       const im = new Image(); im.onload = () => { gl.bindTexture(gl.TEXTURE_2D, tex); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, im); IW = im.width; IH = im.height; imgReady = true; };
-      im.src = `/music/media/${song.id}/cover.jpg?r=${song.rev || 0}`;
+      im.src = `${MEDIA_BASE}/${song.id}/cover.jpg?r=${song.rev || 0}`;
       return (ok = true);
     }
     function init() {}
@@ -4088,7 +4088,7 @@ void main(){
     }
     function setup() {
       if (im) return true;
-      im = new Image(); im.onload = () => (ready = true); im.src = `/music/media/${song.id}/cover.jpg?r=${song.rev || 0}`;
+      im = new Image(); im.onload = () => (ready = true); im.src = `${MEDIA_BASE}/${song.id}/cover.jpg?r=${song.rev || 0}`;
       for (let i = 0; i < 5; i++) spr.push(featherSprite(i + 1));
       const bd = document.querySelector(".backdrop"); if (bd) bd.style.display = "none";
       return true;
@@ -4192,7 +4192,7 @@ void main(){
     }
     function setup() {
       if (im) return true;
-      im = new Image(); im.onload = () => (ready = true); im.src = `/music/media/${song.id}/cover.jpg?r=${song.rev || 0}`;
+      im = new Image(); im.onload = () => (ready = true); im.src = `${MEDIA_BASE}/${song.id}/cover.jpg?r=${song.rev || 0}`;
       for (let i = 0; i < 6; i++) petalSpr.push(petal(i));
       const bd = document.querySelector(".backdrop"); if (bd) bd.style.display = "none";
       return true;
@@ -4778,8 +4778,8 @@ void main(){
     function coverSetup() {
       if (ccv) return true;
       wrapEl = document.querySelector(".cover-wrap"); if (!wrapEl) return false;
-      fig = new Image(); fig.onload = () => (figOK = true); fig.src = `/music/media/${song.id}/figure.webp?r=${song.rev || 0}`;
-      bgi = new Image(); bgi.onload = () => (bgOK = true); bgi.src = `/music/media/${song.id}/bg.webp?r=${song.rev || 0}`;
+      fig = new Image(); fig.onload = () => (figOK = true); fig.src = `${MEDIA_BASE}/${song.id}/figure.webp?r=${song.rev || 0}`;
+      bgi = new Image(); bgi.onload = () => (bgOK = true); bgi.src = `${MEDIA_BASE}/${song.id}/bg.webp?r=${song.rev || 0}`;
       ccv = document.createElement("canvas");
       ccv.style.cssText = "position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:0;transition:opacity 1.5s";
       wrapEl.insertBefore(ccv, wrapEl.querySelector(".cover-shade")); cc = ccv.getContext("2d");
@@ -4939,7 +4939,7 @@ void main(){
   if (song.coverVideo) {
     const wrap = document.querySelector(".cover-wrap");
     cvid = document.createElement("video");
-    cvid.src = `/music/media/${song.id}/${song.coverVideo}`; cvid.muted = true; cvid.loop = true; cvid.playsInline = true;
+    cvid.src = `${MEDIA_BASE}/${song.id}/${song.coverVideo}`; cvid.muted = true; cvid.loop = true; cvid.playsInline = true;
     cvid.setAttribute("playsinline", ""); cvid.setAttribute("muted", ""); cvid.preload = "auto";
     cvid.style.cssText = "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1.5s";
     if (wrap) wrap.insertBefore(cvid, wrap.querySelector(".cover-shade"));

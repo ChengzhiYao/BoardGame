@@ -4,7 +4,7 @@
   if (!song) { document.querySelector("main").innerHTML = "<p style='padding:40px 0'>找不到这首歌。</p>"; return; }
 
   const $ = s => document.querySelector(s);
-  const media = `/music/media/${song.id}`, rv = song.rev ? `?r=${song.rev}` : "";   // rev：同一个编号换了歌时，让浏览器重新下载
+  const media = `${MEDIA_BASE}/${song.id}`, rv = song.rev ? `?r=${song.rev}` : "";   // rev：同一个编号换了歌时，让浏览器重新下载
   const fmt = t => { t = Math.max(0, t | 0); return `${(t / 60) | 0}:${String(t % 60).padStart(2, "0")}`; };
 
   // ── 填内容 ──

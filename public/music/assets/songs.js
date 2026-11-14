@@ -1,3 +1,14 @@
+// 素材（音频/视频/图片）放在 Cloudflare R2，不放在网站里，这样 Vercel 部署很小
+window.MEDIA_BASE = "https://media.orphiusmusic.com/mystnight/music";
+// 跨域素材要加 crossOrigin，否则音频分析和 WebGL 贴图会被浏览器拦下
+(function () {
+  const OImage = window.Image, OAudio = window.Audio, ce = document.createElement.bind(document);
+  window.Image = function (w, h) { const i = new OImage(w, h); i.crossOrigin = "anonymous"; return i; };
+  window.Image.prototype = OImage.prototype;
+  window.Audio = function (src) { const a = new OAudio(); a.crossOrigin = "anonymous"; if (src) a.src = src; return a; };
+  window.Audio.prototype = OAudio.prototype;
+  document.createElement = function (t, o) { const e = ce(t, o); if (/^(img|video|audio)$/i.test(t)) e.crossOrigin = "anonymous"; return e; };
+})();
 // ─────────────────────────────────────────────
 //  歌单数据：以后加歌只改这个文件
 //  每首歌的素材放在 /media/<id>/ 里：audio.m4a + cover.jpg (+ lyrics.json 歌词)

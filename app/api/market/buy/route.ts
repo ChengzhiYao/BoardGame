@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
-import { ensureProfile, isProtected, isWorking, tradesToday, boughtToday, feed, questBump, HOLD_CAP, PRICE_MULT, OWNER_SHARE, SELF_SHARE, TRADES_PER_DAY, BOUGHT_PER_DAY, today } from '@/lib/market/engine';
+import { ensureProfile, isProtected, isWorking, tradesToday, boughtToday, feed, questBump, effPrice, HOLD_CAP, PRICE_MULT, OWNER_SHARE, SELF_SHARE, TRADES_PER_DAY, BOUGHT_PER_DAY, today, START_CASH } from '@/lib/market/engine';
 export const dynamic = 'force-dynamic';
 const HIDDEN = 'hattieichinose@gmail.com';
 
@@ -31,7 +31,10 @@ export async function POST(req: Request) {
   const { count: tHold } = await admin.from('market_profiles').select('user_id', { count: 'exact', head: true }).eq('owner_id', targetId);
   if ((tHold || 0) >= HOLD_CAP) return NextResponse.json({ ok: false, reason: 'capped' }, { status: 400 });
 
-  const P = t.price;
+  // 目标身价 = max(存储身价, 资产底价)
+  const { data: tHeld } = await admin.from('market_profiles').select('price').eq('owner_id', targetId);
+  const tAssets = (t.cash ?? START_CASH) + (tHeld || []).reduce((s: number, r: any) => s + (r.price || 0), 0);
+  const P = effPrice(t.price, tAssets);
   if (me.cash < P) return NextResponse.json({ ok: false, reason: 'poor', need: P, have: me.cash }, { status: 400 });
 
   const prevOwner = t.owner_id;

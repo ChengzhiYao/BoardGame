@@ -12,6 +12,12 @@ export const BOUGHT_PER_DAY = 2;     // 每人每天最多被买次数
 
 export function today(): string { return new Date().toISOString().slice(0, 10); }
 
+// 身价底价：随总资产浮动（资产×30%，不低于初始 500）。让强者/富人自然更值钱，
+// 不会卡在初始价。显示与买入都用 max(当前身价, 底价) 保持一致。
+export const WORTH_ASSET_RATE = 0.3;
+export function worthFloor(assets: number): number { return Math.max(START_PRICE, Math.round((assets || 0) * WORTH_ASSET_RATE)); }
+export function effPrice(storedPrice: number, assets: number): number { return Math.max(storedPrice || START_PRICE, worthFloor(assets)); }
+
 export type MP = {
   user_id: string; cash: number; price: number; owner_id: string | null;
   protected_until: string | null; working_until: string | null; opted_out: boolean;

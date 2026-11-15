@@ -104,7 +104,8 @@ export default function MarketPage() {
         </div>
         <div className="flex flex-wrap gap-2 sm:flex-col sm:items-end sm:text-right">
           <button disabled={!me.dailyAvailable || !!busy} onClick={() => act('/api/market/daily')} className="text-xs px-3 py-1.5 rounded bg-eldritch/60 hover:bg-eldritch disabled:opacity-40">{me.dailyAvailable ? L('领每日 +100', 'Daily +100') : L('今日已领', 'Claimed')}</button>
-          <button disabled={!me.fateAvailable || !!busy} onClick={() => act('/api/market/fate')} className="text-xs px-3 py-1.5 rounded bg-blood/70 hover:bg-blood disabled:opacity-40">{me.fateAvailable ? L('🎴 命运卡', '🎴 Fate card') : L('命运卡(明日)', 'Fate (tomorrow)')}</button>
+          <button disabled={!!busy || me.cash < (me.hypeCost || 0)} onClick={() => act('/api/market/hype')} className="text-xs px-3 py-1.5 rounded bg-amber-700/60 hover:bg-amber-700/80 disabled:opacity-40">{L(`炒作身价 ¥${me.hypeCost ?? ''}`, `Hype ¥${me.hypeCost ?? ''}`)}</button>
+          <button disabled={!me.fateAvailable || !!busy} onClick={() => act('/api/market/fate')} className="text-xs px-3 py-1.5 rounded bg-blood/70 hover:bg-blood disabled:opacity-40">{me.fateAvailable ? L('命运卡', 'Fate card') : L('命运卡(明日)', 'Fate (tomorrow)')}</button>
           {me.ownerName && <button disabled={!!busy} onClick={() => act('/api/market/please')} className="text-xs px-3 py-1.5 rounded bg-eldritch/50 hover:bg-eldritch">{L('讨好主人', 'Please owner')}</button>}
           {me.ownerName && <button disabled={!!busy} onClick={() => act('/api/market/redeem')} className="text-xs px-3 py-1.5 rounded bg-fog border border-eldritch/40 hover:bg-eldritch/30">{L(`赎身 ${fmt(me.price)}`, `Redeem ${fmt(me.price)}`)}</button>}
           <button disabled={!!busy} onClick={() => act('/api/market/optout', { out: !me.optedOut })} className="text-xs px-3 py-1.5 rounded bg-fog border border-eldritch/30 text-parchment/60 hover:text-parchment">{me.optedOut ? L('重新加入', 'Rejoin') : L('退出市场', 'Leave')}</button>
@@ -220,7 +221,7 @@ function Row({ r, right, sub, i }: { r: any; right?: any; sub?: string; i?: numb
     <div className="mk-row flex items-center gap-3 rounded-xl border border-eldritch/15 bg-fog/40 px-3 py-2 hover:border-eldritch/40 transition-colors" style={{ animationDelay: ((i || 0) * 35) + 'ms' }}>
       <Av url={r.avatar} name={r.name} />
       <div className="flex-1 min-w-0 leading-tight">
-        <div className="truncate text-sm">{r.name}{typeof r.price === 'number' && <span className="text-amber-300/80 text-xs ml-2">💰 {r.price.toLocaleString()}</span>}</div>
+        <div className="truncate text-sm">{r.name}{typeof r.price === 'number' && <span className="text-amber-300/80 text-xs ml-2">¥{r.price.toLocaleString()}</span>}</div>
         {sub && <div className="text-[11px] text-parchment/40 truncate">{sub}</div>}
       </div>
       {right}

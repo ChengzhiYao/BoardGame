@@ -781,3 +781,14 @@ create table if not exists ip_free_grants (
 );
 create index if not exists ip_free_grants_ip_idx on ip_free_grants(ip, created_at desc);
 alter table ip_free_grants enable row level security;
+
+-- 身价场：个人通知（如你名下的人被别人买走）
+create table if not exists market_notifs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  text text not null,
+  seen boolean not null default false,
+  created_at timestamptz not null default now()
+);
+create index if not exists market_notifs_user_idx on market_notifs(user_id, seen, created_at desc);
+alter table market_notifs enable row level security;

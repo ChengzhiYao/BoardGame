@@ -53,6 +53,13 @@ export async function GET() {
     const p = prof(u.id); const a = (p.cash || START_CASH) + (heldSum[u.id] || 0); return { id: u.id, name: nm(u.id), avatar: av(u.id), assets: a, price: effPrice(p.price, a) };
   }).sort((a: any, b: any) => b.assets - a.assets).slice(0, 10);
 
+  // 个人通知（你名下的人被买走等）：取未读，返回后标记已读
+  let notices: string[] = [];
+  try {
+    const { data: nf } = await admin.from('market_notifs').select('id, text').eq('user_id', user.id).eq('seen', false).order('created_at', { ascending: true }).limit(10);
+    notices = (nf || []).map((n: any) => n.text);
+    if (nf && nf.length) await admin.from('market_notifs').update({ seen: true }).in('id', nf.map((n: any) => n.id));
+  } catch {}
   const { data: fd } = await admin.from('market_feed').select('text, created_at').order('created_at', { ascending: false }).limit(40);
   const feed = (fd || []).map((f: any) => ({ text: f.text, ts: new Date(f.created_at).getTime() }));
 
@@ -62,6 +69,6 @@ export async function GET() {
       assets: myAssets, holdings: holdCount[user.id] || 0, holdCap: HOLD_CAP, protectedUntil: me.protected_until,
       dailyAvailable: me.last_daily !== today(), fateAvailable: me.last_fate !== today(), optedOut: me.opted_out,
       rank: rankOf(me.exp), quest: questState(me) },
-    team, list: list.slice(0, 80), leaderboard: lb, feed,
+    team, list: list.slice(0, 80), leaderboard: lb, feed, notices,
   });
 }

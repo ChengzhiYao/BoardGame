@@ -13,7 +13,7 @@ export default function MarketPage() {
   const [onlyAfford, setOnlyAfford] = useState(false);
 
   useEffect(() => { try { setEn(getClientLang() === 'en'); } catch {} }, []);
-  async function load() { try { const r = await fetch('/api/market/state'); setS(await r.json()); } catch {} setLoaded(true); }
+  async function load() { try { const r = await fetch('/api/market/state'); const d = await r.json(); setS(d); if (d && Array.isArray(d.notices) && d.notices.length) flash(d.notices.length > 1 ? (d.notices[0] + L(` 等 ${d.notices.length} 条`, ` +${d.notices.length - 1} more`)) : d.notices[0]); } catch {} setLoaded(true); }
   useEffect(() => { load(); const id = setInterval(load, 15000); return () => clearInterval(id); }, []);
 
   function flash(t: string) { setToast(t); setTimeout(() => setToast(''), 2600); }

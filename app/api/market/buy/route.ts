@@ -61,5 +61,9 @@ export async function POST(req: Request) {
 
   await admin.from('market_trades').insert({ buyer_id: user.id, seller_id: prevOwner, target_id: targetId, price: P });
   await feed(admin, `${myName} 以 ${P} 身价买下了 ${tName}`);
+  // 通知原主人：你的人被买走了（你已分得九成）
+  if (prevOwner && prevOwner !== user.id && prevOwner !== targetId) {
+    try { await admin.from('market_notifs').insert({ user_id: prevOwner, text: `${tName} 被 ${myName} 以 ¥${P} 买走了 · 你分得 ¥${ownerShare}` }); } catch {}
+  }
   return NextResponse.json({ ok: true, price: P, newPrice });
 }

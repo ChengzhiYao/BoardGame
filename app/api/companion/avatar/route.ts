@@ -21,13 +21,13 @@ export async function POST() {
   let pick: any = {};
   try {
     const { data } = await callLLMJson<any>({
-      system: `Decide what this fictional companion would use as their social-media profile picture, like a real young Chinese person on WeChat/Xiaohongshu — it is often NOT their own face. Choose one type that fits the persona and describe the image concretely. Output ONLY JSON: {"type":"selfie"|"pet"|"anime"|"object","gender":"f"|"m","desc":"short concrete English description of the picture"}. selfie=a candid everyday phone selfie of themselves; pet=a cute photo of their pet (cat/dog/bunny/hamster...); anime=an anime-style avatar in a fitting substyle; object=an aesthetic cozy object/scene (plushie, latte, flowers, sky, film still vibe).`,
+      system: `Decide what this fictional companion uses as their profile picture, like a real young Chinese person. DEFAULT to a candid everyday selfie of themselves (most people do). Only occasionally, if it really fits the persona, use their pet or an anime avatar. Output ONLY JSON: {"type":"selfie"|"pet"|"anime","gender":"f"|"m","desc":"short concrete English description"}. Strongly prefer "selfie".`,
       messages: [{ role: 'user', content: `Name: ${c.ai_name}\nPersonality: ${c.persona}\nJob: ${c.job}` }],
       tier: 'aux', temperature: 0.95, maxTokens: 120, provider: 'deepseek',
     });
     pick = data || {};
   } catch {}
-  const type = ['selfie', 'pet', 'anime', 'object'].includes(pick.type) ? pick.type : 'selfie';
+  const type = ['selfie', 'pet', 'anime'].includes(pick.type) ? pick.type : 'selfie';
   const desc = String(pick.desc || '').slice(0, 300);
   const g = pick.gender === 'm' ? 'guy' : 'woman';
 
@@ -36,8 +36,6 @@ export async function POST() {
     prompt = `A cute candid phone snapshot of ${desc || 'an adorable fluffy pet (a cat or a small dog)'}, the kind of photo someone sets as their profile picture. Natural indoor lighting, cozy, real amateur phone photo, slightly imperfect, a bit of grain. Not a studio shot, not 3D render, not an obvious AI image. No text, no watermark.`;
   } else if (type === 'anime') {
     prompt = `An anime-style profile avatar illustration: ${desc || 'a gentle cute anime character, soft expression'}. Clean modern anime art, soft colors, nice composition, the kind of anime icon a young person uses online. Flat/semi-flat shading, NOT photorealistic. No text, no watermark, no signature.`;
-  } else if (type === 'object') {
-    prompt = `An aesthetic, cozy phone photo used as a social-media avatar: ${desc || 'a cute plushie / a latte / soft flowers / a dreamy sky'}. Warm lifestyle vibe, soft natural light with a gentle filter, slightly imperfect real phone photo, film-like grain. Not a render, not an obvious AI image. No text, no watermark.`;
   } else {
     prompt = `An everyday candid SELFIE of a young Chinese ${g}, a real amateur front-camera phone photo like the ones posted on Xiaohongshu/Weibo. ${desc || 'natural relatable look, casual outfit'}. Messy-real setting (bedroom/street/cafe/car/mirror), soft natural light with a light everyday filter, casual slightly-off composition and angle, real skin texture with pores and tiny imperfections, a bit of phone-camera grain and softness — candid and imperfect, NOT a studio portrait, NOT retouched, NOT overly smooth, NOT 3D, NOT an obvious AI render. Real East Asian features. Looking at camera, head and shoulders. No text, no watermark, no logo.`;
   }

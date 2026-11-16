@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { getClientLang } from '@/lib/i18n';
+import { QUIZ } from '@/lib/companion/quiz';
 
 type Msg = { role: 'ai' | 'user'; text: string; ts: number };
 
@@ -28,7 +29,10 @@ export default function CompanionPage() {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState<'chat' | 'setup'>('chat');
+  const [tab, setTab] = useState<'chat' | 'setup' | 'quiz'>('chat');
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [freeText, setFreeText] = useState('');
+  const [generating, setGenerating] = useState(false);
   const [toast, setToast] = useState('');
   const endRef = useRef<HTMLDivElement | null>(null);
   function flash(t: string) { setToast(t); setTimeout(() => setToast(''), 2600); }
@@ -40,7 +44,7 @@ export default function CompanionPage() {
       setLoggedIn(true);
       setAiName(d.profile.aiName); setPersona(d.profile.persona); setJob(d.profile.job || ''); setFreq(d.profile.freq); setEnabled(d.profile.enabled); setMood(d.profile.mood ?? 60); setAffection(d.profile.affection ?? 10);
       setPushOn(d.pushOn); setMsgs(d.messages || []);
-      if (!d.profile.persona && !(d.messages || []).length) setTab('setup');
+      if (!d.profile.persona && !(d.messages || []).length) setTab('quiz');
     } catch {}
     setLoaded(true);
   }
@@ -54,6 +58,17 @@ export default function CompanionPage() {
     setBusy(false);
   }
 
+  async function runGenerate() {
+    if (Object.keys(answers).length < QUIZ.length) { flash(L('先把问题都选一下', 'Answer all first')); return; }
+    setGenerating(true);
+    try {
+      const r = await fetch('/api/companion/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ answers, freeText, lang: en ? 'en' : 'zh' }) });
+      const d = await r.json();
+      if (d.ok) { await load(); setTab('chat'); flash(L('你的伴侣诞生了 · ' + d.aiName, 'Meet ' + d.aiName)); }
+      else flash(L('生成失败,再试一次', 'Failed, try again'));
+    } catch { flash(L('网络错误', 'Network error')); }
+    setGenerating(false);
+  }
   async function enablePush() {
     try {
       if (!('serviceWorker' in navigator) || !('PushManager' in window)) { flash(L('此浏览器不支持推送', 'Push not supported here')); return; }
@@ -106,7 +121,30 @@ export default function CompanionPage() {
         {pushOn && <span className="ml-auto text-xs text-green-400 self-center">{L('✓ 推送已开', '✓ Push on')}</span>}
       </div>
 
-      {tab === 'setup' ? (
+      {tab === 'quiz' ? (
+        <div className="space-y-5">
+          <p className="text-parchment/70 text-sm leading-relaxed">{L('回答几个小问题,我们据此为你"生成"一个最配你的伴侣——不是让你自己挑,而是让你遇到。', "Answer a few questions and we'll conjure the companion that fits you — not picked, discovered.")}</p>
+          {QUIZ.map((q) => (
+            <div key={q.id}>
+              <div className="text-sm text-parchment/85 mb-2">{en ? q.en : q.zh}</div>
+              <div className="grid grid-cols-1 gap-2">
+                {q.opts.map((op) => (
+                  <button key={op.key} onClick={() => setAnswers((a) => ({ ...a, [q.id]: op.key }))}
+                    className={`text-left text-sm px-3 py-2 rounded-lg border transition ${answers[q.id] === op.key ? 'bg-blood/30 border-blood text-parchment' : 'bg-ink/50 border-eldritch/30 text-parchment/70 hover:border-eldritch'}`}>
+                    {en ? op.en : op.zh}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+          <div>
+            <div className="text-sm text-parchment/85 mb-2">{L('最后,一个最近让你着迷的东西 / 你偷偷的梦想(选填)', 'Last — something you are into / a secret dream (optional)')}</div>
+            <input value={freeText} onChange={(e) => setFreeText(e.target.value)} placeholder={L('一句话就好……', 'One line…')} className="w-full px-3 py-2.5 rounded bg-ink border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch text-sm" />
+          </div>
+          <button onClick={runGenerate} disabled={generating} className="w-full py-3 rounded-lg bg-blood/80 hover:bg-blood border border-blood disabled:opacity-40">{generating ? L('正在生成 TA……', 'Conjuring…') : L('生成我的伴侣', 'Create my companion')}</button>
+          <button onClick={() => setTab('setup')} className="w-full text-xs text-parchment/40 hover:text-parchment">{L('跳过,我自己手动设置', 'Skip — set up manually')}</button>
+        </div>
+      ) : tab === 'setup' ? (
         <div className="space-y-4">
           <div className="flex gap-4 text-xs text-parchment/60 rounded-lg bg-ink/50 border border-eldritch/20 px-3 py-2">
             <span>{L('心情', 'Mood')} <b className="text-amber-300">{mood}</b>/100</span>

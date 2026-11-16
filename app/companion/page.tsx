@@ -29,7 +29,7 @@ export default function CompanionPage() {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState<'chat' | 'setup' | 'quiz'>('chat');
+  const [tab, setTab] = useState<'welcome' | 'chat' | 'setup' | 'quiz'>('chat');
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [freeText, setFreeText] = useState('');
   const [generating, setGenerating] = useState(false);
@@ -44,7 +44,7 @@ export default function CompanionPage() {
       setLoggedIn(true);
       setAiName(d.profile.aiName); setPersona(d.profile.persona); setJob(d.profile.job || ''); setFreq(d.profile.freq); setEnabled(d.profile.enabled); setMood(d.profile.mood ?? 60); setAffection(d.profile.affection ?? 10);
       setPushOn(d.pushOn); setMsgs(d.messages || []);
-      if (!d.profile.persona && !(d.messages || []).length) setTab('quiz');
+      if (!d.profile.persona && !(d.messages || []).length) setTab('welcome');
     } catch {}
     setLoaded(true);
   }
@@ -68,6 +68,12 @@ export default function CompanionPage() {
       else flash(L('生成失败,再试一次', 'Failed, try again'));
     } catch { flash(L('网络错误', 'Network error')); }
     setGenerating(false);
+  }
+  async function resetAll() {
+    if (!window.confirm(L('确定重置?当前的 TA、聊天记录、好感都会清空,重新开始一次。', 'Reset? This wipes your companion, chat and affection, and starts over.'))) return;
+    setBusy(true);
+    try { await fetch('/api/companion/reset', { method: 'POST' }); setMsgs([]); setPersona(''); setJob(''); setAnswers({}); setFreeText(''); setMood(60); setAffection(10); setTab('welcome'); flash(L('已重置', 'Reset')); } catch { flash(L('失败', 'Failed')); }
+    setBusy(false);
   }
   async function enablePush() {
     try {
@@ -114,14 +120,24 @@ export default function CompanionPage() {
         <h1 className="text-2xl font-serif">{aiName}<span className="text-parchment/40 text-sm ml-2">{L('你的 AI 陪伴', 'your AI companion')}</span></h1>
         <a href="/" className="text-sm text-parchment/50 hover:text-parchment">{L('← 返回', '← Home')}</a>
       </div>
-      <div className="flex gap-2 mb-4 text-sm">
+      {(tab === 'chat' || tab === 'setup') && <div className="flex gap-2 mb-4 text-sm">
         <button onClick={() => setTab('chat')} className={`px-3 py-1.5 rounded-full border ${tab === 'chat' ? 'bg-eldritch/40 border-eldritch' : 'border-eldritch/30 text-parchment/60'}`}>{L('聊天', 'Chat')}</button>
         <button onClick={() => setTab('setup')} className={`px-3 py-1.5 rounded-full border ${tab === 'setup' ? 'bg-eldritch/40 border-eldritch' : 'border-eldritch/30 text-parchment/60'}`}>{L('设定', 'Setup')}</button>
         {!pushOn && <button onClick={enablePush} className="ml-auto px-3 py-1.5 rounded-full bg-blood/80 hover:bg-blood border border-blood text-sm">{L('开启主动推送', 'Enable push')}</button>}
         {pushOn && <span className="ml-auto text-xs text-green-400 self-center">{L('✓ 推送已开', '✓ Push on')}</span>}
-      </div>
+      </div>}
 
-      {tab === 'quiz' ? (
+      {tab === 'welcome' ? (
+        <div className="flex flex-col items-center justify-center text-center gap-5 py-10 min-h-[55vh]">
+          <div className="w-20 h-20 rounded-full bg-gradient-to-b from-eldritch/40 to-blood/20 border border-eldritch/40 flex items-center justify-center text-4xl">🌙</div>
+          <div>
+            <h2 className="text-2xl font-serif mb-2">{L('遇见一个只属于你的 TA', 'Meet someone made for you')}</h2>
+            <p className="text-parchment/55 text-sm leading-relaxed max-w-xs mx-auto">{L('TA 不是助手,是一个有职业、有脾气、有心情的"人"。会在你没找 TA 的时候主动想起你。先回答几个小问题,让我们为你把 TA 找出来——不是你挑的,是你遇到的。', 'Not an assistant — a person with a job, moods, a temper, who reaches out when you least expect it. Answer a few questions and we\'ll find them for you — not picked, discovered.')}</p>
+          </div>
+          <button onClick={() => setTab('quiz')} className="px-8 py-3 rounded-full bg-blood/80 hover:bg-blood border border-blood text-parchment">{L('开始遇见 →', 'Begin →')}</button>
+          <button onClick={() => setTab('setup')} className="text-xs text-parchment/35 hover:text-parchment">{L('或者,我想自己捏一个', 'or set one up myself')}</button>
+        </div>
+      ) : tab === 'quiz' ? (
         <div className="space-y-5">
           <p className="text-parchment/70 text-sm leading-relaxed">{L('回答几个小问题,我们据此为你"生成"一个最配你的伴侣——不是让你自己挑,而是让你遇到。', "Answer a few questions and we'll conjure the companion that fits you — not picked, discovered.")}</p>
           {QUIZ.map((q) => (
@@ -174,6 +190,7 @@ export default function CompanionPage() {
           </div>
           <label className="flex items-center gap-2 text-sm text-parchment/70"><input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />{L('开启主动陪伴', 'Companion active')}</label>
           <button onClick={saveSetup} disabled={busy} className="w-full py-2.5 rounded bg-blood/80 hover:bg-blood border border-blood disabled:opacity-40">{busy ? L('保存中…', 'Saving…') : L('保存设定', 'Save')}</button>
+          <button onClick={resetAll} disabled={busy} className="w-full py-2 rounded border border-blood/40 text-blood/80 hover:bg-blood/10 text-sm disabled:opacity-40">{L('重置 · 重新开始 onboarding', 'Reset · start over')}</button>
           <p className="text-xs text-parchment/40 leading-relaxed">{L('提示:在手机浏览器里把本页「添加到主屏」,再点上面「开启主动推送」,TA 才能在你没开 App 时也主动找你(iPhone 需 iOS16.4+ 且已添加到主屏)。', 'Tip: add this page to your home screen, then enable push, so it can reach you even when the app is closed (iPhone needs iOS 16.4+ and add-to-home-screen).')}</p>
         </div>
       ) : (

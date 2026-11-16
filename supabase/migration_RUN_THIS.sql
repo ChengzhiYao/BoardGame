@@ -792,3 +792,44 @@ create table if not exists market_notifs (
 );
 create index if not exists market_notifs_user_idx on market_notifs(user_id, seen, created_at desc);
 alter table market_notifs enable row level security;
+
+-- =============== 主动型 AI 陪伴（Companion）===============
+-- 每个用户一份陪伴设定 + 服务端长期记忆
+create table if not exists companion (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  enabled boolean not null default true,
+  ai_name text not null default '夜',
+  persona text not null default '',          -- 用户设定的性格/人设/话题偏好
+  tone text not null default 'warm',
+  freq text not null default 'daily',        -- daily / twice / few(每周几次)
+  quiet_start int not null default 23,        -- 勿扰时段(本地小时)
+  quiet_end int not null default 8,
+  tz_offset int not null default 0,           -- 相对 UTC 的小时偏移
+  memory text not null default '',           -- 滚动长期记忆摘要
+  last_sent timestamptz,
+  created_at timestamptz not null default now()
+);
+alter table companion enable row level security;
+
+-- 对话消息
+create table if not exists companion_msgs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  role text not null,                         -- 'ai' | 'user'
+  text text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists companion_msgs_user_idx on companion_msgs(user_id, created_at desc);
+alter table companion_msgs enable row level security;
+
+-- Web Push 订阅（一个用户可多设备）
+create table if not exists push_subs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  endpoint text not null unique,
+  p256dh text not null,
+  auth text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists push_subs_user_idx on push_subs(user_id);
+alter table push_subs enable row level security;

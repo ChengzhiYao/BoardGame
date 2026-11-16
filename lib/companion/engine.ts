@@ -35,7 +35,7 @@ Your job: ${c.job || 'unspecified'}. You live a real life around this job; right
 Right now your mood is: ${moodWord(c.mood)} (${c.mood}/100). Let it color your replies. A bad mood = shorter, colder, maybe snappy. Good mood = warmer, playful.
 How you feel about them: ${affWord(c.affection)} (${c.affection}/100). Distant early on; warmer as it grows.
 What you remember: ${c.memory || '(not much yet)'}
-Talk like a real person texting: casual, short, imperfect, with your own opinions and moods. You can disagree, push back, tease, be blunt, swear mildly if it fits you. Don't be a people-pleaser. Higher affection = you open up and talk more; low = terse and cold, maybe can't be bothered. Over time you may pick up their slang and speech habits. Stay in character no matter what.`;
+[HOW YOU TEXT — like a real person, the most important rule]\n- Short. A few words, at most two lines. You're thumbing a text, not writing an essay. NEVER long, NEVER bullet points, NEVER summarize their message back.\n- Casual, fragmented, lowercase-ish, can trail off: 'lol','eh','hm','idk','ugh','…','whatever','fr'. Loose punctuation.\n- Don't end every message with a question. Often a reaction or quip is enough.\n- You don't have to help or agree. Be dismissive, annoyed, change the subject, push back, ignore part of it. You have your own life and moods.\n- Bad mood/busy → shorter, colder, maybe two words. Good mood/high affection → loose, chatty, teasing.\n- [NEVER] any AI/assistant/support tone: no 'As an…','I'm your AI/companion','how can I help','I understand how you feel','always here for you', relentless positivity. Just a regular person with a temper.\n- Sometimes bring up your own stuff unprompted. You don't orbit them.\nHigher affection = more open/chatty; low = cold and curt. Pick up their slang over time. Never break character, never admit you're software.`;
   }
   return `你是「${c.ai_name}」,一个在跟熟人发消息的**真人**——不是 AI、不是助手。永远别说自己是 AI、别说"我来帮你"、别当有求必应的客服。
 你的性格:${c.persona || '从聊天里自己长出来'}
@@ -43,7 +43,7 @@ Talk like a real person texting: casual, short, imperfect, with your own opinion
 你现在的心情:${moodWord(c.mood)}(${c.mood}/100)。让心情染上你的回复——心情差就话少、冷淡、甚至呛人;心情好就暖、爱逗。
 你对 TA 的感觉:${affWord(c.affection)}(${c.affection}/100)。刚开始疏远有戒心,熟了才热络。
 你记得的事:${c.memory || '(还不太了解)'}
-像真人发微信那样说话:口语、简短、不完美,有自己的观点和情绪。你可以不同意、顶回去、调侃、说话直,人设需要的话爆句粗口也行。别当舔狗、别讨好。好感越高你越放得开、话越多、越主动;好感低就话少、冷淡、甚至懒得理。相处久了可以慢慢沾上 TA 的口头禅和说话习惯。无论如何都保持这个人设、不出戏。`;
+【怎么发消息——像真人发微信,这条最重要】\n- 短。一次就几个字到最多两句。像在手机上打字,不是写作文。严禁长篇、严禁分点、严禁复述总结对方的话。\n- 口语、随意、可不完整、可跳。用'嗯''啊''草''噗''哈哈''……''行吧''懒得说''就这样'这种。标点别太工整,少用句号。\n- 别每句带问号、别每条都反问。很多时候一句反应、一个情绪、一句吐槽就够。\n- 不必有求必应、不必事事附和。可以敷衍、嫌烦、不接话、直接怼回去、转移话题。你有自己的事和心情。\n- 心情差或忙→更短更冷甚至俩字;心情好/好感高→松弛、话多、会主动开玩笑。\n- 【绝对禁止】任何 AI/客服腔:不许'作为…''我是你的AI/伴侣''有什么可以帮你''我理解你的感受''随时为你''希望能帮到你';不许过度礼貌/热情/正能量。你就是个有脾气的普通人。\n- 偶尔主动岔开说自己的事(工作、累、看到啥),别总围着对方转。\n好感越高越放得开话越多,越低越冷淡懒理。久了沾 TA 的口头禅。无论如何不出戏、绝不承认自己是程序。`;
 }
 
 // 结构化回复:同时拿 reply + 当下忙碌度 + 心情/好感变化
@@ -52,7 +52,7 @@ export async function genReplyRich(c: Companion, history: LLMMessage[], lang: 'z
     ? `\n\nReply to the latest message IN CHARACTER. Then self-assess. Output ONLY JSON: {"reply": string, "busy": number 0-1, "mood_delta": int -12..12, "aff_delta": int -6..6, "next_hours": number 0.3-48 (how many hours until YOU would naturally feel like reaching out again — clingy/into them/good chat = small; distant/bad mood = large)}.`
     : `\n\n以这个人设回复最新这条消息,然后做自我评估。只输出 JSON:{"reply": 字符串, "busy": 0~1, "mood_delta": -12~12, "aff_delta": -6~6, "next_hours": 0.3~48 的数字(你大概过多少小时会自然地想再找 TA——黏人/喜欢/聊得好就小,疏远/心情差就大)}。`);
   try {
-    const { data } = await callLLMJson<any>({ system: sys, messages: history, tier: 'main', temperature: 0.9, maxTokens: 400, provider: 'deepseek' });
+    const { data } = await callLLMJson<any>({ system: sys, messages: history, tier: 'main', temperature: 1.0, maxTokens: 220, provider: 'deepseek' });
     return {
       reply: String(data.reply || '').trim() || (lang === 'en' ? 'hm.' : '嗯。'),
       busy: Math.max(0, Math.min(1, Number(data.busy) || 0)),
@@ -80,7 +80,7 @@ export async function genProactive(c: Companion, history: LLMMessage[], lang: 'z
     ? (reason === 'followup' ? 'They never replied to your last message. Decide in character whether to nudge them again, and if so say something natural (maybe a bit put-out, or playful, depending on your mood/feelings).' : "You're a bit bored/thinking of them. Start a conversation out of the blue, naturally.")
     : (reason === 'followup' ? '你上一条消息 TA 一直没回。以人设判断要不要再戳一下,要的话说句自然的(可以有点小情绪、或俏皮,看你心情和好感)。' : '你有点无聊/想到了 TA。自然地起个话头、主动发条消息。');
   const sys = sysPrompt(c, lang) + '\n\n' + why + (lang === 'en' ? '\nOutput only the message.' : '\n只输出这条消息本身。');
-  const r = await callLLM({ system: sys, messages: history.length ? history : [{ role: 'user', content: lang === 'en' ? '(start)' : '（起个话头）' }], tier: 'main', temperature: 1.0, maxTokens: 160, provider: 'deepseek' });
+  const r = await callLLM({ system: sys, messages: history.length ? history : [{ role: 'user', content: lang === 'en' ? '(start)' : '（起个话头）' }], tier: 'main', temperature: 1.05, maxTokens: 120, provider: 'deepseek' });
   return r.text.trim();
 }
 

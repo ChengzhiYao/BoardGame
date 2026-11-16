@@ -378,6 +378,7 @@ export default function FriendDock() {
     try { await fetch('/api/friends/respond', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fromUserId, accept }) }); setNotifs((prev) => prev.filter((n) => n.id !== 'req:' + fromUserId)); loadGraph(); } catch {}
   }
 
+  if (pathname && pathname.startsWith('/companion')) return null; // 陪伴页全屏聊天，不显示社交浮窗
   if (!me) return null;
   const showFriends = !!me.email;              // 任何登录账号都有好友
   const showOnline = me.email !== HIDDEN;

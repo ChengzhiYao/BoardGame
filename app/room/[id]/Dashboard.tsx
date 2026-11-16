@@ -46,6 +46,8 @@ export default function Dashboard(props: ShellProps) {
   const [thinking, setThinking] = useState(false);
   const [online, setOnline] = useState<Record<string, boolean>>({});
   const [genImg, setGenImg] = useState<string | null>(null);
+  const [showUpgrade, setShowUpgrade] = useState(false);
+  const [upBusy, setUpBusy] = useState('');
   const [mobileTab, setMobileTab] = useState<'story' | 'chars' | 'clues'>('story');
   const bottomRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<HTMLIFrameElement>(null);
@@ -183,7 +185,8 @@ export default function Dashboard(props: ShellProps) {
         body: JSON.stringify({ roomId: props.room.id, imageId }),
       });
       const data = await res.json();
-      if (!res.ok && !silent) alert(data.error || (EN(lang) ? 'Image failed' : '出图失败'));
+      if (res.status === 402) { setShowUpgrade(true); }
+      else if (!res.ok && !silent) alert(data.error || (EN(lang) ? 'Image failed' : '出图失败'));
     } catch (e: any) { if (!silent) alert((EN(lang) ? 'Image failed: ' : '出图失败：') + e.message); }
     finally { setGenImg(null); }
   }
@@ -203,8 +206,32 @@ export default function Dashboard(props: ShellProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.initialImages, props.room.image_used, props.room.image_budget]);
 
+  async function upgrade(plan: 'monthly' | 'yearly') {
+    setUpBusy(plan);
+    try {
+      const r = await fetch('/api/billing/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan, returnTo: `/room/${props.room.id}` }) });
+      const d = await r.json();
+      if (d.url) { window.location.href = d.url; return; }
+      alert(d.error || (EN(lang) ? 'Failed' : '创建支付失败'));
+    } catch { alert(EN(lang) ? 'Network error' : '网络错误'); }
+    setUpBusy('');
+  }
+
   return (
     <main className="h-[100svh] flex flex-col overflow-hidden">
+      {showUpgrade && (
+        <div className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowUpgrade(false)}>
+          <div className="w-full max-w-sm rounded-2xl bg-fog border border-eldritch/40 shadow-2xl p-5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-1"><span className="font-serif text-parchment text-lg">{EN(lang) ? 'Unlock scene art' : '解锁场景配图'}</span><button onClick={() => setShowUpgrade(false)} className="text-parchment/50 hover:text-parchment px-2">✕</button></div>
+            <p className="text-parchment/55 text-sm mb-4">{EN(lang) ? 'Membership turns on AI scene images for this game and all your games — unlimited. Upgrade now and keep playing this very session.' : '开通会员即可为本局(以及你所有对局)无限生成 AI 场景配图。立即升级,不用重开,这一局马上就能出图。'}</p>
+            <div className="space-y-2">
+              <button onClick={() => upgrade('monthly')} disabled={!!upBusy} className="w-full py-3 rounded-lg bg-blood/80 hover:bg-blood border border-blood text-parchment disabled:opacity-40 flex items-center justify-between px-4"><span>{EN(lang) ? 'Monthly' : '月费会员'}</span><span className="font-serif">$10<span className="text-parchment/50 text-xs">/mo</span></span></button>
+              <button onClick={() => upgrade('yearly')} disabled={!!upBusy} className="w-full py-3 rounded-lg bg-fog border border-eldritch/50 hover:bg-eldritch/30 text-parchment disabled:opacity-40 flex items-center justify-between px-4"><span>{EN(lang) ? 'Yearly · save 50%' : '年费会员 · 省 50%'}</span><span className="font-serif">$60<span className="text-parchment/50 text-xs">/yr</span></span></button>
+            </div>
+            <p className="text-[11px] text-parchment/35 mt-3">{EN(lang) ? 'Paid via Stripe. You return here right after.' : '通过 Stripe 安全支付,付完自动回到本局。'}</p>
+          </div>
+        </div>
+      )}
       <iframe
         ref={sceneRef}
         src="/coc3d-demo.html?embed=1"

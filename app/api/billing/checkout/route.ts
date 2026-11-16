@@ -15,6 +15,8 @@ export async function POST(req: Request) {
   }
   const body = await req.json().catch(() => ({} as any));
   const site = process.env.NEXT_PUBLIC_SITE_URL || new URL(req.url).origin;
+  const rt = typeof body.returnTo === 'string' && body.returnTo.startsWith('/') ? body.returnTo : '/upgrade';
+  const sep = rt.includes('?') ? '&' : '?';
 
   if (body.plan === 'monthly' || body.plan === 'yearly') {
     const m = body.plan === 'yearly' ? MEMBERSHIP.yearly : MEMBERSHIP.monthly;
@@ -23,7 +25,7 @@ export async function POST(req: Request) {
       const session = await stripe.checkout.sessions.create({
         mode: 'subscription',
         line_items: [{ quantity: 1, price_data: { currency: CURRENCY, unit_amount: m.price, recurring: { interval: m.interval }, product_data: { name: `MystNight Membership (${m.interval === 'year' ? 'Yearly' : 'Monthly'})`, description: 'Unlimited play on all modes' } } }],
-        success_url: `${site}/upgrade?member=1`,
+        success_url: `${site}${rt}${sep}member=1`,
         cancel_url: `${site}/upgrade?canceled=1`,
         client_reference_id: user.id,
         customer_email: user.email,

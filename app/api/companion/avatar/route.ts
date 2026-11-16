@@ -37,13 +37,35 @@ export async function POST() {
   } else if (type === 'anime') {
     prompt = `An anime-style profile avatar illustration: ${desc || 'a gentle cute anime character, soft expression'}. Clean modern anime art, soft colors, nice composition, the kind of anime icon a young person uses online. Flat/semi-flat shading, NOT photorealistic. No text, no watermark, no signature.`;
   } else {
-    const mirror = Math.random() < 0.35;
-    const settings = ['a bedroom', 'an apartment', 'a cafe', 'an elevator with a mirror', 'a city sidewalk', 'a park', 'a car', 'a convenience store'];
-    const place = settings[Math.floor(Math.random() * settings.length)];
+    const rnd = (a: string[]) => a[Math.floor(Math.random() * a.length)];
+    // 场景 + 与之匹配的真实光源(成对,避免光跟环境对不上)
+    const scenes = [
+      { place: 'a messy bedroom', light: 'soft daylight from a side window' },
+      { place: 'a bedroom at night', light: 'a warm dim bedside lamp, slightly underexposed' },
+      { place: 'a cafe by the window', light: 'warm ambient cafe light mixed with window glow' },
+      { place: 'an elevator with a mirror', light: 'cool white overhead fluorescent light casting a top-down shadow' },
+      { place: 'a city sidewalk at dusk', light: 'fading golden-hour light with some street light' },
+      { place: 'a city street at night', light: 'mixed neon and street lights, a bit noisy and dim' },
+      { place: 'a park on an overcast day', light: 'flat soft overcast daylight' },
+      { place: 'a park in the afternoon', light: 'bright dappled sunlight with lens flare' },
+      { place: 'the passenger seat of a car', light: 'daylight through the windows, slightly backlit' },
+      { place: 'a brightly lit convenience store', light: 'harsh bright white fluorescent light from above' },
+      { place: 'a bathroom mirror', light: 'warm vanity light from the side' },
+    ];
+    const sc = rnd(scenes);
+    const angles = [
+      'taken at arm\'s length from a slightly HIGH angle looking down a bit',
+      'taken at natural EYE LEVEL, phone straight on',
+      'taken from a slightly LOW angle looking up a touch',
+      'a three-quarter side angle, face turned partly away',
+      'held a bit off to one side so the framing is loose and off-center',
+    ];
+    const expr = rnd(['a relaxed natural half-smile', 'a blank neutral look', 'mid-talk, not posing', 'slightly tired, no expression', 'a small playful smirk', 'looking just off-camera']);
+    const mirror = sc.place.includes('mirror') || Math.random() < 0.25;
     prompt = (mirror
-      ? `One candid everyday MIRROR selfie of a young adult East Asian ${g} standing in front of a mirror, the phone naturally visible in the mirror, body slightly turned, in ${place}. `
-      : `One candid everyday front-camera SELFIE of a young adult East Asian ${g}, taken at arm's length with a slightly high angle, natural eye contact, relaxed expression, imperfect believable framing, in ${place}. `)
-      + `${desc || 'natural relatable look, casual varied outfit, long black hair, light makeup'}. Natural window light or normal indoor lighting, realistic skin texture with pores and tiny imperfections, subtle phone-camera noise and slight lens distortion, an unpolished social-media snapshot feel — like a selfie a friend posts, NOT a studio portrait, NOT a fashion model, NO heavy beauty filter, NO plastic smooth skin, NO exaggerated features, NO distorted hands, NOT a 3D render, NOT an obvious AI image. One person only. Head and shoulders. No text, no watermark, no logo.`;
+      ? `One candid everyday MIRROR selfie of a young adult East Asian ${g} in front of a mirror, the phone naturally visible, body slightly turned, in ${sc.place}. `
+      : `One candid everyday front-camera SELFIE of a young adult East Asian ${g}, ${rnd(angles)}, ${expr}, imperfect believable framing, in ${sc.place}. `)
+      + `${desc || 'natural relatable look, casual varied outfit, long black hair, light makeup'}. Lighting: ${sc.light} — the light direction and shadows must match this setting (do not use even studio lighting). Realistic skin texture with pores and tiny imperfections, subtle phone-camera noise and slight lens distortion, an unpolished social-media snapshot feel — like a selfie a friend posts. NOT a studio portrait, NOT a fashion model, NO heavy beauty filter, NO plastic smooth skin, NO exaggerated features, NO distorted hands, NOT a 3D render, NOT an obvious AI image. One person only. Head and shoulders. No text, no watermark, no logo.`;
   }
 
   try {

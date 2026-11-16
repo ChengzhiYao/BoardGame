@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
-import { ensureCompanion } from '@/lib/companion/engine';
+import { ensureCompanion, isAllowed } from '@/lib/companion/engine';
 import { callLLMJson } from '@/lib/llm';
 import { QUIZ } from '@/lib/companion/quiz';
 export const dynamic = 'force-dynamic';
@@ -14,6 +14,7 @@ export async function POST(req: Request) {
   const freeText = (b?.freeText || '').toString().slice(0, 300);
   const lang: 'zh' | 'en' = b?.lang === 'en' ? 'en' : 'zh';
   const admin = createAdminClient();
+  if (!(await isAllowed(admin, user))) return NextResponse.json({ ok: false, reason: 'not_allowed' }, { status: 403 });
   await ensureCompanion(admin, user.id);
 
   // 把答案翻成可读文本喂模型

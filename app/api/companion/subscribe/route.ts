@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
+import { isAllowed } from '@/lib/companion/engine';
 export const dynamic = 'force-dynamic';
 export async function POST(req: Request) {
   const supabase = createServerClient();
@@ -9,6 +10,7 @@ export async function POST(req: Request) {
   const sub = b?.sub;
   if (!sub?.endpoint || !sub?.keys?.p256dh || !sub?.keys?.auth) return NextResponse.json({ ok: false, reason: 'bad' }, { status: 400 });
   const admin = createAdminClient();
+  if (!(await isAllowed(admin, user))) return NextResponse.json({ ok: false, reason: 'not_allowed' }, { status: 403 });
   await admin.from('push_subs').upsert(
     { user_id: user.id, endpoint: sub.endpoint, p256dh: sub.keys.p256dh, auth: sub.keys.auth },
     { onConflict: 'endpoint' }

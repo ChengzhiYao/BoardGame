@@ -18,6 +18,7 @@ export default function CompanionPage() {
   const L = (zh: string, e: string) => (en ? e : zh);
   const [loaded, setLoaded] = useState(false);
   const [loggedIn, setLoggedIn] = useState(true);
+  const [allowed, setAllowed] = useState(true);
   const [aiName, setAiName] = useState('夜');
   const [persona, setPersona] = useState('');
   const [job, setJob] = useState('');
@@ -42,6 +43,8 @@ export default function CompanionPage() {
       const r = await fetch('/api/companion/state'); const d = await r.json();
       if (!d.loggedIn) { setLoggedIn(false); setLoaded(true); return; }
       setLoggedIn(true);
+      if (d.allowed === false) { setAllowed(false); setLoaded(true); return; }
+      setAllowed(true);
       setAiName(d.profile.aiName); setPersona(d.profile.persona); setJob(d.profile.job || ''); setFreq(d.profile.freq); setEnabled(d.profile.enabled); setMood(d.profile.mood ?? 60); setAffection(d.profile.affection ?? 10);
       setPushOn(d.pushOn); setMsgs(d.messages || []);
       if (!d.profile.persona && !(d.messages || []).length) setTab('welcome');
@@ -108,6 +111,11 @@ export default function CompanionPage() {
   }
 
   if (!loaded) return <main className="min-h-screen" />;
+  if (!allowed) return (
+    <main className="min-h-screen flex items-center justify-center text-parchment px-6 text-center">
+      <div className="max-w-xs"><div className="text-4xl mb-3">🌙</div><p className="font-serif text-lg mb-2">{L('AI 陪伴暂未开放', 'AI Companion — coming soon')}</p><p className="text-parchment/50 text-sm mb-4">{L('这个功能还在内测中,敬请期待。', 'This feature is in private testing. Stay tuned.')}</p><a href="/" className="underline text-eldritch text-sm">{L('← 返回首页', '← Home')}</a></div>
+    </main>
+  );
   if (!loggedIn) return (
     <main className="min-h-screen flex items-center justify-center text-parchment px-6 text-center">
       <div><p className="mb-3">{L('登录后即可拥有你的 AI 陪伴', 'Log in to meet your AI companion')}</p><a href="/" className="underline text-eldritch">{L('← 回首页登录', '← Home to log in')}</a></div>

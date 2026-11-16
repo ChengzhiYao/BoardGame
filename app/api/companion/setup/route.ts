@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
-import { ensureCompanion } from '@/lib/companion/engine';
+import { ensureCompanion, isAllowed } from '@/lib/companion/engine';
 export const dynamic = 'force-dynamic';
 export async function POST(req: Request) {
   const supabase = createServerClient();
@@ -8,6 +8,7 @@ export async function POST(req: Request) {
   if (!user || user.is_anonymous || !user.email) return NextResponse.json({ ok: false }, { status: 401 });
   const b = await req.json().catch(() => ({} as any));
   const admin = createAdminClient();
+  if (!(await isAllowed(admin, user))) return NextResponse.json({ ok: false, reason: 'not_allowed' }, { status: 403 });
   await ensureCompanion(admin, user.id);
   const patch: any = {};
   if (typeof b.aiName === 'string') patch.ai_name = b.aiName.trim().slice(0, 24) || '夜';

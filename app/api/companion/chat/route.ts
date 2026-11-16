@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
-import { ensureCompanion, genReplyRich, replyDelaySec, updateMemory, clamp, scheduleNext } from '@/lib/companion/engine';
+import { ensureCompanion, genReplyRich, replyDelaySec, updateMemory, clamp, scheduleNext, isAllowed } from '@/lib/companion/engine';
 import type { LLMMessage } from '@/lib/llm';
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +13,7 @@ export async function POST(req: Request) {
   if (!text) return NextResponse.json({ ok: false, reason: 'empty' }, { status: 400 });
   const lang: 'zh' | 'en' = b?.lang === 'en' ? 'en' : 'zh';
   const admin = createAdminClient();
+  if (!(await isAllowed(admin, user))) return NextResponse.json({ ok: false, reason: 'not_allowed' }, { status: 403 });
   const c = await ensureCompanion(admin, user.id);
 
   await admin.from('companion_msgs').insert({ user_id: user.id, role: 'user', text });
@@ -22,7 +23,7 @@ export async function POST(req: Request) {
 
   let rich;
   try { rich = await genReplyRich(c, history, lang); }
-  catch { rich = { reply: lang === 'en' ? '…(hang on)' : '…(等下)', busy: 0.3, moodDelta: 0, affDelta: 0 }; }
+  catch { rich = { reply: lang === 'en' ? '…(hang on)' : '…(等下)', busy: 0.3, moodDelta: 0, affDelta: 0, nextHours: 6 }; }
 
   const newMood = clamp((c.mood || 60) + rich.moodDelta, 0, 100);
   const newAff = clamp((c.affection || 10) + rich.affDelta, 0, 100);

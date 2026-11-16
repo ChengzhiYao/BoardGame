@@ -9,6 +9,17 @@ export type Companion = {
   last_user_at: string | null; last_ai_at: string | null; last_proactive: string | null; next_reach_at: string | null;
 };
 
+// 访问门:目前只对白名单账号开放(即你自己),其余用户看不到也用不了。
+export async function isAllowed(admin: any, user: any): Promise<boolean> {
+  if (!user?.email) return false;
+  try {
+    const { data: wl } = await admin.from('whitelist_emails').select('email').eq('email', user.email).maybeSingle();
+    if (wl) return true;
+    const { data: p } = await admin.from('profiles').select('is_whitelisted').eq('user_id', user.id).maybeSingle();
+    return !!p?.is_whitelisted;
+  } catch { return false; }
+}
+
 export async function ensureCompanion(admin: any, userId: string): Promise<Companion> {
   const { data } = await admin.from('companion').select('*').eq('user_id', userId).maybeSingle();
   if (data) return data as Companion;

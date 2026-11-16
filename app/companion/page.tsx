@@ -19,6 +19,9 @@ export default function CompanionPage() {
   const [loggedIn, setLoggedIn] = useState(true);
   const [aiName, setAiName] = useState('夜');
   const [persona, setPersona] = useState('');
+  const [job, setJob] = useState('');
+  const [mood, setMood] = useState(60);
+  const [affection, setAffection] = useState(10);
   const [freq, setFreq] = useState('daily');
   const [enabled, setEnabled] = useState(true);
   const [pushOn, setPushOn] = useState(false);
@@ -35,7 +38,7 @@ export default function CompanionPage() {
       const r = await fetch('/api/companion/state'); const d = await r.json();
       if (!d.loggedIn) { setLoggedIn(false); setLoaded(true); return; }
       setLoggedIn(true);
-      setAiName(d.profile.aiName); setPersona(d.profile.persona); setFreq(d.profile.freq); setEnabled(d.profile.enabled);
+      setAiName(d.profile.aiName); setPersona(d.profile.persona); setJob(d.profile.job || ''); setFreq(d.profile.freq); setEnabled(d.profile.enabled); setMood(d.profile.mood ?? 60); setAffection(d.profile.affection ?? 10);
       setPushOn(d.pushOn); setMsgs(d.messages || []);
       if (!d.profile.persona && !(d.messages || []).length) setTab('setup');
     } catch {}
@@ -47,7 +50,7 @@ export default function CompanionPage() {
   async function saveSetup() {
     setBusy(true);
     const tzOffset = -Math.round(new Date().getTimezoneOffset() / 60);
-    try { await fetch('/api/companion/setup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ aiName, persona, freq, enabled, tzOffset }) }); flash(L('已保存', 'Saved')); } catch { flash(L('保存失败', 'Failed')); }
+    try { await fetch('/api/companion/setup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ aiName, persona, job, freq, enabled, tzOffset }) }); flash(L('已保存', 'Saved')); } catch { flash(L('保存失败', 'Failed')); }
     setBusy(false);
   }
 
@@ -72,8 +75,13 @@ export default function CompanionPage() {
     try {
       const r = await fetch('/api/companion/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: t, lang: en ? 'en' : 'zh' }) });
       const d = await r.json();
-      if (d.ok) setMsgs((m) => [...m, { role: 'ai', text: d.reply, ts: Date.now() }]);
-      else flash(L('发送失败', 'Failed'));
+      if (d.ok) {
+        if (typeof d.mood === 'number') setMood(d.mood);
+        if (typeof d.affection === 'number') setAffection(d.affection);
+        const wait = Math.min(Math.max(1, d.delay || 2), 25) * 1000; // 不秒回,最多等 25s(忙就慢)
+        await new Promise((res) => setTimeout(res, wait));
+        setMsgs((m) => [...m, { role: 'ai', text: d.reply, ts: Date.now() }]);
+      } else flash(L('发送失败', 'Failed'));
     } catch { flash(L('网络错误', 'Network error')); }
     setBusy(false);
   }
@@ -100,6 +108,11 @@ export default function CompanionPage() {
 
       {tab === 'setup' ? (
         <div className="space-y-4">
+          <div className="flex gap-4 text-xs text-parchment/60 rounded-lg bg-ink/50 border border-eldritch/20 px-3 py-2">
+            <span>{L('心情', 'Mood')} <b className="text-amber-300">{mood}</b>/100</span>
+            <span>{L('好感', 'Affection')} <b className="text-blood">{affection}</b>/100</span>
+            <span className="text-parchment/35">{L('随聊天变化', 'changes as you talk')}</span>
+          </div>
           <div>
             <label className="text-sm text-parchment/60">{L('TA 的名字', 'Its name')}</label>
             <input value={aiName} onChange={(e) => setAiName(e.target.value)} className="w-full mt-1 px-3 py-2 rounded bg-ink border border-eldritch/40 text-parchment outline-none focus:border-eldritch" />
@@ -107,6 +120,11 @@ export default function CompanionPage() {
           <div>
             <label className="text-sm text-parchment/60">{L('TA 的性格 / 你希望 TA 是什么样', "Its personality / how you want it")}</label>
             <textarea value={persona} onChange={(e) => setPersona(e.target.value)} rows={5} placeholder={L('例如:温柔、爱调侃、关心我的作息,聊音乐和电影,像多年老友……', 'e.g. warm, teasing, cares about my sleep, loves music & films, like an old friend…')} className="w-full mt-1 px-3 py-2 rounded bg-ink border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch resize-none text-sm" />
+          </div>
+          <div>
+            <label className="text-sm text-parchment/60">{L('TA 的职业 / 工作', 'Its job')}</label>
+            <input value={job} onChange={(e) => setJob(e.target.value)} placeholder={L('例如:医院夜班护士 / 自由插画师 / 咖啡店店员……', 'e.g. night-shift nurse / freelance illustrator / barista…')} className="w-full mt-1 px-3 py-2 rounded bg-ink border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch text-sm" />
+            <p className="text-[11px] text-parchment/40 mt-1">{L('TA 会按这份工作的作息过日子——上班忙时回得慢,下班才松弛。', 'It lives by this job — slower when working, freer off hours.')}</p>
           </div>
           <div>
             <label className="text-sm text-parchment/60">{L('主动找你的频率', 'How often it reaches out')}</label>

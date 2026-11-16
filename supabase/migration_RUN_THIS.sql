@@ -833,3 +833,11 @@ create table if not exists push_subs (
 );
 create index if not exists push_subs_user_idx on push_subs(user_id);
 alter table push_subs enable row level security;
+
+-- companion v2: 职业/心情/好感度/时间戳
+alter table companion add column if not exists job text not null default '';
+alter table companion add column if not exists mood int not null default 60;
+alter table companion add column if not exists affection int not null default 10;
+alter table companion add column if not exists last_user_at timestamptz;
+alter table companion add column if not exists last_ai_at timestamptz;
+alter table companion add column if not exists last_proactive timestamptz;

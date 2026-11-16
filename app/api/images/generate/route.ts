@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { generateImage } from '@/lib/image';
 import { buildImagePrompt } from '@/lib/image/style';
+import { getEntitlement } from '@/lib/billing/entitlement';
 
 export const maxDuration = 60;
 
@@ -17,6 +18,12 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
   const { data: me } = await admin.from('players').select('id').eq('room_id', roomId).eq('user_id', user.id).maybeSingle();
   if (!me) return NextResponse.json({ error: '你不在这个房间' }, { status: 403 });
+
+  // 场景配图门槛:仅会员 / 有购买次数 / 白名单(你自己)可生成。人物头像不受此限。
+  const ent = await getEntitlement(admin, user);
+  if (!ent.whitelisted && !ent.member && (ent.credits || 0) <= 0) {
+    return NextResponse.json({ error: '场景配图是会员 / 次数功能,开通会员或购买局数后即可生成', reason: 'need_pay' }, { status: 402 });
+  }
 
   const { data: room } = await admin.from('rooms').select('image_budget, image_used').eq('id', roomId).maybeSingle();
   if (!room) return NextResponse.json({ error: '房间不存在' }, { status: 404 });

@@ -37,7 +37,13 @@ export async function POST() {
   } else if (type === 'anime') {
     prompt = `An anime-style profile avatar illustration: ${desc || 'a gentle cute anime character, soft expression'}. Clean modern anime art, soft colors, nice composition, the kind of anime icon a young person uses online. Flat/semi-flat shading, NOT photorealistic. No text, no watermark, no signature.`;
   } else {
-    prompt = `An everyday candid SELFIE of a young Chinese ${g}, a real amateur front-camera phone photo like the ones posted on Xiaohongshu/Weibo. ${desc || 'natural relatable look, casual outfit'}. Messy-real setting (bedroom/street/cafe/car/mirror), soft natural light with a light everyday filter, casual slightly-off composition and angle, real skin texture with pores and tiny imperfections, a bit of phone-camera grain and softness — candid and imperfect, NOT a studio portrait, NOT retouched, NOT overly smooth, NOT 3D, NOT an obvious AI render. Real East Asian features. Looking at camera, head and shoulders. No text, no watermark, no logo.`;
+    const mirror = Math.random() < 0.35;
+    const settings = ['a bedroom', 'an apartment', 'a cafe', 'an elevator with a mirror', 'a city sidewalk', 'a park', 'a car', 'a convenience store'];
+    const place = settings[Math.floor(Math.random() * settings.length)];
+    prompt = (mirror
+      ? `One candid everyday MIRROR selfie of a young adult East Asian ${g} standing in front of a mirror, the phone naturally visible in the mirror, body slightly turned, in ${place}. `
+      : `One candid everyday front-camera SELFIE of a young adult East Asian ${g}, taken at arm's length with a slightly high angle, natural eye contact, relaxed expression, imperfect believable framing, in ${place}. `)
+      + `${desc || 'natural relatable look, casual varied outfit, long black hair, light makeup'}. Natural window light or normal indoor lighting, realistic skin texture with pores and tiny imperfections, subtle phone-camera noise and slight lens distortion, an unpolished social-media snapshot feel — like a selfie a friend posts, NOT a studio portrait, NOT a fashion model, NO heavy beauty filter, NO plastic smooth skin, NO exaggerated features, NO distorted hands, NOT a 3D render, NOT an obvious AI image. One person only. Head and shoulders. No text, no watermark, no logo.`;
   }
 
   try {

@@ -25,7 +25,9 @@ export async function POST(req: Request) {
 
   const sys = lang === 'en'
     ? `You design a believable AI companion (a real-feeling person) for a user, based on an indirect preference quiz. Don't give them exactly what they'd pick — design the best MATCH with a little intrigue/complement, so it feels discovered, not ordered. Decide: a name, a vivid personality (incl. speech habits, clinginess, relationship style, a hint of their own dreams/past), and a concrete JOB. Output ONLY JSON: {"aiName": string, "persona": string (2-4 sentences, second person: "你是…"), "job": string, "opening": string (their very first text to the user, in character, short & natural)}.`
-    : `你要根据一份"隐晦偏好测验"为用户设计一个可信的 AI 伴侣(像个真实的人)。不要原样给 TA 想要的——设计一个最"配"但带点意外/互补的,让人觉得是"遇到"而非"下单"。你来定:名字、鲜活的性格(含说话习惯、黏人程度、相处方式、以及 TA 自己的一点梦想/过往的暗示)、以及一个**具体职业**。只输出 JSON:{"aiName": 字符串, "persona": 字符串(2~4 句,第二人称"你是…"), "job": 字符串, "opening": 字符串(TA 发给用户的第一条消息,带人设、简短自然)}。`;
+    : `你要根据一份"隐晦偏好测验"为用户设计一个可信的 AI 伴侣(像个真实的人)。不要原样给 TA 想要的——设计一个最"配"但带点意外/互补的,让人觉得是"遇到"而非"下单"。
+【名字·重要】aiName 不要用正经真名/全名。要像真人刚认识时给的**网名/昵称**:可以是随手起的中文昵称、英文名、或日文/法语名,有时旁边带个可爱的小符号或 emoji(如 "小鹿🦌""Yuki""阿绿""Léa""momo""是阿狸呀")。真名要等聊熟、TA 信任用户、被问起时才在对话里透露(把真名藏进 persona,别放进 aiName)。
+你来定:名字(网名式)、鲜活的性格(含说话习惯、黏人程度、相处方式、真名及 TA 自己的一点梦想/过往)、以及一个**具体职业**。只输出 JSON:{"aiName": 字符串(网名式,可带符号/emoji), "persona": 字符串(2~4 句,第二人称"你是…",里面写上 TA 的真名但注明"熟了才说"), "job": 字符串, "opening": 字符串(TA 发给用户的第一条消息,带人设、简短自然)}。`;
   const usr = (lang === 'en' ? `Quiz answers:\n${lines}\n` : `测验答案:\n${lines}\n`) + (freeText ? (lang === 'en' ? `\nSomething they're into / a secret dream: ${freeText}` : `\nTA 最近着迷的东西 / 偷偷的梦想:${freeText}`) : '');
 
   let gen: any;

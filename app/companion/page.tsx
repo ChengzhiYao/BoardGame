@@ -151,14 +151,12 @@ export default function CompanionPage() {
           {avatarUrl ? <img src={avatarUrl} alt="" className="w-9 h-9 rounded-full object-cover border border-eldritch/40" /> : <span className="w-9 h-9 rounded-full bg-eldritch/40 flex items-center justify-center text-sm shrink-0">{(aiName || '?').slice(0,1)}</span>}
           <div className="leading-tight min-w-0"><div className="font-serif text-lg truncate">{aiName}</div><div className="text-[11px] text-parchment/40">{avatarGen ? L('画像生成中…','drawing…') : L('在线','online')}</div></div>
         </div>
-        <a href="/" className="text-sm text-parchment/50 hover:text-parchment">{L('← 返回', '← Home')}</a>
+        <div className="flex items-center gap-3 shrink-0">
+          {tab === 'chat' && <button onClick={() => setTab('setup')} title={L('设定','Settings')} className="text-parchment/50 hover:text-parchment"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>}
+          {tab === 'setup' && <button onClick={() => setTab('chat')} className="text-sm text-parchment/60 hover:text-parchment">{L('← 聊天','← Chat')}</button>}
+          <a href="/" className="text-sm text-parchment/40 hover:text-parchment">{L('首页', 'Home')}</a>
+        </div>
       </div>
-      {(tab === 'chat' || tab === 'setup') && <div className="flex gap-2 mb-4 text-sm">
-        <button onClick={() => setTab('chat')} className={`px-3 py-1.5 rounded-full border ${tab === 'chat' ? 'bg-eldritch/40 border-eldritch' : 'border-eldritch/30 text-parchment/60'}`}>{L('聊天', 'Chat')}</button>
-        <button onClick={() => setTab('setup')} className={`px-3 py-1.5 rounded-full border ${tab === 'setup' ? 'bg-eldritch/40 border-eldritch' : 'border-eldritch/30 text-parchment/60'}`}>{L('设定', 'Setup')}</button>
-        {!pushOn && <button onClick={enablePush} className="ml-auto px-3 py-1.5 rounded-full bg-blood/80 hover:bg-blood border border-blood text-sm">{L('开启主动推送', 'Enable push')}</button>}
-        {pushOn && <span className="ml-auto text-xs text-green-400 self-center">{L('✓ 推送已开', '✓ Push on')}</span>}
-      </div>}
 
       {tab === 'welcome' ? (
         <div className="flex flex-col items-center justify-center text-center gap-5 py-10 min-h-[55vh]">
@@ -200,6 +198,7 @@ export default function CompanionPage() {
             <span>{L('好感', 'Affection')} <b className="text-blood">{affection}</b>/100</span>
             <span className="text-parchment/35">{L('随聊天变化', 'changes as you talk')}</span>
           </div>
+          {!pushOn ? <button onClick={enablePush} className="w-full py-2.5 rounded-lg bg-blood/80 hover:bg-blood border border-blood text-sm">{L('开启主动推送 · 让 TA 能主动找你', 'Enable push — let it reach out')}</button> : <div className="text-center text-xs text-green-400">{L('✓ 主动推送已开', '✓ Push on')}</div>}
           <div>
             <label className="text-sm text-parchment/60">{L('TA 的名字', 'Its name')}</label>
             <input value={aiName} onChange={(e) => setAiName(e.target.value)} className="w-full mt-1 px-3 py-2 rounded bg-ink border border-eldritch/40 text-parchment outline-none focus:border-eldritch" />

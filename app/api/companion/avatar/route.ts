@@ -20,14 +20,14 @@ export async function POST() {
   let look = '';
   try {
     const r = await callLLM({
-      system: 'From a character persona, write a SHORT English visual description for a realistic phone selfie portrait of an ORIGINAL FICTIONAL person (not any real individual): apparent gender, age range, hair, style/clothing, expression/vibe, setting hint. One line, comma-separated, no names.',
+      system: 'From a character persona, write a SHORT English visual description for a casual smartphone SELFIE of an ORIGINAL FICTIONAL young East Asian (Chinese) person (not any real individual). Decide gender from the persona. Include: gender, age range, hairstyle, outfit, makeup/vibe, expression, and where the selfie is taken. Keep it everyday and relatable (like someone posting on Xiaohongshu/RED). One line, comma-separated, no names.',
       messages: [{ role: 'user', content: `Name: ${c.ai_name}\nPersonality: ${c.persona}\nJob: ${c.job}` }],
       tier: 'aux', temperature: 0.7, maxTokens: 120, provider: 'deepseek',
     });
     look = r.text.trim().replace(/\n/g, ' ').slice(0, 300);
   } catch {}
 
-  const prompt = `A candid, photorealistic portrait photo of an original fictional person (not a real individual), looks like a real casual phone selfie: ${look || 'an ordinary approachable person'}. Natural lighting, soft focus background, warm realistic skin, everyday authentic look, head and shoulders, looking at camera. Not a cartoon, not an illustration, no text, no watermark.`;
+  const prompt = `An authentic casual smartphone SELFIE of a young Chinese person, exactly the kind of photo a real person posts on Xiaohongshu (RED) / Instagram. ${look || 'an ordinary relatable young Chinese person'}. Shot on a phone front camera, natural everyday setting (bedroom, cafe, street, car), soft flattering natural light with a gentle warm/clean social-media filter, nice casual composition and slight angle, real skin texture with subtle imperfections, a bit of grain, candid and relatable — NOT a studio portrait, NOT 3D render, NOT an obvious AI image, not overly smooth or plastic. Real East Asian / Chinese facial features. Head and upper body, looking at the camera. No text, no watermark, no logo.`;
 
   try {
     const buf = await generateImage(prompt);

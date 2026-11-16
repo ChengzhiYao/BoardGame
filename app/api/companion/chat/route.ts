@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
-import { ensureCompanion, genReplyRich, replyDelaySec, updateMemory, clamp } from '@/lib/companion/engine';
+import { ensureCompanion, genReplyRich, replyDelaySec, updateMemory, clamp, scheduleNext } from '@/lib/companion/engine';
 import type { LLMMessage } from '@/lib/llm';
 export const dynamic = 'force-dynamic';
 
@@ -30,7 +30,8 @@ export async function POST(req: Request) {
 
   await admin.from('companion_msgs').insert({ user_id: user.id, role: 'ai', text: rich.reply });
   const now = new Date().toISOString();
-  await admin.from('companion').update({ mood: newMood, affection: newAff, last_user_at: now, last_ai_at: now }).eq('user_id', user.id);
+  const nextReach = scheduleNext(c, rich.nextHours);
+  await admin.from('companion').update({ mood: newMood, affection: newAff, last_user_at: now, last_ai_at: now, next_reach_at: nextReach }).eq('user_id', user.id);
 
   try {
     const mem = await updateMemory(c, `User: ${text}\n${c.ai_name}: ${rich.reply}`, lang);

@@ -6,7 +6,7 @@ export type Companion = {
   job: string; mood: number; affection: number;
   freq: string; quiet_start: number; quiet_end: number; tz_offset: number;
   memory: string; last_sent: string | null;
-  last_user_at: string | null; last_ai_at: string | null; last_proactive: string | null;
+  last_user_at: string | null; last_ai_at: string | null; last_proactive: string | null; next_reach_at: string | null;
 };
 
 export async function ensureCompanion(admin: any, userId: string): Promise<Companion> {
@@ -47,10 +47,10 @@ Talk like a real person texting: casual, short, imperfect, with your own opinion
 }
 
 // 结构化回复:同时拿 reply + 当下忙碌度 + 心情/好感变化
-export async function genReplyRich(c: Companion, history: LLMMessage[], lang: 'zh' | 'en'): Promise<{ reply: string; busy: number; moodDelta: number; affDelta: number }> {
+export async function genReplyRich(c: Companion, history: LLMMessage[], lang: 'zh' | 'en'): Promise<{ reply: string; busy: number; moodDelta: number; affDelta: number; nextHours: number }> {
   const sys = sysPrompt(c, lang) + (lang === 'en'
-    ? `\n\nReply to the latest message IN CHARACTER. Then self-assess. Output ONLY JSON: {"reply": string, "busy": number 0-1 (how busy/distracted you are right now given your job & the time), "mood_delta": int -12..12 (how this exchange changed your mood), "aff_delta": int -6..6 (how it changed your feelings toward them)}.`
-    : `\n\n以这个人设回复最新这条消息,然后做自我评估。只输出 JSON:{"reply": 字符串, "busy": 0~1 的数字(此刻你有多忙/分心,结合你的职业和当前时间), "mood_delta": -12~12 的整数(这次对话让你心情变化多少), "aff_delta": -6~6 的整数(对 TA 的好感变化)}。`);
+    ? `\n\nReply to the latest message IN CHARACTER. Then self-assess. Output ONLY JSON: {"reply": string, "busy": number 0-1, "mood_delta": int -12..12, "aff_delta": int -6..6, "next_hours": number 0.3-48 (how many hours until YOU would naturally feel like reaching out again — clingy/into them/good chat = small; distant/bad mood = large)}.`
+    : `\n\n以这个人设回复最新这条消息,然后做自我评估。只输出 JSON:{"reply": 字符串, "busy": 0~1, "mood_delta": -12~12, "aff_delta": -6~6, "next_hours": 0.3~48 的数字(你大概过多少小时会自然地想再找 TA——黏人/喜欢/聊得好就小,疏远/心情差就大)}。`);
   try {
     const { data } = await callLLMJson<any>({ system: sys, messages: history, tier: 'main', temperature: 0.9, maxTokens: 400, provider: 'deepseek' });
     return {
@@ -58,10 +58,11 @@ export async function genReplyRich(c: Companion, history: LLMMessage[], lang: 'z
       busy: Math.max(0, Math.min(1, Number(data.busy) || 0)),
       moodDelta: Math.max(-12, Math.min(12, Math.round(Number(data.mood_delta) || 0))),
       affDelta: Math.max(-6, Math.min(6, Math.round(Number(data.aff_delta) || 0))),
+      nextHours: Math.max(0.3, Math.min(48, Number(data.next_hours) || 6)),
     };
   } catch {
     const r = await callLLM({ system: sysPrompt(c, lang), messages: history, tier: 'main', temperature: 0.9, maxTokens: 300, provider: 'deepseek' });
-    return { reply: r.text.trim(), busy: 0.3, moodDelta: 0, affDelta: 1 };
+    return { reply: r.text.trim(), busy: 0.3, moodDelta: 0, affDelta: 1, nextHours: 6 };
   }
 }
 
@@ -114,3 +115,26 @@ export async function updateMemory(c: Companion, exchange: string, lang: 'zh' | 
 }
 
 export function clamp(n: number, lo: number, hi: number) { return Math.max(lo, Math.min(hi, n)); }
+
+// 由 AI 给的"几小时后"算出下次联系的 UTC 时间戳,落在勿扰时段就顺延到勿扰结束后。
+export function scheduleNext(c: Companion, hours: number): string {
+  const ms = Math.max(0.3, hours) * 3600000 * (0.8 + Math.random() * 0.4); // 抖动 ±20%
+  let t = new Date(Date.now() + ms);
+  for (let i = 0; i < 2; i++) {
+    const localH = (t.getUTCHours() + (c.tz_offset || 0) + 24) % 24;
+    const qs = c.quiet_start, qe = c.quiet_end;
+    const quiet = qs <= qe ? (localH >= qs && localH < qe) : (localH >= qs || localH < qe);
+    if (!quiet) break;
+    // 顺延到勿扰结束(本地 qe 点)
+    const addLocalH = (qe - localH + 24) % 24 || 1;
+    t = new Date(t.getTime() + addLocalH * 3600000);
+  }
+  return t.toISOString();
+}
+
+// 启发式下次间隔(小时):好感高/黏人频率 → 更勤。proactive 之后用。
+export function heuristicNextHours(c: Companion): number {
+  const byFreq = c.freq === 'few' ? 40 : c.freq === 'twice' ? 7 : 16;
+  const byAff = 1 - (c.affection || 10) / 180;           // 好感越高越勤(最多 ~-55%)
+  return clamp(byFreq * byAff, 1.5, 72);
+}

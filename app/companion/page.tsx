@@ -51,6 +51,7 @@ export default function CompanionPage() {
       setAllowed(true);
       setAiName(d.profile.aiName); setPersona(d.profile.persona); setJob(d.profile.job || ''); setFreq(d.profile.freq); setEnabled(d.profile.enabled); setMood(d.profile.mood ?? 60); setAffection(d.profile.affection ?? 10);
       setPushOn(d.pushOn); setMsgs(d.messages || []); setAvatarUrl(d.profile.avatarUrl || null);
+      if (!d.profile.avatarUrl && (d.profile.persona || d.profile.job)) genAvatar();
       if (!d.profile.persona && !(d.messages || []).length) setTab('welcome');
     } catch {}
     setLoaded(true);
@@ -61,7 +62,7 @@ export default function CompanionPage() {
   async function saveSetup() {
     setBusy(true);
     const tzOffset = -Math.round(new Date().getTimezoneOffset() / 60);
-    try { await fetch('/api/companion/setup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ aiName, persona, job, freq, enabled, tzOffset }) }); flash(L('已保存', 'Saved')); } catch { flash(L('保存失败', 'Failed')); }
+    try { await fetch('/api/companion/setup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ aiName, persona, job, freq, enabled, tzOffset }) }); flash(L('已保存', 'Saved')); if (!avatarUrl) genAvatar(); } catch { flash(L('保存失败', 'Failed')); }
     setBusy(false);
   }
 

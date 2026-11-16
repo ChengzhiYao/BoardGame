@@ -845,3 +845,5 @@ alter table companion add column if not exists last_proactive timestamptz;
 -- companion: AI 自己定的下次主动联系时间
 alter table companion add column if not exists next_reach_at timestamptz;
 create index if not exists companion_next_idx on companion(enabled, next_reach_at);
+
+alter table companion add column if not exists avatar_url text;

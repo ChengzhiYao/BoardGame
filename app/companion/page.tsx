@@ -19,6 +19,10 @@ export default function CompanionPage() {
   const [loaded, setLoaded] = useState(false);
   const [loggedIn, setLoggedIn] = useState(true);
   const [allowed, setAllowed] = useState(true);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [recording, setRecording] = useState(false);
+  const [avatarGen, setAvatarGen] = useState(false);
+  const recogRef = useRef<any>(null);
   const [aiName, setAiName] = useState('夜');
   const [persona, setPersona] = useState('');
   const [job, setJob] = useState('');
@@ -46,7 +50,7 @@ export default function CompanionPage() {
       if (d.allowed === false) { setAllowed(false); setLoaded(true); return; }
       setAllowed(true);
       setAiName(d.profile.aiName); setPersona(d.profile.persona); setJob(d.profile.job || ''); setFreq(d.profile.freq); setEnabled(d.profile.enabled); setMood(d.profile.mood ?? 60); setAffection(d.profile.affection ?? 10);
-      setPushOn(d.pushOn); setMsgs(d.messages || []);
+      setPushOn(d.pushOn); setMsgs(d.messages || []); setAvatarUrl(d.profile.avatarUrl || null);
       if (!d.profile.persona && !(d.messages || []).length) setTab('welcome');
     } catch {}
     setLoaded(true);
@@ -67,7 +71,7 @@ export default function CompanionPage() {
     try {
       const r = await fetch('/api/companion/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ answers, freeText, lang: en ? 'en' : 'zh' }) });
       const d = await r.json();
-      if (d.ok) { await load(); setTab('chat'); flash(L('你的伴侣诞生了 · ' + d.aiName, 'Meet ' + d.aiName)); }
+      if (d.ok) { await load(); setTab('chat'); flash(L('你的伴侣诞生了 · ' + d.aiName, 'Meet ' + d.aiName)); genAvatar(); }
       else flash(L('生成失败,再试一次', 'Failed, try again'));
     } catch { flash(L('网络错误', 'Network error')); }
     setGenerating(false);
@@ -77,6 +81,23 @@ export default function CompanionPage() {
     setBusy(true);
     try { await fetch('/api/companion/reset', { method: 'POST' }); setMsgs([]); setPersona(''); setJob(''); setAnswers({}); setFreeText(''); setMood(60); setAffection(10); setTab('welcome'); flash(L('已重置', 'Reset')); } catch { flash(L('失败', 'Failed')); }
     setBusy(false);
+  }
+  async function genAvatar() {
+    setAvatarGen(true);
+    try { const r = await fetch('/api/companion/avatar', { method: 'POST' }); const d = await r.json(); if (d.ok) setAvatarUrl(d.avatarUrl); } catch {}
+    setAvatarGen(false);
+  }
+  function toggleVoice() {
+    const SR: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) { flash(L('此浏览器不支持语音输入', 'Voice input not supported here')); return; }
+    if (recording) { try { recogRef.current?.stop(); } catch {}; setRecording(false); return; }
+    const r = new SR(); recogRef.current = r;
+    r.lang = en ? 'en-US' : 'zh-CN'; r.interimResults = true; r.continuous = false;
+    const base = text ? text + ' ' : '';
+    r.onresult = (e: any) => { let t = ''; for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript; setText(base + t); };
+    r.onend = () => setRecording(false);
+    r.onerror = () => setRecording(false);
+    try { r.start(); setRecording(true); } catch { setRecording(false); }
   }
   async function enablePush() {
     try {
@@ -125,7 +146,10 @@ export default function CompanionPage() {
   return (
     <main className="min-h-screen text-parchment max-w-xl mx-auto px-4 py-6 flex flex-col">
       <div className="flex items-center justify-between mb-3">
-        <h1 className="text-2xl font-serif">{aiName}<span className="text-parchment/40 text-sm ml-2">{L('你的 AI 陪伴', 'your AI companion')}</span></h1>
+        <div className="flex items-center gap-2.5 min-w-0">
+          {avatarUrl ? <img src={avatarUrl} alt="" className="w-9 h-9 rounded-full object-cover border border-eldritch/40" /> : <span className="w-9 h-9 rounded-full bg-eldritch/40 flex items-center justify-center text-sm shrink-0">{(aiName || '?').slice(0,1)}</span>}
+          <div className="leading-tight min-w-0"><div className="font-serif text-lg truncate">{aiName}</div><div className="text-[11px] text-parchment/40">{avatarGen ? L('画像生成中…','drawing…') : L('在线','online')}</div></div>
+        </div>
         <a href="/" className="text-sm text-parchment/50 hover:text-parchment">{L('← 返回', '← Home')}</a>
       </div>
       {(tab === 'chat' || tab === 'setup') && <div className="flex gap-2 mb-4 text-sm">
@@ -198,22 +222,35 @@ export default function CompanionPage() {
           </div>
           <label className="flex items-center gap-2 text-sm text-parchment/70"><input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />{L('开启主动陪伴', 'Companion active')}</label>
           <button onClick={saveSetup} disabled={busy} className="w-full py-2.5 rounded bg-blood/80 hover:bg-blood border border-blood disabled:opacity-40">{busy ? L('保存中…', 'Saving…') : L('保存设定', 'Save')}</button>
+          <button onClick={genAvatar} disabled={avatarGen} className="w-full py-2 rounded border border-eldritch/40 text-parchment/70 hover:bg-eldritch/20 text-sm disabled:opacity-40">{avatarGen ? L('生成头像中…','drawing…') : L('重新生成头像','Regenerate avatar')}</button>
           <button onClick={resetAll} disabled={busy} className="w-full py-2 rounded border border-blood/40 text-blood/80 hover:bg-blood/10 text-sm disabled:opacity-40">{L('重置 · 重新开始 onboarding', 'Reset · start over')}</button>
           <p className="text-xs text-parchment/40 leading-relaxed">{L('提示:在手机浏览器里把本页「添加到主屏」,再点上面「开启主动推送」,TA 才能在你没开 App 时也主动找你(iPhone 需 iOS16.4+ 且已添加到主屏)。', 'Tip: add this page to your home screen, then enable push, so it can reach you even when the app is closed (iPhone needs iOS 16.4+ and add-to-home-screen).')}</p>
         </div>
       ) : (
         <>
           <div className="flex-1 space-y-3 overflow-y-auto pb-4 min-h-[50vh]">
-            {msgs.length === 0 && <div className="text-center text-parchment/40 text-sm py-12">{L('还没有对话。去「设定」里描述 TA,开启推送,TA 就会主动来找你。你也可以现在先打个招呼 👋', 'No messages yet. Set it up, enable push, and it will reach out. Or say hi now 👋')}</div>}
+            {msgs.length === 0 && <div className="text-center text-parchment/40 text-sm py-12">{L('还没有对话。先打个招呼吧 👋', 'No messages yet. Say hi 👋')}</div>}
             {msgs.map((m, i) => (
-              <div key={i} className={`max-w-[82%] px-3.5 py-2 rounded-2xl text-sm leading-relaxed ${m.role === 'user' ? 'ml-auto bg-blood/30 border border-blood/40' : 'mr-auto bg-fog/70 border border-eldritch/30'}`}>{m.text}</div>
+              m.role === 'user' ? (
+                <div key={i} className="flex justify-end">
+                  <div className="max-w-[72%] px-3.5 py-2 rounded-2xl rounded-br-md text-sm leading-relaxed bg-[#2a5e3a] text-parchment whitespace-pre-wrap break-words">{m.text}</div>
+                </div>
+              ) : (
+                <div key={i} className="flex items-end gap-2">
+                  {avatarUrl ? <img src={avatarUrl} alt="" className="w-7 h-7 rounded-full object-cover border border-eldritch/40 shrink-0" /> : <span className="w-7 h-7 rounded-full bg-eldritch/40 flex items-center justify-center text-xs shrink-0">{(aiName || '?').slice(0,1)}</span>}
+                  <div className="max-w-[72%] px-3.5 py-2 rounded-2xl rounded-bl-md text-sm leading-relaxed bg-fog/80 border border-eldritch/25 text-parchment whitespace-pre-wrap break-words">{m.text}</div>
+                </div>
+              )
             ))}
-            {busy && <div className="mr-auto px-3.5 py-2 rounded-2xl bg-fog/70 border border-eldritch/30 text-parchment/40 text-sm">…</div>}
+            {busy && <div className="flex items-end gap-2">{avatarUrl ? <img src={avatarUrl} alt="" className="w-7 h-7 rounded-full object-cover border border-eldritch/40 shrink-0" /> : <span className="w-7 h-7 rounded-full bg-eldritch/40 shrink-0" />}<div className="px-3.5 py-2.5 rounded-2xl rounded-bl-md bg-fog/80 border border-eldritch/25 text-parchment/40 text-sm">···</div></div>}
             <div ref={endRef} />
           </div>
-          <div className="flex gap-2 pt-2 sticky bottom-0 bg-ink/0">
-            <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()} placeholder={L('说点什么…', 'Say something…')} className="flex-1 px-3.5 py-2.5 rounded-full bg-ink border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch text-sm" />
-            <button onClick={send} disabled={busy || !text.trim()} className="px-5 rounded-full bg-blood/80 hover:bg-blood border border-blood disabled:opacity-40 text-sm">{L('发送', 'Send')}</button>
+          <div className="flex items-center gap-2 pt-2 sticky bottom-0 pb-1">
+            <button onClick={toggleVoice} title={L('语音输入','Voice')} className={`shrink-0 w-10 h-10 rounded-full border flex items-center justify-center ${recording ? 'bg-blood/70 border-blood animate-pulse' : 'bg-ink border-eldritch/40 text-parchment/70 hover:text-parchment'}`}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+            </button>
+            <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()} placeholder={recording ? L('在听……','listening…') : L('说点什么…', 'Say something…')} className="flex-1 min-w-0 px-3.5 py-2.5 rounded-full bg-ink border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch text-sm" />
+            <button onClick={send} disabled={busy || !text.trim()} className="shrink-0 px-5 py-2.5 rounded-full bg-blood/80 hover:bg-blood border border-blood disabled:opacity-40 text-sm">{L('发送', 'Send')}</button>
           </div>
         </>
       )}

@@ -5,7 +5,7 @@ export type Companion = {
   user_id: string; enabled: boolean; ai_name: string; persona: string; tone: string;
   job: string; mood: number; affection: number;
   freq: string; quiet_start: number; quiet_end: number; tz_offset: number;
-  memory: string; last_sent: string | null;
+  memory: string; last_sent: string | null; avatar_url: string | null;
   last_user_at: string | null; last_ai_at: string | null; last_proactive: string | null; next_reach_at: string | null;
 };
 

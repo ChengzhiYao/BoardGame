@@ -63,11 +63,14 @@ export async function POST() {
     ];
     // ⑥ 拍摄逻辑二选一,写死:前置=手机就是镜头;对镜=必须有明确的镜子
     const mirror = Math.random() < 0.3;
-    const sc = mirror ? rnd(mirrorScenes) : rnd(scenes);
+    // 女生排除会把脸拍丑的光线(日光灯顶光、偏绿车厢、脸欠曝)
+    const uglyLight = /fluorescent|greenish|underexposed|shadows under/i;
+    const pool = (mirror ? mirrorScenes : scenes).filter((x) => !(female && uglyLight.test(x.light)));
+    const sc = rnd(pool.length ? pool : (mirror ? mirrorScenes : scenes));
 
     // ② 构图随意:随机挑 2 个"不完美"
     // 一半是"认真挑过角度"的小红书式构图(真人也会这样),一半是随手拍;都保留 1~2 个真实小瑕疵
-    const posed = female && Math.random() < 0.55;
+    const posed = female && Math.random() < 0.75;
     const posedFraming = mirror
       ? 'she chose a flattering pose: hip slightly popped, one leg forward, phone held to the side of her face'
       : rnd([
@@ -97,12 +100,12 @@ export async function POST() {
       'JPEG compression artifacts like an image sent over a chat app',
       'the background is sharp, not creamy portrait-mode bokeh',
       'uneven exposure, some highlights clipped',
-      'slight front-camera wide-angle distortion — the nose and face nearest the lens look a little bigger',
+      ...(female ? [] : ['slight front-camera wide-angle distortion']),
       'the focus is slightly soft overall',
       'a slightly off auto white balance',
     ], posed ? 1 : 2 + Math.floor(Math.random() * 2));
     // 美颜:像真人用醒图/美颜相机/手机自带美颜修过,带 App 修图的痕迹,而不是 AI 的完美
-    const beauty = female && Math.random() < 0.65;
+    const beauty = female && Math.random() < 0.85;
     const beautyLine = beauty ? rnd([
       'Edited with a Chinese beauty app (like Xingtu/BeautyCam): skin brightened and lightly smoothed, eyes slightly enlarged, jawline slightly slimmed — but done by an app on a phone photo, so faint pores and hair strands still show, and the background near her cheek and jaw is very slightly warped',
       'The phone\'s built-in beauty mode at a low-to-medium level: a little smoother and brighter skin, a soft pinkish fresh filter on top, with the slight halo around the face edges that beauty modes leave',
@@ -112,37 +115,71 @@ export async function POST() {
     // 好看来自五官和年纪,不来自精修
     const look = female
       ? rnd([
-          'a naturally very pretty young Chinese woman with big eyes and a small face',
-          'a cute, pretty young Chinese woman with soft round eyes and bangs',
-          'a pretty young Chinese woman with sharp delicate features, slightly cool vibe',
-          'a pretty, sweet-looking young East Asian woman with a bright smile',
+          'a strikingly beautiful young Chinese woman with big bright eyes, a small V-shaped face, a delicate nose and full lips',
+          'a very cute and beautiful young Chinese woman, sweet doe eyes, soft features, bangs — the girl-next-door everyone has a crush on',
+          'a gorgeous young Chinese woman with elegant, slightly cool features, high nose bridge, long neck',
+          'a beautiful young Chinese woman who looks like a popular Douyin/Xiaohongshu beauty influencer, refined features, bright smile',
         ])
       : rnd([
           'a good-looking young Chinese man with clean features',
           'a handsome young East Asian guy with a boyish face',
         ]);
     const hair = female
-      ? rnd(['long straight black hair, a few loose flyaway strands', 'long dark-brown hair, slightly messy', 'shoulder-length hair with bangs, a bit uneven', 'hair tied up in a messy bun with loose strands', 'a low ponytail, some hair escaping'])
+      ? rnd(['long silky black hair with a few loose strands', 'long soft wavy brown hair', 'shoulder-length hair with airy bangs', 'a cute messy bun with face-framing strands', 'a high ponytail'])
       : rnd(['short black hair, a bit messy', 'a soft middle part, slightly greasy at the roots', 'a short crop']);
     const expr = female
-      ? rnd(['a small natural smile', 'a slight pout', 'a neutral look straight into the lens', 'half-smiling, mid-laugh', 'a playful peace sign near her face', 'eyes slightly squinting from the light'])
+      ? rnd(['a sweet natural smile', 'a cute slight pout', 'a soft calm look straight into the lens', 'half-smiling, mid-laugh', 'a playful peace sign near her face', 'a shy smile'])
       : rnd(['a small natural smile', 'a neutral look', 'a slight smirk']);
 
     const camera = mirror
       ? `A MIRROR SELFIE: ${look}, about ${age}, stands in front of ${sc.place} and photographs her reflection with her phone. The phone is clearly in her hand in the reflection. The mirror and its surroundings are obvious in the picture.`
-      : `A FRONT-CAMERA SELFIE taken by ${look}, about ${age}, with the phone in her own outstretched hand. The viewpoint IS her phone's front camera at arm's length (about 40-60 cm from her face) — so the phone itself is NOT visible in the picture. She is in ${sc.place}.`;
+      : `A FRONT-CAMERA SELFIE taken by ${look}, about ${age}, with the phone in her own outstretched hand. The viewpoint IS her phone's front camera at arm's length — so the phone itself is NOT visible in the picture. She is in ${sc.place}.`;
 
-    prompt = `${camera} ${hair}. ${expr}. ${desc ? 'Outfit and vibe: ' + desc + '.' : 'Casual everyday clothes.'} ${female ? 'Natural everyday makeup (light base, some lip tint).' : ''}
-Background: ${sc.clutter} — ordinary, a bit messy, NOT arranged for the photo.
-Lighting: only the existing light of the place — ${sc.light}. No photographer lighting, no fill light, no rim light.
-Composition: ${framing.join('; ')}.
-Phone-photo imperfections: ${flaws.join('; ')}.
-${beauty
-  ? `Editing: ${beautyLine}. Even after the filter, skin keeps some real texture and natural tone variation; the editing looks like a phone app, not a professional retouch.`
-  : 'Skin: real skin with visible pores on the nose and cheeks, slight unevenness in skin tone, maybe a tiny blemish — not retouched. Colors straight out of the phone camera.'}
-No cinematic color grading, no golden movie look, no teal-orange, no studio light.
-The person is ${female ? 'genuinely pretty and youthful — the kind of pretty girl you see on Xiaohongshu' : 'good-looking and youthful'}, and this is a real selfie she took and posted herself — NOT a professional photo, NOT a magazine or ad, NOT third-person view, NOT a DSLR portrait with shallow depth of field, NOT a 3D render. One adult person only. No text, no watermark.`;
-    if (!female) prompt = prompt.replace(/\bher\b/g, 'his').replace(/\bHer\b/g, 'His').replace(/\bshe\b/g, 'he').replace(/\bShe\b/g, 'He').replace(/\bherself\b/g, 'himself');
+    if (female) {
+      // 参考真实中国女生社交头像的共同点:贴脸近景 + 明显的 App 美颜 + 抖音妆 + 小动作 + 可爱配饰
+      const variant = Math.random();
+      const pose = rnd([
+        'resting her cheek on her hand', 'one hand covering half of her face, one eye peeking', 'a finger lightly touching her lips',
+        'a peace sign next to her face', 'hugging a plush toy up to her chin', 'cuddling a fluffy cat against her cheek',
+        'head tilted, looking up into the lens', 'chin resting on her folded arms', 'tucking hair behind her ear', 'a playful wink', 'holding a small dessert or a drink up near her face',
+        'hiding the lower half of her face behind a kitten', 'wrapped in a blanket or hoodie hood, only her face showing',
+        'lying on a pillow, phone held above her', 'sitting on the floor looking up, shot from above',
+      ]);
+      const mood = rnd(['a soft pout', 'a slightly wronged, pitiful little look', 'a cool aloof stare', 'a dreamy blank gaze', 'a faint sweet smile', 'a shy smile with lips closed']);
+      const acc = rnd(['', '', 'cute hair clips', 'round thin-framed glasses', 'a lace headscarf', 'a bow hair clip', 'a fluffy bear-ear beanie', 'a bucket hat', 'a thin headband', 'big headphones around her neck', 'a baseball cap']);
+      const outfit = desc || rnd(['an oversized hoodie', 'a fluffy knit sweater', 'a white t-shirt', 'a soft cardigan', 'a puffy jacket']);
+      const setting = rnd([
+        'the passenger seat of a car, seatbelt and window visible',
+        'her bedroom, a plain beige wall behind her',
+        'in front of her wardrobe with clothes hanging',
+        'outdoors in soft sunlight with trees softly blurred behind',
+        'by a window at home in daylight',
+        'a cafe corner, background softly blurred',
+        'the seaside, wind in her hair',
+        'a supermarket snack aisle, shelves of colorful packages behind her',
+        'in bed with soft white sheets and a plush toy',
+        'at night in a dim room, a moody low-key shot lit only by the screen or a small lamp',
+      ]);
+      if (variant < 0.12) {
+        prompt = `A typical Chinese girl's social-media avatar photo that does not show her full face: ${rnd(['her back view with long black hair, looking at a sunset over the sea', 'her hands making a heart shape around the setting sun, her face out of frame', 'a side profile half hidden by her long hair, by a window in soft light'])}. Taken on a phone, warm natural light, a soft pastel filter. Photorealistic phone photo, not an illustration. No text, no watermark.`;
+      } else {
+        prompt = `A real Chinese young woman's selfie used as her WeChat / Xiaohongshu avatar.
+She: ${look}, about ${age}, ${hair}${acc ? ', wearing ' + acc : ''}, in ${outfit}.
+Makeup: popular Douyin-style makeup — blush swept across her cheeks and the tip of her nose, glossy rosy lips, natural brows, clean bright eyes.
+Pose and expression: ${pose}, ${mood}.
+Shot: ${mirror ? camera : `a front-camera selfie at arm's length, very close crop — her face fills most of the frame, the top of her head or her chin slightly cut off; the phone is not visible`}. Setting: ${mirror ? sc.place : setting}.
+Look of the photo: edited with a beauty camera app (like Meitu / Xingtu / BeautyCam) — fair, bright, softly smoothed rosy skin, slightly enlarged eyes, slimmer face, low contrast, slightly overexposed, soft pink or milky-white tone; the background can be softly blurred like phone portrait mode. It should look exactly like the many pretty-girl avatars on Chinese social media.
+She is genuinely beautiful. Photorealistic photo of a real person, not an illustration, not anime, not a 3D render, not a studio or magazine shoot, no cinematic grading. One adult woman only. No text, no watermark, no logo.`;
+      }
+    } else {
+      prompt = `${camera} ${hair}. ${expr}. ${desc ? 'Outfit and vibe: ' + desc + '.' : 'Casual everyday clothes.'}
+Background: ${sc.clutter} — ordinary, a bit messy, not arranged for the photo.
+Lighting: only the existing light of the place — ${sc.light}. No studio lighting.
+Composition: ${framing.join('; ')}. Phone-photo imperfections: ${flaws.join('; ')}.
+Skin: real skin texture, not retouched. Plain smartphone colors, no cinematic grading.
+He is good-looking and youthful; this is a real selfie he posted himself — NOT a professional photo, NOT third-person view, NOT a 3D render. One adult man only. No text, no watermark.`;
+      prompt = prompt.replace(/\bher\b/g, 'his').replace(/\bHer\b/g, 'His').replace(/\bshe\b/g, 'he').replace(/\bShe\b/g, 'He').replace(/\bherself\b/g, 'himself');
+    }
   }
 
   try {

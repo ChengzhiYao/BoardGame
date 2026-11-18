@@ -65,6 +65,12 @@ export default function CompanionPage() {
     setLoaded(true);
   }
   useEffect(() => { load(); }, []);
+  // 回到页面时刷新一下,拿到你不在时 TA 发的消息
+  useEffect(() => {
+    const onShow = () => { if (document.visibilityState === 'visible' && !responding.current) load(); };
+    document.addEventListener('visibilitychange', onShow);
+    return () => document.removeEventListener('visibilitychange', onShow);
+  }, []);
   const [platform, setPlatform] = useState<'ios' | 'android' | 'desktop'>('android');
   const [inMystApp, setInMystApp] = useState(false); // 在谜夜 App(而不是陪伴 App)里打开的
   useEffect(() => {
@@ -188,6 +194,24 @@ export default function CompanionPage() {
   const responding = useRef(false);
   const again = useRef(false);
   const [typing, setTyping] = useState(false);
+  const unshown = useRef<string[]>([]); // 已生成但还没显示出来的回复
+  // 页面切到后台/被关掉:还没让 TA 回 → 立刻让服务器回并推送;已经回了但还在"打字" → 把没显示的推送过去
+  useEffect(() => {
+    const onHide = () => {
+      if (document.visibilityState !== 'hidden') return;
+      const body = (o: any) => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(o), keepalive: true } as RequestInit);
+      if (replyTimer.current && !responding.current) {
+        clearTimeout(replyTimer.current); replyTimer.current = null;
+        fetch('/api/companion/chat', body({ respond: true, push: true, lang: en ? 'en' : 'zh' })).catch(() => {});
+      } else if (unshown.current.length) {
+        fetch('/api/companion/notify', body({ texts: unshown.current })).catch(() => {});
+        unshown.current = [];
+      }
+    };
+    document.addEventListener('visibilitychange', onHide);
+    window.addEventListener('pagehide', onHide);
+    return () => { document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', onHide); };
+  }, []);
   function scheduleRespond() {
     if (replyTimer.current) clearTimeout(replyTimer.current);
     replyTimer.current = setTimeout(respond, 2500 + Math.random() * 2500); // 你停手 2.5~5 秒后它才"看"
@@ -202,6 +226,7 @@ export default function CompanionPage() {
         if (typeof d.mood === 'number') setMood(d.mood);
         if (typeof d.affection === 'number') setAffection(d.affection);
         const list: string[] = Array.isArray(d.replies) ? d.replies : [];
+        unshown.current = [...list];
         if (list.length) {
           const wait = Math.min(Math.max(1, d.delay || 2), 25) * 1000; // 不秒回,忙就慢
           const typeFor = Math.min(wait, 1500 + list[0].length * 150);
@@ -212,6 +237,7 @@ export default function CompanionPage() {
             if (i > 0) { setTyping(true); await new Promise((res) => setTimeout(res, 800 + Math.min(4000, list[i].length * 180) + Math.random() * 900)); }
             setTyping(false);
             setMsgs((m) => [...m, { role: 'ai', text: list[i], ts: Date.now() }]);
+            unshown.current = unshown.current.filter((t) => t !== list[i]);
           }
         }
         // list 为空 = 已读不回,过一阵它会自己回

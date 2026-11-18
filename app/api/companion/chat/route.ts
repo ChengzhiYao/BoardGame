@@ -1,6 +1,7 @@
 // 聊天:发消息只存(不阻塞,可以连发);停顿后客户端调 respond,AI 一次性看完你发的所有未回消息再决定怎么回。
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
+import { sendPush } from '@/lib/push';
 import { ensureCompanion, planReaction, genMessages, replyDelaySec, updateMemory, clamp, scheduleNext, heuristicNextHours, isAllowed, type MsgRow } from '@/lib/companion/engine';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -19,7 +20,9 @@ export async function POST(req: Request) {
     const text = (b?.text || '').toString().trim().slice(0, 1000);
     if (!text) return NextResponse.json({ ok: false, reason: 'empty' }, { status: 400 });
     await admin.from('companion_msgs').insert({ user_id: user.id, role: 'user', text });
-    await admin.from('companion').update({ last_user_at: new Date().toISOString() }).eq('user_id', user.id);
+    // 兜底:万一页面没来得及让 TA 回(你发完就退出了),几分钟后由定时任务"隔一阵才回"并推送到手机
+    const fallback = new Date(Date.now() + (3 + Math.random() * 5) * 60000).toISOString();
+    await admin.from('companion').update({ last_user_at: new Date().toISOString(), next_reach_at: fallback }).eq('user_id', user.id);
     return NextResponse.json({ ok: true, stored: true });
   }
 
@@ -56,5 +59,17 @@ export async function POST(req: Request) {
     if (mem && mem !== c.memory) await admin.from('companion').update({ memory: mem }).eq('user_id', user.id);
   } catch {}
 
+  // 页面已经退到后台时(push:true),直接推送到手机
+  if (b?.push) await pushTo(admin, user.id, c.ai_name, replies.join('\n'));
   return NextResponse.json({ ok: true, replies, reply: replies.join('\n'), delay, mood: newMood, affection: newAff });
+}
+
+async function pushTo(admin: any, userId: string, title: string, body: string) {
+  try {
+    const { data: subs } = await admin.from('push_subs').select('*').eq('user_id', userId);
+    for (const s of (subs || [])) {
+      const r = await sendPush({ endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth }, { title, body, url: '/companion' });
+      if (r === 'gone') await admin.from('push_subs').delete().eq('id', s.id);
+    }
+  } catch {}
 }

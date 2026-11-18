@@ -32,6 +32,8 @@ export default function CompanionPage() {
   const [freq, setFreq] = useState('daily');
   const [enabled, setEnabled] = useState(true);
   const [pushOn, setPushOn] = useState(false);
+  const [pushDiag, setPushDiag] = useState('');
+  const [nextReachAt, setNextReachAt] = useState<string | null>(null);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -51,7 +53,7 @@ export default function CompanionPage() {
       if (d.allowed === false) { setAllowed(false); setLoaded(true); return; }
       setAllowed(true);
       setAiName(d.profile.aiName); setPersona(d.profile.persona); setJob(d.profile.job || ''); setFreq(d.profile.freq); setEnabled(d.profile.enabled); setMood(d.profile.mood ?? 60); setAffection(d.profile.affection ?? 10);
-      setPushOn(d.pushOn); setMsgs(d.messages || []); setAvatarUrl(d.profile.avatarUrl || null);
+      setPushOn(d.pushOn); setNextReachAt(d.profile.nextReachAt || null); healPush(d.pushOn); setMsgs(d.messages || []); setAvatarUrl(d.profile.avatarUrl || null);
       if (!d.profile.avatarUrl && (d.profile.persona || d.profile.job)) genAvatar();
       if (!d.profile.persona && !(d.messages || []).length) setTab('welcome');
     } catch {}
@@ -100,6 +102,30 @@ export default function CompanionPage() {
     r.onend = () => setRecording(false);
     r.onerror = () => setRecording(false);
     try { r.start(); setRecording(true); } catch { setRecording(false); }
+  }
+  // 自愈:已授权通知但服务器上没订阅/订阅换了 → 自动重新登记(安卓上订阅会过期或被清)
+  async function healPush(serverHas: boolean) {
+    try {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window) || Notification.permission !== 'granted') return;
+      const vapid = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY; if (!vapid) return;
+      const reg = await navigator.serviceWorker.register('/sw.js'); await navigator.serviceWorker.ready;
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToUint8(vapid) });
+      await fetch('/api/companion/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sub: sub.toJSON() }) });
+      if (!serverHas) setPushOn(true);
+    } catch {}
+  }
+  async function testPush() {
+    setPushDiag(L('发送中…', 'Sending…'));
+    try {
+      if (typeof Notification !== 'undefined' && Notification.permission !== 'granted') { setPushDiag(L('❌ 这个浏览器没给通知权限:到 手机设置 → 应用 → Chrome → 通知 打开,再到网站设置里允许 mystnight.com 通知', '❌ Notifications not allowed in this browser')); return; }
+      const r = await fetch('/api/companion/push-test', { method: 'POST' }); const d = await r.json();
+      if (d.reason === 'no_subs') { setPushDiag(L('❌ 服务器上没有你这台设备的订阅。点上面「开启主动推送」重新开一次', '❌ No subscription on server — enable push again')); setPushOn(false); return; }
+      if (d.reason === 'no_vapid') { setPushDiag(L('❌ 服务器没配置推送密钥(VAPID)', '❌ VAPID keys missing on server')); return; }
+      const res = (d.results || []).map((x: any) => `${x.host}: ${x.status}${x.code ? ' ' + x.code : ''}${x.error ? ' ' + x.error : ''}`).join(' | ');
+      setPushDiag(d.ok ? L('✓ 已发出。几秒内没弹通知 → 检查手机系统通知权限 / 省电模式 / Chrome 后台限制。', '✓ Sent. If nothing pops up, check OS notification / battery settings.') + ' ' + res : L('❌ 发送失败:', '❌ Failed: ') + res);
+      if (d.nextReachAt) setNextReachAt(d.nextReachAt);
+    } catch { setPushDiag(L('❌ 网络错误', '❌ Network error')); }
   }
   async function enablePush() {
     try {
@@ -233,6 +259,11 @@ export default function CompanionPage() {
             <span className="text-parchment/35">{L('随聊天变化', 'changes as you talk')}</span>
           </div>
           {!pushOn ? <button onClick={enablePush} className="w-full py-2.5 rounded-lg bg-blood/80 hover:bg-blood border border-blood text-sm">{L('开启主动推送 · 让 TA 能主动找你', 'Enable push — let it reach out')}</button> : <div className="text-center text-xs text-green-400">{L('✓ 主动推送已开', '✓ Push on')}</div>}
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <span className="text-parchment/45">{nextReachAt ? L('TA 大概会在 ', 'Next reach-out ~ ') + new Date(nextReachAt).toLocaleString([], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) + L(' 左右找你', '') : ''}</span>
+            <button onClick={testPush} className="shrink-0 px-3 py-1.5 rounded border border-eldritch/40 text-parchment/70 hover:text-parchment">{L('发一条测试推送', 'Send test push')}</button>
+          </div>
+          {pushDiag && <div className="text-xs text-parchment/60 break-all">{pushDiag}</div>}
           <div>
             <label className="text-sm text-parchment/60">{L('TA 的名字', 'Its name')}</label>
             <input value={aiName} onChange={(e) => setAiName(e.target.value)} className="w-full mt-1 px-3 py-2 rounded bg-ink border border-eldritch/40 text-parchment outline-none focus:border-eldritch" />

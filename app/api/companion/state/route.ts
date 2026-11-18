@@ -13,7 +13,7 @@ export async function GET() {
   const { data: subs } = await admin.from('push_subs').select('id').eq('user_id', user.id).limit(1);
   return NextResponse.json({
     loggedIn: true, allowed: true,
-    profile: { enabled: c.enabled, aiName: c.ai_name, avatarUrl: c.avatar_url || null, persona: c.persona, job: c.job, tone: c.tone, freq: c.freq, quietStart: c.quiet_start, quietEnd: c.quiet_end, tzOffset: c.tz_offset, mood: c.mood, affection: c.affection },
+    profile: { enabled: c.enabled, aiName: c.ai_name, avatarUrl: c.avatar_url || null, persona: c.persona, job: c.job, tone: c.tone, freq: c.freq, quietStart: c.quiet_start, quietEnd: c.quiet_end, tzOffset: c.tz_offset, mood: c.mood, affection: c.affection, nextReachAt: c.next_reach_at || null },
     pushOn: !!(subs && subs.length),
     messages: (msgs || []).reverse().map((m: any) => ({ role: m.role, text: m.text, ts: new Date(m.created_at).getTime() })),
   });

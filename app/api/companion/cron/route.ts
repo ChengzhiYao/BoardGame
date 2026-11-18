@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
 import { genProactive, scheduleNext, heuristicNextHours, historyWithGaps, type Companion } from '@/lib/companion/engine';
-import { sendPush } from '@/lib/push';
+import { sendPushDetailed } from '@/lib/push';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
@@ -27,6 +27,7 @@ export async function GET(req: Request) {
     .or(`next_reach_at.is.null,next_reach_at.lte.${nowIso}`)
     .limit(60);
   let sent = 0;
+  const pushLog: any[] = [];
   for (const c of (cs || []) as Companion[]) {
     try {
       // 新用户还没设人设 → 先别主动,给个默认下次时间
@@ -46,12 +47,14 @@ export async function GET(req: Request) {
       await admin.from('companion_msgs').insert({ user_id: c.user_id, role: 'ai', text: msg });
       await admin.from('companion').update({ last_ai_at: new Date().toISOString(), last_proactive: new Date().toISOString(), next_reach_at: next }).eq('user_id', c.user_id);
       const { data: subs } = await admin.from('push_subs').select('*').eq('user_id', c.user_id);
+      if (!subs || !subs.length) pushLog.push({ u: c.user_id.slice(0, 6), push: 'no_subs' });
       for (const s of (subs || [])) {
-        const res = await sendPush({ endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth }, { title: c.ai_name, body: msg, url: '/companion' });
-        if (res === 'gone') await admin.from('push_subs').delete().eq('id', s.id);
+        const res = await sendPushDetailed({ endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth }, { title: c.ai_name, body: msg, url: '/companion' });
+        if (res.status === 'gone') await admin.from('push_subs').delete().eq('id', s.id);
+        pushLog.push({ u: c.user_id.slice(0, 6), push: res.status, code: res.code, error: res.error });
       }
       sent++;
-    } catch {}
+    } catch (e: any) { pushLog.push({ u: c.user_id.slice(0, 6), error: String(e?.message || e).slice(0, 160) }); }
   }
-  return NextResponse.json({ ok: true, due: (cs || []).length, sent });
+  return NextResponse.json({ ok: true, due: (cs || []).length, sent, pushLog });
 }

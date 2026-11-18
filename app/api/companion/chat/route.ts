@@ -1,7 +1,7 @@
 // 聊天:发消息只存(不阻塞,可以连发);停顿后客户端调 respond,AI 一次性看完你发的所有未回消息再决定怎么回。
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
-import { ensureCompanion, planReaction, genMessages, replyDelaySec, updateMemory, clamp, scheduleNext, isAllowed, type MsgRow } from '@/lib/companion/engine';
+import { ensureCompanion, planReaction, genMessages, replyDelaySec, updateMemory, clamp, scheduleNext, heuristicNextHours, isAllowed, type MsgRow } from '@/lib/companion/engine';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
@@ -34,7 +34,8 @@ export async function POST(req: Request) {
   const plan = await planReaction(c, rows, lang);
   const newMood = clamp((c.mood || 60) + plan.moodDelta, 0, 100);
   const newAff = clamp((c.affection || 10) + plan.affDelta, 0, 100);
-  const nextReach = scheduleNext(c, plan.nextHours);
+  // 聊完后多久会主动找你:不超过频率设定给的上限(否则天天聊天会把主动消息一直往后推,永远等不到)
+  const nextReach = scheduleNext(c, Math.min(plan.nextHours, heuristicNextHours(c)));
 
   if (plan.action === 'ignore') {
     // 已读不回:先不回,cron 到点后"隔一阵才回";你再发消息也会重新触发

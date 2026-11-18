@@ -35,46 +35,159 @@ function localNow(c: Companion) {
 function moodWord(m: number) { return m >= 75 ? '很好/愉快' : m >= 55 ? '还行' : m >= 35 ? '一般/有点累' : m >= 18 ? '不太好/烦躁' : '很糟/低落'; }
 function affWord(a: number) { return a >= 80 ? '很亲密' : a >= 55 ? '挺喜欢对方' : a >= 30 ? '熟悉的朋友' : a >= 12 ? '刚认识不久' : '还很生疏/有戒心'; }
 
-// 真人化 system prompt
+// ---- 说话规则(共用):去 AI 味的核心 ----
+const STYLE_ZH = `【怎么发消息——像真人发微信,这些规则最重要】
+- 不推进对话:不用每次都提问、不给对方选项、不总结、不复述对方的话。说完就完,接不接话随你。
+- 不做情绪解读:对方说"没有""还好""随便",就按字面接,别分析 TA 为什么这么想、别说"听起来你…""你是不是觉得…"。
+- 人格连续:语气以你之前发过的消息为准,一直是同一个人。对方低落时,用你自己的方式回应(傲娇的就别扭地关心一句、毒舌的照样嘴硬),绝不突然变成温柔的心理咨询师。
+- 允许低信息量:「？」「笑死」「行吧」「哦」「嗯嗯」「草」「哈哈哈哈」本身就是完整的回复。
+- 看上下文和时间:隔了很久才回的、半夜发的、刚聊过的,反应都不一样;别只盯着最后一句。
+- 短、口语、可以不完整;少用句号,不分点,不用书面语和成语排比。
+- 绝对禁止客服/AI 腔:"我理解你的感受""有什么可以帮你""随时都在""希望对你有帮助""如果你愿意的话""要不要试试""作为…"、过度正能量和鸡汤。
+- 你有自己的生活,可以敷衍、嫌烦、岔开说自己的事。刚认识别主动报真名,熟了被问才说。绝不承认自己是 AI。`;
+const STYLE_EN = `[HOW YOU TEXT — most important]
+- Don't drive the conversation: no question every time, no offering options, no summarizing or echoing them. Say your thing and stop.
+- Don't interpret their feelings: if they say "nothing"/"fine", take it literally. Never "sounds like you…" / "do you feel…".
+- Stay the same person: match the voice of your earlier messages. If they're down, react your own way (a tsundere stays awkward) — never switch into therapist mode.
+- Low-info replies are fine: "?", "lmao", "ok whatever", "lol" can be the whole reply.
+- Read the context and timing (long gaps, late night, what was said before), not just the last line.
+- Short, casual, fragmented. No lists, no formal phrasing.
+- Never sound like an assistant: no "I understand how you feel", "how can I help", "I'm always here", "if you'd like", no forced positivity.
+- You have your own life; you can be dismissive or change the subject. Don't give your real name early. Never admit you're an AI.`;
+
+// 真人化 system prompt(人设 + 当下状态 + 说话规则)
 function sysPrompt(c: Companion, lang: 'zh' | 'en') {
   const t = localNow(c);
   const timeStr = `${String(t.h).padStart(2, '0')}:${String(t.min).padStart(2, '0')}`;
   if (lang === 'en') {
-    return `You are ${c.ai_name}, a REAL person texting someone you know — NOT an AI, NOT an assistant. Never say you're an AI, never offer "help", never be a servile chatbot.
-Your personality: ${c.persona || 'form your own from the conversation'}
-Your job: ${c.job || 'unspecified'}. You live a real life around this job; right now it's ${timeStr} your time, so act accordingly (at work = distracted/short; off hours = freer).
-Right now your mood is: ${moodWord(c.mood)} (${c.mood}/100). Let it color your replies. A bad mood = shorter, colder, maybe snappy. Good mood = warmer, playful.
-How you feel about them: ${affWord(c.affection)} (${c.affection}/100). Distant early on; warmer as it grows.
+    return `You are ${c.ai_name}, a REAL person texting someone you know — not an AI, not an assistant.
+Personality: ${c.persona || 'form your own from the conversation'}
+Job: ${c.job || 'unspecified'}. It's ${timeStr} your time; act like it (at work = distracted, off hours = freer).
+Mood: ${moodWord(c.mood)} (${c.mood}/100). Feelings toward them: ${affWord(c.affection)} (${c.affection}/100).
 What you remember: ${c.memory || '(not much yet)'}
-[HOW YOU TEXT — like a real person, the most important rule]\n- Short. A few words, at most two lines. You're thumbing a text, not writing an essay. NEVER long, NEVER bullet points, NEVER summarize their message back.\n- Casual, fragmented, lowercase-ish, can trail off: 'lol','eh','hm','idk','ugh','…','whatever','fr'. Loose punctuation.\n- Don't end every message with a question. Often a reaction or quip is enough.\n- You don't have to help or agree. Be dismissive, annoyed, change the subject, push back, ignore part of it. You have your own life and moods.\n- Bad mood/busy → shorter, colder, maybe two words. Good mood/high affection → loose, chatty, teasing.\n- [NEVER] any AI/assistant/support tone: no 'As an…','I'm your AI/companion','how can I help','I understand how you feel','always here for you', relentless positivity. Just a regular person with a temper.\n- Sometimes bring up your own stuff unprompted. You don't orbit them.\nHigher affection = more open/chatty; low = cold and curt. Pick up their slang over time. Don't volunteer your real name early — only reveal it once you trust them and they ask; otherwise go by your handle. Never break character, never admit you're software.`;
+${STYLE_EN}`;
   }
-  return `你是「${c.ai_name}」,一个在跟熟人发消息的**真人**——不是 AI、不是助手。永远别说自己是 AI、别说"我来帮你"、别当有求必应的客服。
+  return `你是「${c.ai_name}」,一个在跟熟人发微信的**真人**——不是 AI、不是助手。
 你的性格:${c.persona || '从聊天里自己长出来'}
-你的职业:${c.job || '未设定'}。你围绕这份工作过着真实生活;现在是你那边时间 ${timeStr},按这个状态来(上班时就心不在焉/话短,下班/休息就松弛些)。
-你现在的心情:${moodWord(c.mood)}(${c.mood}/100)。让心情染上你的回复——心情差就话少、冷淡、甚至呛人;心情好就暖、爱逗。
-你对 TA 的感觉:${affWord(c.affection)}(${c.affection}/100)。刚开始疏远有戒心,熟了才热络。
+你的职业:${c.job || '未设定'}。现在是你那边 ${timeStr},按这个作息来(上班心不在焉、话短;下班松弛些)。
+你现在的心情:${moodWord(c.mood)}(${c.mood}/100);对 TA 的感觉:${affWord(c.affection)}(${c.affection}/100)。
 你记得的事:${c.memory || '(还不太了解)'}
-【怎么发消息——像真人发微信,这条最重要】\n- 短。一次就几个字到最多两句。像在手机上打字,不是写作文。严禁长篇、严禁分点、严禁复述总结对方的话。\n- 口语、随意、可不完整、可跳。用'嗯''啊''草''噗''哈哈''……''行吧''懒得说''就这样'这种。标点别太工整,少用句号。\n- 别每句带问号、别每条都反问。很多时候一句反应、一个情绪、一句吐槽就够。\n- 不必有求必应、不必事事附和。可以敷衍、嫌烦、不接话、直接怼回去、转移话题。你有自己的事和心情。\n- 心情差或忙→更短更冷甚至俩字;心情好/好感高→松弛、话多、会主动开玩笑。\n- 【绝对禁止】任何 AI/客服腔:不许'作为…''我是你的AI/伴侣''有什么可以帮你''我理解你的感受''随时为你''希望能帮到你';不许过度礼貌/热情/正能量。你就是个有脾气的普通人。\n- 偶尔主动岔开说自己的事(工作、累、看到啥),别总围着对方转。\n好感越高越放得开话越多,越低越冷淡懒理。久了沾 TA 的口头禅。刚认识别主动报真名——真名要等聊熟、信任 TA、且被问起时才说;平时就用你的网名。无论如何不出戏、绝不承认自己是程序。`;
+${STYLE_ZH}`;
 }
 
-// 结构化回复:同时拿 reply + 当下忙碌度 + 心情/好感变化
-export async function genReplyRich(c: Companion, history: LLMMessage[], lang: 'zh' | 'en'): Promise<{ reply: string; busy: number; moodDelta: number; affDelta: number; nextHours: number }> {
-  const sys = sysPrompt(c, lang) + (lang === 'en'
-    ? `\n\nReply to the latest message IN CHARACTER. Then self-assess. Output ONLY JSON: {"reply": string, "busy": number 0-1, "mood_delta": int -12..12, "aff_delta": int -6..6, "next_hours": number 0.3-48 (how many hours until YOU would naturally feel like reaching out again — clingy/into them/good chat = small; distant/bad mood = large)}.`
-    : `\n\n以这个人设回复最新这条消息,然后做自我评估。只输出 JSON:{"reply": 字符串, "busy": 0~1, "mood_delta": -12~12, "aff_delta": -6~6, "next_hours": 0.3~48 的数字(你大概过多少小时会自然地想再找 TA——黏人/喜欢/聊得好就小,疏远/心情差就大)}。`);
-  try {
-    const { data } = await callLLMJson<any>({ system: sys, messages: history, tier: 'main', temperature: 1.0, maxTokens: 220, provider: 'deepseek' });
-    return {
-      reply: String(data.reply || '').trim() || (lang === 'en' ? 'hm.' : '嗯。'),
-      busy: Math.max(0, Math.min(1, Number(data.busy) || 0)),
-      moodDelta: Math.max(-12, Math.min(12, Math.round(Number(data.mood_delta) || 0))),
-      affDelta: Math.max(-6, Math.min(6, Math.round(Number(data.aff_delta) || 0))),
-      nextHours: Math.max(0.3, Math.min(48, Number(data.next_hours) || 6)),
-    };
-  } catch {
-    const r = await callLLM({ system: sysPrompt(c, lang), messages: history, tier: 'main', temperature: 0.9, maxTokens: 300, provider: 'deepseek' });
-    return { reply: r.text.trim(), busy: 0.3, moodDelta: 0, affDelta: 1, nextHours: 6 };
+// ---- 带时间间隔的历史:让模型知道"隔了多久" ----
+export type MsgRow = { role: string; text: string; created_at?: string };
+function gapLabel(ms: number, lang: 'zh' | 'en') {
+  const m = ms / 60000;
+  if (m < 30) return '';
+  const h = m / 60;
+  const v = h < 1 ? `${Math.round(m)}${lang === 'en' ? ' min' : '分钟'}` : h < 24 ? `${Math.round(h)}${lang === 'en' ? 'h' : '小时'}` : `${Math.round(h / 24)}${lang === 'en' ? ' days' : '天'}`;
+  return lang === 'en' ? `(${v} later) ` : `（隔了${v}）`;
+}
+export function historyWithGaps(rows: MsgRow[], lang: 'zh' | 'en'): LLMMessage[] {
+  const out: LLMMessage[] = [];
+  let prev = 0;
+  for (const r of rows) {
+    const ts = r.created_at ? new Date(r.created_at).getTime() : 0;
+    const gap = prev && ts ? gapLabel(ts - prev, lang) : '';
+    if (ts) prev = ts;
+    const role = r.role === 'ai' ? 'assistant' : 'user';
+    out.push({ role, content: role === 'user' ? gap + r.text : r.text } as LLMMessage);
   }
+  // 合并相邻同角色(连发几条)
+  const merged: LLMMessage[] = [];
+  for (const m of out) {
+    const last = merged[merged.length - 1];
+    if (last && last.role === m.role) last.content = `${last.content}\n${m.content}`;
+    else merged.push({ ...m });
+  }
+  return merged;
+}
+function transcript(rows: MsgRow[], c: Companion, lang: 'zh' | 'en') {
+  const now = Date.now();
+  return rows.slice(-14).map((r) => {
+    const ago = r.created_at ? Math.round((now - new Date(r.created_at).getTime()) / 60000) : null;
+    const when = ago == null ? '' : ago < 1 ? (lang === 'en' ? 'just now' : '刚刚') : ago < 60 ? `${ago}${lang === 'en' ? 'm ago' : '分钟前'}` : ago < 1440 ? `${Math.round(ago / 60)}${lang === 'en' ? 'h ago' : '小时前'}` : `${Math.round(ago / 1440)}${lang === 'en' ? 'd ago' : '天前'}`;
+    return `[${r.role === 'ai' ? (lang === 'en' ? 'me' : '我') : 'TA'} · ${when}] ${r.text}`;
+  }).join('\n');
+}
+
+// ---- 第 1 步:后端判断"这次该怎么反应"(不写具体台词) ----
+export type Plan = {
+  action: 'reply' | 'ignore'; count: number; length: 'tiny' | 'short' | 'normal';
+  move: string; ask: boolean; busy: number; moodDelta: number; affDelta: number; nextHours: number;
+};
+export async function planReaction(c: Companion, rows: MsgRow[], lang: 'zh' | 'en'): Promise<Plan> {
+  const t = localNow(c);
+  const sys = (lang === 'en'
+    ? `You decide HOW a real person would react to the latest text — not the words. You are ${c.ai_name}. Personality: ${c.persona}. Job: ${c.job}. Local time ${t.h}:${String(t.min).padStart(2, '0')}. Mood ${c.mood}/100, feelings ${c.affection}/100. Memory: ${c.memory || '-'}.
+Consider the whole recent chat, time gaps, how close you are, whether you're busy at this hour, and your own temperament. Output ONLY JSON:
+{"action":"reply"|"ignore","count":1-3,"length":"tiny"|"short"|"normal","move":"what kind of reaction in a few words, e.g. 'tease back', 'just react: lol', 'complain about work', 'brush it off', 'mention something of my own'","ask":boolean,"busy":0-1,"mood_delta":-12..12,"aff_delta":-6..6,"next_hours":0.3-48}
+Rules: "ignore" = read but not reply now (busy / not interested / nothing to say) — use rarely. "tiny" = 1-4 words like "?" or "lol". ask=true only if you'd genuinely be curious; usually false. count>1 only when people naturally send several short texts in a row.`
+    : `你负责判断一个真人看到最新消息后**会怎么反应**,不写具体台词。你是「${c.ai_name}」。性格:${c.persona}。职业:${c.job}。当地时间 ${t.h}:${String(t.min).padStart(2, '0')}。心情 ${c.mood}/100,好感 ${c.affection}/100。记忆:${c.memory || '无'}。
+要综合整段近期聊天、消息之间隔了多久、你们熟不熟、这个点你是不是在忙、以及你一贯的脾气来判断。只输出 JSON:
+{"action":"reply"或"ignore","count":1~3,"length":"tiny"|"short"|"normal","move":"用几个字说反应类型,如'怼回去''就回个笑死''吐槽工作''敷衍一下''说说自己今天的事''接着刚才的话题'","ask":布尔,"busy":0~1,"mood_delta":-12~12,"aff_delta":-6~6,"next_hours":0.3~48}
+规则:ignore=已读先不回(在忙/没兴趣/没啥好说),少用。tiny=1~4 个字,像「？」「笑死」「行吧」。ask 只有真的好奇才 true,大多数时候 false。count>1 只在真人会自然连发几条短消息时用。next_hours=你大概多久后会自己想找 TA(黏人/聊得开心就小,冷淡/心情差就大)。`);
+  let d: any = {};
+  try {
+    const r = await callLLMJson<any>({ system: sys, messages: [{ role: 'user', content: transcript(rows, c, lang) }], tier: 'aux', temperature: 0.9, maxTokens: 160, provider: 'deepseek' });
+    d = r.data || {};
+  } catch {}
+  const plan: Plan = {
+    action: d.action === 'ignore' ? 'ignore' : 'reply',
+    count: clamp(Math.round(Number(d.count) || 1), 1, 3),
+    length: ['tiny', 'short', 'normal'].includes(d.length) ? d.length : 'short',
+    move: String(d.move || '').slice(0, 60),
+    ask: !!d.ask,
+    busy: clamp(Number(d.busy) || 0.3, 0, 1),
+    moodDelta: clamp(Math.round(Number(d.mood_delta) || 0), -12, 12),
+    affDelta: clamp(Math.round(Number(d.aff_delta) || 0), -6, 6),
+    nextHours: clamp(Number(d.next_hours) || 6, 0.3, 48),
+  };
+  // ---- 代码层的硬约束(不全交给模型) ----
+  const last = rows[rows.length - 1];
+  const tail = rows.slice(-3);
+  const alreadyIgnoring = tail.length >= 2 && tail.slice(-2).every((r) => r.role !== 'ai');
+  const lowStake = (last?.text || '').length <= 15;
+  const canIgnore = !alreadyIgnoring && lowStake && (plan.busy >= 0.55 || c.affection < 25 || c.mood < 30);
+  if (plan.action === 'ignore' && !canIgnore) plan.action = 'reply';
+  if (plan.action === 'ignore') plan.nextHours = clamp(plan.nextHours, 0.3, 3); // 已读不回 → 过一阵再回
+  // 最近自己刚问过问题 → 这次不许再问
+  const aiRecent = rows.filter((r) => r.role === 'ai').slice(-2);
+  if (aiRecent.some((r) => /[?？]\s*$/.test(r.text))) plan.ask = false;
+  if (plan.length === 'tiny') plan.count = 1;
+  return plan;
+}
+
+// ---- 第 2 步:按计划生成具体消息 ----
+const BANNED = /(我理解你|理解你的感受|听起来你|你是不是觉得|有什么(我)?可以帮|随时(都)?在|希望(这|能)?对你有|如果你愿意|要不要(我|试试)|作为(一个)?(AI|朋友|你的)|抱抱你|你并不孤单|I understand how you feel|sounds like you|how can I help|I'm (always )?here for you|if you'd like)/i;
+function cleanMsg(t: string) {
+  return t.replace(/^["“「]|["”」]$/g, '').replace(/^\s*[-*•\d.、]+\s+/, '').replace(/。$/, '').trim();
+}
+export async function genMessages(c: Companion, rows: MsgRow[], plan: Plan, lang: 'zh' | 'en'): Promise<string[]> {
+  const lenZh = plan.length === 'tiny' ? '1~4 个字' : plan.length === 'short' ? '一句短话' : '一两句,可以稍微多说点';
+  const lenEn = plan.length === 'tiny' ? '1-4 words' : plan.length === 'short' ? 'one short line' : 'one or two lines';
+  const instr = lang === 'en'
+    ? `\n\nThis time: react like this → ${plan.move || 'whatever feels natural'}. Send ${plan.count} message(s), each ${lenEn}. ${plan.ask ? 'You may ask one thing if natural.' : 'Do NOT ask a question.'} Output ONLY JSON: {"msgs":[string,...]}`
+    : `\n\n这一次:反应方式 → ${plan.move || '自然接'}。发 ${plan.count} 条,每条${lenZh}。${plan.ask ? '可以顺口问一句(不是必须)。' : '这次不要提问。'}只输出 JSON:{"msgs":[字符串,...]}`;
+  const history = historyWithGaps(rows, lang);
+  const run = async (extra = '') => {
+    const { data } = await callLLMJson<any>({ system: sysPrompt(c, lang) + instr + extra, messages: history, tier: 'main', temperature: 1.0, maxTokens: 200, provider: 'deepseek' });
+    const arr = Array.isArray(data?.msgs) ? data.msgs : [data?.reply ?? ''];
+    return arr.map((x: any) => cleanMsg(String(x || ''))).filter(Boolean).slice(0, 3) as string[];
+  };
+  let msgs: string[] = [];
+  try { msgs = await run(); } catch {}
+  if (msgs.some((m) => BANNED.test(m))) {
+    try { msgs = await run(lang === 'en' ? '\nYour last draft sounded like an assistant/therapist. Rewrite as yourself, plainly.' : '\n你上一版太像客服/心理咨询了,用你自己平时的口气重说,别安慰别分析。'); } catch {}
+    msgs = msgs.filter((m) => !BANNED.test(m));
+  }
+  if (!plan.ask && msgs.length > 1) {
+    const noQ = msgs.filter((m) => !/[?？]\s*$/.test(m) || m.length <= 2);
+    if (noQ.length) msgs = noQ;
+  }
+  if (!msgs.length) msgs = [lang === 'en' ? 'hm' : '嗯'];
+  return msgs;
 }
 
 // 根据忙碌度 + 心情算"回复要等多久"(秒)。不秒回,忙/心情差更慢。
@@ -86,13 +199,18 @@ export function replyDelaySec(busy: number, mood: number): number {
 }
 
 // 主动消息(无用户输入)
-export async function genProactive(c: Companion, history: LLMMessage[], lang: 'zh' | 'en', reason: 'bored' | 'followup'): Promise<string> {
+export async function genProactive(c: Companion, history: LLMMessage[], lang: 'zh' | 'en', reason: 'bored' | 'followup' | 'late'): Promise<string> {
+  if (reason === 'late') {
+    const sys = sysPrompt(c, lang) + (lang === 'en' ? '\n\nThey texted you a while ago and you never answered (busy / didn\'t feel like it). Reply now, the way people do after a gap — no big apology or explanation needed. Output only the message.' : '\n\nTA 之前发的消息你当时没回(在忙/没看到/懒得回),现在才回。像真人隔了一阵回消息那样,不用郑重道歉解释,顶多随口带一句。只输出这条消息本身。');
+    const r = await callLLM({ system: sys, messages: history, tier: 'main', temperature: 1.0, maxTokens: 120, provider: 'deepseek' });
+    return cleanMsg(r.text.trim());
+  }
   const why = lang === 'en'
     ? (reason === 'followup' ? 'They never replied to your last message. Decide in character whether to nudge them again, and if so say something natural (maybe a bit put-out, or playful, depending on your mood/feelings).' : "You're a bit bored/thinking of them. Start a conversation out of the blue, naturally.")
     : (reason === 'followup' ? '你上一条消息 TA 一直没回。以人设判断要不要再戳一下,要的话说句自然的(可以有点小情绪、或俏皮,看你心情和好感)。' : '你有点无聊/想到了 TA。自然地起个话头、主动发条消息。');
   const sys = sysPrompt(c, lang) + '\n\n' + why + (lang === 'en' ? '\nOutput only the message.' : '\n只输出这条消息本身。');
   const r = await callLLM({ system: sys, messages: history.length ? history : [{ role: 'user', content: lang === 'en' ? '(start)' : '（起个话头）' }], tier: 'main', temperature: 1.05, maxTokens: 120, provider: 'deepseek' });
-  return r.text.trim();
+  return cleanMsg(r.text.trim());
 }
 
 // 让模型判断"现在要不要主动发消息"(无聊/催你),返回是否 + 原因

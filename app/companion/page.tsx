@@ -116,21 +116,54 @@ export default function CompanionPage() {
     } catch (e: any) { flash(L('开启失败:' + (e?.message || ''), 'Failed: ' + (e?.message || ''))); }
   }
 
-  async function send() {
-    const t = text.trim(); if (!t || busy) return;
-    setMsgs((m) => [...m, { role: 'user', text: t, ts: Date.now() }]); setText(''); setBusy(true);
+  // 发消息不阻塞:随时可以连发。停顿几秒后才让 TA 一次性看完你发的所有消息再回。
+  const replyTimer = useRef<any>(null);
+  const responding = useRef(false);
+  const again = useRef(false);
+  const [typing, setTyping] = useState(false);
+  function scheduleRespond() {
+    if (replyTimer.current) clearTimeout(replyTimer.current);
+    replyTimer.current = setTimeout(respond, 2500 + Math.random() * 2500); // 你停手 2.5~5 秒后它才"看"
+  }
+  async function respond() {
+    if (responding.current) { again.current = true; return; }
+    responding.current = true; again.current = false;
     try {
-      const r = await fetch('/api/companion/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: t, lang: en ? 'en' : 'zh' }) });
+      const r = await fetch('/api/companion/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ respond: true, lang: en ? 'en' : 'zh' }) });
       const d = await r.json();
       if (d.ok) {
         if (typeof d.mood === 'number') setMood(d.mood);
         if (typeof d.affection === 'number') setAffection(d.affection);
-        const wait = Math.min(Math.max(1, d.delay || 2), 25) * 1000; // 不秒回,最多等 25s(忙就慢)
-        await new Promise((res) => setTimeout(res, wait));
-        setMsgs((m) => [...m, { role: 'ai', text: d.reply, ts: Date.now() }]);
-      } else flash(L('发送失败', 'Failed'));
-    } catch { flash(L('网络错误', 'Network error')); }
-    setBusy(false);
+        const list: string[] = Array.isArray(d.replies) ? d.replies : [];
+        if (list.length) {
+          const wait = Math.min(Math.max(1, d.delay || 2), 25) * 1000; // 不秒回,忙就慢
+          const typeFor = Math.min(wait, 1500 + list[0].length * 150);
+          await new Promise((res) => setTimeout(res, wait - typeFor));
+          setTyping(true);
+          await new Promise((res) => setTimeout(res, typeFor));
+          for (let i = 0; i < list.length; i++) {
+            if (i > 0) { setTyping(true); await new Promise((res) => setTimeout(res, 800 + Math.min(4000, list[i].length * 180) + Math.random() * 900)); }
+            setTyping(false);
+            setMsgs((m) => [...m, { role: 'ai', text: list[i], ts: Date.now() }]);
+          }
+        }
+        // list 为空 = 已读不回,过一阵它会自己回
+      }
+    } catch {}
+    setTyping(false);
+    responding.current = false;
+    if (again.current) scheduleRespond(); // 它回的时候你又发了 → 再看一轮
+  }
+  async function send() {
+    const t = text.trim(); if (!t) return;
+    setMsgs((m) => [...m, { role: 'user', text: t, ts: Date.now() }]); setText('');
+    if (responding.current) again.current = true;
+    try {
+      const r = await fetch('/api/companion/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: t, lang: en ? 'en' : 'zh' }) });
+      const d = await r.json();
+      if (!d.ok) { flash(L('发送失败', 'Failed')); return; }
+    } catch { flash(L('网络错误', 'Network error')); return; }
+    scheduleRespond();
   }
 
   if (!loaded) return <main className="min-h-screen" />;
@@ -150,7 +183,7 @@ export default function CompanionPage() {
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2.5 min-w-0">
           {avatarUrl ? <img src={avatarUrl} alt="" onClick={() => setZoom(true)} className="cursor-zoom-in w-9 h-9 rounded-full object-cover border border-eldritch/40" /> : <span className="w-9 h-9 rounded-full bg-eldritch/40 flex items-center justify-center text-sm shrink-0">{(aiName || '?').slice(0,1)}</span>}
-          <div className="leading-tight min-w-0"><div className="font-serif text-lg truncate">{aiName}</div><div className="text-[11px] text-parchment/40">{avatarGen ? L('画像生成中…','drawing…') : L('在线','online')}</div></div>
+          <div className="leading-tight min-w-0"><div className="font-serif text-lg truncate">{aiName}</div><div className="text-[11px] text-parchment/40">{typing ? L('对方正在输入…','typing…') : avatarGen ? L('画像生成中…','drawing…') : L('在线','online')}</div></div>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           {tab === 'chat' && <button onClick={() => setTab('setup')} title={L('设定','Settings')} className="text-parchment/50 hover:text-parchment"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>}
@@ -243,15 +276,15 @@ export default function CompanionPage() {
                 </div>
               )
             ))}
-            {busy && <div className="flex items-end gap-2">{avatarUrl ? <img src={avatarUrl} alt="" onClick={() => setZoom(true)} className="cursor-zoom-in w-7 h-7 rounded-full object-cover border border-eldritch/40 shrink-0" /> : <span className="w-7 h-7 rounded-full bg-eldritch/40 shrink-0" />}<div className="px-3.5 py-2.5 rounded-2xl rounded-bl-md bg-fog/80 border border-eldritch/25 text-parchment/40 text-sm">···</div></div>}
+            {typing && <div className="flex items-end gap-2">{avatarUrl ? <img src={avatarUrl} alt="" onClick={() => setZoom(true)} className="cursor-zoom-in w-7 h-7 rounded-full object-cover border border-eldritch/40 shrink-0" /> : <span className="w-7 h-7 rounded-full bg-eldritch/40 shrink-0" />}<div className="px-3.5 py-2.5 rounded-2xl rounded-bl-md bg-fog/80 border border-eldritch/25 text-parchment/40 text-sm">···</div></div>}
             <div ref={endRef} />
           </div>
           <div className="flex items-center gap-2 pt-2 sticky bottom-0 pb-1">
             <button onClick={toggleVoice} title={L('语音输入','Voice')} className={`shrink-0 w-10 h-10 rounded-full border flex items-center justify-center ${recording ? 'bg-blood/70 border-blood animate-pulse' : 'bg-ink border-eldritch/40 text-parchment/70 hover:text-parchment'}`}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
             </button>
-            <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()} placeholder={recording ? L('在听……','listening…') : L('说点什么…', 'Say something…')} className="flex-1 min-w-0 px-3.5 py-2.5 rounded-full bg-ink border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch text-sm" />
-            <button onClick={send} disabled={busy || !text.trim()} className="shrink-0 px-5 py-2.5 rounded-full bg-blood/80 hover:bg-blood border border-blood disabled:opacity-40 text-sm">{L('发送', 'Send')}</button>
+            <input value={text} onChange={(e) => { setText(e.target.value); if (replyTimer.current && !responding.current) scheduleRespond(); }} onKeyDown={(e) => e.key === 'Enter' && send()} placeholder={recording ? L('在听……','listening…') : L('说点什么…', 'Say something…')} className="flex-1 min-w-0 px-3.5 py-2.5 rounded-full bg-ink border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch text-sm" />
+            <button onClick={send} disabled={!text.trim()} className="shrink-0 px-5 py-2.5 rounded-full bg-blood/80 hover:bg-blood border border-blood disabled:opacity-40 text-sm">{L('发送', 'Send')}</button>
           </div>
         </>
       )}

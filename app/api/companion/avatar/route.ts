@@ -138,48 +138,54 @@ export async function POST() {
       : `A FRONT-CAMERA SELFIE taken by ${look}, about ${age}, with the phone in her own outstretched hand. The viewpoint IS her phone's front camera at arm's length — so the phone itself is NOT visible in the picture. She is in ${sc.place}.`;
 
     if (female) {
-      // 参考真实中国女生社交头像的共同点:贴脸近景 + 明显的 App 美颜 + 抖音妆 + 小动作 + 可爱配饰
+      // 参考真实中国女生头像:光是主角(真实的太阳/窗光/车窗光),角度多样,很多是朋友拍的、不看镜头
+      const LIGHTS = [
+        { where: 'outdoors on a sunny late afternoon', light: 'hard warm sunlight from behind and to one side: her hair is backlit and glowing gold at the edges with flyaway strands lit up, the side of her face toward the sun is bright with a slightly blown-out highlight on the cheek, the other side falls into soft warm shadow, a faint sun flare/haze in the frame' },
+        { where: 'at home right next to a window', light: 'strong daylight from a window very close on one side: that side of her face and hair is bright and glowing, light falls off quickly to a darker other side, the room behind is warm and dim' },
+        { where: 'outdoors under trees', light: 'sunlight filtering through leaves, leaving dappled patches of bright light and shadow across her face, hair and clothes' },
+        { where: 'in the back seat of a car on a sunny day', light: 'bright sun streaming in through the car window, part of her face and hair in direct warm sunlight, high contrast, the window area overexposed' },
+        { where: 'outdoors in a garden or park', light: 'she tilts her face up toward the sun with eyes closed, her whole face washed in warm direct sunlight, glowing skin, bright soft highlights' },
+        { where: 'by a lake or the sea on an overcast day', light: 'soft cool overcast daylight, gentle and even but with the sky behind her bright, slightly cool blue tones' },
+        { where: 'on a city street in golden hour', light: 'low golden sun behind her, strong rim light around her hair and shoulders, her face in soft shade lit by bounced light, background bright and hazy' },
+        { where: 'in her room at night', light: 'one warm dim lamp to the side, moody low-key light, most of the frame in soft shadow, a little grain' },
+      ];
+      const L0 = rnd(LIGHTS);
+      const SHOTS = [
+        // 自拍
+        { by: 'a selfie she took with her phone\'s front camera at arm\'s length (the phone is not visible)', frame: rnd([
+          'an extreme close-up, her face fills the frame and the top of her head is cropped off',
+          'a close-up from slightly above, she looks up into the lens',
+          'a close-up with her face turned three-quarters, eyes glancing at the lens',
+          'her chin resting on her hand, close and slightly tilted',
+          'lying on a pillow, the phone held above her, hair spread around',
+        ]) },
+        // 朋友/对象用手机给她拍
+        { by: 'a candid photo a friend took of her with a phone', frame: rnd([
+          'waist-up, she is looking away to the side, not at the camera, the wind blowing her long hair across her face',
+          'a three-quarter profile, gazing off into the distance',
+          'she looks up at the sky, face tilted back',
+          'sitting down, hugging her knees, glancing at the camera over her arm',
+          'half-body, mid-movement, turning back toward the camera with a slight smile',
+          'a close side profile with strands of hair across her cheek',
+          'shot through out-of-focus leaves or flowers in the foreground',
+          'holding a bouquet of flowers near her face, looking down',
+        ]) },
+      ];
+      const shot = Math.random() < 0.5 ? SHOTS[0] : SHOTS[1];
       const variant = Math.random();
-      const pose = rnd([
-        'resting her cheek on her hand', 'one hand covering half of her face, one eye peeking', 'a finger lightly touching her lips',
-        'a peace sign next to her face', 'hugging a plush toy up to her chin', 'cuddling a fluffy cat against her cheek',
-        'head tilted, looking up into the lens', 'chin resting on her folded arms', 'tucking hair behind her ear', 'a playful wink', 'holding a small dessert or a drink up near her face',
-        'hiding the lower half of her face behind a kitten', 'wrapped in a blanket or hoodie hood, only her face showing',
-        'lying on a pillow, phone held above her', 'sitting on the floor looking up, shot from above',
-      ]);
-      const mood = rnd(['a soft pout', 'a slightly wronged, pitiful little look', 'a cool aloof stare', 'a dreamy blank gaze', 'a faint sweet smile', 'a shy smile with lips closed']);
-      const acc = rnd(['', '', 'cute hair clips', 'round thin-framed glasses', 'a lace headscarf', 'a bow hair clip', 'a fluffy bear-ear beanie', 'a bucket hat', 'a thin headband', 'big headphones around her neck', 'a baseball cap']);
-      const outfit = desc || rnd(['an oversized hoodie', 'a fluffy knit sweater', 'a white t-shirt', 'a soft cardigan', 'a puffy jacket']);
-      const setting = rnd([
-        'the passenger seat of a car, seatbelt and window visible',
-        'her bedroom, a plain beige wall behind her',
-        'in front of her wardrobe with clothes hanging',
-        'outdoors in soft sunlight with trees softly blurred behind',
-        'by a window at home in daylight',
-        'a cafe corner, background softly blurred',
-        'the seaside, wind in her hair',
-        'a supermarket snack aisle, shelves of colorful packages behind her',
-        'in bed with soft white sheets and a plush toy',
-        'at night in a dim room, a moody low-key shot lit only by the screen or a small lamp',
-      ]);
-      if (variant < 0.12) {
-        prompt = `A typical Chinese girl's social-media avatar photo that does not show her full face: ${rnd(['her back view with long black hair, looking at a sunset over the sea', 'her hands making a heart shape around the setting sun, her face out of frame', 'a side profile half hidden by her long hair, by a window in soft light'])}. Taken on a phone, warm natural light, a soft pastel filter. Photorealistic phone photo, not an illustration. No text, no watermark.`;
+      const outfit = desc || rnd(['a loose white blouse', 'a soft knit sweater', 'a simple camisole dress', 'an oversized shirt', 'a light cardigan', 'a casual blazer']);
+      const hairLong = rnd(['long, voluminous, slightly messy dark-brown hair', 'long flowing black hair with lots of loose strands', 'long wavy light-brown hair', 'long hair with see-through bangs', 'long hair in two loose braids']);
+      const mood = rnd(['a soft faint smile', 'a calm, slightly aloof look', 'a dreamy, absent gaze', 'a gentle closed-lip smile', 'slightly parted lips, relaxed']);
+      if (variant < 0.1) {
+        prompt = `A Chinese girl's social-media avatar photo that does not show her full face: ${rnd(['her back view with long hair, looking at a sunset over the sea', 'her hands making a heart shape around the setting sun, her face out of frame', 'a side profile mostly hidden by her long hair, warm window light'])}. Taken on a phone, warm natural light, soft hazy tones. Photorealistic, not an illustration. No text, no watermark.`;
       } else {
-        prompt = `A real Chinese young woman's selfie used as her WeChat / Xiaohongshu avatar.
-She: ${look}, about ${age}, ${hair}${acc ? ', wearing ' + acc : ''}, in ${outfit}.
-Makeup: popular Douyin-style makeup — blush swept across her cheeks and the tip of her nose, glossy rosy lips, natural brows, clean bright eyes.
-Pose and expression: ${pose}, ${mood}.
-Shot: ${mirror ? camera : `a front-camera selfie at arm's length, very close crop — her face fills most of the frame, the top of her head or her chin slightly cut off; the phone is not visible`}. Setting: ${mirror ? sc.place : setting}.
-Light: ${rnd([
-  'daylight coming from ONE side (a window or the open sky to her left or right) — the far side of her face is noticeably darker',
-  'backlit by the sky or a window behind her, so her face is a little darker than the background, which is slightly blown out',
-  'ordinary indoor ceiling light from above, a bit dim, soft shadows under her brows and chin',
-  'late-afternoon sun from the side, with uneven patches of light and shadow on her face and hair',
-  'dim evening light, mostly from her phone screen and a small lamp, the background falling into darkness',
-])}. The light is NOT even and NOT flattering studio light; her face is not evenly lit from the front.
-Detail: phone front-camera quality, NOT crisp — eyelashes, hair strands and fabric texture are a bit soft and smeared by phone processing; slight noise in the darker parts. Not high resolution, not a DSLR.
-Look of the photo: edited with a beauty camera app (like Meitu / Xingtu / BeautyCam) — fair, bright, softly smoothed rosy skin, slightly enlarged eyes, slimmer face, low contrast, soft pink or milky-white tone; the background can be softly blurred like phone portrait mode. It should look exactly like the many pretty-girl avatars on Chinese social media.
-She is genuinely beautiful. Photorealistic photo of a real person, not an illustration, not anime, not a 3D render, not a studio or magazine shoot, no cinematic grading. One adult woman only. No text, no watermark, no logo.`;
+        prompt = `A real photo used as a young Chinese woman's WeChat / Xiaohongshu avatar, the "atmospheric" kind (氛围感) that pretty girls post.
+She: ${look}, about ${age}, ${hairLong}, wearing ${outfit}. Light natural makeup with soft blush and rosy lips. Expression: ${mood}.
+How it was taken: ${shot.by}. Framing: ${shot.frame}.
+Where and LIGHT (the most important part): ${L0.where} — ${L0.light}. The light has a real direction and real falloff; shadows and highlights are uneven and natural. NOT front-lit, NOT evenly lit, NOT studio lighting.
+Color and feel: warm, soft, slightly hazy and dreamy, lifted shadows, gentle contrast, a light beauty-app or soft film filter — like a phone photo edited in a Chinese photo app.
+Detail: phone camera quality, slightly soft, not crisp, a little grain; hair strands catch the light.
+She is genuinely beautiful. Photorealistic photo of a real person, not an illustration, not anime, not a 3D render, not a professional studio shoot. One adult woman only. No text, no watermark, no logo.`;
       }
     } else {
       prompt = `${camera} ${hair}. ${expr}. ${desc ? 'Outfit and vibe: ' + desc + '.' : 'Casual everyday clothes.'}

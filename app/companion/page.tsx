@@ -262,7 +262,12 @@ export default function CompanionPage() {
           setTyping(true);
           await new Promise((res) => setTimeout(res, typeFor));
           for (let i = 0; i < list.length; i++) {
-            if (i > 0) { setTyping(true); await new Promise((res) => setTimeout(res, 800 + Math.min(4000, list[i].length * 180) + Math.random() * 900)); }
+            if (i > 0) {
+              setTyping(true);
+              // 连发(3 条以上)就是一条接一条噼里啪啦地冒;少的时候按字数慢慢打
+              const gap = list.length >= 3 ? 250 + Math.min(1200, list[i].length * 90) + Math.random() * 500 : 800 + Math.min(4000, list[i].length * 180) + Math.random() * 900;
+              await new Promise((res) => setTimeout(res, gap));
+            }
             setTyping(false);
             setMsgs((m) => [...m, { role: 'ai', text: list[i], ts: Date.now() }]);
             unshown.current = unshown.current.filter((t) => t !== list[i]);

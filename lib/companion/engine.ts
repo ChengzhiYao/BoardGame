@@ -43,7 +43,8 @@ export const HABITS = [
   '句尾爱拖省略号……或者....',
   '笑的时候就是一长串 哈哈哈哈哈哈哈哈 或 hhhhhh,很少说"好笑"',
   '一激动就连打一排感叹号!!!!!!!!!!或问号???????',
-  '喜欢把一句话拆成好几条短消息连着发,情绪上来会故意刷屏',
+  '连发党:平时说话也习惯拆成很多条短消息连着发,一句话拆三四条,一次 3~6 条很正常',
+  '情绪上来会故意刷屏,一口气连发七八条',
   '几乎不用标点,用空格断句',
   '爱用语气词和叠词:嘛 呀 呐 捏 啦 嘿嘿 好叭',
   '爱用网络缩写和梗:xswl yyds hhh 绝了 救命 笑不活了 无语子',
@@ -59,7 +60,11 @@ export function pickHabits(seed?: string): string[] {
   while (out.length < n && idx.length) { const k = h % idx.length; out.push(HABITS[idx.splice(k, 1)[0]]); h = Math.floor(h / 7) + 13; }
   // "高冷派"和"刷屏/感叹号"互相冲突,只留先抽到的
   const cold = out.findIndex((x) => x.startsWith('高冷派'));
-  return cold >= 0 ? out.filter((x, i) => i === cold || !/(刷屏|感叹号|哈哈哈)/.test(x)) : out;
+  return cold >= 0 ? out.filter((x, i) => i === cold || !/(刷屏|连发|感叹号|哈哈哈)/.test(x)) : out;
+}
+export function maxBurst(c: Companion) {
+  const hs = habitsOf(c);
+  return hs.some((h) => h.includes('刷屏')) ? 8 : hs.some((h) => h.includes('连发党')) ? 6 : 3;
 }
 export function habitsOf(c: Companion): string[] {
   const m = String(c.persona || '').match(/【打字习惯】([^\n]+)/);
@@ -163,8 +168,8 @@ Your texting habits: ${habitsOf(c).join(' / ')}. Consider the whole recent chat,
 Rules: "ignore" = read but not reply now (busy / not interested / nothing to say) — use rarely. "tiny" = 1-4 words like "?" or "lol". ask=true only if you'd genuinely be curious; usually false. count>1 only when people naturally send several short texts in a row. photo=true only when you'd naturally snap and send a photo of what you're doing/seeing (they asked what you're up to, or you want to show them something) — usually false; photo_desc = your point-of-view phone shot of the scene, never your face (your hand at most).`
     : `你负责判断一个真人看到最新消息后**会怎么反应**,不写具体台词。你是「${c.ai_name}」。性格:${c.persona}。职业:${c.job}。当地时间 ${t.h}:${String(t.min).padStart(2, '0')}。心情 ${c.mood}/100,好感 ${c.affection}/100。记忆:${c.memory || '无'}。
 要综合整段近期聊天、消息之间隔了多久、你们熟不熟、这个点你是不是在忙、以及你一贯的脾气来判断。只输出 JSON:
-{"action":"reply"或"ignore","count":1~5,"length":"tiny"|"short"|"normal","move":"用几个字说反应类型,如'怼回去''就回个笑死''吐槽工作''敷衍一下''说说自己今天的事''接着刚才的话题'","ask":布尔,"busy":0~1,"mood_delta":-12~12,"aff_delta":-6~6,"next_hours":0.3~48,"photo":布尔,"photo_desc":"英文,照片画面"}
-你的打字习惯:${habitsOf(c).join(';')}。爱刷屏的人情绪上来时 count 可以到 4~5。
+{"action":"reply"或"ignore","count":1~8,"length":"tiny"|"short"|"normal","move":"用几个字说反应类型,如'怼回去''就回个笑死''吐槽工作''敷衍一下''说说自己今天的事''接着刚才的话题'","ask":布尔,"busy":0~1,"mood_delta":-12~12,"aff_delta":-6~6,"next_hours":0.3~48,"photo":布尔,"photo_desc":"英文,照片画面"}
+你的打字习惯:${habitsOf(c).join(';')}。连发党平时 count 就常常是 3~6;爱刷屏的人情绪上来时 count 可以到 7~8;其他人一般 1~2。
 规则:ignore=已读先不回(在忙/没兴趣/没啥好说),少用。tiny=1~4 个字,像「？」「笑死」「行吧」。ask 只有真的好奇才 true,大多数时候 false。count>1 只在真人会自然连发几条短消息时用。next_hours=你大概多久后会自己想找 TA(黏人/聊得开心就小,冷淡/心情差就大)。
 photo=要不要顺手拍张照发过去(像真人分享日常:对方问你在干嘛/在哪/吃什么,或你想给 TA 看眼前的东西),大多数时候 false。photo_desc 用英文写这张手机随手拍的画面:从你的视角拍你眼前的东西、你在做的事(符合你的职业和现在的时间),**不要拍你的脸**(最多出现你的手)。`);
   let d: any = {};
@@ -174,7 +179,7 @@ photo=要不要顺手拍张照发过去(像真人分享日常:对方问你在干
   } catch {}
   const plan: Plan = {
     action: d.action === 'ignore' ? 'ignore' : 'reply',
-    count: clamp(Math.round(Number(d.count) || 1), 1, habitsOf(c).some((h) => h.includes('刷屏')) ? 5 : 3),
+    count: clamp(Math.round(Number(d.count) || 1), 1, maxBurst(c)),
     length: ['tiny', 'short', 'normal'].includes(d.length) ? d.length : 'short',
     move: String(d.move || '').slice(0, 60),
     ask: !!d.ask,
@@ -197,7 +202,9 @@ photo=要不要顺手拍张照发过去(像真人分享日常:对方问你在干
   // 最近自己刚问过问题 → 这次不许再问
   const aiRecent = rows.filter((r) => r.role === 'ai').slice(-2);
   if (aiRecent.some((r) => /[?？]\s*$/.test(r.text))) plan.ask = false;
-  if (plan.length === 'tiny') plan.count = 1;
+  if (plan.length === 'tiny' && maxBurst(c) <= 3) plan.count = 1;
+  // 连发党:只要是正常回话,就拆成好几条
+  if (plan.action === 'reply' && habitsOf(c).some((h) => h.includes('连发党')) && plan.count < 3 && Math.random() < 0.7) plan.count = 3 + Math.floor(Math.random() * 3);
   // 自己最近两条都是很短的敷衍,而对方在追问/抱怨 → 这次必须好好接话
   const lastAi2 = rows.filter((r) => r.role === 'ai').slice(-2);
   const stonewalling = lastAi2.length >= 2 && lastAi2.every((r) => r.text.trim().length <= 3);
@@ -217,7 +224,7 @@ export async function genMessages(c: Companion, rows: MsgRow[], plan: Plan, lang
   const lenEn = plan.length === 'tiny' ? '1-4 words' : plan.length === 'short' ? 'one short line' : 'one or two lines';
   const instr = lang === 'en'
     ? `\n\nThis time: react like this → ${plan.move || 'whatever feels natural'}. Send ${plan.count} message(s), each ${lenEn}. ${plan.ask ? 'You may ask one thing if natural.' : 'Do NOT ask a question.'} Never repeat a line you just sent. If they ask you something directly or complain, actually respond to it. Occasionally (not often) a message can be just a sticker, written exactly as [sticker:NAME] with NAME from: ${Object.keys(STICKERS).join(', ')}. Output ONLY JSON: {"msgs":[string,...]}`
-    : `\n\n这一次:反应方式 → ${plan.move || '自然接'}。发 ${plan.count} 条,每条${lenZh}。${plan.ask ? '可以顺口问一句(不是必须)。' : '这次不要提问。'}别重复你刚说过的话(比如连着几次都是"嗯")。对方直接问你问题或者抱怨你时,要真的接住,用你自己的脾气回应。偶尔(不是每次)可以单独发一个表情包,写成 [sticker:名字],名字只能从这些里选:${Object.keys(STICKERS).join('、')}。只输出 JSON:{"msgs":[字符串,...]}`;
+    : `\n\n这一次:反应方式 → ${plan.move || '自然接'}。发 ${plan.count} 条,每条${lenZh}${plan.count >= 3 ? '(像真人连发那样,把想说的拆成一条条短的,有的就一两个字或一个语气词/颜文字)' : ''}。${plan.ask ? '可以顺口问一句(不是必须)。' : '这次不要提问。'}别重复你刚说过的话(比如连着几次都是"嗯")。对方直接问你问题或者抱怨你时,要真的接住,用你自己的脾气回应。偶尔(不是每次)可以单独发一个表情包,写成 [sticker:名字],名字只能从这些里选:${Object.keys(STICKERS).join('、')}。只输出 JSON:{"msgs":[字符串,...]}`;
   const photoNote = plan.photo ? (lang === 'en' ? `\nYou are also sending a photo right after this (${plan.photoDesc}); your text can go with it naturally (e.g. what you're doing), don't describe the photo in detail.` : `\n你这次还会紧接着发一张照片(${plan.photoDesc}),文字可以自然地配合(比如说说在干嘛),别详细描述照片。`) : '';
   const history = historyWithGaps(rows, lang);
   const recentAi = rows.filter((r) => r.role === 'ai').slice(-3).map((r) => r.text.trim());
@@ -226,7 +233,7 @@ export async function genMessages(c: Companion, rows: MsgRow[], plan: Plan, lang
     if (PHOTO_RE.test(m) || /^\[(你刚发了|对方发了)/.test(m)) return false; // 模型模仿历史里的占位文字 → 丢掉
     return true;
   };
-  const tidy = (arr: any[]) => arr.map((x: any) => cleanMsg(String(x || ''))).filter(Boolean).filter(valid).slice(0, 5) as string[];
+  const tidy = (arr: any[]) => arr.map((x: any) => cleanMsg(String(x || ''))).filter(Boolean).filter(valid).slice(0, 8) as string[];
   const run = async (extra = '') => {
     // maxTokens 给足:太小会把 JSON 截断 → 解析失败 → 以前就会兜底成"嗯"
     const { data } = await callLLMJson<any>({ system: sysPrompt(c, lang) + instr + photoNote + extra, messages: history, tier: 'main', temperature: 1.0, maxTokens: 600, provider: 'deepseek', retry: true });

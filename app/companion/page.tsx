@@ -22,6 +22,7 @@ export default function CompanionPage() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
   const [avatarGen, setAvatarGen] = useState(false);
+  const [zoom, setZoom] = useState(false);
   const recogRef = useRef<any>(null);
   const [aiName, setAiName] = useState('夜');
   const [persona, setPersona] = useState('');
@@ -148,7 +149,7 @@ export default function CompanionPage() {
     <main className="min-h-screen text-parchment max-w-xl mx-auto px-4 py-6 flex flex-col">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2.5 min-w-0">
-          {avatarUrl ? <img src={avatarUrl} alt="" className="w-9 h-9 rounded-full object-cover border border-eldritch/40" /> : <span className="w-9 h-9 rounded-full bg-eldritch/40 flex items-center justify-center text-sm shrink-0">{(aiName || '?').slice(0,1)}</span>}
+          {avatarUrl ? <img src={avatarUrl} alt="" onClick={() => setZoom(true)} className="cursor-zoom-in w-9 h-9 rounded-full object-cover border border-eldritch/40" /> : <span className="w-9 h-9 rounded-full bg-eldritch/40 flex items-center justify-center text-sm shrink-0">{(aiName || '?').slice(0,1)}</span>}
           <div className="leading-tight min-w-0"><div className="font-serif text-lg truncate">{aiName}</div><div className="text-[11px] text-parchment/40">{avatarGen ? L('画像生成中…','drawing…') : L('在线','online')}</div></div>
         </div>
         <div className="flex items-center gap-3 shrink-0">
@@ -237,12 +238,12 @@ export default function CompanionPage() {
                 </div>
               ) : (
                 <div key={i} className="flex items-end gap-2">
-                  {avatarUrl ? <img src={avatarUrl} alt="" className="w-7 h-7 rounded-full object-cover border border-eldritch/40 shrink-0" /> : <span className="w-7 h-7 rounded-full bg-eldritch/40 flex items-center justify-center text-xs shrink-0">{(aiName || '?').slice(0,1)}</span>}
+                  {avatarUrl ? <img src={avatarUrl} alt="" onClick={() => setZoom(true)} className="cursor-zoom-in w-7 h-7 rounded-full object-cover border border-eldritch/40 shrink-0" /> : <span className="w-7 h-7 rounded-full bg-eldritch/40 flex items-center justify-center text-xs shrink-0">{(aiName || '?').slice(0,1)}</span>}
                   <div className="max-w-[72%] px-3.5 py-2 rounded-2xl rounded-bl-md text-sm leading-relaxed bg-fog/80 border border-eldritch/25 text-parchment whitespace-pre-wrap break-words">{m.text}</div>
                 </div>
               )
             ))}
-            {busy && <div className="flex items-end gap-2">{avatarUrl ? <img src={avatarUrl} alt="" className="w-7 h-7 rounded-full object-cover border border-eldritch/40 shrink-0" /> : <span className="w-7 h-7 rounded-full bg-eldritch/40 shrink-0" />}<div className="px-3.5 py-2.5 rounded-2xl rounded-bl-md bg-fog/80 border border-eldritch/25 text-parchment/40 text-sm">···</div></div>}
+            {busy && <div className="flex items-end gap-2">{avatarUrl ? <img src={avatarUrl} alt="" onClick={() => setZoom(true)} className="cursor-zoom-in w-7 h-7 rounded-full object-cover border border-eldritch/40 shrink-0" /> : <span className="w-7 h-7 rounded-full bg-eldritch/40 shrink-0" />}<div className="px-3.5 py-2.5 rounded-2xl rounded-bl-md bg-fog/80 border border-eldritch/25 text-parchment/40 text-sm">···</div></div>}
             <div ref={endRef} />
           </div>
           <div className="flex items-center gap-2 pt-2 sticky bottom-0 pb-1">
@@ -253,6 +254,12 @@ export default function CompanionPage() {
             <button onClick={send} disabled={busy || !text.trim()} className="shrink-0 px-5 py-2.5 rounded-full bg-blood/80 hover:bg-blood border border-blood disabled:opacity-40 text-sm">{L('发送', 'Send')}</button>
           </div>
         </>
+      )}
+      {zoom && avatarUrl && (
+        <div onClick={() => setZoom(false)} className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center p-4 cursor-zoom-out">
+          <img src={avatarUrl} alt={aiName} className="max-w-full max-h-[90vh] rounded-lg object-contain shadow-2xl" />
+          <button onClick={() => setZoom(false)} aria-label="close" className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 text-white text-xl leading-none">×</button>
+        </div>
       )}
       {toast && <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-ink border border-eldritch/40 text-parchment text-sm shadow-xl">{toast}</div>}
     </main>

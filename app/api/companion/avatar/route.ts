@@ -66,6 +66,15 @@ export async function POST() {
     const sc = mirror ? rnd(mirrorScenes) : rnd(scenes);
 
     // ② 构图随意:随机挑 2 个"不完美"
+    // 一半是"认真挑过角度"的小红书式构图(真人也会这样),一半是随手拍;都保留 1~2 个真实小瑕疵
+    const posed = female && Math.random() < 0.55;
+    const posedFraming = mirror
+      ? 'she chose a flattering pose: hip slightly popped, one leg forward, phone held to the side of her face'
+      : rnd([
+          'she picked her best angle: phone held slightly above, chin a little down, eyes looking up into the lens, face turned about 45 degrees',
+          'a deliberate cute close-up: face fills most of the frame, head tilted, one hand touching her cheek or hair',
+          'she framed herself carefully with her face in the upper third and the place visible behind her',
+        ]);
     const framing = pickN(mirror ? [
       'the phone held in front of her chest/face, partly covering her chin',
       'the photo is tilted a few degrees',
@@ -79,7 +88,8 @@ export async function POST() {
       'her extended arm enters the frame from the bottom corner and is cut off',
       'shot from slightly above at arm\'s length, the classic phone angle',
       'part of her shoulder or hair fills a corner of the frame',
-    ], 2);
+    ], posed ? 1 : 2);
+    if (posed) framing.unshift(posedFraming);
     // ⑤ 手机真实瑕疵:随机挑 2~3 个
     const flaws = pickN([
       'slight motion blur from a shaky hand',
@@ -90,7 +100,14 @@ export async function POST() {
       'slight front-camera wide-angle distortion — the nose and face nearest the lens look a little bigger',
       'the focus is slightly soft overall',
       'a slightly off auto white balance',
-    ], 2 + Math.floor(Math.random() * 2));
+    ], posed ? 1 : 2 + Math.floor(Math.random() * 2));
+    // 美颜:像真人用醒图/美颜相机/手机自带美颜修过,带 App 修图的痕迹,而不是 AI 的完美
+    const beauty = female && Math.random() < 0.65;
+    const beautyLine = beauty ? rnd([
+      'Edited with a Chinese beauty app (like Xingtu/BeautyCam): skin brightened and lightly smoothed, eyes slightly enlarged, jawline slightly slimmed — but done by an app on a phone photo, so faint pores and hair strands still show, and the background near her cheek and jaw is very slightly warped',
+      'The phone\'s built-in beauty mode at a low-to-medium level: a little smoother and brighter skin, a soft pinkish fresh filter on top, with the slight halo around the face edges that beauty modes leave',
+      'A popular soft filter from a photo app (milky / slightly faded / pinkish fresh), plus light skin smoothing — the look of a typical edited Xiaohongshu selfie, still clearly a phone photo',
+    ]) : '';
 
     // 好看来自五官和年纪,不来自精修
     const look = female
@@ -115,14 +132,16 @@ export async function POST() {
       ? `A MIRROR SELFIE: ${look}, about ${age}, stands in front of ${sc.place} and photographs her reflection with her phone. The phone is clearly in her hand in the reflection. The mirror and its surroundings are obvious in the picture.`
       : `A FRONT-CAMERA SELFIE taken by ${look}, about ${age}, with the phone in her own outstretched hand. The viewpoint IS her phone's front camera at arm's length (about 40-60 cm from her face) — so the phone itself is NOT visible in the picture. She is in ${sc.place}.`;
 
-    prompt = `${camera} ${hair}. ${expr}. ${desc ? 'Outfit and vibe: ' + desc + '.' : 'Casual everyday clothes.'} Light everyday makeup at most.
+    prompt = `${camera} ${hair}. ${expr}. ${desc ? 'Outfit and vibe: ' + desc + '.' : 'Casual everyday clothes.'} ${female ? 'Natural everyday makeup (light base, some lip tint).' : ''}
 Background: ${sc.clutter} — ordinary, a bit messy, NOT arranged for the photo.
 Lighting: only the existing light of the place — ${sc.light}. No photographer lighting, no fill light, no rim light.
 Composition: ${framing.join('; ')}.
 Phone-photo imperfections: ${flaws.join('; ')}.
-Skin: real skin with visible pores on the nose and cheeks, slight unevenness in skin tone, maybe a tiny blemish — not smoothed, not retouched.
-Colors: plain smartphone colors straight out of the camera app, no cinematic color grading, no golden film look, no teal-orange.
-The person is ${female ? 'genuinely pretty and youthful' : 'good-looking and youthful'}, but this is an unedited snapshot sent to a friend on WeChat — NOT a professional photo, NOT a magazine or ad, NOT third-person view, NOT a DSLR portrait with shallow depth of field, NOT a 3D render. One adult person only. No text, no watermark.`;
+${beauty
+  ? `Editing: ${beautyLine}. Even after the filter, skin keeps some real texture and natural tone variation; the editing looks like a phone app, not a professional retouch.`
+  : 'Skin: real skin with visible pores on the nose and cheeks, slight unevenness in skin tone, maybe a tiny blemish — not retouched. Colors straight out of the phone camera.'}
+No cinematic color grading, no golden movie look, no teal-orange, no studio light.
+The person is ${female ? 'genuinely pretty and youthful — the kind of pretty girl you see on Xiaohongshu' : 'good-looking and youthful'}, and this is a real selfie she took and posted herself — NOT a professional photo, NOT a magazine or ad, NOT third-person view, NOT a DSLR portrait with shallow depth of field, NOT a 3D render. One adult person only. No text, no watermark.`;
     if (!female) prompt = prompt.replace(/\bher\b/g, 'his').replace(/\bHer\b/g, 'His').replace(/\bshe\b/g, 'he').replace(/\bShe\b/g, 'He').replace(/\bherself\b/g, 'himself');
   }
 

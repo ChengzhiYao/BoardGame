@@ -8,6 +8,10 @@ export const metadata: Metadata = {
 };
 export const viewport: Viewport = { themeColor: '#1e1028' };
 
+// 尽早接住 Chrome 的"可安装"事件(它常在 React 挂载前就触发,晚了就收不到了)
+const EARLY = `window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__bip=e;window.dispatchEvent(new Event('bip-ready'));});
+try{if(location.search.indexOf('src=app')>=0)sessionStorage.setItem('companion_app','1');}catch(e){}`;
+
 export default function CompanionLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+  return <><script dangerouslySetInnerHTML={{ __html: EARLY }} />{children}</>;
 }

@@ -65,19 +65,30 @@ export default function CompanionPage() {
     setLoaded(true);
   }
   useEffect(() => { load(); }, []);
+  const [platform, setPlatform] = useState<'ios' | 'android' | 'desktop'>('android');
+  const [inMystApp, setInMystApp] = useState(false); // 在谜夜 App(而不是陪伴 App)里打开的
   useEffect(() => {
     const sa = window.matchMedia?.('(display-mode: standalone)').matches || (navigator as any).standalone === true;
-    setStandalone(!!sa);
-    if (sa) return;
+    let isCompanionApp = false; try { isCompanionApp = sessionStorage.getItem('companion_app') === '1'; } catch {}
+    // iOS 添加到主屏幕时用的是当前网址(不带 src=app),在 iOS 上独立打开就当作陪伴 App
+    if (/iphone|ipad|ipod/i.test(navigator.userAgent || '')) isCompanionApp = true;
+    setStandalone(!!sa && isCompanionApp);
+    if (sa && isCompanionApp) return;
+    if (sa && !isCompanionApp) setInMystApp(true);
     try { if (localStorage.getItem('companion_install_dismissed') === '1') return; } catch {}
     setInstallHidden(false);
     const ua = navigator.userAgent || '';
-    if (/iphone|ipad|ipod/i.test(ua) || (navigator.platform === 'MacIntel' && (navigator as any).maxTouchPoints > 1)) setIosHint(true);
-    const onBIP = (e: any) => { e.preventDefault(); setInstallEvt(e); };
+    const ios = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === 'MacIntel' && (navigator as any).maxTouchPoints > 1);
+    setIosHint(ios);
+    setPlatform(ios ? 'ios' : /android/i.test(ua) ? 'android' : 'desktop');
+    const grab = () => { if ((window as any).__bip) setInstallEvt((window as any).__bip); };
+    grab();
+    const onBIP = (e: any) => { e.preventDefault(); (window as any).__bip = e; setInstallEvt(e); };
     const onInstalled = () => { setInstallEvt(null); setInstallHidden(true); };
+    window.addEventListener('bip-ready', grab);
     window.addEventListener('beforeinstallprompt', onBIP);
     window.addEventListener('appinstalled', onInstalled);
-    return () => { window.removeEventListener('beforeinstallprompt', onBIP); window.removeEventListener('appinstalled', onInstalled); };
+    return () => { window.removeEventListener('bip-ready', grab); window.removeEventListener('beforeinstallprompt', onBIP); window.removeEventListener('appinstalled', onInstalled); };
   }, []);
   // 桌面图标的名字 = TA 的名字
   useEffect(() => {
@@ -87,7 +98,7 @@ export default function CompanionPage() {
   async function installApp() {
     if (!installEvt) return;
     try { await installEvt.prompt(); await installEvt.userChoice; } catch {}
-    setInstallEvt(null);
+    (window as any).__bip = null; setInstallEvt(null);
   }
   function hideInstall() { setInstallHidden(true); try { localStorage.setItem('companion_install_dismissed', '1'); } catch {} }
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs, tab]);
@@ -247,14 +258,21 @@ export default function CompanionPage() {
         </div>
       </div>
 
-      {!installHidden && !standalone && (installEvt || iosHint) && (
+      {!installHidden && !standalone && (
         <div className="mb-3 flex items-center gap-3 rounded-xl bg-fog/90 border border-eldritch/30 px-3 py-2">
           <img src="/companion-192.png" alt="" className="w-9 h-9 rounded-lg shrink-0" />
           <div className="flex-1 min-w-0 text-[12px] leading-snug">
             <div className="text-parchment text-[13px]">{L('把 TA 放到手机桌面', 'Add to home screen')}</div>
-            <div className="text-parchment/60">{iosHint && !installEvt ? L('点 Safari 底部「分享」→「添加到主屏幕」', 'Share → Add to Home Screen') : L('独立图标,点开直接聊天', 'Its own icon, opens straight to chat')}</div>
+            <div className="text-parchment/60">{
+              inMystApp ? L('你现在在谜夜 App 里。用手机浏览器打开 mystnight.com/companion 才能单独添加', 'Open mystnight.com/companion in your browser to add it separately')
+              : installEvt ? L('独立图标,点开直接聊天', 'Its own icon, opens straight to chat')
+              : platform === 'ios' ? L('点 Safari 底部「分享」→「添加到主屏幕」', 'Share → Add to Home Screen')
+              : platform === 'android' ? L('点 Chrome 右上角「⋮」→「添加到主屏幕」或「安装应用」', 'Chrome menu ⋮ → Add to Home screen / Install app')
+              : L('点地址栏右侧的「安装」图标,或浏览器菜单 →「安装应用」', 'Use the install icon in the address bar')
+            }</div>
           </div>
-          {installEvt && <button onClick={installApp} className="shrink-0 px-3 py-1.5 rounded-lg bg-blood/85 hover:bg-blood border border-blood text-sm">{L('添加', 'Add')}</button>}
+          {inMystApp && <button onClick={() => { try { navigator.clipboard.writeText(location.origin + '/companion'); flash(L('链接已复制', 'Link copied')); } catch {} }} className="shrink-0 px-3 py-1.5 rounded-lg border border-eldritch/40 text-sm">{L('复制链接', 'Copy link')}</button>}
+          {!inMystApp && installEvt && <button onClick={installApp} className="shrink-0 px-3 py-1.5 rounded-lg bg-blood/85 hover:bg-blood border border-blood text-sm">{L('添加', 'Add')}</button>}
           <button onClick={hideInstall} aria-label="close" className="shrink-0 w-7 h-7 text-parchment/40 hover:text-parchment">✕</button>
         </div>
       )}

@@ -23,6 +23,11 @@ export default function CompanionPage() {
   const [recording, setRecording] = useState(false);
   const [avatarGen, setAvatarGen] = useState(false);
   const [zoom, setZoom] = useState(false);
+  // 独立桌面应用("放到桌面"):自己的图标/名字,打开直接进聊天
+  const [installEvt, setInstallEvt] = useState<any>(null);
+  const [iosHint, setIosHint] = useState(false);
+  const [standalone, setStandalone] = useState(false);
+  const [installHidden, setInstallHidden] = useState(true);
   const recogRef = useRef<any>(null);
   const [aiName, setAiName] = useState('夜');
   const [persona, setPersona] = useState('');
@@ -60,6 +65,31 @@ export default function CompanionPage() {
     setLoaded(true);
   }
   useEffect(() => { load(); }, []);
+  useEffect(() => {
+    const sa = window.matchMedia?.('(display-mode: standalone)').matches || (navigator as any).standalone === true;
+    setStandalone(!!sa);
+    if (sa) return;
+    try { if (localStorage.getItem('companion_install_dismissed') === '1') return; } catch {}
+    setInstallHidden(false);
+    const ua = navigator.userAgent || '';
+    if (/iphone|ipad|ipod/i.test(ua) || (navigator.platform === 'MacIntel' && (navigator as any).maxTouchPoints > 1)) setIosHint(true);
+    const onBIP = (e: any) => { e.preventDefault(); setInstallEvt(e); };
+    const onInstalled = () => { setInstallEvt(null); setInstallHidden(true); };
+    window.addEventListener('beforeinstallprompt', onBIP);
+    window.addEventListener('appinstalled', onInstalled);
+    return () => { window.removeEventListener('beforeinstallprompt', onBIP); window.removeEventListener('appinstalled', onInstalled); };
+  }, []);
+  // 桌面图标的名字 = TA 的名字
+  useEffect(() => {
+    const link = document.querySelector('link[rel="manifest"]') as HTMLLinkElement | null;
+    if (link && aiName) link.href = '/api/companion/manifest?n=' + encodeURIComponent(aiName);
+  }, [aiName]);
+  async function installApp() {
+    if (!installEvt) return;
+    try { await installEvt.prompt(); await installEvt.userChoice; } catch {}
+    setInstallEvt(null);
+  }
+  function hideInstall() { setInstallHidden(true); try { localStorage.setItem('companion_install_dismissed', '1'); } catch {} }
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs, tab]);
 
   async function saveSetup() {
@@ -214,10 +244,20 @@ export default function CompanionPage() {
         <div className="flex items-center gap-3 shrink-0">
           {tab === 'chat' && <button onClick={() => setTab('setup')} title={L('设定','Settings')} className="text-parchment/50 hover:text-parchment"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>}
           {tab === 'setup' && <button onClick={() => setTab('chat')} className="text-sm text-parchment/60 hover:text-parchment">{L('← 聊天','← Chat')}</button>}
-          <a href="/" className="text-sm text-parchment/40 hover:text-parchment">{L('首页', 'Home')}</a>
         </div>
       </div>
 
+      {!installHidden && !standalone && (installEvt || iosHint) && (
+        <div className="mb-3 flex items-center gap-3 rounded-xl bg-fog/90 border border-eldritch/30 px-3 py-2">
+          <img src="/companion-192.png" alt="" className="w-9 h-9 rounded-lg shrink-0" />
+          <div className="flex-1 min-w-0 text-[12px] leading-snug">
+            <div className="text-parchment text-[13px]">{L('把 TA 放到手机桌面', 'Add to home screen')}</div>
+            <div className="text-parchment/60">{iosHint && !installEvt ? L('点 Safari 底部「分享」→「添加到主屏幕」', 'Share → Add to Home Screen') : L('独立图标,点开直接聊天', 'Its own icon, opens straight to chat')}</div>
+          </div>
+          {installEvt && <button onClick={installApp} className="shrink-0 px-3 py-1.5 rounded-lg bg-blood/85 hover:bg-blood border border-blood text-sm">{L('添加', 'Add')}</button>}
+          <button onClick={hideInstall} aria-label="close" className="shrink-0 w-7 h-7 text-parchment/40 hover:text-parchment">✕</button>
+        </div>
+      )}
       {tab === 'welcome' ? (
         <div className="flex flex-col items-center justify-center text-center gap-5 py-10 min-h-[55vh]">
           <div className="w-20 h-20 rounded-full bg-gradient-to-b from-eldritch/40 to-blood/20 border border-eldritch/40 flex items-center justify-center text-4xl">🌙</div>
@@ -289,6 +329,7 @@ export default function CompanionPage() {
           <button onClick={saveSetup} disabled={busy} className="w-full py-2.5 rounded bg-blood/80 hover:bg-blood border border-blood disabled:opacity-40">{busy ? L('保存中…', 'Saving…') : L('保存设定', 'Save')}</button>
           <button onClick={genAvatar} disabled={avatarGen} className="w-full py-2 rounded border border-eldritch/40 text-parchment/70 hover:bg-eldritch/20 text-sm disabled:opacity-40">{avatarGen ? L('生成头像中…','drawing…') : L('重新生成头像','Regenerate avatar')}</button>
           <button onClick={resetAll} disabled={busy} className="w-full py-2 rounded border border-blood/40 text-blood/80 hover:bg-blood/10 text-sm disabled:opacity-40">{L('重置 · 重新开始 onboarding', 'Reset · start over')}</button>
+          {!standalone && <a href="/" className="block text-center text-xs text-parchment/35 hover:text-parchment/70 pt-2">{L('返回谜夜首页', 'Back to MystNight')}</a>}
           <p className="text-xs text-parchment/40 leading-relaxed">{L('提示:在手机浏览器里把本页「添加到主屏」,再点上面「开启主动推送」,TA 才能在你没开 App 时也主动找你(iPhone 需 iOS16.4+ 且已添加到主屏)。', 'Tip: add this page to your home screen, then enable push, so it can reach you even when the app is closed (iPhone needs iOS 16.4+ and add-to-home-screen).')}</p>
         </div>
       ) : (

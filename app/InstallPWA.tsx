@@ -19,6 +19,9 @@ export default function InstallPWA() {
       navigator.serviceWorker.register('/sw.js').catch(() => {});
     }
 
+    // AI 陪伴页有它自己的"放到桌面"提示,这里不显示谜夜的
+    if (location.pathname.startsWith('/companion')) return;
+
     // Already installed / running standalone → never show.
     const standalone =
       window.matchMedia?.('(display-mode: standalone)').matches ||

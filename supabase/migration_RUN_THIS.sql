@@ -847,3 +847,6 @@ alter table companion add column if not exists next_reach_at timestamptz;
 create index if not exists companion_next_idx on companion(enabled, next_reach_at);
 
 alter table companion add column if not exists avatar_url text;
+
+-- companion: 人生档案(结构化背景 + 人生时间线),按需补全、随时间演进
+alter table companion add column if not exists bio jsonb not null default '{}'::jsonb;

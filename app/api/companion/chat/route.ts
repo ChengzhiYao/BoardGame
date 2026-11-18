@@ -3,8 +3,9 @@ import { NextResponse } from 'next/server';
 import { previewText } from '@/lib/companion/stickers';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { sendPush } from '@/lib/push';
+import { getBio, expandBio, mergeFacts, saveBio } from '@/lib/companion/bio';
 import { signPhoto, photosToday, PHOTO_DAILY_LIMIT } from '@/lib/companion/photo';
-import { ensureCompanion, planReaction, genMessages, replyDelaySec, updateMemory, clamp, scheduleNext, heuristicNextHours, isAllowed, type MsgRow } from '@/lib/companion/engine';
+import { ensureCompanion, planReaction, genMessages, replyDelaySec, digestExchange, clamp, scheduleNext, heuristicNextHours, isAllowed, type MsgRow } from '@/lib/companion/engine';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
@@ -37,6 +38,13 @@ export async function POST(req: Request) {
   const pending = rows.slice(k).map((r) => r.text);
 
   const plan = await planReaction(c, rows, lang);
+  // 被问到档案里没有的个人细节 → 先按已有设定补全并存下,再回答(下次问答案一致)
+  if (plan.bioNeed && plan.action === 'reply') {
+    try {
+      const nb = await expandBio(c, getBio(c), plan.bioNeed, pending.join(' / '));
+      c.bio = nb; await saveBio(admin, user.id, nb);
+    } catch {}
+  }
   const newMood = clamp((c.mood || 60) + plan.moodDelta, 0, 100);
   const newAff = clamp((c.affection || 10) + plan.affDelta, 0, 100);
   // 聊完后多久会主动找你:不超过频率设定给的上限(否则天天聊天会把主动消息一直往后推,永远等不到)
@@ -57,8 +65,14 @@ export async function POST(req: Request) {
   await admin.from('companion').update({ mood: newMood, affection: newAff, last_ai_at: new Date().toISOString(), next_reach_at: nextReach }).eq('user_id', user.id);
 
   try {
-    const mem = await updateMemory(c, `User: ${pending.join(' / ')}\n${c.ai_name}: ${replies.join(' / ')}`, lang);
-    if (mem && mem !== c.memory) await admin.from('companion').update({ memory: mem }).eq('user_id', user.id);
+    const dg = await digestExchange(c, `User: ${pending.join(' / ')}\n${c.ai_name}: ${replies.join(' / ')}`, lang);
+    const up: any = {};
+    if (dg.memory && dg.memory !== c.memory) up.memory = dg.memory;
+    if (Object.keys(dg.facts).length) { const nb = mergeFacts(getBio(c), dg.facts); c.bio = nb; up.bio = nb; }
+    if (Object.keys(up).length) {
+      const { error } = await admin.from('companion').update(up).eq('user_id', user.id);
+      if (error && up.bio) { delete up.bio; if (up.memory) await admin.from('companion').update(up).eq('user_id', user.id); } // 还没加 bio 字段时别连记忆一起丢
+    }
   } catch {}
 
   // 生活照:模型想发 + 没超每日上限 + 配了出图 key → 给前端一个签名任务,由 /photo 接口异步出图(不拖慢文字回复)

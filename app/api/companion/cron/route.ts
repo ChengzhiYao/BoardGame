@@ -4,6 +4,7 @@ import { previewText } from '@/lib/companion/stickers';
 import { createAdminClient } from '@/lib/supabase/server';
 import { genProactive, scheduleNext, heuristicNextHours, historyWithGaps, type Companion } from '@/lib/companion/engine';
 import { sendPushDetailed } from '@/lib/push';
+import { getBio, createBio, evolveLife, saveBio, localDate } from '@/lib/companion/bio';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
@@ -35,6 +36,18 @@ export async function GET(req: Request) {
       if (!c.persona && !c.job) { await admin.from('companion').update({ next_reach_at: scheduleNext(c, 8) }).eq('user_id', c.user_id); continue; }
       // 勿扰时段 → 顺延,不发
       if (inQuiet(c)) { await admin.from('companion').update({ next_reach_at: scheduleNext(c, 1) }).eq('user_id', c.user_id); continue; }
+      // 人生在前进:距上次变化 5~9 天 → 发生一点生活事件(新爱好/朋友/加班/旅行,偶尔换工作),和现实日期同步
+      try {
+        let bio = getBio(c);
+        // 老角色还没有档案 → 后台补一份核心档案(不在聊天里做,免得拖慢回复)
+        if (!Object.keys(bio.facts).length) { bio = await createBio(c); if (Object.keys(bio.facts).length) { (c as any).bio = bio; await saveBio(admin, c.user_id, bio); } }
+        const last = bio.evolved_at ? new Date(bio.evolved_at).getTime() : 0;
+        if (Object.keys(bio.facts).length && Date.now() - last > (5 + Math.random() * 4) * 86400000) {
+          const r = await evolveLife(c, bio, localDate(c.tz_offset).iso);
+          (c as any).bio = r.bio; await saveBio(admin, c.user_id, r.bio);
+          if (r.newJob) { c.job = r.newJob; await admin.from('companion').update({ job: r.newJob }).eq('user_id', c.user_id); }
+        }
+      } catch {}
       const { data: recent } = await admin.from('companion_msgs').select('role, text, created_at').eq('user_id', c.user_id).order('created_at', { ascending: false }).limit(14);
       const rows = (recent || []).reverse();
       const history = historyWithGaps(rows, 'zh');

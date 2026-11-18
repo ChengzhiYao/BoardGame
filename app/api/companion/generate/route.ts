@@ -3,7 +3,9 @@ import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { ensureCompanion, isAllowed, pickHabits } from '@/lib/companion/engine';
 import { callLLMJson } from '@/lib/llm';
 import { QUIZ } from '@/lib/companion/quiz';
+import { createBio, saveBio } from '@/lib/companion/bio';
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 export async function POST(req: Request) {
   const supabase = createServerClient();
@@ -70,6 +72,8 @@ export async function POST(req: Request) {
     : (r < 0.45 ? '' : r < 0.6 ? '我通过了你的朋友验证请求,现在我们可以开始聊天了' : rnd(['你好', 'hi', '嗨', '？', '👋', '你好呀', '你是？', 'hello', '在']));
 
   await admin.from('companion').update({ ai_name: aiName, persona, job, affection: 8 }).eq('user_id', user.id);
+  // 同时生成人生档案(作息/爱好/学校/感情/朋友圈……),之后聊天按它回答,被问到没有的再补
+  try { const bio = await createBio({ ai_name: aiName, persona, job }); await saveBio(admin, user.id, bio); } catch {}
   if (opening) {
     await admin.from('companion_msgs').insert({ user_id: user.id, role: 'ai', text: opening });
     await admin.from('companion').update({ last_ai_at: new Date().toISOString(), last_proactive: new Date().toISOString() }).eq('user_id', user.id);

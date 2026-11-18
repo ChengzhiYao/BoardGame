@@ -1,6 +1,7 @@
 // 主动型 AI 陪伴引擎 v2：真人化——职业/作息/心情/好感度 + 拟人语气 + 不秒回 + 自主发消息。
 import { callLLM, callLLMJson, type LLMMessage } from '@/lib/llm';
 import { STICKERS, STICKER_RE, PHOTO_RE, previewText, forModel } from '@/lib/companion/stickers';
+import { getBio, bioForPrompt, calendarContext, mergeFacts, type Bio } from '@/lib/companion/bio';
 export { previewText };
 
 export type Companion = {
@@ -9,6 +10,7 @@ export type Companion = {
   freq: string; quiet_start: number; quiet_end: number; tz_offset: number;
   memory: string; last_sent: string | null; avatar_url: string | null;
   last_user_at: string | null; last_ai_at: string | null; last_proactive: string | null; next_reach_at: string | null;
+  bio?: any;
 };
 
 // 访问门:目前只对白名单账号开放(即你自己),其余用户看不到也用不了。
@@ -99,7 +101,9 @@ function sysPrompt(c: Companion, lang: 'zh' | 'en') {
   if (lang === 'en') {
     return `You are ${c.ai_name}, a REAL person texting someone you know — not an AI, not an assistant.
 Personality: ${c.persona || 'form your own from the conversation'}
-Job: ${c.job || 'unspecified'}. It's ${timeStr} your time; act like it (at work = distracted, off hours = freer).
+Job: ${c.job || 'unspecified'}. It's ${timeStr} your time; act like it (at work = distracted, off hours = freer). ${calendarContext(c.tz_offset)}
+${bioForPrompt(getBio(c))}
+Stay consistent with this life profile. Private things (body measurements, past relationships) you don't share with people you barely know.
 Mood: ${moodWord(c.mood)} (${c.mood}/100). Feelings toward them: ${affWord(c.affection)} (${c.affection}/100).
 What you remember: ${c.memory || '(not much yet)'}
 Your fixed texting habits (always like this): ${habitsOf(c).join(' / ')}. When emotional, exaggerate like real people do (spam several texts, long hahaha, !!!!!!).
@@ -107,7 +111,9 @@ ${STYLE_EN}`;
   }
   return `你是「${c.ai_name}」,一个在跟熟人发微信的**真人**——不是 AI、不是助手。
 你的性格:${c.persona || '从聊天里自己长出来'}
-你的职业:${c.job || '未设定'}。现在是你那边 ${timeStr},按这个作息来(上班心不在焉、话短;下班松弛些)。
+你的职业:${c.job || '未设定'}。现在是你那边 ${timeStr},按这个作息来(上班心不在焉、话短;下班松弛些)。${calendarContext(c.tz_offset)}节日、季节、周末会影响你的生活和心情(比如节前放假、过节回家、天冷了)。
+${bioForPrompt(getBio(c))}
+档案里没写到的细节,临场说的要合理、和档案一致。身高体重、三围、感情经历这类私密的事,不熟不会说,熟了也不会直接报一串数字。
 你现在的心情:${moodWord(c.mood)}(${c.mood}/100);对 TA 的感觉:${affWord(c.affection)}(${c.affection}/100)。
 你记得的事:${c.memory || '(还不太了解)'}
 【你的打字习惯——固定的,你一直都这么打字】
@@ -157,20 +163,21 @@ function transcript(rows: MsgRow[], c: Companion, lang: 'zh' | 'en') {
 export type Plan = {
   action: 'reply' | 'ignore'; count: number; length: 'tiny' | 'short' | 'normal';
   move: string; ask: boolean; busy: number; moodDelta: number; affDelta: number; nextHours: number;
-  photo: boolean; photoDesc: string;
+  photo: boolean; photoDesc: string; bioNeed: string;
 };
 export async function planReaction(c: Companion, rows: MsgRow[], lang: 'zh' | 'en'): Promise<Plan> {
   const t = localNow(c);
   const sys = (lang === 'en'
     ? `You decide HOW a real person would react to the latest text — not the words. You are ${c.ai_name}. Personality: ${c.persona}. Job: ${c.job}. Local time ${t.h}:${String(t.min).padStart(2, '0')}. Mood ${c.mood}/100, feelings ${c.affection}/100. Memory: ${c.memory || '-'}.
 Your texting habits: ${habitsOf(c).join(' / ')}. Consider the whole recent chat, time gaps, how close you are, whether you're busy at this hour, and your own temperament. Output ONLY JSON:
-{"action":"reply"|"ignore","count":1-3,"length":"tiny"|"short"|"normal","move":"what kind of reaction in a few words, e.g. 'tease back', 'just react: lol', 'complain about work', 'brush it off', 'mention something of my own'","ask":boolean,"busy":0-1,"mood_delta":-12..12,"aff_delta":-6..6,"next_hours":0.3-48,"photo":boolean,"photo_desc":"what the photo shows"}
-Rules: "ignore" = read but not reply now (busy / not interested / nothing to say) — use rarely. "tiny" = 1-4 words like "?" or "lol". ask=true only if you'd genuinely be curious; usually false. count>1 only when people naturally send several short texts in a row. photo=true only when you'd naturally snap and send a photo of what you're doing/seeing (they asked what you're up to, or you want to show them something) — usually false; photo_desc = your point-of-view phone shot of the scene, never your face (your hand at most).`
+{"action":"reply"|"ignore","count":1-3,"length":"tiny"|"short"|"normal","move":"what kind of reaction in a few words, e.g. 'tease back', 'just react: lol', 'complain about work', 'brush it off', 'mention something of my own'","ask":boolean,"busy":0-1,"mood_delta":-12..12,"aff_delta":-6..6,"next_hours":0.3-48,"photo":boolean,"photo_desc":"what the photo shows","bio_need":"string"}
+Rules: "ignore" = read but not reply now (busy / not interested / nothing to say) — use rarely. "tiny" = 1-4 words like "?" or "lol". ask=true only if you'd genuinely be curious; usually false. count>1 only when people naturally send several short texts in a row. bio_need: if they ask about your personal life (past, tastes, habits, school, friends, body, love life) and your profile lacks it, the topic name; else empty. Profile topics: ${Object.keys(getBio(c).facts).join(', ') || '(none)'}. photo=true only when you'd naturally snap and send a photo of what you're doing/seeing (they asked what you're up to, or you want to show them something) — usually false; photo_desc = your point-of-view phone shot of the scene, never your face (your hand at most).`
     : `你负责判断一个真人看到最新消息后**会怎么反应**,不写具体台词。你是「${c.ai_name}」。性格:${c.persona}。职业:${c.job}。当地时间 ${t.h}:${String(t.min).padStart(2, '0')}。心情 ${c.mood}/100,好感 ${c.affection}/100。记忆:${c.memory || '无'}。
 要综合整段近期聊天、消息之间隔了多久、你们熟不熟、这个点你是不是在忙、以及你一贯的脾气来判断。只输出 JSON:
-{"action":"reply"或"ignore","count":1~8,"length":"tiny"|"short"|"normal","move":"用几个字说反应类型,如'怼回去''就回个笑死''吐槽工作''敷衍一下''说说自己今天的事''接着刚才的话题'","ask":布尔,"busy":0~1,"mood_delta":-12~12,"aff_delta":-6~6,"next_hours":0.3~48,"photo":布尔,"photo_desc":"英文,照片画面"}
+{"action":"reply"或"ignore","count":1~8,"length":"tiny"|"short"|"normal","move":"用几个字说反应类型,如'怼回去''就回个笑死''吐槽工作''敷衍一下''说说自己今天的事''接着刚才的话题'","ask":布尔,"busy":0~1,"mood_delta":-12~12,"aff_delta":-6~6,"next_hours":0.3~48,"photo":布尔,"photo_desc":"英文,照片画面","bio_need":"字符串"}
 你的打字习惯:${habitsOf(c).join(';')}。连发党平时 count 就常常是 3~6;爱刷屏的人情绪上来时 count 可以到 7~8;其他人一般 1~2。
 规则:ignore=已读先不回(在忙/没兴趣/没啥好说),少用。tiny=1~4 个字,像「？」「笑死」「行吧」。ask 只有真的好奇才 true,大多数时候 false。count>1 只在真人会自然连发几条短消息时用。next_hours=你大概多久后会自己想找 TA(黏人/聊得开心就小,冷淡/心情差就大)。
+bio_need:如果对方问到了你个人的事(经历/喜好/习惯/学校/朋友/身体/感情……),而下面档案里没有或不够细,就写这个话题名(如"高中经历""喜欢的动漫类型");否则空字符串。已有档案话题:${Object.keys(getBio(c).facts).join('、') || '(空)'}。
 photo=要不要顺手拍张照发过去(像真人分享日常:对方问你在干嘛/在哪/吃什么,或你想给 TA 看眼前的东西),大多数时候 false。photo_desc 用英文写这张手机随手拍的画面:从你的视角拍你眼前的东西、你在做的事(符合你的职业和现在的时间),**不要拍你的脸**(最多出现你的手)。`);
   let d: any = {};
   try {
@@ -189,6 +196,7 @@ photo=要不要顺手拍张照发过去(像真人分享日常:对方问你在干
     nextHours: clamp(Number(d.next_hours) || 6, 0.3, 48),
     photo: !!d.photo && !!String(d.photo_desc || '').trim(),
     photoDesc: String(d.photo_desc || '').slice(0, 300),
+    bioNeed: String(d.bio_need || '').trim().slice(0, 40),
   };
   if ((c.affection || 0) < 12) plan.photo = false; // 还很生疏就不发照片
   // ---- 代码层的硬约束(不全交给模型) ----
@@ -312,14 +320,18 @@ export async function decideReachOut(c: Companion, lang: 'zh' | 'en'): Promise<{
   } catch { return { go: false, reason: 'bored' }; }
 }
 
-// 滚动记忆
-export async function updateMemory(c: Companion, exchange: string, lang: 'zh' | 'en'): Promise<string> {
-  const sys = lang === 'en'
-    ? `Maintain a compact long-term memory about the user for a companion. Merge the new conversation into existing memory; keep durable facts, preferences, feelings, ongoing topics. Output 3-6 short lines.`
-    : `为一个陪伴维护一份简短的用户长期记忆。把新对话并入已有记忆,只留持久的事实、偏好、情绪、在聊的话题。输出 3~6 行短句。`;
-  const msg = lang === 'en' ? `Existing:\n${c.memory || '(none)'}\n\nNew:\n${exchange}` : `已有:\n${c.memory || '（无）'}\n\n新对话:\n${exchange}`;
-  try { const r = await callLLM({ system: sys, messages: [{ role: 'user', content: msg }], tier: 'aux', temperature: 0.3, maxTokens: 300, provider: 'deepseek' }); return r.text.trim().slice(0, 2000); }
-  catch { return c.memory; }
+// 滚动记忆 + 记下 TA 自己随口说出的新设定(下次被问答案一致)
+export async function digestExchange(c: Companion, exchange: string, lang: 'zh' | 'en'): Promise<{ memory: string; facts: Record<string, string> }> {
+  const bio = getBio(c);
+  const sys = `你在为一个虚构人物「${c.ai_name}」维护两份资料。
+1) memory:关于"用户"的长期记忆。把新对话并入已有记忆,只留持久的事实、偏好、情绪、在聊的话题,3~6 行短句。
+2) facts:「${c.ai_name}」在这段对话里**说出的关于自己的新信息**(经历、喜好、习惯、朋友、计划、最近的事等),已有档案里没有的才写,用 {"话题":"内容"};没有就空对象。
+只输出 JSON:{"memory": 字符串, "facts": {}}`;
+  const msg = `已有用户记忆:\n${c.memory || '(无)'}\n\n「${c.ai_name}」已有档案话题:${Object.keys(bio.facts).join('、') || '(无)'}\n\n新对话:\n${exchange}`;
+  try {
+    const { data } = await callLLMJson<any>({ system: sys, messages: [{ role: 'user', content: msg }], tier: 'aux', temperature: 0.3, maxTokens: 600, provider: 'deepseek' });
+    return { memory: String(data?.memory || c.memory || '').trim().slice(0, 2000), facts: data?.facts && typeof data.facts === 'object' ? data.facts : {} };
+  } catch { return { memory: c.memory, facts: {} }; }
 }
 
 export function clamp(n: number, lo: number, hi: number) { return Math.max(lo, Math.min(hi, n)); }

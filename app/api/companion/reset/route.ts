@@ -14,5 +14,6 @@ export async function POST() {
     ai_name: '夜', persona: '', job: '', memory: '', mood: 60, affection: 10,
     last_user_at: null, last_ai_at: null, last_proactive: null, next_reach_at: null,
   }).eq('user_id', user.id);
+  try { await admin.from('companion').update({ bio: {} }).eq('user_id', user.id); } catch {} // 人生档案一起清掉
   return NextResponse.json({ ok: true });
 }

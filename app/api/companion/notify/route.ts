@@ -1,5 +1,6 @@
 // 回复已生成但页面在"假装打字"时被关掉/切到后台 → 把还没显示的消息推送到手机。
 import { NextResponse } from 'next/server';
+import { previewText } from '@/lib/companion/stickers';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { ensureCompanion, isAllowed } from '@/lib/companion/engine';
 import { sendPush } from '@/lib/push';
@@ -21,7 +22,7 @@ export async function POST(req: Request) {
   const c = await ensureCompanion(admin, user.id);
   const { data: subs } = await admin.from('push_subs').select('*').eq('user_id', user.id);
   for (const s of (subs || [])) {
-    const r = await sendPush({ endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth }, { title: c.ai_name, body: ok.join('\n'), url: '/companion?src=app', icon: c.avatar_url || undefined });
+    const r = await sendPush({ endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth }, { title: c.ai_name, body: previewText(ok.join('\n')), url: '/companion?src=app', icon: c.avatar_url || undefined });
     if (r === 'gone') await admin.from('push_subs').delete().eq('id', s.id);
   }
   return NextResponse.json({ ok: true, pushed: ok.length });

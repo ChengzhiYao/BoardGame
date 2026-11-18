@@ -1,5 +1,6 @@
 // 廉价时钟:只处理"已到自己定的下次时间"的用户 → 生成主动消息并推送 → 重排下次时间。
 import { NextResponse } from 'next/server';
+import { previewText } from '@/lib/companion/stickers';
 import { createAdminClient } from '@/lib/supabase/server';
 import { genProactive, scheduleNext, heuristicNextHours, historyWithGaps, type Companion } from '@/lib/companion/engine';
 import { sendPushDetailed } from '@/lib/push';
@@ -49,7 +50,7 @@ export async function GET(req: Request) {
       const { data: subs } = await admin.from('push_subs').select('*').eq('user_id', c.user_id);
       if (!subs || !subs.length) pushLog.push({ u: c.user_id.slice(0, 6), push: 'no_subs' });
       for (const s of (subs || [])) {
-        const res = await sendPushDetailed({ endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth }, { title: c.ai_name, body: msg, url: '/companion?src=app', icon: c.avatar_url || undefined });
+        const res = await sendPushDetailed({ endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth }, { title: c.ai_name, body: previewText(msg), url: '/companion?src=app', icon: c.avatar_url || undefined });
         if (res.status === 'gone') await admin.from('push_subs').delete().eq('id', s.id);
         pushLog.push({ u: c.user_id.slice(0, 6), push: res.status, code: res.code, error: res.error });
       }

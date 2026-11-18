@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { getClientLang } from '@/lib/i18n';
 import { QUIZ } from '@/lib/companion/quiz';
+import { STICKERS, STICKER_RE } from '@/lib/companion/stickers';
 
 type Msg = { role: 'ai' | 'user'; text: string; ts: number };
 
@@ -422,7 +423,9 @@ export default function CompanionPage() {
               ) : (
                 <div key={i} className="flex items-end gap-2">
                   {avatarUrl ? <img src={avatarUrl} alt="" onClick={() => setZoom(true)} className="cursor-zoom-in w-7 h-7 rounded-full object-cover border border-eldritch/40 shrink-0" /> : <span className="w-7 h-7 rounded-full bg-eldritch/40 flex items-center justify-center text-xs shrink-0">{(aiName || '?').slice(0,1)}</span>}
-                  <div className="max-w-[72%] px-3.5 py-2 rounded-2xl rounded-bl-md text-sm leading-relaxed bg-fog/80 border border-eldritch/25 text-parchment whitespace-pre-wrap break-words">{m.text}</div>
+                  {(() => { const st = m.text.trim().match(STICKER_RE); const k = st && STICKERS[st[1].trim()]; return k
+                    ? <div className="w-24 h-24 rounded-2xl bg-white/5 flex flex-col items-center justify-center select-none"><span className="text-5xl leading-none">{k.e}</span><span className="text-[11px] text-parchment/70 mt-1.5">{k.t}</span></div>
+                    : <div className="max-w-[72%] px-3.5 py-2 rounded-2xl rounded-bl-md text-sm leading-relaxed bg-fog/80 border border-eldritch/25 text-parchment whitespace-pre-wrap break-words">{m.text}</div>; })()}
                 </div>
               )
             ))}

@@ -1,5 +1,7 @@
 // 主动型 AI 陪伴引擎 v2：真人化——职业/作息/心情/好感度 + 拟人语气 + 不秒回 + 自主发消息。
 import { callLLM, callLLMJson, type LLMMessage } from '@/lib/llm';
+import { STICKERS, STICKER_RE, previewText } from '@/lib/companion/stickers';
+export { previewText };
 
 export type Companion = {
   user_id: string; enabled: boolean; ai_name: string; persona: string; tone: string;
@@ -42,7 +44,7 @@ const STYLE_ZH = `【怎么发消息——像真人发微信,这些规则最重�
 - 人格连续:语气以你之前发过的消息为准,一直是同一个人。对方低落时,用你自己的方式回应(傲娇的就别扭地关心一句、毒舌的照样嘴硬),绝不突然变成温柔的心理咨询师。
 - 允许低信息量:「？」「笑死」「行吧」「哦」「嗯嗯」「草」「哈哈哈哈」本身就是完整的回复。
 - 看上下文和时间:隔了很久才回的、半夜发的、刚聊过的,反应都不一样;别只盯着最后一句。
-- 短、口语、可以不完整;少用句号,不分点,不用书面语和成语排比。
+- 短、口语、可以不完整;少用句号,不分点,不用书面语和成语排比。可以偶尔带个 emoji,或单独发个表情包。
 - 绝对禁止客服/AI 腔:"我理解你的感受""有什么可以帮你""随时都在""希望对你有帮助""如果你愿意的话""要不要试试""作为…"、过度正能量和鸡汤。
 - 你有自己的生活,可以敷衍、嫌烦、岔开说自己的事。刚认识别主动报真名,熟了被问才说。绝不承认自己是 AI。`;
 const STYLE_EN = `[HOW YOU TEXT — most important]
@@ -156,9 +158,14 @@ Rules: "ignore" = read but not reply now (busy / not interested / nothing to say
   const aiRecent = rows.filter((r) => r.role === 'ai').slice(-2);
   if (aiRecent.some((r) => /[?？]\s*$/.test(r.text))) plan.ask = false;
   if (plan.length === 'tiny') plan.count = 1;
+  // 自己最近两条都是很短的敷衍,而对方在追问/抱怨 → 这次必须好好接话
+  const lastAi2 = rows.filter((r) => r.role === 'ai').slice(-2);
+  const stonewalling = lastAi2.length >= 2 && lastAi2.every((r) => r.text.trim().length <= 3);
+  if (stonewalling) { plan.action = 'reply'; if (plan.length === 'tiny') plan.length = 'short'; plan.move = plan.move && !/敷衍|嗯/.test(plan.move) ? plan.move : (lang === 'en' ? 'actually answer them, in your own temper' : '正面接住 TA 的话,用你自己的脾气回应'); }
   return plan;
 }
 
+// ---- 表情包:模型只能从这个列表里选,消息里写成 [sticker:名字],前端渲染成表情 ----
 // ---- 第 2 步:按计划生成具体消息 ----
 const BANNED = /(我理解你|理解你的感受|听起来你|你是不是觉得|有什么(我)?可以帮|随时(都)?在|希望(这|能)?对你有|如果你愿意|要不要(我|试试)|作为(一个)?(AI|朋友|你的)|抱抱你|你并不孤单|I understand how you feel|sounds like you|how can I help|I'm (always )?here for you|if you'd like)/i;
 function cleanMsg(t: string) {
@@ -168,25 +175,44 @@ export async function genMessages(c: Companion, rows: MsgRow[], plan: Plan, lang
   const lenZh = plan.length === 'tiny' ? '1~4 个字' : plan.length === 'short' ? '一句短话' : '一两句,可以稍微多说点';
   const lenEn = plan.length === 'tiny' ? '1-4 words' : plan.length === 'short' ? 'one short line' : 'one or two lines';
   const instr = lang === 'en'
-    ? `\n\nThis time: react like this → ${plan.move || 'whatever feels natural'}. Send ${plan.count} message(s), each ${lenEn}. ${plan.ask ? 'You may ask one thing if natural.' : 'Do NOT ask a question.'} Output ONLY JSON: {"msgs":[string,...]}`
-    : `\n\n这一次:反应方式 → ${plan.move || '自然接'}。发 ${plan.count} 条,每条${lenZh}。${plan.ask ? '可以顺口问一句(不是必须)。' : '这次不要提问。'}只输出 JSON:{"msgs":[字符串,...]}`;
+    ? `\n\nThis time: react like this → ${plan.move || 'whatever feels natural'}. Send ${plan.count} message(s), each ${lenEn}. ${plan.ask ? 'You may ask one thing if natural.' : 'Do NOT ask a question.'} Never repeat a line you just sent. If they ask you something directly or complain, actually respond to it. Occasionally (not often) a message can be just a sticker, written exactly as [sticker:NAME] with NAME from: ${Object.keys(STICKERS).join(', ')}. Output ONLY JSON: {"msgs":[string,...]}`
+    : `\n\n这一次:反应方式 → ${plan.move || '自然接'}。发 ${plan.count} 条,每条${lenZh}。${plan.ask ? '可以顺口问一句(不是必须)。' : '这次不要提问。'}别重复你刚说过的话(比如连着几次都是"嗯")。对方直接问你问题或者抱怨你时,要真的接住,用你自己的脾气回应。偶尔(不是每次)可以单独发一个表情包,写成 [sticker:名字],名字只能从这些里选:${Object.keys(STICKERS).join('、')}。只输出 JSON:{"msgs":[字符串,...]}`;
   const history = historyWithGaps(rows, lang);
+  const recentAi = rows.filter((r) => r.role === 'ai').slice(-3).map((r) => r.text.trim());
+  const valid = (m: string) => {
+    const st = m.match(STICKER_RE); if (st) return !!STICKERS[st[1].trim()];
+    return true;
+  };
+  const tidy = (arr: any[]) => arr.map((x: any) => cleanMsg(String(x || ''))).filter(Boolean).filter(valid).slice(0, 3) as string[];
   const run = async (extra = '') => {
-    const { data } = await callLLMJson<any>({ system: sysPrompt(c, lang) + instr + extra, messages: history, tier: 'main', temperature: 1.0, maxTokens: 200, provider: 'deepseek' });
-    const arr = Array.isArray(data?.msgs) ? data.msgs : [data?.reply ?? ''];
-    return arr.map((x: any) => cleanMsg(String(x || ''))).filter(Boolean).slice(0, 3) as string[];
+    // maxTokens 给足:太小会把 JSON 截断 → 解析失败 → 以前就会兜底成"嗯"
+    const { data } = await callLLMJson<any>({ system: sysPrompt(c, lang) + instr + extra, messages: history, tier: 'main', temperature: 1.0, maxTokens: 600, provider: 'deepseek', retry: true });
+    return tidy(Array.isArray(data?.msgs) ? data.msgs : [data?.reply ?? data?.msg ?? '']);
+  };
+  // JSON 失败时的退路:直接普通对话,按行拆成几条
+  const runPlain = async (extra = '') => {
+    const r = await callLLM({ system: sysPrompt(c, lang) + (lang === 'en' ? `\n\nReply now: ${plan.move || 'naturally'}. Just the message text, 1-2 short lines, one message per line.` : `\n\n现在回复:${plan.move || '自然接'}。只输出消息本身,一两句短话,每条一行。`) + extra, messages: history, tier: 'main', temperature: 1.0, maxTokens: 400, provider: 'deepseek' });
+    return tidy(r.text.split(/\n+/));
   };
   let msgs: string[] = [];
   try { msgs = await run(); } catch {}
+  if (!msgs.length) { try { msgs = await runPlain(); } catch {} }
   if (msgs.some((m) => BANNED.test(m))) {
     try { msgs = await run(lang === 'en' ? '\nYour last draft sounded like an assistant/therapist. Rewrite as yourself, plainly.' : '\n你上一版太像客服/心理咨询了,用你自己平时的口气重说,别安慰别分析。'); } catch {}
     msgs = msgs.filter((m) => !BANNED.test(m));
+  }
+  // 跟自己最近说的一模一样(比如一直"嗯")→ 重来一次
+  if (msgs.length && msgs.every((m) => recentAi.includes(m.trim()))) {
+    try {
+      const again = await run(lang === 'en' ? `\nYou already said "${msgs[0]}" — say something different this time.` : `\n你刚才已经说过"${msgs[0]}"了,这次换句别的,接住对方的话。`);
+      if (again.length) msgs = again;
+    } catch {}
   }
   if (!plan.ask && msgs.length > 1) {
     const noQ = msgs.filter((m) => !/[?？]\s*$/.test(m) || m.length <= 2);
     if (noQ.length) msgs = noQ;
   }
-  if (!msgs.length) msgs = [lang === 'en' ? 'hm' : '嗯'];
+  if (!msgs.length) msgs = [lang === 'en' ? 'wait what' : '等下 刚在忙'];
   return msgs;
 }
 

@@ -1,5 +1,6 @@
 // 聊天:发消息只存(不阻塞,可以连发);停顿后客户端调 respond,AI 一次性看完你发的所有未回消息再决定怎么回。
 import { NextResponse } from 'next/server';
+import { previewText } from '@/lib/companion/stickers';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { sendPush } from '@/lib/push';
 import { ensureCompanion, planReaction, genMessages, replyDelaySec, updateMemory, clamp, scheduleNext, heuristicNextHours, isAllowed, type MsgRow } from '@/lib/companion/engine';
@@ -68,7 +69,7 @@ async function pushTo(admin: any, userId: string, title: string, body: string, i
   try {
     const { data: subs } = await admin.from('push_subs').select('*').eq('user_id', userId);
     for (const s of (subs || [])) {
-      const r = await sendPush({ endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth }, { title, body, url: '/companion?src=app', icon: icon || undefined });
+      const r = await sendPush({ endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth }, { title, body: previewText(body), url: '/companion?src=app', icon: icon || undefined });
       if (r === 'gone') await admin.from('push_subs').delete().eq('id', s.id);
     }
   } catch {}

@@ -170,7 +170,15 @@ She: ${look}, about ${age}, ${hair}${acc ? ', wearing ' + acc : ''}, in ${outfit
 Makeup: popular Douyin-style makeup — blush swept across her cheeks and the tip of her nose, glossy rosy lips, natural brows, clean bright eyes.
 Pose and expression: ${pose}, ${mood}.
 Shot: ${mirror ? camera : `a front-camera selfie at arm's length, very close crop — her face fills most of the frame, the top of her head or her chin slightly cut off; the phone is not visible`}. Setting: ${mirror ? sc.place : setting}.
-Look of the photo: edited with a beauty camera app (like Meitu / Xingtu / BeautyCam) — fair, bright, softly smoothed rosy skin, slightly enlarged eyes, slimmer face, low contrast, slightly overexposed, soft pink or milky-white tone; the background can be softly blurred like phone portrait mode. It should look exactly like the many pretty-girl avatars on Chinese social media.
+Light: ${rnd([
+  'daylight coming from ONE side (a window or the open sky to her left or right) — the far side of her face is noticeably darker',
+  'backlit by the sky or a window behind her, so her face is a little darker than the background, which is slightly blown out',
+  'ordinary indoor ceiling light from above, a bit dim, soft shadows under her brows and chin',
+  'late-afternoon sun from the side, with uneven patches of light and shadow on her face and hair',
+  'dim evening light, mostly from her phone screen and a small lamp, the background falling into darkness',
+])}. The light is NOT even and NOT flattering studio light; her face is not evenly lit from the front.
+Detail: phone front-camera quality, NOT crisp — eyelashes, hair strands and fabric texture are a bit soft and smeared by phone processing; slight noise in the darker parts. Not high resolution, not a DSLR.
+Look of the photo: edited with a beauty camera app (like Meitu / Xingtu / BeautyCam) — fair, bright, softly smoothed rosy skin, slightly enlarged eyes, slimmer face, low contrast, soft pink or milky-white tone; the background can be softly blurred like phone portrait mode. It should look exactly like the many pretty-girl avatars on Chinese social media.
 She is genuinely beautiful. Photorealistic photo of a real person, not an illustration, not anime, not a 3D render, not a studio or magazine shoot, no cinematic grading. One adult woman only. No text, no watermark, no logo.`;
       }
     } else {
@@ -185,9 +193,10 @@ He is good-looking and youthful; this is a real selfie he posted himself — NOT
   }
 
   try {
-    const buf = await generateImage(prompt);
-    const path = `avatars/companion/${user.id}.png`;
-    const up = await admin.storage.from('scene-images').upload(path, buf, { contentType: 'image/png', upsert: true });
+    // 中档画质 + 较重 JPEG 压缩:像手机前置拍完再经微信发出来的画质,而不是高清相机
+    const buf = await generateImage(prompt, { quality: 'medium', jpeg: 58 });
+    const path = `avatars/companion/${user.id}.jpg`;
+    const up = await admin.storage.from('scene-images').upload(path, buf, { contentType: buf[0] === 0xff ? 'image/jpeg' : 'image/png', upsert: true });
     if (up.error) throw new Error(up.error.message);
     const { data: pub } = admin.storage.from('scene-images').getPublicUrl(path);
     const url = `${pub.publicUrl}?t=${Date.now()}`;

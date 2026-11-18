@@ -12,7 +12,8 @@ function client() {
 // prompt 应已由 buildScenePrompt / buildAvatarPrompt 套好统一风格。
 // 不传 response_format（不同模型支持不一）：返回 b64 就解码，返回 url 就下载，通用。
 // 多模型兜底：首选 IMAGE_MODEL，失败则退到 gpt-image-1 / dall-e-3，避免某个模型名无效就全军覆没。
-export async function generateImage(prompt: string): Promise<Buffer> {
+export type ImageOpts = { quality?: 'low' | 'medium' | 'high'; jpeg?: number }; // jpeg = 压缩质量 0-100(越小压缩越狠)
+export async function generateImage(prompt: string, opts: ImageOpts = {}): Promise<Buffer> {
   if (!(process.env.IMAGE_API_KEY || process.env.OPENAI_API_KEY)) {
     throw new Error('未配置 OPENAI_API_KEY（或 IMAGE_API_KEY），无法生成图片');
   }
@@ -20,7 +21,13 @@ export async function generateImage(prompt: string): Promise<Buffer> {
   let lastErr: any = null;
   for (const model of models) {
     try {
-      const res = await client().images.generate({ model, prompt, size: '1024x1024', n: 1 });
+      const extra: any = {};
+      // 只有 gpt-image 系列支持画质档位和 JPEG 压缩;dall-e-3 不传
+      if (model.startsWith('gpt-image')) {
+        if (opts.quality) extra.quality = opts.quality;
+        if (typeof opts.jpeg === 'number') { extra.output_format = 'jpeg'; extra.output_compression = Math.max(0, Math.min(100, Math.round(opts.jpeg))); }
+      }
+      const res = await client().images.generate({ model, prompt, size: '1024x1024', n: 1, ...extra } as any);
       const d: any = res.data?.[0];
       if (d?.b64_json) return Buffer.from(d.b64_json, 'base64');
       if (d?.url) {

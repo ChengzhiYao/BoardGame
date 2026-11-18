@@ -45,6 +45,7 @@ export default function CompanionPage() {
   const [tab, setTab] = useState<'welcome' | 'chat' | 'setup' | 'quiz'>('chat');
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [freeText, setFreeText] = useState('');
+  const [gender, setGender] = useState<'f' | 'm' | 'any'>('f');
   const [generating, setGenerating] = useState(false);
   const [toast, setToast] = useState('');
   const endRef = useRef<HTMLDivElement | null>(null);
@@ -120,7 +121,7 @@ export default function CompanionPage() {
     if (Object.keys(answers).length < QUIZ.length) { flash(L('先把问题都选一下', 'Answer all first')); return; }
     setGenerating(true);
     try {
-      const r = await fetch('/api/companion/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ answers, freeText, lang: en ? 'en' : 'zh' }) });
+      const r = await fetch('/api/companion/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ answers, freeText, gender, lang: en ? 'en' : 'zh' }) });
       const d = await r.json();
       if (d.ok) { await load(); setTab('chat'); flash(L('你的伴侣诞生了 · ' + d.aiName, 'Meet ' + d.aiName)); genAvatar(); }
       else flash(L('生成失败,再试一次', 'Failed, try again'));
@@ -339,6 +340,15 @@ export default function CompanionPage() {
       ) : tab === 'quiz' ? (
         <div className="space-y-5">
           <p className="text-parchment/70 text-sm leading-relaxed">{L('回答几个小问题,我们据此为你"生成"一个最配你的伴侣——不是让你自己挑,而是让你遇到。', "Answer a few questions and we'll conjure the companion that fits you — not picked, discovered.")}</p>
+          <div>
+            <div className="text-sm text-parchment/85 mb-2">{L('你想遇到的是', 'You want to meet')}</div>
+            <div className="grid grid-cols-3 gap-2">
+              {([['f', L('女生', 'A girl')], ['m', L('男生', 'A guy')], ['any', L('随缘', 'Either')]] as const).map(([k, label]) => (
+                <button key={k} onClick={() => setGender(k)}
+                  className={`text-sm px-3 py-2 rounded-lg border transition ${gender === k ? 'bg-blood/30 border-blood text-parchment' : 'bg-ink/50 border-eldritch/30 text-parchment/70 hover:border-eldritch'}`}>{label}</button>
+              ))}
+            </div>
+          </div>
           {QUIZ.map((q) => (
             <div key={q.id}>
               <div className="text-sm text-parchment/85 mb-2">{en ? q.en : q.zh}</div>

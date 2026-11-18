@@ -12,6 +12,8 @@ export async function POST(req: Request) {
   const b = await req.json().catch(() => ({} as any));
   const answers = b?.answers || {};
   const freeText = (b?.freeText || '').toString().slice(0, 300);
+  const gRaw = b?.gender === 'm' ? 'm' : b?.gender === 'any' ? (Math.random() < 0.5 ? 'f' : 'm') : 'f';
+  const genderZh = gRaw === 'm' ? '男' : '女';
   const lang: 'zh' | 'en' = b?.lang === 'en' ? 'en' : 'zh';
   const admin = createAdminClient();
   if (!(await isAllowed(admin, user))) return NextResponse.json({ ok: false, reason: 'not_allowed' }, { status: 403 });
@@ -38,8 +40,9 @@ export async function POST(req: Request) {
   const ns = rnd(NAME_STYLES);
 
   const sys = lang === 'en'
-    ? `You design a believable AI companion (a real-feeling person) for a user, based on an indirect preference quiz. Don't give them exactly what they'd pick — design the best MATCH with a little intrigue/complement, so it feels discovered, not ordered. Decide: a name, a vivid personality (incl. speech habits, clinginess, relationship style, a hint of their own dreams/past), and a concrete JOB. Output ONLY JSON: {"aiName": string, "persona": string (2-4 sentences, second person: "你是…"), "job": string}. The name must be a casual handle with no emoji.`
+    ? `The companion is a young ${gRaw === 'm' ? 'man' : 'woman'} in their 20s. You design a believable AI companion (a real-feeling person) for a user, based on an indirect preference quiz. Don't give them exactly what they'd pick — design the best MATCH with a little intrigue/complement, so it feels discovered, not ordered. Decide: a name, a vivid personality (incl. speech habits, clinginess, relationship style, a hint of their own dreams/past), and a concrete JOB. Output ONLY JSON: {"aiName": string, "persona": string (2-4 sentences, second person: "你是…"), "job": string}. The name must be a casual handle with no emoji.`
     : `你要根据一份"隐晦偏好测验"为用户设计一个可信的 AI 伴侣(像个真实的人)。不要原样给 TA 想要的——设计一个最"配"但带点意外/互补的,让人觉得是"遇到"而非"下单"。
+【性别】这次 TA 是**${genderZh}生**(20 多岁的年轻人),名字、性格、说话方式都要符合。
 【名字·重要】aiName 是 TA 的微信昵称,不是真名。这次的昵称风格:**${ns.k}**——${ns.d}。aiName 里**不要放任何 emoji 或符号**,也不要用"阿X""小X"这种套路。真名藏进 persona,熟了被问起才说。
 【性格·重要】刚认识时 TA 跟用户还不熟:有距离感、不会主动热情、不会一上来就分享一大堆或约见面,慢慢熟了才放开。
 你来定:名字(网名式)、鲜活的性格(含说话习惯、黏人程度、相处方式、真名及 TA 自己的一点梦想/过往)、以及一个**具体职业**。只输出 JSON:{"aiName": 字符串(按上面指定风格,不带 emoji/符号), "persona": 字符串(2~4 句,第二人称"你是…",里面写上 TA 的真名但注明"熟了才说"), "job": 字符串}。`;
@@ -57,7 +60,7 @@ export async function POST(req: Request) {
   const decoR = Math.random();
   const deco = decoR < 0.62 ? '' : decoR < 0.74 ? rnd(['.', '。', '_', '-']) : decoR < 0.84 ? rnd(['ゞ', 'ˊ', '゜', '⁰']) : rnd(['🫧', '🌙', '☁️', '🐾', '🍃', '✨']); // 装饰跟名字意思无关
   const aiName = (baseName + deco).slice(0, 24);
-  const persona = String(gen.persona || '').slice(0, 2000);
+  const persona = (`【性别】${genderZh}\n` + String(gen.persona || '')).slice(0, 2000);
   const job = String(gen.job || '').slice(0, 500);
 
   // 开场白不让模型写(它总写得像在推销)。像真人刚加好友:大多数时候不说话等你先开口,要么就一句很短的

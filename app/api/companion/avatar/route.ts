@@ -29,7 +29,9 @@ export async function POST() {
   } catch {}
   const type = ['selfie', 'pet', 'anime'].includes(pick.type) ? pick.type : 'selfie';
   const desc = String(pick.desc || '').slice(0, 300);
-  const g = pick.gender === 'm' ? 'guy' : 'woman';
+  // 用户在问卷里选的性别优先(写在人设里「【性别】男/女」),没有才用模型猜的
+  const gm = String(c.persona || '').match(/【性别】\s*(男|女)/);
+  const g = gm ? (gm[1] === '男' ? 'guy' : 'woman') : (pick.gender === 'm' ? 'guy' : 'woman');
 
   let prompt = '';
   if (type === 'pet') {

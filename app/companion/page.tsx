@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { getClientLang } from '@/lib/i18n';
 import { QUIZ } from '@/lib/companion/quiz';
-import { STICKERS, STICKER_RE } from '@/lib/companion/stickers';
+import { STICKERS, STICKER_RE, PHOTO_RE } from '@/lib/companion/stickers';
 
 type Msg = { role: 'ai' | 'user'; text: string; ts: number };
 
@@ -23,7 +23,9 @@ export default function CompanionPage() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
   const [avatarGen, setAvatarGen] = useState(false);
-  const [zoom, setZoom] = useState(false);
+  const [zoomSrc, setZoomSrc] = useState<string | null>(null);
+  const setZoom = (on: boolean) => setZoomSrc(on ? avatarUrl : null);
+  const [stickerOpen, setStickerOpen] = useState(false);
   // 独立桌面应用("放到桌面"):自己的图标/名字,打开直接进聊天
   const [installEvt, setInstallEvt] = useState<any>(null);
   const [iosHint, setIosHint] = useState(false);
@@ -266,6 +268,16 @@ export default function CompanionPage() {
             unshown.current = unshown.current.filter((t) => t !== list[i]);
           }
         }
+        // TA 顺手发张生活照(异步出图,先显示"正在输入",图好了再冒出来)
+        if (d.photo && d.photo.sig) {
+          setTyping(true);
+          try {
+            const pr = await fetch('/api/companion/photo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...d.photo, push: document.visibilityState === 'hidden' }) });
+            const pd = await pr.json();
+            if (pd.ok && pd.text) setMsgs((m) => [...m, { role: 'ai', text: pd.text, ts: Date.now() }]);
+          } catch {}
+          setTyping(false);
+        }
         // list 为空 = 已读不回,过一阵它会自己回
       }
     } catch {}
@@ -273,9 +285,9 @@ export default function CompanionPage() {
     responding.current = false;
     if (again.current) scheduleRespond(); // 它回的时候你又发了 → 再看一轮
   }
-  async function send() {
-    const t = text.trim(); if (!t) return;
-    setMsgs((m) => [...m, { role: 'user', text: t, ts: Date.now() }]); setText('');
+  async function send(raw?: string) {
+    const t = (raw ?? text).trim(); if (!t) return;
+    setMsgs((m) => [...m, { role: 'user', text: t, ts: Date.now() }]); if (raw === undefined) setText('');
     if (responding.current) again.current = true;
     try {
       const r = await fetch('/api/companion/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: t, lang: en ? 'en' : 'zh' }) });
@@ -283,6 +295,16 @@ export default function CompanionPage() {
       if (!d.ok) { flash(L('发送失败', 'Failed')); return; }
     } catch { flash(L('网络错误', 'Network error')); return; }
     scheduleRespond();
+  }
+
+  // 消息内容渲染:表情包 / 照片 / 文字
+  function bubble(text: string, mine: boolean) {
+    const t = text.trim();
+    const st = t.match(STICKER_RE); const k = st && STICKERS[st[1].trim()];
+    if (k) return <div className="w-24 h-24 rounded-2xl bg-white/5 flex flex-col items-center justify-center select-none"><span className="text-5xl leading-none">{k.e}</span><span className="text-[11px] text-parchment/70 mt-1.5">{k.t}</span></div>;
+    const ph = t.match(PHOTO_RE);
+    if (ph) return <img src={ph[1]} alt="" onClick={() => setZoomSrc(ph[1])} className="max-w-[60%] max-h-64 rounded-xl object-cover cursor-zoom-in border border-white/5" />;
+    return <div className={`max-w-[72%] px-3.5 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-words ${mine ? 'rounded-br-md bg-[#2a5e3a] text-parchment' : 'rounded-bl-md bg-fog/80 border border-eldritch/25 text-parchment'}`}>{text}</div>;
   }
 
   if (!loaded) return <main className="min-h-screen" />;
@@ -418,33 +440,41 @@ export default function CompanionPage() {
             {msgs.map((m, i) => (
               m.role === 'user' ? (
                 <div key={i} className="flex justify-end">
-                  <div className="max-w-[72%] px-3.5 py-2 rounded-2xl rounded-br-md text-sm leading-relaxed bg-[#2a5e3a] text-parchment whitespace-pre-wrap break-words">{m.text}</div>
+                  {bubble(m.text, true)}
                 </div>
               ) : (
                 <div key={i} className="flex items-end gap-2">
                   {avatarUrl ? <img src={avatarUrl} alt="" onClick={() => setZoom(true)} className="cursor-zoom-in w-7 h-7 rounded-full object-cover border border-eldritch/40 shrink-0" /> : <span className="w-7 h-7 rounded-full bg-eldritch/40 flex items-center justify-center text-xs shrink-0">{(aiName || '?').slice(0,1)}</span>}
-                  {(() => { const st = m.text.trim().match(STICKER_RE); const k = st && STICKERS[st[1].trim()]; return k
-                    ? <div className="w-24 h-24 rounded-2xl bg-white/5 flex flex-col items-center justify-center select-none"><span className="text-5xl leading-none">{k.e}</span><span className="text-[11px] text-parchment/70 mt-1.5">{k.t}</span></div>
-                    : <div className="max-w-[72%] px-3.5 py-2 rounded-2xl rounded-bl-md text-sm leading-relaxed bg-fog/80 border border-eldritch/25 text-parchment whitespace-pre-wrap break-words">{m.text}</div>; })()}
+                  {bubble(m.text, false)}
                 </div>
               )
             ))}
             {typing && <div className="flex items-end gap-2">{avatarUrl ? <img src={avatarUrl} alt="" onClick={() => setZoom(true)} className="cursor-zoom-in w-7 h-7 rounded-full object-cover border border-eldritch/40 shrink-0" /> : <span className="w-7 h-7 rounded-full bg-eldritch/40 shrink-0" />}<div className="px-3.5 py-2.5 rounded-2xl rounded-bl-md bg-fog/80 border border-eldritch/25 text-parchment/40 text-sm">···</div></div>}
             <div ref={endRef} />
           </div>
+          {stickerOpen && (
+            <div className="grid grid-cols-5 gap-2 p-2 mb-1 rounded-xl bg-ink/95 border border-eldritch/30">
+              {Object.entries(STICKERS).map(([name, k]) => (
+                <button key={name} onClick={() => { send(`[sticker:${name}]`); setStickerOpen(false); }} className="flex flex-col items-center justify-center py-1.5 rounded-lg hover:bg-white/5">
+                  <span className="text-3xl leading-none">{k.e}</span><span className="text-[10px] text-parchment/60 mt-1">{k.t}</span>
+                </button>
+              ))}
+            </div>
+          )}
           <div className="flex items-center gap-2 pt-2 sticky bottom-0 pb-1">
             <button onClick={toggleVoice} title={L('语音输入','Voice')} className={`shrink-0 w-10 h-10 rounded-full border flex items-center justify-center ${recording ? 'bg-blood/70 border-blood animate-pulse' : 'bg-ink border-eldritch/40 text-parchment/70 hover:text-parchment'}`}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
             </button>
-            <input value={text} onChange={(e) => { setText(e.target.value); if (replyTimer.current && !responding.current) scheduleRespond(); }} onKeyDown={(e) => e.key === 'Enter' && send()} placeholder={recording ? L('在听……','listening…') : L('说点什么…', 'Say something…')} className="flex-1 min-w-0 px-3.5 py-2.5 rounded-full bg-ink border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch text-sm" />
-            <button onClick={send} disabled={!text.trim()} className="shrink-0 px-5 py-2.5 rounded-full bg-blood/80 hover:bg-blood border border-blood disabled:opacity-40 text-sm">{L('发送', 'Send')}</button>
+            <button onClick={() => setStickerOpen((v) => !v)} title={L('表情','Stickers')} className={`shrink-0 w-10 h-10 rounded-full border flex items-center justify-center text-lg ${stickerOpen ? 'bg-eldritch/30 border-eldritch' : 'bg-ink border-eldritch/40'}`}>😊</button>
+            <input value={text} onChange={(e) => { setText(e.target.value); if (replyTimer.current && !responding.current) scheduleRespond(); }} onKeyDown={(e) => e.key === 'Enter' && send()} onFocus={() => setStickerOpen(false)} placeholder={recording ? L('在听……','listening…') : L('说点什么…', 'Say something…')} className="flex-1 min-w-0 px-3.5 py-2.5 rounded-full bg-ink border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch text-sm" />
+            <button onClick={() => send()} disabled={!text.trim()} className="shrink-0 px-5 py-2.5 rounded-full bg-blood/80 hover:bg-blood border border-blood disabled:opacity-40 text-sm">{L('发送', 'Send')}</button>
           </div>
         </>
       )}
-      {zoom && avatarUrl && (
-        <div onClick={() => setZoom(false)} className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center p-4 cursor-zoom-out">
-          <img src={avatarUrl} alt={aiName} className="max-w-full max-h-[90vh] rounded-lg object-contain shadow-2xl" />
-          <button onClick={() => setZoom(false)} aria-label="close" className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 text-white text-xl leading-none">×</button>
+      {zoomSrc && (
+        <div onClick={() => setZoomSrc(null)} className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center p-4 cursor-zoom-out">
+          <img src={zoomSrc} alt={aiName} className="max-w-full max-h-[90vh] rounded-lg object-contain shadow-2xl" />
+          <button onClick={() => setZoomSrc(null)} aria-label="close" className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 text-white text-xl leading-none">×</button>
         </div>
       )}
       {toast && <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-ink border border-eldritch/40 text-parchment text-sm shadow-xl">{toast}</div>}

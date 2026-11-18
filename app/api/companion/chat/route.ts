@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { previewText } from '@/lib/companion/stickers';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { sendPush } from '@/lib/push';
+import { signPhoto, photosToday, PHOTO_DAILY_LIMIT } from '@/lib/companion/photo';
 import { ensureCompanion, planReaction, genMessages, replyDelaySec, updateMemory, clamp, scheduleNext, heuristicNextHours, isAllowed, type MsgRow } from '@/lib/companion/engine';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -60,9 +61,19 @@ export async function POST(req: Request) {
     if (mem && mem !== c.memory) await admin.from('companion').update({ memory: mem }).eq('user_id', user.id);
   } catch {}
 
+  // 生活照:模型想发 + 没超每日上限 + 配了出图 key → 给前端一个签名任务,由 /photo 接口异步出图(不拖慢文字回复)
+  let photo: any = null;
+  if (plan.photo && (process.env.IMAGE_API_KEY || process.env.OPENAI_API_KEY)) {
+    try {
+      if ((await photosToday(admin, user.id)) < PHOTO_DAILY_LIMIT) {
+        const ts = Date.now();
+        photo = { desc: plan.photoDesc, ts, sig: signPhoto(user.id, plan.photoDesc, ts) };
+      }
+    } catch {}
+  }
   // 页面已经退到后台时(push:true),直接推送到手机
   if (b?.push) await pushTo(admin, user.id, c.ai_name, replies.join('\n'), c.avatar_url);
-  return NextResponse.json({ ok: true, replies, reply: replies.join('\n'), delay, mood: newMood, affection: newAff });
+  return NextResponse.json({ ok: true, replies, reply: replies.join('\n'), delay, mood: newMood, affection: newAff, photo });
 }
 
 async function pushTo(admin: any, userId: string, title: string, body: string, icon?: string | null) {

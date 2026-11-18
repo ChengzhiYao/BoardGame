@@ -1,6 +1,6 @@
 // 主动型 AI 陪伴引擎 v2：真人化——职业/作息/心情/好感度 + 拟人语气 + 不秒回 + 自主发消息。
 import { callLLM, callLLMJson, type LLMMessage } from '@/lib/llm';
-import { STICKERS, STICKER_RE, previewText } from '@/lib/companion/stickers';
+import { STICKERS, STICKER_RE, PHOTO_RE, previewText, forModel } from '@/lib/companion/stickers';
 export { previewText };
 
 export type Companion = {
@@ -94,7 +94,7 @@ export function historyWithGaps(rows: MsgRow[], lang: 'zh' | 'en'): LLMMessage[]
     const gap = prev && ts ? gapLabel(ts - prev, lang) : '';
     if (ts) prev = ts;
     const role = r.role === 'ai' ? 'assistant' : 'user';
-    out.push({ role, content: role === 'user' ? gap + r.text : r.text } as LLMMessage);
+    out.push({ role, content: role === 'user' ? gap + forModel(r.text, true) : forModel(r.text, false) } as LLMMessage);
   }
   // 合并相邻同角色(连发几条)
   const merged: LLMMessage[] = [];
@@ -110,7 +110,7 @@ function transcript(rows: MsgRow[], c: Companion, lang: 'zh' | 'en') {
   return rows.slice(-14).map((r) => {
     const ago = r.created_at ? Math.round((now - new Date(r.created_at).getTime()) / 60000) : null;
     const when = ago == null ? '' : ago < 1 ? (lang === 'en' ? 'just now' : '刚刚') : ago < 60 ? `${ago}${lang === 'en' ? 'm ago' : '分钟前'}` : ago < 1440 ? `${Math.round(ago / 60)}${lang === 'en' ? 'h ago' : '小时前'}` : `${Math.round(ago / 1440)}${lang === 'en' ? 'd ago' : '天前'}`;
-    return `[${r.role === 'ai' ? (lang === 'en' ? 'me' : '我') : 'TA'} · ${when}] ${r.text}`;
+    return `[${r.role === 'ai' ? (lang === 'en' ? 'me' : '我') : 'TA'} · ${when}] ${forModel(r.text, r.role !== 'ai')}`;
   }).join('\n');
 }
 
@@ -118,18 +118,20 @@ function transcript(rows: MsgRow[], c: Companion, lang: 'zh' | 'en') {
 export type Plan = {
   action: 'reply' | 'ignore'; count: number; length: 'tiny' | 'short' | 'normal';
   move: string; ask: boolean; busy: number; moodDelta: number; affDelta: number; nextHours: number;
+  photo: boolean; photoDesc: string;
 };
 export async function planReaction(c: Companion, rows: MsgRow[], lang: 'zh' | 'en'): Promise<Plan> {
   const t = localNow(c);
   const sys = (lang === 'en'
     ? `You decide HOW a real person would react to the latest text — not the words. You are ${c.ai_name}. Personality: ${c.persona}. Job: ${c.job}. Local time ${t.h}:${String(t.min).padStart(2, '0')}. Mood ${c.mood}/100, feelings ${c.affection}/100. Memory: ${c.memory || '-'}.
 Consider the whole recent chat, time gaps, how close you are, whether you're busy at this hour, and your own temperament. Output ONLY JSON:
-{"action":"reply"|"ignore","count":1-3,"length":"tiny"|"short"|"normal","move":"what kind of reaction in a few words, e.g. 'tease back', 'just react: lol', 'complain about work', 'brush it off', 'mention something of my own'","ask":boolean,"busy":0-1,"mood_delta":-12..12,"aff_delta":-6..6,"next_hours":0.3-48}
-Rules: "ignore" = read but not reply now (busy / not interested / nothing to say) — use rarely. "tiny" = 1-4 words like "?" or "lol". ask=true only if you'd genuinely be curious; usually false. count>1 only when people naturally send several short texts in a row.`
+{"action":"reply"|"ignore","count":1-3,"length":"tiny"|"short"|"normal","move":"what kind of reaction in a few words, e.g. 'tease back', 'just react: lol', 'complain about work', 'brush it off', 'mention something of my own'","ask":boolean,"busy":0-1,"mood_delta":-12..12,"aff_delta":-6..6,"next_hours":0.3-48,"photo":boolean,"photo_desc":"what the photo shows"}
+Rules: "ignore" = read but not reply now (busy / not interested / nothing to say) — use rarely. "tiny" = 1-4 words like "?" or "lol". ask=true only if you'd genuinely be curious; usually false. count>1 only when people naturally send several short texts in a row. photo=true only when you'd naturally snap and send a photo of what you're doing/seeing (they asked what you're up to, or you want to show them something) — usually false; photo_desc = your point-of-view phone shot of the scene, never your face (your hand at most).`
     : `你负责判断一个真人看到最新消息后**会怎么反应**,不写具体台词。你是「${c.ai_name}」。性格:${c.persona}。职业:${c.job}。当地时间 ${t.h}:${String(t.min).padStart(2, '0')}。心情 ${c.mood}/100,好感 ${c.affection}/100。记忆:${c.memory || '无'}。
 要综合整段近期聊天、消息之间隔了多久、你们熟不熟、这个点你是不是在忙、以及你一贯的脾气来判断。只输出 JSON:
-{"action":"reply"或"ignore","count":1~3,"length":"tiny"|"short"|"normal","move":"用几个字说反应类型,如'怼回去''就回个笑死''吐槽工作''敷衍一下''说说自己今天的事''接着刚才的话题'","ask":布尔,"busy":0~1,"mood_delta":-12~12,"aff_delta":-6~6,"next_hours":0.3~48}
-规则:ignore=已读先不回(在忙/没兴趣/没啥好说),少用。tiny=1~4 个字,像「？」「笑死」「行吧」。ask 只有真的好奇才 true,大多数时候 false。count>1 只在真人会自然连发几条短消息时用。next_hours=你大概多久后会自己想找 TA(黏人/聊得开心就小,冷淡/心情差就大)。`);
+{"action":"reply"或"ignore","count":1~3,"length":"tiny"|"short"|"normal","move":"用几个字说反应类型,如'怼回去''就回个笑死''吐槽工作''敷衍一下''说说自己今天的事''接着刚才的话题'","ask":布尔,"busy":0~1,"mood_delta":-12~12,"aff_delta":-6~6,"next_hours":0.3~48,"photo":布尔,"photo_desc":"英文,照片画面"}
+规则:ignore=已读先不回(在忙/没兴趣/没啥好说),少用。tiny=1~4 个字,像「？」「笑死」「行吧」。ask 只有真的好奇才 true,大多数时候 false。count>1 只在真人会自然连发几条短消息时用。next_hours=你大概多久后会自己想找 TA(黏人/聊得开心就小,冷淡/心情差就大)。
+photo=要不要顺手拍张照发过去(像真人分享日常:对方问你在干嘛/在哪/吃什么,或你想给 TA 看眼前的东西),大多数时候 false。photo_desc 用英文写这张手机随手拍的画面:从你的视角拍你眼前的东西、你在做的事(符合你的职业和现在的时间),**不要拍你的脸**(最多出现你的手)。`);
   let d: any = {};
   try {
     const r = await callLLMJson<any>({ system: sys, messages: [{ role: 'user', content: transcript(rows, c, lang) }], tier: 'aux', temperature: 0.9, maxTokens: 160, provider: 'deepseek' });
@@ -145,7 +147,10 @@ Rules: "ignore" = read but not reply now (busy / not interested / nothing to say
     moodDelta: clamp(Math.round(Number(d.mood_delta) || 0), -12, 12),
     affDelta: clamp(Math.round(Number(d.aff_delta) || 0), -6, 6),
     nextHours: clamp(Number(d.next_hours) || 6, 0.3, 48),
+    photo: !!d.photo && !!String(d.photo_desc || '').trim(),
+    photoDesc: String(d.photo_desc || '').slice(0, 300),
   };
+  if ((c.affection || 0) < 12) plan.photo = false; // 还很生疏就不发照片
   // ---- 代码层的硬约束(不全交给模型) ----
   const last = rows[rows.length - 1];
   const tail = rows.slice(-3);
@@ -153,7 +158,7 @@ Rules: "ignore" = read but not reply now (busy / not interested / nothing to say
   const lowStake = (last?.text || '').length <= 15;
   const canIgnore = !alreadyIgnoring && lowStake && (plan.busy >= 0.55 || c.affection < 25 || c.mood < 30);
   if (plan.action === 'ignore' && !canIgnore) plan.action = 'reply';
-  if (plan.action === 'ignore') plan.nextHours = clamp(plan.nextHours, 0.3, 3); // 已读不回 → 过一阵再回
+  if (plan.action === 'ignore') { plan.nextHours = clamp(plan.nextHours, 0.3, 3); plan.photo = false; } // 已读不回 → 过一阵再回
   // 最近自己刚问过问题 → 这次不许再问
   const aiRecent = rows.filter((r) => r.role === 'ai').slice(-2);
   if (aiRecent.some((r) => /[?？]\s*$/.test(r.text))) plan.ask = false;
@@ -177,16 +182,18 @@ export async function genMessages(c: Companion, rows: MsgRow[], plan: Plan, lang
   const instr = lang === 'en'
     ? `\n\nThis time: react like this → ${plan.move || 'whatever feels natural'}. Send ${plan.count} message(s), each ${lenEn}. ${plan.ask ? 'You may ask one thing if natural.' : 'Do NOT ask a question.'} Never repeat a line you just sent. If they ask you something directly or complain, actually respond to it. Occasionally (not often) a message can be just a sticker, written exactly as [sticker:NAME] with NAME from: ${Object.keys(STICKERS).join(', ')}. Output ONLY JSON: {"msgs":[string,...]}`
     : `\n\n这一次:反应方式 → ${plan.move || '自然接'}。发 ${plan.count} 条,每条${lenZh}。${plan.ask ? '可以顺口问一句(不是必须)。' : '这次不要提问。'}别重复你刚说过的话(比如连着几次都是"嗯")。对方直接问你问题或者抱怨你时,要真的接住,用你自己的脾气回应。偶尔(不是每次)可以单独发一个表情包,写成 [sticker:名字],名字只能从这些里选:${Object.keys(STICKERS).join('、')}。只输出 JSON:{"msgs":[字符串,...]}`;
+  const photoNote = plan.photo ? (lang === 'en' ? `\nYou are also sending a photo right after this (${plan.photoDesc}); your text can go with it naturally (e.g. what you're doing), don't describe the photo in detail.` : `\n你这次还会紧接着发一张照片(${plan.photoDesc}),文字可以自然地配合(比如说说在干嘛),别详细描述照片。`) : '';
   const history = historyWithGaps(rows, lang);
   const recentAi = rows.filter((r) => r.role === 'ai').slice(-3).map((r) => r.text.trim());
   const valid = (m: string) => {
     const st = m.match(STICKER_RE); if (st) return !!STICKERS[st[1].trim()];
+    if (PHOTO_RE.test(m) || /^\[(你刚发了|对方发了)/.test(m)) return false; // 模型模仿历史里的占位文字 → 丢掉
     return true;
   };
   const tidy = (arr: any[]) => arr.map((x: any) => cleanMsg(String(x || ''))).filter(Boolean).filter(valid).slice(0, 3) as string[];
   const run = async (extra = '') => {
     // maxTokens 给足:太小会把 JSON 截断 → 解析失败 → 以前就会兜底成"嗯"
-    const { data } = await callLLMJson<any>({ system: sysPrompt(c, lang) + instr + extra, messages: history, tier: 'main', temperature: 1.0, maxTokens: 600, provider: 'deepseek', retry: true });
+    const { data } = await callLLMJson<any>({ system: sysPrompt(c, lang) + instr + photoNote + extra, messages: history, tier: 'main', temperature: 1.0, maxTokens: 600, provider: 'deepseek', retry: true });
     return tidy(Array.isArray(data?.msgs) ? data.msgs : [data?.reply ?? data?.msg ?? '']);
   };
   // JSON 失败时的退路:直接普通对话,按行拆成几条

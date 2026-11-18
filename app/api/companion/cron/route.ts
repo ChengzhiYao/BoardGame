@@ -49,7 +49,7 @@ export async function GET(req: Request) {
       const { data: subs } = await admin.from('push_subs').select('*').eq('user_id', c.user_id);
       if (!subs || !subs.length) pushLog.push({ u: c.user_id.slice(0, 6), push: 'no_subs' });
       for (const s of (subs || [])) {
-        const res = await sendPushDetailed({ endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth }, { title: c.ai_name, body: msg, url: '/companion' });
+        const res = await sendPushDetailed({ endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth }, { title: c.ai_name, body: msg, url: '/companion?src=app', icon: c.avatar_url || undefined });
         if (res.status === 'gone') await admin.from('push_subs').delete().eq('id', s.id);
         pushLog.push({ u: c.user_id.slice(0, 6), push: res.status, code: res.code, error: res.error });
       }

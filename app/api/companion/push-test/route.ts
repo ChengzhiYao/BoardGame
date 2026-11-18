@@ -17,7 +17,7 @@ export async function POST() {
   if (!subs || !subs.length) return NextResponse.json({ ok: false, reason: 'no_subs' });
   const results: any[] = [];
   for (const s of subs) {
-    const r = await sendPushDetailed({ endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth }, { title: c.ai_name || '夜', body: '在吗', url: '/companion' });
+    const r = await sendPushDetailed({ endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth }, { title: c.ai_name || '夜', body: '在吗', url: '/companion?src=app', icon: c.avatar_url || undefined });
     if (r.status === 'gone') await admin.from('push_subs').delete().eq('id', s.id);
     results.push({ host: (() => { try { return new URL(s.endpoint).host; } catch { return '?'; } })(), ...r });
   }

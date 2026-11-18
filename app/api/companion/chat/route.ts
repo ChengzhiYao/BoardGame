@@ -60,15 +60,15 @@ export async function POST(req: Request) {
   } catch {}
 
   // 页面已经退到后台时(push:true),直接推送到手机
-  if (b?.push) await pushTo(admin, user.id, c.ai_name, replies.join('\n'));
+  if (b?.push) await pushTo(admin, user.id, c.ai_name, replies.join('\n'), c.avatar_url);
   return NextResponse.json({ ok: true, replies, reply: replies.join('\n'), delay, mood: newMood, affection: newAff });
 }
 
-async function pushTo(admin: any, userId: string, title: string, body: string) {
+async function pushTo(admin: any, userId: string, title: string, body: string, icon?: string | null) {
   try {
     const { data: subs } = await admin.from('push_subs').select('*').eq('user_id', userId);
     for (const s of (subs || [])) {
-      const r = await sendPush({ endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth }, { title, body, url: '/companion' });
+      const r = await sendPush({ endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth }, { title, body, url: '/companion?src=app', icon: icon || undefined });
       if (r === 'gone') await admin.from('push_subs').delete().eq('id', s.id);
     }
   } catch {}

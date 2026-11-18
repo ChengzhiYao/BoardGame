@@ -150,12 +150,36 @@ export default function CompanionPage() {
     r.onerror = () => setRecording(false);
     try { r.start(); setRecording(true); } catch { setRecording(false); }
   }
+  // 陪伴专用推送通道:Service Worker 作用范围只有 /companion,通知就归属"AI 陪伴"应用而不是谜夜
+  async function companionReg() {
+    const reg = await navigator.serviceWorker.register('/companion-sw.js', { scope: '/companion' });
+    if (!reg.active) await new Promise<void>((res) => {
+      const w = reg.installing || reg.waiting;
+      if (!w) return res();
+      w.addEventListener('statechange', () => { if (w.state === 'activated') res(); });
+      setTimeout(res, 4000);
+    });
+    return reg;
+  }
+  // 把以前挂在谜夜整站(scope "/")上的旧订阅取消掉
+  async function dropRootSub() {
+    try {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      const root = regs.find((r) => new URL(r.scope).pathname === '/');
+      const old = root ? await root.pushManager.getSubscription() : null;
+      if (old) {
+        await fetch('/api/companion/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ remove: old.endpoint }) });
+        await old.unsubscribe();
+      }
+    } catch {}
+  }
   // 自愈:已授权通知但服务器上没订阅/订阅换了 → 自动重新登记(安卓上订阅会过期或被清)
   async function healPush(serverHas: boolean) {
     try {
       if (!('serviceWorker' in navigator) || !('PushManager' in window) || Notification.permission !== 'granted') return;
       const vapid = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY; if (!vapid) return;
-      const reg = await navigator.serviceWorker.register('/sw.js'); await navigator.serviceWorker.ready;
+      await dropRootSub();
+      const reg = await companionReg();
       let sub = await reg.pushManager.getSubscription();
       if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToUint8(vapid) });
       await fetch('/api/companion/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sub: sub.toJSON() }) });
@@ -181,9 +205,9 @@ export default function CompanionPage() {
       if (!vapid) { flash(L('推送未配置(缺 VAPID key)', 'Push not configured')); return; }
       const perm = await Notification.requestPermission();
       if (perm !== 'granted') { flash(L('你拒绝了通知权限', 'Notifications denied')); return; }
-      const reg = await navigator.serviceWorker.register('/sw.js');
-      await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToUint8(vapid) });
+      await dropRootSub();
+      const reg = await companionReg();
+      const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToUint8(vapid) });
       await fetch('/api/companion/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sub: sub.toJSON() }) });
       setPushOn(true); flash(L('已开启推送 · 它会主动找你了', 'Push on — it will reach out'));
     } catch (e: any) { flash(L('开启失败:' + (e?.message || ''), 'Failed: ' + (e?.message || ''))); }

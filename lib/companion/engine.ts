@@ -37,6 +37,36 @@ function localNow(c: Companion) {
 function moodWord(m: number) { return m >= 75 ? '很好/愉快' : m >= 55 ? '还行' : m >= 35 ? '一般/有点累' : m >= 18 ? '不太好/烦躁' : '很糟/低落'; }
 function affWord(a: number) { return a >= 80 ? '很亲密' : a >= 55 ? '挺喜欢对方' : a >= 30 ? '熟悉的朋友' : a >= 12 ? '刚认识不久' : '还很生疏/有戒心'; }
 
+// ---- 打字习惯:每个角色固定 2~3 个,人设里写成「【打字习惯】a;b」;老角色没有就按 user_id 稳定地抽 ----
+export const HABITS = [
+  '爱带颜文字,比如 (๑•̀ㅂ•́)و✧  (｡•́︿•̀｡)  (￣▽￣)  ( ˘•ω•˘ )  ヽ(✿ﾟ▽ﾟ)ノ,不是每句都带',
+  '句尾爱拖省略号……或者....',
+  '笑的时候就是一长串 哈哈哈哈哈哈哈哈 或 hhhhhh,很少说"好笑"',
+  '一激动就连打一排感叹号!!!!!!!!!!或问号???????',
+  '喜欢把一句话拆成好几条短消息连着发,情绪上来会故意刷屏',
+  '几乎不用标点,用空格断句',
+  '爱用语气词和叠词:嘛 呀 呐 捏 啦 嘿嘿 好叭',
+  '爱用网络缩写和梗:xswl yyds hhh 绝了 救命 笑不活了 无语子',
+  '高冷派:话少,常常就一个"嗯。""哦。""行。",爱用句号',
+  '喜欢打错字也懒得改,偶尔用拼音首字母',
+];
+function hashStr(x: string) { let h = 0; for (let i = 0; i < x.length; i++) h = (h * 31 + x.charCodeAt(i)) | 0; return Math.abs(h); }
+export function pickHabits(seed?: string): string[] {
+  const idx = [...HABITS.keys()];
+  let h = seed ? hashStr(seed) : Math.floor(Math.random() * 1e9);
+  const out: string[] = [];
+  const n = 2 + (h % 2);
+  while (out.length < n && idx.length) { const k = h % idx.length; out.push(HABITS[idx.splice(k, 1)[0]]); h = Math.floor(h / 7) + 13; }
+  // "高冷派"和"刷屏/感叹号"互相冲突,只留先抽到的
+  const cold = out.findIndex((x) => x.startsWith('高冷派'));
+  return cold >= 0 ? out.filter((x, i) => i === cold || !/(刷屏|感叹号|哈哈哈)/.test(x)) : out;
+}
+export function habitsOf(c: Companion): string[] {
+  const m = String(c.persona || '').match(/【打字习惯】([^\n]+)/);
+  if (m) return m[1].split(/[;;]/).map((x) => x.trim()).filter(Boolean);
+  return pickHabits(c.user_id);
+}
+
 // ---- 说话规则(共用):去 AI 味的核心 ----
 const STYLE_ZH = `【怎么发消息——像真人发微信,这些规则最重要】
 - 不推进对话:不用每次都提问、不给对方选项、不总结、不复述对方的话。说完就完,接不接话随你。
@@ -67,6 +97,7 @@ Personality: ${c.persona || 'form your own from the conversation'}
 Job: ${c.job || 'unspecified'}. It's ${timeStr} your time; act like it (at work = distracted, off hours = freer).
 Mood: ${moodWord(c.mood)} (${c.mood}/100). Feelings toward them: ${affWord(c.affection)} (${c.affection}/100).
 What you remember: ${c.memory || '(not much yet)'}
+Your fixed texting habits (always like this): ${habitsOf(c).join(' / ')}. When emotional, exaggerate like real people do (spam several texts, long hahaha, !!!!!!).
 ${STYLE_EN}`;
   }
   return `你是「${c.ai_name}」,一个在跟熟人发微信的**真人**——不是 AI、不是助手。
@@ -74,6 +105,9 @@ ${STYLE_EN}`;
 你的职业:${c.job || '未设定'}。现在是你那边 ${timeStr},按这个作息来(上班心不在焉、话短;下班松弛些)。
 你现在的心情:${moodWord(c.mood)}(${c.mood}/100);对 TA 的感觉:${affWord(c.affection)}(${c.affection}/100)。
 你记得的事:${c.memory || '(还不太了解)'}
+【你的打字习惯——固定的,你一直都这么打字】
+${habitsOf(c).map((h) => '- ' + h).join('\n')}
+情绪上来时(很开心、很激动、很无语、很委屈)可以夸张一点:连发、刷屏、一串哈哈哈或感叹号,真人才会这样;平静时就正常打。
 ${STYLE_ZH}`;
 }
 
@@ -124,12 +158,13 @@ export async function planReaction(c: Companion, rows: MsgRow[], lang: 'zh' | 'e
   const t = localNow(c);
   const sys = (lang === 'en'
     ? `You decide HOW a real person would react to the latest text — not the words. You are ${c.ai_name}. Personality: ${c.persona}. Job: ${c.job}. Local time ${t.h}:${String(t.min).padStart(2, '0')}. Mood ${c.mood}/100, feelings ${c.affection}/100. Memory: ${c.memory || '-'}.
-Consider the whole recent chat, time gaps, how close you are, whether you're busy at this hour, and your own temperament. Output ONLY JSON:
+Your texting habits: ${habitsOf(c).join(' / ')}. Consider the whole recent chat, time gaps, how close you are, whether you're busy at this hour, and your own temperament. Output ONLY JSON:
 {"action":"reply"|"ignore","count":1-3,"length":"tiny"|"short"|"normal","move":"what kind of reaction in a few words, e.g. 'tease back', 'just react: lol', 'complain about work', 'brush it off', 'mention something of my own'","ask":boolean,"busy":0-1,"mood_delta":-12..12,"aff_delta":-6..6,"next_hours":0.3-48,"photo":boolean,"photo_desc":"what the photo shows"}
 Rules: "ignore" = read but not reply now (busy / not interested / nothing to say) — use rarely. "tiny" = 1-4 words like "?" or "lol". ask=true only if you'd genuinely be curious; usually false. count>1 only when people naturally send several short texts in a row. photo=true only when you'd naturally snap and send a photo of what you're doing/seeing (they asked what you're up to, or you want to show them something) — usually false; photo_desc = your point-of-view phone shot of the scene, never your face (your hand at most).`
     : `你负责判断一个真人看到最新消息后**会怎么反应**,不写具体台词。你是「${c.ai_name}」。性格:${c.persona}。职业:${c.job}。当地时间 ${t.h}:${String(t.min).padStart(2, '0')}。心情 ${c.mood}/100,好感 ${c.affection}/100。记忆:${c.memory || '无'}。
 要综合整段近期聊天、消息之间隔了多久、你们熟不熟、这个点你是不是在忙、以及你一贯的脾气来判断。只输出 JSON:
-{"action":"reply"或"ignore","count":1~3,"length":"tiny"|"short"|"normal","move":"用几个字说反应类型,如'怼回去''就回个笑死''吐槽工作''敷衍一下''说说自己今天的事''接着刚才的话题'","ask":布尔,"busy":0~1,"mood_delta":-12~12,"aff_delta":-6~6,"next_hours":0.3~48,"photo":布尔,"photo_desc":"英文,照片画面"}
+{"action":"reply"或"ignore","count":1~5,"length":"tiny"|"short"|"normal","move":"用几个字说反应类型,如'怼回去''就回个笑死''吐槽工作''敷衍一下''说说自己今天的事''接着刚才的话题'","ask":布尔,"busy":0~1,"mood_delta":-12~12,"aff_delta":-6~6,"next_hours":0.3~48,"photo":布尔,"photo_desc":"英文,照片画面"}
+你的打字习惯:${habitsOf(c).join(';')}。爱刷屏的人情绪上来时 count 可以到 4~5。
 规则:ignore=已读先不回(在忙/没兴趣/没啥好说),少用。tiny=1~4 个字,像「？」「笑死」「行吧」。ask 只有真的好奇才 true,大多数时候 false。count>1 只在真人会自然连发几条短消息时用。next_hours=你大概多久后会自己想找 TA(黏人/聊得开心就小,冷淡/心情差就大)。
 photo=要不要顺手拍张照发过去(像真人分享日常:对方问你在干嘛/在哪/吃什么,或你想给 TA 看眼前的东西),大多数时候 false。photo_desc 用英文写这张手机随手拍的画面:从你的视角拍你眼前的东西、你在做的事(符合你的职业和现在的时间),**不要拍你的脸**(最多出现你的手)。`);
   let d: any = {};
@@ -139,7 +174,7 @@ photo=要不要顺手拍张照发过去(像真人分享日常:对方问你在干
   } catch {}
   const plan: Plan = {
     action: d.action === 'ignore' ? 'ignore' : 'reply',
-    count: clamp(Math.round(Number(d.count) || 1), 1, 3),
+    count: clamp(Math.round(Number(d.count) || 1), 1, habitsOf(c).some((h) => h.includes('刷屏')) ? 5 : 3),
     length: ['tiny', 'short', 'normal'].includes(d.length) ? d.length : 'short',
     move: String(d.move || '').slice(0, 60),
     ask: !!d.ask,
@@ -174,7 +209,8 @@ photo=要不要顺手拍张照发过去(像真人分享日常:对方问你在干
 // ---- 第 2 步:按计划生成具体消息 ----
 const BANNED = /(我理解你|理解你的感受|听起来你|你是不是觉得|有什么(我)?可以帮|随时(都)?在|希望(这|能)?对你有|如果你愿意|要不要(我|试试)|作为(一个)?(AI|朋友|你的)|抱抱你|你并不孤单|I understand how you feel|sounds like you|how can I help|I'm (always )?here for you|if you'd like)/i;
 function cleanMsg(t: string) {
-  return t.replace(/^["“「]|["”」]$/g, '').replace(/^\s*[-*•\d.、]+\s+/, '').replace(/。$/, '').trim();
+  const x = t.replace(/^["“「]|["”」]$/g, '').replace(/^\s*[-*•\d、]+[.、]?\s+(?=\S)/, '').trim();
+  return x.length <= 3 ? x : x.replace(/(?<![。.])。$/, ''); // 很短的"嗯。""行。"保留句号(高冷派)
 }
 export async function genMessages(c: Companion, rows: MsgRow[], plan: Plan, lang: 'zh' | 'en'): Promise<string[]> {
   const lenZh = plan.length === 'tiny' ? '1~4 个字' : plan.length === 'short' ? '一句短话' : '一两句,可以稍微多说点';
@@ -190,7 +226,7 @@ export async function genMessages(c: Companion, rows: MsgRow[], plan: Plan, lang
     if (PHOTO_RE.test(m) || /^\[(你刚发了|对方发了)/.test(m)) return false; // 模型模仿历史里的占位文字 → 丢掉
     return true;
   };
-  const tidy = (arr: any[]) => arr.map((x: any) => cleanMsg(String(x || ''))).filter(Boolean).filter(valid).slice(0, 3) as string[];
+  const tidy = (arr: any[]) => arr.map((x: any) => cleanMsg(String(x || ''))).filter(Boolean).filter(valid).slice(0, 5) as string[];
   const run = async (extra = '') => {
     // maxTokens 给足:太小会把 JSON 截断 → 解析失败 → 以前就会兜底成"嗯"
     const { data } = await callLLMJson<any>({ system: sysPrompt(c, lang) + instr + photoNote + extra, messages: history, tier: 'main', temperature: 1.0, maxTokens: 600, provider: 'deepseek', retry: true });

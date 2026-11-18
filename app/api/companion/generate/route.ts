@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
-import { ensureCompanion, isAllowed } from '@/lib/companion/engine';
+import { ensureCompanion, isAllowed, pickHabits } from '@/lib/companion/engine';
 import { callLLMJson } from '@/lib/llm';
 import { QUIZ } from '@/lib/companion/quiz';
 export const dynamic = 'force-dynamic';
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
   const decoR = Math.random();
   const deco = decoR < 0.62 ? '' : decoR < 0.74 ? rnd(['.', '。', '_', '-']) : decoR < 0.84 ? rnd(['ゞ', 'ˊ', '゜', '⁰']) : rnd(['🫧', '🌙', '☁️', '🐾', '🍃', '✨']); // 装饰跟名字意思无关
   const aiName = (baseName + deco).slice(0, 24);
-  const persona = (`【性别】${genderZh}\n` + String(gen.persona || '')).slice(0, 2000);
+  const persona = (`【性别】${genderZh}\n【打字习惯】${pickHabits().join(';')}\n` + String(gen.persona || '')).slice(0, 2000);
   const job = String(gen.job || '').slice(0, 500);
 
   // 开场白不让模型写(它总写得像在推销)。像真人刚加好友:大多数时候不说话等你先开口,要么就一句很短的

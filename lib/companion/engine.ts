@@ -208,7 +208,10 @@ export async function genProactive(c: Companion, history: LLMMessage[], lang: 'z
   const why = lang === 'en'
     ? (reason === 'followup' ? 'They never replied to your last message. Decide in character whether to nudge them again, and if so say something natural (maybe a bit put-out, or playful, depending on your mood/feelings).' : "You're a bit bored/thinking of them. Start a conversation out of the blue, naturally.")
     : (reason === 'followup' ? '你上一条消息 TA 一直没回。以人设判断要不要再戳一下,要的话说句自然的(可以有点小情绪、或俏皮,看你心情和好感)。' : '你有点无聊/想到了 TA。自然地起个话头、主动发条消息。');
-  const sys = sysPrompt(c, lang) + '\n\n' + why + (lang === 'en' ? '\nOutput only the message.' : '\n只输出这条消息本身。');
+  const stranger = (c.affection || 0) < 30
+    ? (lang === 'en' ? '\nYou two barely know each other yet: if you text at all, keep it to one short, low-key line — no long sharing, no invitations, no flirting.' : '\n你们还不熟:就算主动发,也只是很短、很淡的一句,别分享一大段生活、别约见面、别撩。')
+    : '';
+  const sys = sysPrompt(c, lang) + '\n\n' + why + stranger + (lang === 'en' ? '\nOutput only the message.' : '\n只输出这条消息本身。');
   const r = await callLLM({ system: sys, messages: history.length ? history : [{ role: 'user', content: lang === 'en' ? '(start)' : '（起个话头）' }], tier: 'main', temperature: 1.05, maxTokens: 120, provider: 'deepseek' });
   return cleanMsg(r.text.trim());
 }

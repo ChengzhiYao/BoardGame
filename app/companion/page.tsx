@@ -353,7 +353,7 @@ export default function CompanionPage() {
       ) : (
         <>
           <div className="flex-1 space-y-3 overflow-y-auto pb-4 min-h-[50vh]">
-            {msgs.length === 0 && <div className="text-center text-parchment/40 text-sm py-12">{L('还没有对话。先打个招呼吧 👋', 'No messages yet. Say hi 👋')}</div>}
+            <div className="text-center py-3"><span className="inline-block px-2.5 py-1 rounded bg-white/5 text-parchment/40 text-[11px]">{L(`你已添加了${aiName},现在可以开始聊天了。`, `You added ${aiName}. You can start chatting now.`)}</span></div>
             {msgs.map((m, i) => (
               m.role === 'user' ? (
                 <div key={i} className="flex justify-end">

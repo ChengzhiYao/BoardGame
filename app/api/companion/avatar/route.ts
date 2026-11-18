@@ -21,7 +21,7 @@ export async function POST() {
   let pick: any = {};
   try {
     const { data } = await callLLMJson<any>({
-      system: `Decide what this fictional companion uses as their profile picture, like a real young Chinese person. DEFAULT to a candid everyday selfie of themselves (most people do). Only occasionally, if it really fits the persona, use their pet or an anime avatar. Output ONLY JSON: {"type":"selfie"|"pet"|"anime","gender":"f"|"m","desc":"short concrete English description"}. Strongly prefer "selfie". The person is ALWAYS a young adult (age 21-27, never middle-aged). If female, she is genuinely beautiful — the kind of pretty girl whose selfies get tons of likes on Xiaohongshu; describe her hair, outfit and vibe in an attractive, flattering way (never plain, tired-looking or older). Do not describe age lines, wrinkles or a mature look.`,
+      system: `Decide what this fictional companion uses as their profile picture, like a real young Chinese person. DEFAULT to a candid everyday selfie of themselves (most people do). Only occasionally, if it really fits the persona, use their pet or an anime avatar. Output ONLY JSON: {"type":"selfie"|"pet"|"anime","gender":"f"|"m","desc":"short concrete English description"}. Strongly prefer "selfie". The person is ALWAYS a young adult (age 21-27, never middle-aged). If female, she is genuinely beautiful — the kind of pretty girl whose selfies get tons of likes on Xiaohongshu; desc must ONLY describe outfit and vibe in a few words (e.g. "oversized grey hoodie, sleepy weekend vibe") — never lighting, camera, photography style, background, age, or skin.`,
       messages: [{ role: 'user', content: `Name: ${c.ai_name}\nPersonality: ${c.persona}\nJob: ${c.job}` }],
       tier: 'aux', temperature: 0.95, maxTokens: 120, provider: 'deepseek',
     });
@@ -38,63 +38,92 @@ export async function POST() {
     prompt = `An anime-style profile avatar illustration: ${desc || 'a gentle cute anime character, soft expression'}. Clean modern anime art, soft colors, nice composition, the kind of anime icon a young person uses online. Flat/semi-flat shading, NOT photorealistic. No text, no watermark, no signature.`;
   } else {
     const rnd = <T,>(a: T[]): T => a[Math.floor(Math.random() * a.length)];
-    // 场景 + 与之匹配的真实光源(成对,避免光跟环境对不上)
-    const scenes = [
-      { place: 'a messy bedroom', light: 'soft daylight from a side window' },
-      { place: 'a bedroom at night', light: 'a warm dim bedside lamp, slightly underexposed' },
-      { place: 'a cafe by the window', light: 'warm ambient cafe light mixed with window glow' },
-      { place: 'an elevator with a mirror', light: 'cool white overhead fluorescent light casting a top-down shadow' },
-      { place: 'a city sidewalk at dusk', light: 'fading golden-hour light with some street light' },
-      { place: 'a city street at night', light: 'mixed neon and street lights, a bit noisy and dim' },
-      { place: 'a park on an overcast day', light: 'flat soft overcast daylight' },
-      { place: 'a park in the afternoon', light: 'bright dappled sunlight with lens flare' },
-      { place: 'the passenger seat of a car', light: 'daylight through the windows, slightly backlit' },
-      { place: 'a brightly lit convenience store', light: 'harsh bright white fluorescent light from above' },
-      { place: 'a bathroom mirror', light: 'warm vanity light from the side' },
-    ];
-    const sc = rnd(scenes);
+    const pickN = <T,>(a: T[], n: number): T[] => [...a].sort(() => Math.random() - 0.5).slice(0, n);
     const female = g === 'woman';
-    // 女生:年轻漂亮 + 好看的角度/表情;男生:年轻清爽帅气
-    const age = 21 + Math.floor(Math.random() * 6); // 21-26
+    const age = 21 + Math.floor(Math.random() * 5); // 21-25
+
+    // ④ 背景:普通、杂乱、不为人物服务;光源跟场景走(③ 不要电影布光)
+    const scenes = [
+      { place: 'her own bedroom', clutter: 'an unmade bed, a phone charger cable, clothes on a chair, a half-open wardrobe', light: 'flat daylight from a window off to one side, one side of the face a bit darker' },
+      { place: 'her bedroom at night', clutter: 'a messy desk, a desk lamp, skincare bottles, a poster slightly crooked', light: 'one warm desk lamp only, the room behind falls into murky noisy darkness' },
+      { place: 'a chain coffee shop', clutter: 'other customers partly in frame, cups and a tray, a menu board, chairs', light: 'mixed: cool overhead ceiling lights plus window light, slightly uneven white balance' },
+      { place: 'an office building elevator', clutter: 'scratched steel walls, a floor-number panel, an inspection notice taped up', light: 'harsh flat overhead fluorescent light, slightly greenish, shadows under the eyes and nose' },
+      { place: 'a subway car', clutter: 'handrails, ads, a few strangers looking at their phones', light: 'flat cold fluorescent light, a little greenish' },
+      { place: 'a city street during the day', clutter: 'parked e-bikes, shop signs, random pedestrians, a trash bin', light: 'plain midday daylight, a bit contrasty, the sky behind slightly blown out' },
+      { place: 'a street at night', clutter: 'shop fronts, a passing scooter blurred, signs, a convenience store glow', light: 'uneven street and shop light from one side, dark noisy shadows, face slightly underexposed' },
+      { place: 'the back seat of a ride-hailing car', clutter: 'the headrest in front, seatbelt, window with buildings outside', light: 'daylight through the window behind her, the face a bit underexposed, window partly blown out' },
+      { place: 'a university classroom or library', clutter: 'desks, a laptop, a water bottle, other students in the background', light: 'flat overhead tube lighting' },
+      { place: 'a restaurant table with friends', clutter: 'dishes, chopsticks, drink cans, a friend\'s arm in frame', light: 'warm-ish restaurant ceiling light, slightly yellow cast' },
+    ];
+    const mirrorScenes = [
+      { place: 'a full-length mirror at home', clutter: 'a messy room reflected behind her, shoes on the floor, a door', light: 'ordinary room light, slightly dim' },
+      { place: 'a mall restroom mirror', clutter: 'sinks, a hand dryer, other mirrors, a cleaning sign', light: 'bright overhead restroom light' },
+      { place: 'an elevator mirror wall', clutter: 'the floor-number panel and handrail visible in the reflection', light: 'flat overhead elevator light' },
+      { place: 'a fitting-room mirror', clutter: 'hooks with clothes, a curtain, a small stool', light: 'top-down fitting-room spotlight, a bit harsh' },
+    ];
+    // ⑥ 拍摄逻辑二选一,写死:前置=手机就是镜头;对镜=必须有明确的镜子
+    const mirror = Math.random() < 0.3;
+    const sc = mirror ? rnd(mirrorScenes) : rnd(scenes);
+
+    // ② 构图随意:随机挑 2 个"不完美"
+    const framing = pickN(mirror ? [
+      'the phone held in front of her chest/face, partly covering her chin',
+      'the photo is tilted a few degrees',
+      'her body is off-center, the frame cuts off her feet or one shoulder',
+      'smudges and fingerprints on the mirror',
+      'the phone\'s flash reflection is visible in the mirror as a glare spot',
+    ] : [
+      'her face is off-center, closer to one edge of the frame',
+      'the top of her head is cut off by the frame',
+      'the photo is tilted a few degrees',
+      'her extended arm enters the frame from the bottom corner and is cut off',
+      'shot from slightly above at arm\'s length, the classic phone angle',
+      'part of her shoulder or hair fills a corner of the frame',
+    ], 2);
+    // ⑤ 手机真实瑕疵:随机挑 2~3 个
+    const flaws = pickN([
+      'slight motion blur from a shaky hand',
+      'visible noise and grain in the darker areas',
+      'JPEG compression artifacts like an image sent over a chat app',
+      'the background is sharp, not creamy portrait-mode bokeh',
+      'uneven exposure, some highlights clipped',
+      'slight front-camera wide-angle distortion — the nose and face nearest the lens look a little bigger',
+      'the focus is slightly soft overall',
+      'a slightly off auto white balance',
+    ], 2 + Math.floor(Math.random() * 2));
+
+    // 好看来自五官和年纪,不来自精修
     const look = female
       ? rnd([
-          'a gorgeous young Chinese woman with delicate features, big bright eyes, a small V-shaped face, flawless glowing skin',
-          'a very pretty young East Asian woman, sweet and cute look, doe eyes, soft rosy cheeks, glossy lips',
-          'a stunning young Chinese woman with an elegant, slightly cool "goddess" vibe, sharp pretty features, clear fair skin',
-          'a beautiful young Korean-style East Asian girl, fresh and youthful, airy bangs, natural pink makeup',
-          'an attractive young Chinese woman with a sexy-chic city-girl vibe, defined eyeliner, glossy lips, sleek long hair',
+          'a naturally very pretty young Chinese woman with big eyes and a small face',
+          'a cute, pretty young Chinese woman with soft round eyes and bangs',
+          'a pretty young Chinese woman with sharp delicate features, slightly cool vibe',
+          'a pretty, sweet-looking young East Asian woman with a bright smile',
         ])
       : rnd([
-          'a handsome young Chinese man with clean sharp features, clear skin, neat hair',
-          'a good-looking young East Asian guy, fresh boyish face, soft fringe',
-          'an attractive young Chinese man with a cool laid-back vibe, defined jawline',
+          'a good-looking young Chinese man with clean features',
+          'a handsome young East Asian guy with a boyish face',
         ]);
     const hair = female
-      ? rnd(['long straight black hair', 'long wavy dark-brown hair', 'shoulder-length hair with airy bangs', 'a high ponytail with face-framing strands', 'a messy cute half-up bun', 'long hair tucked behind one ear'])
-      : rnd(['short textured black hair', 'a soft middle-part', 'a neat short crop']);
-    const angles = female ? [
-      'taken at arm\'s length from a slightly HIGH angle looking down a bit (the flattering selfie angle)',
-      'taken at natural EYE LEVEL, phone straight on',
-      'a three-quarter angle showing her best side',
-      'held a bit off to one side, head slightly tilted, cute framing',
-    ] : [
-      'taken at arm\'s length from a slightly HIGH angle looking down a bit',
-      'taken at natural EYE LEVEL, phone straight on',
-      'taken from a slightly LOW angle looking up a touch',
-      'a three-quarter side angle, face turned partly away',
-    ];
+      ? rnd(['long straight black hair, a few loose flyaway strands', 'long dark-brown hair, slightly messy', 'shoulder-length hair with bangs, a bit uneven', 'hair tied up in a messy bun with loose strands', 'a low ponytail, some hair escaping'])
+      : rnd(['short black hair, a bit messy', 'a soft middle part, slightly greasy at the roots', 'a short crop']);
     const expr = female
-      ? rnd(['a sweet soft smile', 'a cute pout', 'a playful wink', 'a gentle calm look into the lens', 'a shy smile glancing slightly away', 'a cheeky grin', 'a cool confident look'])
-      : rnd(['a relaxed natural half-smile', 'a cool neutral look', 'a small playful smirk', 'looking just off-camera']);
-    const mirror = sc.place.includes('mirror') || Math.random() < 0.25;
-    prompt = (mirror
-      ? `One everyday MIRROR selfie of ${look}, age ${age}, in front of a mirror, the phone naturally visible, body slightly turned, in ${sc.place}. `
-      : `One everyday front-camera SELFIE of ${look}, age ${age}, ${rnd(angles)}, ${expr}, imperfect believable framing, in ${sc.place}. `)
-      + `${hair}. ${desc || (female ? 'cute stylish casual outfit, natural light makeup' : 'clean casual outfit')}. Lighting: ${sc.light} — the light direction and shadows must match this setting (do not use even studio lighting). `
-      + (female
-        ? `She looks genuinely beautiful and youthful, like a popular girl's selfie on Xiaohongshu/Instagram: a light phone beauty-camera filter (soft glow, slightly brightened skin, gentle warm tone), but still believable as a real phone photo with real skin texture, natural hair strands and a real background. Flattering composition. NOT middle-aged, NO wrinkles, NOT plain or average-looking, NOT plastic doll skin, NOT an over-processed 3D look, NO distorted hands or face. `
-        : `He looks handsome and youthful, like a real guy's selfie on social media: realistic skin texture, subtle phone-camera noise, natural casual feel. NOT middle-aged, NOT a studio portrait, NO distorted hands, NOT a 3D render. `)
-      + `Photorealistic smartphone photo, not an illustration, not an obvious AI image. One adult person only. Head and shoulders. No text, no watermark, no logo.`;
+      ? rnd(['a small natural smile', 'a slight pout', 'a neutral look straight into the lens', 'half-smiling, mid-laugh', 'a playful peace sign near her face', 'eyes slightly squinting from the light'])
+      : rnd(['a small natural smile', 'a neutral look', 'a slight smirk']);
+
+    const camera = mirror
+      ? `A MIRROR SELFIE: ${look}, about ${age}, stands in front of ${sc.place} and photographs her reflection with her phone. The phone is clearly in her hand in the reflection. The mirror and its surroundings are obvious in the picture.`
+      : `A FRONT-CAMERA SELFIE taken by ${look}, about ${age}, with the phone in her own outstretched hand. The viewpoint IS her phone's front camera at arm's length (about 40-60 cm from her face) — so the phone itself is NOT visible in the picture. She is in ${sc.place}.`;
+
+    prompt = `${camera} ${hair}. ${expr}. ${desc ? 'Outfit and vibe: ' + desc + '.' : 'Casual everyday clothes.'} Light everyday makeup at most.
+Background: ${sc.clutter} — ordinary, a bit messy, NOT arranged for the photo.
+Lighting: only the existing light of the place — ${sc.light}. No photographer lighting, no fill light, no rim light.
+Composition: ${framing.join('; ')}.
+Phone-photo imperfections: ${flaws.join('; ')}.
+Skin: real skin with visible pores on the nose and cheeks, slight unevenness in skin tone, maybe a tiny blemish — not smoothed, not retouched.
+Colors: plain smartphone colors straight out of the camera app, no cinematic color grading, no golden film look, no teal-orange.
+The person is ${female ? 'genuinely pretty and youthful' : 'good-looking and youthful'}, but this is an unedited snapshot sent to a friend on WeChat — NOT a professional photo, NOT a magazine or ad, NOT third-person view, NOT a DSLR portrait with shallow depth of field, NOT a 3D render. One adult person only. No text, no watermark.`;
+    if (!female) prompt = prompt.replace(/\bher\b/g, 'his').replace(/\bHer\b/g, 'His').replace(/\bshe\b/g, 'he').replace(/\bShe\b/g, 'He').replace(/\bherself\b/g, 'himself');
   }
 
   try {

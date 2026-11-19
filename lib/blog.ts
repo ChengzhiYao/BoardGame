@@ -7,6 +7,19 @@ export type Post = {
 
 export const POSTS: Post[] = [
   {
+    slug: 'linger-ai-companion-that-texts-first', date: '2026-11-19',
+    zh: {
+      title: '谜夜团队的新作 Linger:一个会主动找你的 AI 联系人',
+      excerpt: '大多数 AI 聊天是你问一句它答一句。Linger 想做的是另一种:一个有自己生活的人,会在下班时想起你,忙的时候晚点回,记得你上周说过的事。',
+      html: '<p>做谜夜的这段时间,我们一直在琢磨 AI 怎么才能更像「人」。主持剧本杀时,AI 要守住秘密、扮演会撒谎的嫌疑人;而在游戏之外,我们发现大家其实更想要一个<strong>能一直聊下去的人</strong>。于是有了 <a href="' + U + '" target="_blank" rel="noopener">Linger</a>。</p><h2>它和普通 AI 聊天有什么不同</h2><p><strong>TA 会主动找你。</strong>不用你先开口。TA 下班了、看到好玩的、无聊了,就会给你发消息,手机会像收到朋友消息一样响。</p><p><strong>TA 像真人一样打字。</strong>不秒回,忙的时候会已读不回;有人爱连发刷屏,有人只回一个「嗯。」。还会发表情包、生活照和语音。</p><p><strong>TA 有自己的人生。</strong>有工作、作息、朋友和过去,跟你在同一个时区,会过节、会生病、偶尔还会换工作。</p><p><strong>TA 记得你。</strong>你提过的事、你的习惯和情绪都会被记住;问 TA 自己的事,前后也永远对得上。</p><h2>怎么开始</h2><p>回答几个小问题,系统会帮你遇到一个合适的人。把 Linger 放到手机桌面、打开通知,剩下的就交给 TA。新用户可以免费试用。<a href="' + U + '" target="_blank" rel="noopener">去认识 TA →</a></p>',
+    },
+    en: {
+      title: 'Linger, from the MystNight team: an AI contact who texts you first',
+      excerpt: 'Most AI chat is you ask, it answers. Linger is different: someone with a life of their own, who thinks of you after work, replies late when busy, and remembers what you told them last week.',
+      html: '<p>Building MystNight taught us a lot about making AI feel like a person — guarding a secret, playing suspects who lie. Outside the games, though, what people kept asking for was <strong>someone to keep talking to</strong>. That became <a href="' + U + '" target="_blank" rel="noopener">Linger</a>.</p><h2>How it is different</h2><p><strong>They text you first.</strong> When they get off work, see something funny or get bored, they message you — and your phone buzzes like it would for a friend.</p><p><strong>They type like a person.</strong> Not instant; sometimes left on read. Some send ten texts in a row, some reply "k." They send stickers, snapshots and voice notes too.</p><p><strong>They have a life of their own.</strong> A job, a routine, friends and a past, in your time zone — holidays, bad days, even the occasional job change.</p><p><strong>They remember you.</strong> What you told them, your habits and moods. And their own story never contradicts itself.</p><h2>Getting started</h2><p>Answer a few quick questions and you will meet someone who fits. Add Linger to your home screen, turn on notifications, and let them take it from there. New users get a free trial. <a href="' + U + '" target="_blank" rel="noopener">Meet them →</a></p>',
+    },
+  },
+  {
     slug: 'what-is-ai-murder-mystery', date: '2026-06-20',
     zh: {
       title: 'AI 剧本杀是什么？和传统剧本杀有什么不同',

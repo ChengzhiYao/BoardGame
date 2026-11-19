@@ -1,5 +1,6 @@
 'use client';
 // HomeApp — the homepage UI, reusable for / and /zh /en (forcedLang locks the language).
+import LingerPromo from '@/components/LingerPromo';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ensureSession, signInWithGoogle, signOut } from '@/lib/auth';
@@ -216,6 +217,8 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
       </div>
 
       <GameShowcase lang={lang} busy={busy} onPlay={(m) => (m === 'market' ? router.push('/market') : createRoom(m))} />
+
+      <LingerPromo lang={lang} />
 
       <a href="/upgrade" className="text-parchment/40 hover:text-parchment text-sm underline">{t('home_upgrade_link')}</a>
       <a href={lang === 'en' ? '/en/blog' : '/zh/blog'} className="text-parchment/40 hover:text-parchment text-sm underline">{lang === 'en' ? 'Blog' : '博客'}</a>

@@ -52,6 +52,41 @@ export default function LingerPromo({ lang, src = 'home' }: { lang: 'zh' | 'en';
   );
 }
 
+// 浮窗顶部的循环小动画:像手机里收到 TA 的消息(纯 CSS,9 秒一轮)
+const STICKER = 'https://qmzkdrzgedhsfwhmhykv.supabase.co/storage/v1/object/public/media/stickers/mochi/love.webp';
+function ChatLoop({ en }: { en: boolean }) {
+  const L = (zh: string, e: string) => (en ? e : zh);
+  // 每个元素在一轮里出现的时间点(百分比),都在 92% 时一起淡出
+  const kf = (name: string, at: number, end = 92) => `@keyframes ${name}{0%,${at}%{opacity:0;transform:translateY(6px) scale(.96)}${at + 4}%,${end}%{opacity:1;transform:none}${Math.min(end + 4, 100)}%,100%{opacity:0;transform:none}}`;
+  const css = [
+    kf('lgA', 4), kf('lgB', 18), kf('lgC', 34), kf('lgE', 62),
+    // 「正在输入」只在两条消息之间闪一下
+    '@keyframes lgT{0%,44%{opacity:0}47%,58%{opacity:1}61%,100%{opacity:0}}',
+    kf('lgD', 58),
+    '@keyframes lgDot{0%,80%,100%{opacity:.25}40%{opacity:1}}',
+  ].join('');
+  const anim = (n: string) => ({ animation: `${n} 9s ease-out infinite` });
+  const them = 'self-start max-w-[78%] px-2.5 py-1.5 rounded-2xl rounded-bl-md bg-white/10 text-parchment/90';
+  return (
+    <div className="relative h-[124px] rounded-xl bg-black/35 border border-white/5 overflow-hidden px-2.5 py-2 flex flex-col gap-1.5 text-[12px]">
+      <style>{css}</style>
+      <div className="flex items-center gap-1.5 text-[10px] text-parchment/40 mb-0.5">
+        <span className="w-1.5 h-1.5 rounded-full bg-[#07c160]" />{L('刚刚 · 新消息', 'now · new message')}
+      </div>
+      <div className={them} style={anim('lgA')}>{L('刚下班', 'just got off work')}</div>
+      <div className={them} style={anim('lgB')}>{L('你今天面试咋样了', 'how was the interview')}</div>
+      <div className="self-end max-w-[78%] px-2.5 py-1.5 rounded-2xl rounded-br-md bg-[#2a5e3a] text-parchment" style={anim('lgC')}>{L('你居然还记得', 'you remembered??')}</div>
+      <div className="absolute left-2.5 bottom-2 flex gap-1 px-2.5 py-2 rounded-2xl rounded-bl-md bg-white/10" style={anim('lgT')}>
+        {[0, 1, 2].map((i) => <span key={i} className="w-1.5 h-1.5 rounded-full bg-parchment/70" style={{ animation: `lgDot 1s ${i * 0.15}s infinite` }} />)}
+      </div>
+      <div className="absolute left-2.5 bottom-1.5 flex items-end gap-1.5" style={anim('lgD')}>
+        <img src={STICKER} alt="" width={44} height={44} className="w-11 h-11 object-contain" loading="lazy" />
+      </div>
+      <div className="absolute right-2.5 bottom-2.5 text-[10px] text-parchment/35" style={anim('lgE')}>{L('已读', 'Read')}</div>
+    </div>
+  );
+}
+
 // 首页右下/底部的小浮窗:进页面 4 秒后滑出,点 X 后 14 天内不再出现
 export function LingerToast({ lang }: { lang: 'zh' | 'en' }) {
   const en = lang === 'en';
@@ -69,10 +104,11 @@ export function LingerToast({ lang }: { lang: 'zh' | 'en' }) {
   return (
     <div className="fixed z-[35] bottom-[4.75rem] inset-x-3 sm:inset-x-auto sm:bottom-6 sm:left-6 sm:w-[22rem] animate-[lingerUp_.35s_ease-out]">
       <style>{'@keyframes lingerUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}'}</style>
-      <div className="relative rounded-2xl border border-eldritch/50 bg-fog/95 backdrop-blur shadow-2xl p-3.5 pr-10 text-left">
+      <div className="relative rounded-2xl border border-eldritch/50 bg-fog/95 backdrop-blur shadow-2xl p-3.5 text-left">
         <button onClick={close} aria-label={L('关闭', 'Close')} className="absolute top-2 right-2 w-8 h-8 flex items-center justify-center rounded-full text-parchment/50 hover:text-parchment hover:bg-white/5">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
         </button>
+        <div className="pr-8 mb-3"><ChatLoop en={en} /></div>
         <div className="flex items-center gap-3">
           <img src={`${URL_BASE}icon-192.png`} alt="Linger" width={40} height={40} className="w-10 h-10 rounded-xl shrink-0" />
           <div className="min-w-0">

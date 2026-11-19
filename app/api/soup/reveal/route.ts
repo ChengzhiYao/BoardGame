@@ -1,5 +1,6 @@
 // 放弃 / 看答案：直接揭晓汤底并结束。
 import { NextResponse } from 'next/server';
+import { sendRecap } from '@/lib/linger/companion';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 
 export async function POST(req: Request) {
@@ -24,5 +25,6 @@ export async function POST(req: Request) {
   await admin.from('rooms').update({ game_state: 'ended' }).eq('id', roomId);
   await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: 0, content: (lang === 'en' ? '[Answer] ' : '【汤底揭晓】') + (bot?.bottom || ''), payload: { type: 'soup_reveal' } });
 
+  await sendRecap(admin, roomId, '海龟汤没猜出来,最后直接看了汤底:' + String(bot?.bottom || '').slice(0, 200));
   return NextResponse.json({ ok: true });
 }

@@ -142,6 +142,22 @@ export default function JbsRoom(props: ShellProps) {
     finally { setBusy(false); }
   }
 
+  // Linger 伴侣邀请的局:TA 生成剧本、按口味挑一个,然后开本
+  const compStep = useRef('');
+  useEffect(() => {
+    const comp = props.room.companion;
+    if (!comp?.name || !isHost || props.room.modules_generating) return;
+    const ph = props.room.jbs_phase || 'lobby';
+    const post = (u: string, b: any) => fetch(u, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }).then((r) => r.json()).catch(() => null);
+    if ((ph === 'lobby' || !props.room.jbs_phase) && compStep.current !== 'gen') {
+      compStep.current = 'gen';
+      post('/api/jbs/scripts', { roomId: props.room.id, headcount: comp.picks?.headcount || 5, customDirection: null }).then(() => router.refresh());
+    } else if (ph === 'script' && (props.room.jbs_options || []).length && compStep.current !== 'pick') {
+      compStep.current = 'pick';
+      post('/api/linger/pick', { roomId: props.room.id }).then((d) => { if (d?.scriptId) setTimeout(() => post('/api/jbs/start', { roomId: props.room.id, scriptId: d.scriptId, actMinutes: 9 }).then(() => router.refresh()), 3000); });
+    }
+  }, [isHost, props.room.jbs_phase, (props.room.jbs_options || []).length, props.room.modules_generating]);
+
   async function genScripts(dir?: Record<string, string> | null) {
     const r = await call('/api/jbs/scripts', { roomId: props.room.id, headcount, customDirection: dir || null });
     if (r) setShowCustom(false);

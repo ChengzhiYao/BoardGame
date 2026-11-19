@@ -1,5 +1,6 @@
 // 选定剧本 → 生成隐藏案件 + 全部角色（含 AI 补位）→ 分配真人角色 + 私信下发秘密 → 开本第一幕。
 import { NextResponse } from 'next/server';
+import { companionNote, sendRecap } from '@/lib/linger/companion';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { callLLMJson } from '@/lib/llm';
 import { buildJbsCasePrompt } from '@/lib/jbs/prompt';
@@ -70,6 +71,10 @@ export async function POST(req: Request) {
     await admin.from('jbs_characters').delete().eq('room_id', roomId);
     const en = room.language === 'en';
     const roster: string[] = [];
+    // Linger 伴侣:演第一个 AI 角色
+    const comp = room.companion && room.companion.name ? room.companion : null;
+    const compIdx = comp && chars.length > realSeats.length ? realSeats.length : -1;
+    if (comp && compIdx >= 0) await admin.from('rooms').update({ companion: { ...comp, role: chars[compIdx].name } }).eq('id', roomId);
     for (let i = 0; i < chars.length; i++) {
       const c = chars[i];
       const seat = i < realSeats.length ? realSeats[i] : null;
@@ -80,7 +85,7 @@ export async function POST(req: Request) {
       const g = (c.gender === 'female' || c.gender === '女' || c.gender === 'f') ? 'female' : 'male';
       const ins = await admin.from('jbs_characters').insert({ ...row, gender: g });
       if (ins.error) await admin.from('jbs_characters').insert(row);
-      roster.push(`· ${c.name}（${c.occupation || ''}）${c.public_info || ''}${seat ? `　[${seat}]` : '　[AI]'}`);
+      roster.push(`· ${c.name}（${c.occupation || ''}）${c.public_info || ''}${seat ? `　[${seat}]` : i === compIdx ? `　[${comp.name}]` : '　[AI]'}`);
     }
 
     // 公开角色名册

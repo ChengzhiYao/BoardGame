@@ -1,6 +1,7 @@
 // 血染 · 白天发言回合（房主端轮询触发）：若当前发言者是 AI 则让其发一段话并轮到下一位；
 // 若当前是真人则等待其点"发言完毕"。所有人发言完毕 → 进入投票阶段。
 import { NextResponse } from 'next/server';
+import { companionNote, sendRecap, botcOutcome } from '@/lib/linger/companion';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { callLLMJson } from '@/lib/llm';
 import { buildBotcOneTurnPrompt } from '@/lib/botc/prompt';
@@ -41,12 +42,12 @@ export async function POST(req: Request) {
 
   try {
     const { data: out, usage } = await callLLMJson<any>({
-      system: buildBotcOneTurnPrompt(setup, room.botc_day, aliveLabels, sp!.display_name, aiNotes, transcript) + langDirective(room.language),
+      system: buildBotcOneTurnPrompt(setup, room.botc_day, aliveLabels, sp!.display_name, aiNotes, transcript) + (room.companion?.seat === sp!.seat ? companionNote(room, sp!.display_name) + (room.language === 'en' ? `\nIt's ${sp!.display_name}'s turn — write it fully in their own voice.` : `\n现在发言的就是「${sp!.display_name}」本人,完全用 TA 自己的口吻说。`) : companionNote(room)) + langDirective(room.language),
       messages: [{ role: 'user', content: `请生成「${sp!.display_name}」这一回合的发言。` }],
       tier: 'main', temperature: 0.9, maxTokens: 500,
     });
     await admin.from('api_usage').insert({ room_id: roomId, kind: 'llm_main', model: usage.model, prompt_tokens: usage.promptTokens, completion_tokens: usage.completionTokens, latency_ms: usage.latencyMs });
-    if (out.text) await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: room.botc_day, content: out.text, payload: { type: 'botc_ai', name: sp!.display_name } });
+    if (out.text) await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: room.botc_day, content: out.text, payload: { type: 'botc_ai', name: sp!.display_name, ...(room.companion?.seat === sp!.seat ? { companion: true } : {}) } });
   } catch {}
 
   const idx = order.indexOf(speaker);

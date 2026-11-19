@@ -1,5 +1,6 @@
 // 玩家揭晓答案 → 判定是否说中汤底核心；中了就通关并揭晓汤底。
 import { NextResponse } from 'next/server';
+import { sendRecap } from '@/lib/linger/companion';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { callLLMJson } from '@/lib/llm';
 import { buildSoupJudgePrompt } from '@/lib/soup/prompt';
@@ -41,6 +42,7 @@ export async function POST(req: Request) {
       await admin.from('soup_puzzles').update({ status: 'solved' }).eq('id', puzzle.id);
       await admin.from('rooms').update({ game_state: 'ended' }).eq('id', roomId);
       await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: 0, content: (lang === 'en' ? '[Answer] ' : '【汤底揭晓】') + (bot?.bottom || ''), payload: { type: 'soup_reveal' } });
+      await sendRecap(admin, roomId, '对方(真人玩家)猜中了汤底:' + String(bot?.bottom || '').slice(0, 200));
     }
     return NextResponse.json({ ok: true, solved: !!data.solved });
   } catch (e: any) {

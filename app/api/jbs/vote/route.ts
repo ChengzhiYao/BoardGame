@@ -1,5 +1,6 @@
 // 剧本杀 最终指认：真人投票 → 全员到齐后 AI 各自独立投票 + 揭晓真相 + 结案。
 import { NextResponse } from 'next/server';
+import { companionNote, sendRecap } from '@/lib/linger/companion';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { callLLMJson } from '@/lib/llm';
 import { buildJbsVotePrompt } from '@/lib/jbs/prompt';
@@ -57,7 +58,7 @@ export async function POST(req: Request) {
   await admin.from('rooms').update({ jbs_phase: 'revealing' }).eq('id', roomId);
   try {
     const { data: out, usage } = await callLLMJson<any>({
-      system: buildJbsVotePrompt(kase!.case_file, aiNames, realVotes, discussion) + langDirective(room.language),
+      system: buildJbsVotePrompt(kase!.case_file, aiNames, realVotes, discussion) + companionNote(room, room.companion?.role || undefined) + langDirective(room.language),
       messages: [{ role: 'user', content: '请统计 AI 投票并揭晓真相。' }],
       tier: 'main', temperature: 0.7, maxTokens: 3000, retry: true,
     });
@@ -97,6 +98,7 @@ export async function POST(req: Request) {
     } catch (e: any) { await admin.from('error_logs').insert({ room_id: roomId, scope: 'llm', message: '剧本杀评分:' + e.message }); }
 
     await admin.from('rooms').update({ game_state: 'ended', jbs_phase: 'reveal', jbs_act: room.jbs_total_acts || 7 }).eq('id', roomId);
+    await sendRecap(admin, roomId, `剧本杀《${kase?.case_file?.title || kase?.title || ''}》结束,真相已揭晓。`);
     return NextResponse.json({ ok: true, revealed: true });
   } catch (e: any) {
     await admin.from('rooms').update({ jbs_phase: 'vote' }).eq('id', roomId);

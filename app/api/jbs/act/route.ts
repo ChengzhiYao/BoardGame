@@ -1,5 +1,6 @@
 // 剧本杀 DM 回合：玩家行动 → DM 叙述 + AI 角色自主发言 + 搜证 + 推进幕。
 import { NextResponse } from 'next/server';
+import { companionNote, sendRecap } from '@/lib/linger/companion';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { callLLMJson, type LLMMessage } from '@/lib/llm';
 import { buildJbsDmPrompt } from '@/lib/jbs/prompt';
@@ -54,7 +55,7 @@ export async function POST(req: Request) {
 
   try {
     const { data: out, usage } = await callLLMJson<any>({
-      system: buildJbsDmPrompt(kase.case_file, curAct, aiNames, realRoster, { elapsedMin, actMin }, myObjs || []) + langDirective(room.language),
+      system: buildJbsDmPrompt(kase.case_file, curAct, aiNames, realRoster, { elapsedMin, actMin }, myObjs || []) + companionNote(room, room.companion?.role || undefined) + langDirective(room.language),
       messages: [...base, { role: 'user', content: `[${myName}·真人·${me.seat}座] 的行动：${content.trim()}` }],
       tier: 'main', temperature: 0.8, maxTokens: 2200, retry: true,
     });

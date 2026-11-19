@@ -1,5 +1,6 @@
 // 剧本杀 · 结局揭晓/结算（非指认型本：情感/还原/欢乐/机制）。房主触发。
 import { NextResponse } from 'next/server';
+import { companionNote, sendRecap } from '@/lib/linger/companion';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { callLLMJson } from '@/lib/llm';
 import { buildJbsEndingPrompt } from '@/lib/jbs/prompt';
@@ -72,6 +73,7 @@ export async function POST(req: Request) {
     } catch (e: any) { await admin.from('error_logs').insert({ room_id: roomId, scope: 'llm', message: '剧本杀结算评分:' + e.message }); }
 
     await admin.from('rooms').update({ game_state: 'ended', jbs_phase: 'reveal' }).eq('id', roomId);
+    await sendRecap(admin, roomId, `剧本杀《${cf?.title || ''}》结束,真相已揭晓。`);
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     await admin.from('rooms').update({ jbs_phase: 'playing' }).eq('id', roomId);

@@ -63,6 +63,31 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
     return () => clearInterval(id);
   }, [props.room.id, props.room.game_state, supabase, router]);
 
+  // Linger 伴侣一起玩:自动开一道题;你问完之后 TA 也会时不时插一句/提问/猜
+  const comp = props.room.companion && props.room.companion.name ? props.room.companion : null;
+  const isHost = props.room.host_user_id === props.userId;
+  const compBusy = useRef(false);
+  const autoStarted = useRef(false);
+  useEffect(() => {
+    if (!comp || !isHost || autoStarted.current) return;
+    if (state !== 'playing' && state !== 'ended' && !generating && !surface) { autoStarted.current = true; fetch('/api/soup/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id, difficulty: comp.picks?.difficulty || '普通', supernatural: 'any', tone: 'any', gore: 0, horror: comp.picks?.horror ?? 20, edge: 40 }) }).then(() => router.refresh()).catch(() => {}); }
+  }, [comp, isHost, state, generating, surface]);
+  const compTurn = () => {
+    if (!comp || !isHost || compBusy.current) return;
+    compBusy.current = true;
+    fetch('/api/linger/soup-turn', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) }).catch(() => {}).finally(() => { compBusy.current = false; });
+  };
+  // 主持人刚回答了你的问题 → TA 有时接着问;你半天没动静 → TA 自己问
+  useEffect(() => {
+    if (!comp || !isHost || !playing) return;
+    const last = messages[messages.length - 1];
+    const prev = messages[messages.length - 2];
+    let t: any;
+    if (last?.sender_type === 'kp' && last?.payload?.type === 'soup_answer' && prev?.sender_type === 'player' && Math.random() < 0.55) t = setTimeout(compTurn, 3500 + Math.random() * 5000);
+    else t = setTimeout(compTurn, 40000 + Math.random() * 25000);
+    return () => clearTimeout(t);
+  }, [messages.length, playing]);
+
   async function call(url: string, body: any) {
     setBusy(true);
     try {
@@ -173,6 +198,17 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
 
 function SoupMsg({ m, mine, who }: { m: any; mine: boolean; who: string }) {
   const type = m.payload?.type;
+  if (type === 'companion') {
+    return (
+      <div className="flex items-start gap-2">
+        {m.payload?.avatar ? <img src={m.payload.avatar} alt="" className="w-8 h-8 rounded-full object-cover border border-eldritch/40 shrink-0" /> : <span className="w-8 h-8 rounded-full bg-eldritch/40 shrink-0" />}
+        <div className="flex flex-col items-start">
+          <span className="text-xs text-parchment/40 mb-1">{m.payload?.name}</span>
+          <div className="max-w-[80%] px-4 py-2 rounded-lg bg-fog border border-eldritch/40 text-parchment/90">{m.content}</div>
+        </div>
+      </div>
+    );
+  }
   if (type === 'soup_surface') {
     return <div className="mx-auto max-w-2xl rounded-lg bg-eldritch/10 border border-eldritch/40 px-4 py-3 text-parchment/90 leading-relaxed whitespace-pre-line">{m.content}</div>;
   }

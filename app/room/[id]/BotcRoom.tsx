@@ -110,6 +110,15 @@ export default function BotcRoom(props: ShellProps) {
     } catch (e: any) { alert((en ? 'Failed: ' : '失败：') + e.message); }
     finally { setBusy(false); }
   }
+  // Linger 伴侣邀请的局:TA 来开局(人数/题材按 TA 的口味)
+  const compAuto = useRef(false);
+  useEffect(() => {
+    const comp = props.room.companion;
+    if (!comp?.name || !isHost || compAuto.current || !(!phase || phase === 'lobby') || props.room.modules_generating) return;
+    compAuto.current = true;
+    const t = setTimeout(() => { fetch('/api/botc/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id, size: comp.picks?.size || 6, theme: comp.picks?.theme || null }) }).then(() => router.refresh()).catch(() => {}); }, 2500);
+    return () => clearTimeout(t);
+  }, [isHost, phase]);
   async function start() { await call('/api/botc/start', { roomId: props.room.id, size, theme: theme.trim() || null }); }
   async function replay() {
     setResetting(true);
@@ -230,7 +239,7 @@ export default function BotcRoom(props: ShellProps) {
               const tr = trueRoleOf(p.seat);
               return (
                 <div key={i} className={`text-sm rounded px-2 py-1 border ${p.alive ? 'bg-fog border-eldritch/30' : 'bg-ink border-parchment/15 text-parchment/40'}`}>
-                  <span className={p.alive ? 'text-parchment/85' : 'line-through'}>{p.seat}·{p.display_name}</span>{p.is_ai ? ' 🤖' : ''}{!p.alive ? ' ☠' : ''}
+                  <span className={p.alive ? 'text-parchment/85' : 'line-through'}>{p.seat}·{p.display_name}</span>{p.is_ai && p.seat !== props.room.companion?.seat ? ' 🤖' : ''}{!p.alive ? ' ☠' : ''}
                   {ended && tr ? <span className={`text-[11px] ${teamCls[tr.team] || ''}`}> ·「{tr.role}」</span>
                     : claims[p.seat] ? <span className="text-[11px] text-amber-300/80"> （{en ? 'claims' : '自称'}：{claims[p.seat]}）</span> : null}
                 </div>
@@ -243,7 +252,7 @@ export default function BotcRoom(props: ShellProps) {
       <div className="px-4 py-2 border-b border-eldritch/15 flex gap-1.5 flex-wrap">
         {bps.map((p, i) => (
           <span key={i} className={`text-xs px-2 py-1 rounded-full border ${p.seat === speaking && !night && !voting && !ended ? 'bg-eldritch/40 border-eldritch text-parchment' : p.alive ? 'bg-fog border-eldritch/30 text-parchment/80' : 'bg-ink border-parchment/15 text-parchment/30 line-through'}`}>
-            {p.seat === speaking && !night && !voting && !ended ? '🎙 ' : ''}{p.seat}·{p.display_name}{p.is_ai ? ' 🤖' : ''}{!p.alive ? ' ☠' : ''}
+            {p.seat === speaking && !night && !voting && !ended ? '🎙 ' : ''}{p.seat}·{p.display_name}{p.is_ai && p.seat !== props.room.companion?.seat ? ' 🤖' : ''}{!p.alive ? ' ☠' : ''}
             {claims[p.seat] && !ended ? <span className="text-amber-300/80">（{en ? 'c' : '自称'}:{claims[p.seat]}）</span> : null}
           </span>
         ))}
@@ -321,7 +330,7 @@ export default function BotcRoom(props: ShellProps) {
         <div className="border-t border-eldritch/20 px-4 py-3 space-y-2 max-w-3xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
           <div className="text-center text-xs text-parchment/55">
             {myTurn ? <span className="text-eldritch">🎙 {en ? 'Your turn to speak — say your piece, then press “Done”.' : '轮到你发言 —— 说完后点"发言完毕"。'}</span>
-              : speakerBp ? (en ? `🎙 Now speaking: ${speakerBp.seat}·${speakerBp.display_name}${speakerBp.is_ai ? ' 🤖' : ''}` : `🎙 当前发言：${speakerBp.seat}·${speakerBp.display_name}${speakerBp.is_ai ? ' 🤖' : ''}`)
+              : speakerBp ? (en ? `🎙 Now speaking: ${speakerBp.seat}·${speakerBp.display_name}${speakerBp.is_ai && speakerBp.seat !== props.room.companion?.seat ? ' 🤖' : ''}` : `🎙 当前发言：${speakerBp.seat}·${speakerBp.display_name}${speakerBp.is_ai && speakerBp.seat !== props.room.companion?.seat ? ' 🤖' : ''}`)
               : (en ? 'Discussion…' : '讨论中……')}
           </div>
           {chatInput}
@@ -344,9 +353,9 @@ function BotcMsg({ m, mine, en }: { m: any; mine: boolean; en: boolean }) {
   if (type === 'botc_private') return <div className="mx-auto max-w-2xl rounded-lg bg-amber-900/15 border border-amber-700/40 px-4 py-2 text-amber-200/90 leading-relaxed whitespace-pre-line text-sm">🔒 {en ? 'Only you:' : '仅你可见：'} {m.content}</div>;
   if (type === 'botc_vote') return <div className="text-center text-xs text-parchment/50">{m.content}</div>;
   if (type === 'botc_claim') return <div className="text-center text-xs text-amber-300/70">📣 {m.content}</div>;
-  if (type === 'botc_ai') return (
+  if (type === 'botc_ai' || type === 'companion') return (
     <div className="flex flex-col items-start">
-      <span className="text-xs text-parchment/40 mb-1">{m.payload?.name} 🤖</span>
+      <span className="text-xs text-parchment/40 mb-1">{m.payload?.name}{m.payload?.companion || type === 'companion' ? '' : ' 🤖'}</span>
       <div className="max-w-[80%] px-4 py-2 rounded-lg bg-fog border border-eldritch/30 text-parchment/90">{m.content}</div>
     </div>
   );

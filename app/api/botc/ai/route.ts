@@ -1,5 +1,6 @@
 // 血染 · 白天 AI 发言：代所有存活 AI 玩家生成讨论发言（房主侧轮询触发，类剧本杀）。
 import { NextResponse } from 'next/server';
+import { companionNote, sendRecap, botcOutcome } from '@/lib/linger/companion';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { callLLMJson } from '@/lib/llm';
 import { buildBotcDiscussPrompt } from '@/lib/botc/prompt';
@@ -33,7 +34,7 @@ export async function POST(req: Request) {
 
   try {
     const { data: out, usage } = await callLLMJson<any>({
-      system: buildBotcDiscussPrompt(setup, room.botc_day, alive, aiNames, realSeats, transcript) + langDirective(room.language),
+      system: buildBotcDiscussPrompt(setup, room.botc_day, alive, aiNames, realSeats, transcript) + companionNote(room) + langDirective(room.language),
       messages: [{ role: 'user', content: '请生成本回合存活 AI 的白天发言。' }],
       tier: 'main', temperature: 0.9, maxTokens: 1200,
     });
@@ -41,7 +42,7 @@ export async function POST(req: Request) {
     for (const l of (out.lines || [])) {
       if (!l?.text || !l?.name) continue;
       if (!aiNames.includes(l.name)) continue; // 硬过滤：只让存活 AI 说话
-      await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: room.botc_day, content: l.text, payload: { type: 'botc_ai', name: l.name } });
+      await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: room.botc_day, content: l.text, payload: { type: 'botc_ai', name: l.name, ...(room.companion?.name === l.name ? { companion: true } : {}) } });
     }
     return NextResponse.json({ ok: true });
   } catch (e: any) {

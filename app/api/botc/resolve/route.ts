@@ -1,5 +1,6 @@
 // 血染 · 结算白天：统计真人+AI 投票 → 处决 → 判胜负 → 若继续则入夜（进入逐角色叫醒的夜晚阶段）。
 import { NextResponse } from 'next/server';
+import { companionNote, sendRecap, botcOutcome } from '@/lib/linger/companion';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { callLLMJson } from '@/lib/llm';
 import { buildBotcVotePrompt } from '@/lib/botc/prompt';
@@ -39,7 +40,7 @@ export async function POST(req: Request) {
     const transcript = (history || []).filter((m: any) => m.payload?.type !== 'botc_role' && m.payload?.type !== 'botc_role_action').slice(-24).map((m: any) => m.content).filter(Boolean).join('\n').slice(0, 3500);
 
     const { data: vout, usage } = await callLLMJson<any>({
-      system: buildBotcVotePrompt(setup, day, aliveLabels, humanVotes, aiNames, aiNotes, transcript) + langDirective(room.language),
+      system: buildBotcVotePrompt(setup, day, aliveLabels, humanVotes, aiNames, aiNotes, transcript) + companionNote(room) + langDirective(room.language),
       messages: [{ role: 'user', content: '请统计投票并给出处决与胜负。' }],
       tier: 'main', temperature: 0.5, maxTokens: 1300,
     });
@@ -93,6 +94,7 @@ export async function POST(req: Request) {
       const winText = win === 'good' ? (en ? '🟦 GOOD wins — the Demon is dead.' : '🟦 好人胜利 —— 恶魔已伏诛。') : (en ? '🟥 EVIL wins.' : '🟥 邪恶胜利。');
       await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', turn_no: day, content: `${winText}\n\n${en ? 'Roles revealed:' : '身份揭晓：'}\n${reveal}`, payload: { type: 'botc_reveal', sfx: ['cue_reveal'], assignments: roles.map((r: any) => ({ seat: r.seat, role: r.role, team: r.team })) } });
       await admin.from('rooms').update({ botc_phase: 'reveal', game_state: 'ended', modules_generating: false }).eq('id', roomId);
+      await sendRecap(admin, roomId, botcOutcome(setup, room, win));
       return NextResponse.json({ ok: true, win });
     }
 

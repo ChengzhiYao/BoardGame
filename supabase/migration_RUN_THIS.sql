@@ -850,3 +850,17 @@ alter table companion add column if not exists avatar_url text;
 
 -- companion: 人生档案(结构化背景 + 人生时间线),按需补全、随时间演进
 alter table companion add column if not exists bio jsonb not null default '{}'::jsonb;
+
+-- Linger 伴侣邀请你来玩:房间里坐着用户的 AI 伴侣(人设/记忆来自 Linger),局数由 Linger 订阅承担
+alter table rooms add column if not exists companion jsonb;
+create table if not exists linger_invites (
+  token text primary key,
+  payload jsonb not null,
+  mode text not null,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null default now() + interval '2 days',
+  room_id uuid,
+  used_by uuid,
+  used_at timestamptz
+);
+alter table linger_invites enable row level security;

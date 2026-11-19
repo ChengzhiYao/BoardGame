@@ -1,5 +1,6 @@
 // 血染 · 结算夜晚（逐角色叫醒，按 投毒→保护→杀人→信息 次序）→ 天亮，进入白天。
 import { NextResponse } from 'next/server';
+import { companionNote, sendRecap, botcOutcome } from '@/lib/linger/companion';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { callLLMJson } from '@/lib/llm';
 import { buildBotcNightResolvePrompt } from '@/lib/botc/prompt';
@@ -38,7 +39,7 @@ export async function POST(req: Request) {
     const transcript = (history || []).filter((m: any) => m.payload?.type !== 'botc_role' && m.payload?.type !== 'botc_role_action').slice(-16).map((m: any) => m.content).filter(Boolean).join('\n').slice(0, 3000);
 
     const { data: out, usage } = await callLLMJson<any>({
-      system: buildBotcNightResolvePrompt(setup, day, aliveLabels, realSeats, humanChoices, transcript) + langDirective(room.language),
+      system: buildBotcNightResolvePrompt(setup, day, aliveLabels, realSeats, humanChoices, transcript) + companionNote(room) + langDirective(room.language),
       messages: [{ role: 'user', content: '请逐角色结算今夜。' }],
       tier: 'main', temperature: 0.7, maxTokens: 1500,
     });
@@ -100,6 +101,7 @@ export async function POST(req: Request) {
       const winText = win === 'good' ? (en ? '🟦 GOOD wins.' : '🟦 好人胜利。') : (en ? '🟥 EVIL wins.' : '🟥 邪恶胜利。');
       await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', turn_no: day, content: `${winText}\n\n${en ? 'Roles:' : '身份揭晓：'}\n${reveal}`, payload: { type: 'botc_reveal', sfx: ['cue_reveal'], assignments: roles.map((r: any) => ({ seat: r.seat, role: r.role, team: r.team })) } });
       await admin.from('rooms').update({ botc_phase: 'reveal', game_state: 'ended', modules_generating: false }).eq('id', roomId);
+      await sendRecap(admin, roomId, botcOutcome(setup, room, win));
       return NextResponse.json({ ok: true, win });
     }
 

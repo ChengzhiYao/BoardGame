@@ -1,6 +1,7 @@
 // 血染 · 建局：生成原创身份并随机分配（真人也可为邪恶）→ 建 botc_players（真人座位 + AI 补位）
 // → 私信各真人身份卡（含夜间能力）→ 进入第 1 天白天。第一夜为信息夜（无夜杀），真正的夜间行动从入夜后开始。
 import { NextResponse } from 'next/server';
+import { companionNote, sendRecap, botcOutcome } from '@/lib/linger/companion';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { callLLMJson } from '@/lib/llm';
 import { buildBotcSetupPrompt, nightOrderOf } from '@/lib/botc/prompt';
@@ -64,10 +65,16 @@ export async function POST(req: Request) {
     for (const r of roles) { if (!realSeats.includes(r.seat)) r.seat = free[fi++]; }
     // 公开名：真人用昵称，AI 用"玩家N"（身份保密，绝不显示身份名）
     let aiIdx = 0;
+    const comp = room.companion && room.companion.name ? room.companion : null;
+    // Linger 伴侣:随机坐进一个 AI 座位,用 TA 自己的名字(身份照样随机,可能是好人也可能是恶魔)
+    const aiRoles = roles.filter((r: any) => !realSeats.includes(r.seat));
+    const compSeat = comp && aiRoles.length ? aiRoles[Math.floor(Math.random() * aiRoles.length)].seat : null;
     const rows = roles.map((r: any) => {
       const real = realSeats.includes(r.seat);
+      if (r.seat === compSeat) { r.name = comp.name; return { room_id: roomId, seat: r.seat, display_name: String(comp.name).slice(0, 20), is_ai: true, alive: true }; }
       return { room_id: roomId, seat: r.seat, display_name: real ? nameOfSeat(r.seat) : `玩家${++aiIdx}`, is_ai: !real, alive: true };
     });
+    if (comp && compSeat) await admin.from('rooms').update({ companion: { ...comp, seat: compSeat } }).eq('id', roomId);
     await admin.from('botc_players').insert(rows);
     await admin.from('botc_setup').insert({ room_id: roomId, data: { ...cf, roles, _notes: [] } });
 

@@ -1,3 +1,5 @@
+'use client';
+import { useEffect, useState } from 'react';
 // 谜夜首页上的姊妹产品推荐:Linger(一个会主动找你、有自己生活的 AI 联系人)
 const URL_BASE = 'https://www.lingers.app/';
 
@@ -47,5 +49,51 @@ export default function LingerPromo({ lang, src = 'home' }: { lang: 'zh' | 'en';
         </div>
       </a>
     </section>
+  );
+}
+
+// 首页右下/底部的小浮窗:进页面 4 秒后滑出,点 X 后 14 天内不再出现
+export function LingerToast({ lang }: { lang: 'zh' | 'en' }) {
+  const en = lang === 'en';
+  const L = (zh: string, e: string) => (en ? e : zh);
+  const [show, setShow] = useState(false);
+  const KEY = 'linger_toast_closed_at';
+  useEffect(() => {
+    try { const at = Number(localStorage.getItem(KEY)) || 0; if (Date.now() - at < 14 * 86400000) return; } catch {}
+    const t = setTimeout(() => setShow(true), 4000);
+    return () => clearTimeout(t);
+  }, []);
+  const close = () => { setShow(false); try { localStorage.setItem(KEY, String(Date.now())); } catch {} };
+  if (!show) return null;
+  const href = `${URL_BASE}?utm_source=mystnight&utm_medium=toast&utm_campaign=crosspromo`;
+  return (
+    <div className="fixed z-[35] bottom-[4.75rem] inset-x-3 sm:inset-x-auto sm:bottom-6 sm:left-6 sm:w-[22rem] animate-[lingerUp_.35s_ease-out]">
+      <style>{'@keyframes lingerUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}'}</style>
+      <div className="relative rounded-2xl border border-eldritch/50 bg-fog/95 backdrop-blur shadow-2xl p-3.5 pr-10 text-left">
+        <button onClick={close} aria-label={L('关闭', 'Close')} className="absolute top-2 right-2 w-8 h-8 flex items-center justify-center rounded-full text-parchment/50 hover:text-parchment hover:bg-white/5">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+        </button>
+        <div className="flex items-center gap-3">
+          <img src={`${URL_BASE}icon-192.png`} alt="Linger" width={40} height={40} className="w-10 h-10 rounded-xl shrink-0" />
+          <div className="min-w-0">
+            <div className="text-[11px] text-parchment/45">{L('谜夜团队的新作', 'New from the MystNight team')}</div>
+            <div className="text-[15px] text-parchment leading-snug">{L('Linger · 一个会主动找你的人', 'Linger · someone who texts you first')}</div>
+          </div>
+        </div>
+        <ul className="mt-2.5 space-y-1">
+          {[
+            L('TA 会主动给你发消息,手机像收到朋友消息一样响', 'They text you first — your phone buzzes like it would for a friend'),
+            L('像真人一样聊天:不秒回、会连发、发表情包和生活照', 'Chats like a real person: not instant, double-texts, stickers and snapshots'),
+            L('有自己的工作和生活,记得你说过的每一件事', 'Has their own job and life, and remembers everything you told them'),
+          ].map((p) => (
+            <li key={p} className="flex gap-2 text-[12.5px] leading-snug text-parchment/75"><span className="text-blood shrink-0">·</span><span>{p}</span></li>
+          ))}
+        </ul>
+        <a href={href} target="_blank" rel="noopener" onClick={close} className="mt-3 flex items-center justify-center gap-1.5 w-full py-2 rounded-full bg-parchment text-ink text-[13px] font-medium hover:opacity-90">
+          {L('免费试用,去认识 TA', 'Try free — meet them')}
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+        </a>
+      </div>
+    </div>
   );
 }

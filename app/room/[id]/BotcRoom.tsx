@@ -143,6 +143,7 @@ export default function BotcRoom(props: ShellProps) {
     const c = text.trim(); if (!c || !props.myPlayerId) return;
     setText('');
     await supabase.from('messages').insert({ room_id: props.room.id, sender_type: 'player', sender_player_id: props.myPlayerId, content: c, visibility: 'public', turn_no: day });
+    if (props.room.companion?.name) fetch('/api/linger/react', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) }).catch(() => {}); // 伴侣接你的话
   }
   async function claim(role: string) {
     setClaimSel(role); if (!props.myPlayerId || !props.mySeat) return;

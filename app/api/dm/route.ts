@@ -6,6 +6,12 @@ import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 export const dynamic = 'force-dynamic';
 const HIDDEN = 'hattieichinose@gmail.com';
 
+// 游客(没登录)也能私信自己的 Linger 伴侣
+async function ownCompanion(admin: any, uid: string, otherId: string) {
+  const { data } = await admin.from('users').select('linger_owner').eq('id', otherId).not('linger_agent_id', 'is', null).maybeSingle();
+  return !!data && data.linger_owner === uid;
+}
+
 async function areFriends(admin: any, a: string, b: string) {
   const { data } = await admin.from('friendships').select('id')
     .eq('status', 'accepted')
@@ -17,10 +23,11 @@ async function areFriends(admin: any, a: string, b: string) {
 export async function GET(req: Request) {
   const supabase = createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user || user.is_anonymous || !user.email) return NextResponse.json({ messages: [] });
+  if (!user) return NextResponse.json({ messages: [] });
   const withId = new URL(req.url).searchParams.get('with');
   if (!withId) return NextResponse.json({ messages: [] });
   const admin = createAdminClient();
+  if ((user.is_anonymous || !user.email) && !(await ownCompanion(admin, user.id, withId))) return NextResponse.json({ messages: [] });
   const { data } = await admin.from('dms').select('id, from_user, text, created_at')
     .or(`and(from_user.eq.${user.id},to_user.eq.${withId}),and(from_user.eq.${withId},to_user.eq.${user.id})`)
     .order('created_at', { ascending: true }).limit(300);
@@ -33,15 +40,17 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const supabase = createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user || user.is_anonymous || !user.email || user.email === HIDDEN) return NextResponse.json({ ok: false, reason: 'login' }, { status: 401 });
+  if (!user || user.email === HIDDEN) return NextResponse.json({ ok: false, reason: 'login' }, { status: 401 });
   let body: any = {}; try { body = await req.json(); } catch {}
   const toUserId = body?.toUserId; const text = (body?.text || '').toString().trim().slice(0, 1000);
   if (!toUserId || typeof toUserId !== 'string' || !text || toUserId === user.id) return NextResponse.json({ ok: false, reason: 'bad' }, { status: 400 });
   const admin = createAdminClient();
+  const mine = await ownCompanion(admin, user.id, toUserId);
+  if ((user.is_anonymous || !user.email) && !mine) return NextResponse.json({ ok: false, reason: 'login' }, { status: 401 });
   const { data: target } = await admin.from('users').select('id, email, linger_agent_id').eq('id', toUserId).maybeSingle();
   if (!target || !target.email || target.email === HIDDEN) return NextResponse.json({ ok: false, reason: 'notfound' }, { status: 404 });
 
-  const friends = await areFriends(admin, user.id, toUserId);
+  const friends = mine || await areFriends(admin, user.id, toUserId);
   if (!friends) {
     const { count } = await admin.from('dms').select('id', { count: 'exact', head: true }).eq('from_user', user.id).eq('to_user', toUserId);
     if ((count || 0) >= 1) return NextResponse.json({ ok: false, reason: 'gated' }, { status: 403 });

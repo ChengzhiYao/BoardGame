@@ -109,6 +109,7 @@ export default function FriendDock() {
   const [dir, setDir] = useState<Node[] | null>(null);
   const [invited, setInvited] = useState<Record<string, 'sending' | 'ok' | string>>({});
 
+  const [comps, setComps] = useState<{ id: string; name: string; avatar: string | null }[]>([]); // 你的 Linger 伴侣(游客也能私信)
   const [graph, setGraph] = useState<{ friends: Node[]; incoming: Node[]; outgoing: Node[] }>({ friends: [], incoming: [], outgoing: [] });
   const [addState, setAddState] = useState<Record<string, string>>({});
 
@@ -150,6 +151,12 @@ export default function FriendDock() {
   useEffect(() => {
     let on = true;
     const anon = () => { if (on) { setMe({ uid: anonId(), name: guestName(), email: null, whitelisted: false }); setTab('online'); } };
+    // Linger 伴侣:没登录也拿得到(游客会话),这样游客也能私信 TA
+    fetch('/api/linger/my-companions').then((r) => r.json()).then((d) => {
+      if (!on || !d?.companions?.length) return;
+      setComps(d.companions);
+      setMe((m) => (m && !m.userId && d.userId ? { ...m, userId: d.userId } : m));
+    }).catch(() => {});
     fetch('/api/billing/status').then((r) => r.json()).then((d) => {
       if (!on) return;
       if (d && d.loggedIn && d.email) {
@@ -558,7 +565,12 @@ export default function FriendDock() {
                       ? <button onClick={() => requestJoin(onl.roomId!, name)} className="text-xs px-2 py-0.5 rounded bg-blood/80 hover:bg-blood text-parchment shrink-0">{L('加入', 'Join')}</button>
                       : <span className="text-[10px] text-parchment/40 shrink-0">{onl ? (onl.roomId ? L('同房', 'In room') : L('在线', 'Online')) : L('离线', 'Offline')}</span>}
                   </div>); })}
-                {graph.friends.map((f) => { const lob = lobbyById[f.id]; const onl = !!lob;
+                {graph.friends.map((f) => { const lob = lobbyById[f.id]; const onl = !!lob || comps.some((c) => c.id === f.id) || !!(f as any).bot;
+                  if ((f as any).bot || comps.some((c) => c.id === f.id)) return (<div key={'g' + f.id} className="flex items-center gap-2 text-sm">
+                    <Avatar url={f.avatar} name={f.name} online />
+                    <div className="flex-1 min-w-0 leading-tight"><div className="truncate">{f.name}</div><div className="text-[10px] text-green-400/80 truncate">💬 {L('Linger 好友', 'Linger friend')}</div></div>
+                    <button onClick={() => openThread(f.id, f.name)} className="text-xs px-2 py-0.5 rounded bg-blood/80 hover:bg-blood text-parchment shrink-0">{L('私聊', 'Chat')}</button>
+                  </div>);
                   return (<div key={'g' + f.id} className="flex items-center gap-2 text-sm">
                     <Avatar url={f.avatar} name={f.name} online={onl} />
                     <div className="flex-1 min-w-0 leading-tight"><div className="truncate">{f.name}</div>{(lobbyById[f.id]?.loc || f.loc) && <div className="text-[10px] text-parchment/35 truncate">📍 {lobbyById[f.id]?.loc || f.loc}</div>}</div>
@@ -572,7 +584,14 @@ export default function FriendDock() {
 
           {tab === 'online' && showOnline && !peer && (
             <div className="px-3 py-2 min-h-[11rem] max-h-72 overflow-y-auto">
-              {people.length === 0 && <div className="text-xs text-parchment/40 py-8 text-center">{L('现在没有其他人在线', 'No one else online now')}</div>}
+              {comps.map((c) => (
+                <div key={'lc' + c.id} className="flex items-center gap-2 text-sm py-1">
+                  <Avatar url={c.avatar} name={c.name} online />
+                  <div className="flex-1 min-w-0 leading-tight"><div className="truncate">{c.name}</div><div className="text-[10px] text-green-400/80 truncate">💬 {L('你的 Linger 好友', 'Your Linger friend')}</div></div>
+                  <button onClick={() => openThread(c.id, c.name)} className="text-xs px-2 py-0.5 rounded bg-blood/80 hover:bg-blood text-parchment shrink-0">{L('私聊', 'Chat')}</button>
+                </div>
+              ))}
+              {people.length === 0 && comps.length === 0 && <div className="text-xs text-parchment/40 py-8 text-center">{L('现在没有其他人在线', 'No one else online now')}</div>}
               {people.map((p) => (
                 <div key={p.uid} className="flex items-center gap-2 text-sm py-1">
                   <Avatar url={p.avatar} name={p.name} online />
@@ -588,11 +607,11 @@ export default function FriendDock() {
             const pid = peer.userId;
             const dbMode = !!me.userId && !!pid;
             const msgs = dbMode ? (thread[pid!] || []) : (activeDm?.msgs || []);
-            const isFriend = !!pid && friendIds.has(pid);
+            const isFriend = !!pid && (friendIds.has(pid) || comps.some((c) => c.id === pid));
             const gated = !!me.email && me.email !== HIDDEN && !!pid && !isFriend;
             const sent = msgs.filter((m) => m.mine).length;
             const blocked = gated && (threadGated || sent >= 1);
-            const rel = pid && friendIds.has(pid) ? 'friend' : pid && outIds.has(pid) ? 'out' : pid && inIds.has(pid) ? 'in' : 'none';
+            const rel = pid && (friendIds.has(pid) || comps.some((c) => c.id === pid)) ? 'friend' : pid && outIds.has(pid) ? 'out' : pid && inIds.has(pid) ? 'in' : 'none';
             const addBtn = rel === 'none'
               ? <button onClick={() => pid && addFriend(pid)} className="text-xs px-2 py-0.5 rounded bg-eldritch/50 hover:bg-eldritch text-parchment shrink-0">{L('加好友', 'Add friend')}</button>
               : rel === 'out' ? <span className="text-[10px] text-parchment/40 shrink-0">{L('待通过', 'Pending')}</span>

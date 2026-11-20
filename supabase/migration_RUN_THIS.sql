@@ -864,3 +864,10 @@ create table if not exists linger_invites (
   used_at timestamptz
 );
 alter table linger_invites enable row level security;
+
+-- Linger 伴侣的谜夜账号
+alter table public.users add column if not exists avatar_url text;
+alter table public.users add column if not exists linger_agent_id text;
+alter table public.users add column if not exists linger_owner uuid;
+alter table public.users add column if not exists linger_meta jsonb;
+create unique index if not exists users_linger_agent_id_key on public.users(linger_agent_id) where linger_agent_id is not null;

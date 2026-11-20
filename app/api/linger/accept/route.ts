@@ -1,6 +1,7 @@
 // 用户点开伴侣发来的链接:建一个房间(用户是房主,伴侣坐进一个座位),这局由 Linger 订阅承担,不扣谜夜额度。
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
+import { ensureCompanionUser } from '@/lib/linger/account';
 export const dynamic = 'force-dynamic';
 
 const MODE_ZH: Record<string, string> = { botc: '血染钟楼', jbs: '剧本杀', soup: '海龟汤' };
@@ -17,6 +18,7 @@ export async function POST(req: Request) {
   // 已经开过房:同一个人再点就回到那个房间
   if (inv.room_id) {
     if (inv.used_by && inv.used_by !== user.id) return NextResponse.json({ error: '这个邀请已经被用过了' }, { status: 403 });
+    await ensureCompanionUser(admin, inv.payload || {}, user.id);
     return NextResponse.json({ roomId: inv.room_id });
   }
   if (new Date(inv.expires_at).getTime() < Date.now()) return NextResponse.json({ error: '邀请已过期,让 TA 再发一次吧' }, { status: 410 });
@@ -37,6 +39,7 @@ export async function POST(req: Request) {
   const { data: u } = await admin.from('users').select('display_name').eq('id', user.id).maybeSingle();
   if (!u?.display_name && p.userName) await admin.from('users').update({ display_name: String(p.userName).slice(0, 20) }).eq('id', user.id);
   await admin.from('linger_invites').update({ room_id: room.id, used_by: user.id, used_at: new Date().toISOString() }).eq('token', inv.token);
+  await ensureCompanionUser(admin, { ...p, language: lang }, user.id); // TA 在谜夜注册账号并加你好友
   if (p.hello) await admin.from('messages').insert({ room_id: room.id, sender_type: 'system', turn_no: 0, content: String(p.hello).slice(0, 200), payload: { type: 'companion', name: p.name, avatar: p.avatar || null } });
   return NextResponse.json({ roomId: room.id });
 }

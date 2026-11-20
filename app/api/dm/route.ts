@@ -38,7 +38,7 @@ export async function POST(req: Request) {
   const toUserId = body?.toUserId; const text = (body?.text || '').toString().trim().slice(0, 1000);
   if (!toUserId || typeof toUserId !== 'string' || !text || toUserId === user.id) return NextResponse.json({ ok: false, reason: 'bad' }, { status: 400 });
   const admin = createAdminClient();
-  const { data: target } = await admin.from('users').select('id, email').eq('id', toUserId).maybeSingle();
+  const { data: target } = await admin.from('users').select('id, email, linger_agent_id').eq('id', toUserId).maybeSingle();
   if (!target || !target.email || target.email === HIDDEN) return NextResponse.json({ ok: false, reason: 'notfound' }, { status: 404 });
 
   const friends = await areFriends(admin, user.id, toUserId);
@@ -52,7 +52,7 @@ export async function POST(req: Request) {
   // 邮件通知对方（限流：同一对 10 分钟内只发一次，避免刷屏）
   try {
     const key = process.env.RESEND_API_KEY;
-    if (key) {
+    if (key && !target.linger_agent_id) { // 伴侣账号不发邮件
       const tenAgo = new Date(Date.now() - 600000).toISOString();
       const { count: recent } = await admin.from('dms').select('id', { count: 'exact', head: true }).eq('from_user', user.id).eq('to_user', toUserId).gte('created_at', tenAgo);
       if ((recent || 0) <= 1) {

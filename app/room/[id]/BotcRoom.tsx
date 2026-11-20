@@ -115,10 +115,17 @@ export default function BotcRoom(props: ShellProps) {
   useEffect(() => {
     const comp = props.room.companion;
     if (!comp?.name || !isHost || compAuto.current || !(!phase || phase === 'lobby') || props.room.modules_generating) return;
-    compAuto.current = true;
-    const t = setTimeout(() => { fetch('/api/botc/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id, size: comp.picks?.size || 6, theme: comp.picks?.theme || null }) }).then(() => router.refresh()).catch(() => {}); }, 2500);
-    return () => clearTimeout(t);
-  }, [isHost, phase]);
+    // 只在真正发出请求时才记"已开局";别用 cleanup 取消定时器(依赖一变就会把开局取消掉,之后再也不触发)
+    const t = setTimeout(() => {
+      if (compAuto.current) return; compAuto.current = true;
+      fetch('/api/botc/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id, size: comp.picks?.size || 6, theme: comp.picks?.theme || null }) })
+        .then(() => router.refresh()).catch(() => { compAuto.current = false; });
+    }, 1200);
+    void t;
+  }, [isHost, phase, props.room.modules_generating]);
+  // 开局超过 25 秒还没进去:给个手动按钮兜底
+  const [compSlow, setCompSlow] = useState(false);
+  useEffect(() => { if (!props.room.companion?.name) return; const t = setTimeout(() => setCompSlow(true), 25000); return () => clearTimeout(t); }, []);
   async function start() { await call('/api/botc/start', { roomId: props.room.id, size, theme: theme.trim() || null }); }
   async function replay() {
     setResetting(true);
@@ -144,6 +151,19 @@ export default function BotcRoom(props: ShellProps) {
   async function vote(t: string) { setMyVote(t); await call('/api/botc/vote', { roomId: props.room.id, target: t }); }
   async function nightAct(t: string) { setMyNightTarget(t); await call('/api/botc/night', { roomId: props.room.id, target: t }); }
 
+  // ===== 和 Linger 伴侣的局:不显示大厅,直接等 TA 开局 =====
+  if (props.room.companion?.name && (!phase || phase === 'lobby' || phase === 'locking')) {
+    const nm = props.room.companion.name;
+    return (
+      <main className="min-h-[100svh] flex flex-col items-center justify-center gap-5 px-6 text-center">
+        {props.room.companion.avatar ? <img src={props.room.companion.avatar} alt="" className="w-20 h-20 rounded-full object-cover border border-eldritch/40" /> : null}
+        <h1 className="text-2xl font-serif text-parchment">{en ? `${nm} is setting up the game…` : `${nm} 正在开局…`}</h1>
+        <p className="text-parchment/55 max-w-sm">{en ? 'The Storyteller is dealing roles. Anyone could be evil — including you, and including them.' : '说书人正在发身份。谁都可能是邪恶方——包括你,也包括 TA。'}</p>
+        <div className="flex gap-1.5">{[0, 1, 2].map((i) => <span key={i} className="w-2 h-2 rounded-full bg-parchment/50 animate-pulse" style={{ animationDelay: `${i * 0.2}s` }} />)}</div>
+        {compSlow && isHost && <button disabled={busy} onClick={start} className="mt-2 px-5 py-2 rounded-full border border-eldritch/40 text-sm text-parchment/80">{en ? 'Taking too long? Start now' : '等太久了?现在开始'}</button>}
+      </main>
+    );
+  }
   // ===== 大厅 =====
   if (!phase || phase === 'lobby') {
     return (

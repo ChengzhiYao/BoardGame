@@ -1,4 +1,5 @@
 'use client';
+import CompanionWaiting from '@/components/CompanionWaiting';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -223,6 +224,10 @@ export default function JbsRoom(props: ShellProps) {
     } catch (e: any) { alert((en ? 'Failed: ' : '失败：') + e.message); setResetting(false); }
   }
 
+  // ===== 和 Linger 伴侣的局:TA 在挑本、开本,不显示大厅/选本 =====
+  if (props.room.companion?.name && (!phase || phase === 'lobby' || phase === 'script' || phase === 'locking' || phase === 'revealing')) {
+    return <CompanionWaiting comp={props.room.companion} en={en} title={en ? `${props.room.companion.name} is picking a script…` : `${props.room.companion.name} 正在挑剧本…`} sub={en ? 'You two will each get a role. Read it carefully — someone is lying.' : '你们每人会拿到一个角色。仔细读你的剧本——有人在说谎。'} />;
+  }
   // ===== 大厅 / 出本 =====
   if (!phase || phase === 'lobby') {
     return (

@@ -1,4 +1,5 @@
 'use client';
+import CompanionWaiting from '@/components/CompanionWaiting';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -104,6 +105,10 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
   async function submitGuess() { const g = guess.trim(); if (!g) return; setGuess(''); setGuessing(false); await call('/api/soup/guess', { roomId: props.room.id, guess: g }); }
   async function reveal() { if (!confirm('确定要看汤底吗？看了这局就结束了。')) return; await call('/api/soup/reveal', { roomId: props.room.id }); }
 
+  // 和 Linger 伴侣的局:TA 在出题,不显示大厅
+  if (props.room.companion?.name && (state === 'lobby' || (!playing && !ended))) {
+    return <CompanionWaiting comp={props.room.companion} en={props.room.language === 'en'} title={props.room.language === 'en' ? `${props.room.companion.name} is picking a puzzle…` : `${props.room.companion.name} 正在挑一道海龟汤…`} sub={props.room.language === 'en' ? 'Ask yes/no questions together to figure out what really happened.' : '你们一起问是非题,猜出真相。'} onStart={start} busy={busy || generating} />;
+  }
   // 大厅：还没出题
   if (state === 'lobby' || (!playing && !ended)) {
     return (

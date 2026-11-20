@@ -101,7 +101,7 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
   }
 
   async function start() { await call('/api/soup/generate', { roomId: props.room.id, difficulty, supernatural, tone, gore, horror, edge }); }
-  async function ask() { const q = text.trim(); if (!q) return; setText(''); await call('/api/soup/ask', { roomId: props.room.id, question: q }); }
+  async function ask() { const q = text.trim(); if (!q) return; setText(''); await call('/api/soup/ask', { roomId: props.room.id, question: q }); if (comp) fetch('/api/linger/react', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) }).catch(() => {}); }
   async function submitGuess() { const g = guess.trim(); if (!g) return; setGuess(''); setGuessing(false); await call('/api/soup/guess', { roomId: props.room.id, guess: g }); }
   async function reveal() { if (!confirm('确定要看汤底吗？看了这局就结束了。')) return; await call('/api/soup/reveal', { roomId: props.room.id }); }
 

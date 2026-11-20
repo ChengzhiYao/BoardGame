@@ -203,7 +203,7 @@ export default function JbsRoom(props: ShellProps) {
     </div>
   );
   async function startScript(id: string) { await call('/api/jbs/start', { roomId: props.room.id, scriptId: id, actMinutes: pace }); }
-  async function act_(content: string) { const c = content.trim(); if (!c) return; setText(''); await call('/api/jbs/act', { roomId: props.room.id, content: c }); }
+  async function act_(content: string) { const c = content.trim(); if (!c) return; setText(''); await call('/api/jbs/act', { roomId: props.room.id, content: c }); if (props.room.companion?.name) fetch('/api/linger/react', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) }).catch(() => {}); }
   async function advance(toVote?: boolean, auto?: boolean) { const r = await call('/api/jbs/advance', { roomId: props.room.id, toVote: !!toVote, auto: !!auto }); if (r) router.refresh(); }
   async function vote(target: string) { if (!confirm((en ? 'Accuse ' : '指认 ') + target + '?')) return; await call('/api/jbs/vote', { roomId: props.room.id, target }); }
   async function settle() { if (!confirm(en ? 'Reveal the ending / settle now?' : '现在揭晓结局 / 结算本局？')) return; await call('/api/jbs/settle', { roomId: props.room.id }); }

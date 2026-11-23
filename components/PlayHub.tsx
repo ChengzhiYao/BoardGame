@@ -63,7 +63,6 @@ export default function PlayHub() {
   const hour = new Date().getHours();
   const hello = en ? (hour < 5 ? 'Still up' : hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening') : (hour < 5 ? '夜深了' : hour < 12 ? '早上好' : hour < 18 ? '下午好' : '晚上好');
   const dateLine = new Date().toLocaleDateString(en ? 'en-US' : 'zh-CN', { month: 'long', day: 'numeric', weekday: 'short' });
-  const freeLeft = acct?.freeSecondsLimit ? Math.max(0, acct.freeSecondsLimit - (acct.freeSecondsUsed || 0)) : 0;
   const hm = (s: number) => { const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return en ? `${h}h ${m}m` : `${h} 小时 ${m} 分`; };
   const when = (iso: string) => { const d = new Date(iso); const days = Math.floor((Date.now() - d.getTime()) / 86400000); return days < 1 ? (en ? 'Today' : '今天') : days < 2 ? (en ? 'Yesterday' : '昨天') : d.toLocaleDateString(en ? 'en-US' : 'zh-CN', { month: 'short', day: 'numeric' }); };
   const shownHist = (hist || []).slice(0, showAll ? 20 : 5);
@@ -94,7 +93,6 @@ export default function PlayHub() {
                 ? <span><span className="text-[#c9a96e]">✦ {en ? 'Member' : '会员'}</span>{acct.memberPremiumLimit ? (en ? ` · ${Math.max(0, acct.memberPremiumLimit - (acct.memberPremiumUsed || 0))} premium left this month` : ` · 本月豪华还剩 ${Math.max(0, acct.memberPremiumLimit - (acct.memberPremiumUsed || 0))} 局`) : ''}</span>
                 : <>
                     <span>{en ? 'Premium games ' : '豪华局数 '}<b className="text-[#ece3cf] font-serif">{acct.credits ?? 0}</b></span>
-                    <span>{en ? 'Truth or Dare this week ' : '真心话本周还剩 '}<b className="text-[#ece3cf] font-serif">{hm(freeLeft)}</b></span>
                     <span className="text-[#c9a96e]">{en ? 'Get more →' : '获取更多 →'}</span>
                   </>}
             </a>

@@ -1,11 +1,11 @@
 // 轻玩法计费：海龟汤每天 2 局免费、猫猫诅咒每天 1 局免费；之后 $1 一局，或 $10 买 2 小时所有轻玩法随便玩。
-// 会员：每日免费局之外，再有每周 2 小时轻玩法时长。真心话：每周 2 小时。身价场：永久免费。
+// 会员：每日免费局之外，再有每周 2 小时轻玩法时长。真心话、身价场：永久免费。
 import { getEntitlement } from '@/lib/billing/entitlement';
 
 export const DAILY_FREE: Record<string, number> = { soup: 2, mcc: 1 };
 export const PER_GAME_MODES = Object.keys(DAILY_FREE);
-export const WEEKLY_MODES = ['td'];
-export const FOREVER_FREE = ['market'];
+export const WEEKLY_MODES: string[] = []; // 真心话也永久免费了
+export const FOREVER_FREE = ['market', 'td'];
 export const LIGHT_PRICE = 100;   // 美分：$1 一局
 export const PASS_PRICE = 1000;   // 美分：$10 两小时
 export const PASS_HOURS = 2;

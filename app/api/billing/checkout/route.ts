@@ -45,7 +45,7 @@ export async function POST(req: Request) {
       const stripe = getStripe();
       const session = await stripe.checkout.sessions.create({
         mode: 'payment',
-        line_items: [{ quantity: 1, price_data: { currency: CURRENCY, unit_amount: one ? LIGHT_PRICE : PASS_PRICE, product_data: { name: one ? 'MystNight · One more game' : 'MystNight · 2-hour pass', description: one ? 'One game of Lateral Soup or Cat Curse' : '2 hours of unlimited Lateral Soup, Cat Curse and Truth or Dare' } } }],
+        line_items: [{ quantity: 1, price_data: { currency: CURRENCY, unit_amount: one ? LIGHT_PRICE : PASS_PRICE, product_data: { name: one ? 'MystNight · One more game' : 'MystNight · 2-hour pass', description: one ? 'One game of Lateral Soup or Cat Curse' : '2 hours of unlimited Lateral Soup and Cat Curse' } } }],
         success_url: `${site}${rt}${sep}paid=1`,
         cancel_url: `${site}${rt}`,
         client_reference_id: user.id,

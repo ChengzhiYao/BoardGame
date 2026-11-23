@@ -237,7 +237,7 @@ export function PricingStrip({ lang }: { lang: Lang }) {
   const en = lang === 'en';
   const m = MEMBERSHIP.monthly.price / 100, y = MEMBERSHIP.yearly.price / 100;
   const rows: { tag: string; color: string; text: string }[] = [
-    { tag: en ? 'Free' : '免费', color: '#9fbf9f', text: en ? 'Soup 2 a day · Cat Curse 1 a day · Truth or Dare 2 hrs a week · the Market always free' : '海龟汤每天 2 碗 · 猫诅咒每天 1 局 · 真心话每周 2 小时 · 身价场永久免费' },
+    { tag: en ? 'Free' : '免费', color: '#9fbf9f', text: en ? 'Soup 2 a day · Cat Curse 1 a day · Truth or Dare and the Market always free' : '海龟汤每天 2 碗 · 猫诅咒每天 1 局 · 真心话、身价场永久免费' },
     { tag: en ? 'More' : '加玩', color: '#d9a441', text: en ? '$1 per extra game, or $10 for 2 hours of unlimited light games' : '多玩一局 $1，或 $10 买 2 小时轻玩法随便玩' },
     { tag: en ? 'New' : '新人', color: '#c9a96e', text: en ? `${FREE_PLAYS_ON_SIGNUP} free ✦ premium games when you sign up` : `注册送 ${FREE_PLAYS_ON_SIGNUP} 局 ✦ 豪华大作` },
     { tag: en ? 'Member' : '会员', color: '#ece3cf', text: en ? `$${m}/mo · +2 hrs/week of light games + ${MEMBER_PREMIUM_PLAYS} premium/mo ($${y}/yr)` : `$${m}/月 · 轻玩法每周多 2 小时 + 每月 ${MEMBER_PREMIUM_PLAYS} 局豪华（年付 $${y}）` },

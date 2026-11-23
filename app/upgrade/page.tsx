@@ -151,7 +151,7 @@ export default function Upgrade() {
           <button onClick={() => (status?.loggedIn ? buySub('pass2h') : signInWithGoogle('/upgrade').catch((e) => setErr(e.message)))} disabled={busy === 'sub-pass2h'}
             className="rounded-xl border border-blood/50 bg-fog p-4 text-left disabled:opacity-50">
             <div className="text-parchment text-sm">{lang === 'en' ? '2-hour pass' : '2 小时畅玩卡'}</div>
-            <div className="text-parchment/45 text-[11px] mt-0.5">{lang === 'en' ? 'Soup, Cat Curse, Truth or Dare — unlimited' : '海龟汤、猫诅咒、真心话随便玩'}</div>
+            <div className="text-parchment/45 text-[11px] mt-0.5">{lang === 'en' ? 'Soup and Cat Curse — unlimited' : '海龟汤、猫诅咒随便玩'}</div>
             <div className="font-serif text-2xl text-parchment mt-2">$10</div>
           </button>
         </div>

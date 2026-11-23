@@ -252,7 +252,7 @@ export function LandingFaq({ lang }: { lang: Lang }) {
   const qa: [Bi, Bi][] = [
     [{ zh: '要下载吗？要注册吗？', en: 'Do I need to download or sign up?' }, { zh: '不用下载，手机、电脑打开网页就能玩。用 Google 或邮箱一键登录就行，免费，你的每一局都会帮你存好。', en: 'No download — it runs in your browser. Sign in with Google or email in one tap; it’s free and your games are saved.' }],
     [{ zh: '一个人能玩吗？', en: 'Can I play alone?' }, { zh: '能。AI 会补齐所有空位。想和朋友玩，开局后把链接发给他就行。', en: 'Yes — the AI fills every empty seat. To play with a friend, just send them the link.' }],
-    [{ zh: '收费吗？', en: 'Is it free?' }, { zh: '海龟汤每天送 2 碗、猫诅咒每天送 1 局，之后 $1 一局，或 $10 买 2 小时随便玩；真心话每周免费 2 小时；身价场永久免费。剧本杀、跑团等豪华玩法新号送 2 局。', en: 'Lateral Soup: 2 free bowls a day. Cat Curse: 1 free game a day. After that it’s $1 a game, or $10 for 2 unlimited hours. Truth or Dare is free 2 hours a week; the Market is always free. New accounts get 2 premium games.' }],
+    [{ zh: '收费吗？', en: 'Is it free?' }, { zh: '海龟汤每天送 2 碗、猫诅咒每天送 1 局，之后 $1 一局，或 $10 买 2 小时随便玩；真心话和身价场永久免费。剧本杀、跑团等豪华玩法新号送 2 局。', en: 'Lateral Soup: 2 free bowls a day. Cat Curse: 1 free game a day. After that it’s $1 a game, or $10 for 2 unlimited hours. Truth or Dare and the Market are always free. New accounts get 2 premium games.' }],
   ];
   return (
     <section className="w-full max-w-xl mx-auto px-6 py-12 space-y-8">

@@ -28,8 +28,8 @@ export async function POST(req: Request) {
       const ent = await getEntitlement(admin, user);
       const { data: pp } = await admin.from('profiles').select('pass_until').eq('user_id', user.id).maybeSingle();
       const onPass = !!(pp?.pass_until && new Date(pp.pass_until) > new Date());
-      // 真心话：所有人都计时；海龟汤/猫诅咒：只有会员计（会员每周 2 小时）；身价场不计；畅玩卡期间不计
-      const counts = room.mode === 'td' || ((room.mode === 'soup' || room.mode === 'mcc') && ent.member);
+      // 只有会员玩海龟汤/猫诅咒时计时（会员每周 2 小时）；真心话、身价场永久免费不计；畅玩卡期间不计
+      const counts = (room.mode === 'soup' || room.mode === 'mcc') && ent.member;
       if (counts && !ent.whitelisted && !onPass) {
         const ws = weekStart();
         const { data: fu } = await admin.from('free_usage').select('seconds').eq('user_id', user.id).eq('week_start', ws).maybeSingle();

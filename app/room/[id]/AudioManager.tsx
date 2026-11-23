@@ -3,10 +3,32 @@ import { useEffect, useRef, useState } from 'react';
 import { AUDIO_MAP, ONE_SHOT, SCARE, STINGERS, SCARE_BOOST, isCategory, type AudioCategory } from '@/lib/audio/manifest';
 import { audioBus } from '@/lib/audio/bus';
 import { subscribeVoiceControl, getVoiceControl, type VCtrl } from './voiceControl';
+import { playSfx } from '@/lib/audio/sfx';
+
+// 旁白内容 → 情绪（服务端给的状态是底，旁白里的事件临时盖上去，约 2 分钟后回落）
+const MOOD: [RegExp, AudioCategory][] = [
+  [/尸体|血迹|鲜血|死了|惨叫|尖叫|corpse|blood|scream|dead body/i, 'MONSTER_REVEAL'],
+  [/追|快跑|逃|冲过来|扑过来|chase|run!|rushes? at|lunges/i, 'CHASE_SEQUENCE'],
+  [/打斗|搏斗|开枪|刀|厮打|fight|gunshot|stab|attack/i, 'COMBAT'],
+  [/低语|耳语|影子|镜子|幻觉|不对劲|whisper|shadow|mirror|something.?s wrong/i, 'PARANORMAL_EVENT'],
+  [/真相|原来|终于明白|水落石出|the truth|finally understand/i, 'TRUTH_REVEAL'],
+  [/发现|线索|找到了|注意到|clue|you find|you notice/i, 'INVESTIGATION_BREAKTHROUGH'],
+];
+// [[拟声]] → 音效
+const SFX_WORDS: [RegExp, string][] = [
+  [/吱呀|门|creak|door/i, 'creaking_door'],
+  [/吼|咆哮|growl|roar/i, 'monster_growl'],
+  [/风|呼——|呼呼|wind|howl/i, 'ambient_wind'],
+  [/楼梯|stairs/i, 'footsteps_stairs'],
+  [/脚步|嗒|踏|footstep|step/i, 'footsteps_wood'],
+];
 
 // 前端音乐状态机：AI 只返回 scene_state，这里负责淡入淡出、循环、单次、惊吓、音量。
 export default function AudioManager({ state }: { state: string }) {
-  const cat = (isCategory((state || '').toUpperCase()) ? state.toUpperCase() : 'MENU') as AudioCategory;
+  const base = (isCategory((state || '').toUpperCase()) ? state.toUpperCase() : 'MENU') as AudioCategory;
+  const [over, setOver] = useState<{ c: AudioCategory; until: number } | null>(null);
+  const [tick, setTick] = useState(0);
+  const cat: AudioCategory = over && Date.now() < over.until && !/ENDING|TRUTH_REVEAL|MENU|CHARACTER/.test(base) ? over.c : base;
   const [enabled, setEnabled] = useState(false);
   const [muted, setMuted] = useState(false);
   const [vol, setVol] = useState(0.6);
@@ -40,9 +62,13 @@ export default function AudioManager({ state }: { state: string }) {
   const lastLoopCat = useRef<AudioCategory | null>(null);
   const lastTrack = useRef<Record<string, string>>({});
   const volRef = useRef(vol);
+  const duckRef = useRef(false);
+  const bedStart = useRef(0);
+  const enabledRef = useRef(false);
   const mutedRef = useRef(muted);
   volRef.current = vol;
   mutedRef.current = muted;
+  enabledRef.current = enabled;
 
   function pick(list: string[], key: string): string | null {
     if (!list.length) return null;
@@ -57,14 +83,20 @@ export default function AudioManager({ state }: { state: string }) {
 
   function bedVolume(c: AudioCategory) {
     const boost = SCARE.includes(c) ? SCARE_BOOST : 1;
-    return mutedRef.current ? 0 : Math.min(1, volRef.current * boost);
+    const duck = duckRef.current ? 0.35 : 1; // 旁白说话时把音乐压低
+    return mutedRef.current ? 0 : Math.min(1, volRef.current * boost * duck);
   }
 
-  function playStinger() {
+  function fadeVol(a: HTMLAudioElement, to: number) {
+    const from = a.volume; let i = 0;
+    const iv = setInterval(() => { i++; a.volume = Math.max(0, Math.min(1, from + (to - from) * (i / 12))); if (i >= 12) clearInterval(iv); }, 50);
+  }
+
+  function playStinger(mult = SCARE_BOOST) {
     const url = pick(STINGERS, 'stinger');
     if (!url) return;
     const a = new Audio(url);
-    a.volume = mutedRef.current ? 0 : Math.min(1, volRef.current * SCARE_BOOST);
+    a.volume = mutedRef.current ? 0 : Math.min(1, volRef.current * mult);
     a.play().catch(() => {});
   }
 
@@ -75,9 +107,10 @@ export default function AudioManager({ state }: { state: string }) {
     next.loop = true;
     next.volume = 0;
     bedRef.current = next;
+    bedStart.current = Date.now();
     next.play().catch(() => {});
     if (fadeRef.current) clearInterval(fadeRef.current);
-    const steps = 30, dt = 50;
+    const steps = 60, dt = 50;
     let i = 0;
     fadeRef.current = setInterval(() => {
       i++;
@@ -90,6 +123,36 @@ export default function AudioManager({ state }: { state: string }) {
       }
     }, dt);
   }
+
+  // 旁白事件：换情绪 / 配音效 / 喊叫时一记轻惊吓
+  useEffect(() => {
+    const onNarr = (e: any) => {
+      const text: string = String(e?.detail?.text || '');
+      if (!text) return;
+      const plain = text.replace(/\[\[.+?\]\]/g, ' ');
+      for (const [re, c] of MOOD) { if (re.test(plain)) { setOver({ c, until: Date.now() + 120000 }); break; } }
+      const sfx = Array.from(text.matchAll(/\[\[(.+?)\]\]/g)).map((m) => m[1]);
+      let delay = 400;
+      for (const w of sfx.slice(0, 2)) { const hit = SFX_WORDS.find(([re]) => re.test(w)); if (hit) { const k = hit[1]; setTimeout(() => playSfx(k), delay); delay += 900; } }
+      if (/!!.+?!!/s.test(text) && enabledRef.current) setTimeout(() => playStinger(0.8), 250);
+    };
+    const onSpeak = (e: any) => { duckRef.current = !!e?.detail; if (bedRef.current && lastLoopCat.current) fadeVol(bedRef.current, bedVolume(lastLoopCat.current)); };
+    window.addEventListener('mn-narr', onNarr);
+    window.addEventListener('mn-speaking', onSpeak);
+    // 情绪覆盖到期 → 回落；同一首放久了换一首同情绪的
+    const iv = setInterval(() => setTick((x) => x + 1), 15000);
+    return () => { window.removeEventListener('mn-narr', onNarr); window.removeEventListener('mn-speaking', onSpeak); clearInterval(iv); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (!enabled || !bedRef.current || !lastLoopCat.current) return;
+    if (Date.now() - bedStart.current < 240000) return;
+    const list = AUDIO_MAP[lastLoopCat.current];
+    if (list.length < 2 || ONE_SHOT.includes(lastLoopCat.current)) return;
+    const url = pick(list, lastLoopCat.current);
+    if (url) crossfadeTo(url, bedVolume(lastLoopCat.current));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tick]);
 
   // 状态切换
   useEffect(() => {

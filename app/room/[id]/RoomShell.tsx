@@ -25,6 +25,20 @@ function jbsAudioState(room: any): string {
   return 'MENU';
 }
 
+function soupAudioState(room: any): string {
+  if (room.game_state === 'ended') return 'TRUTH_REVEAL';
+  if (room.game_state === 'playing') return 'EXPLORATION_SAFE';
+  return 'MENU';
+}
+function botcAudioState(room: any): string {
+  const ph = String(room.botc_phase || '');
+  if (room.game_state === 'ended' || ph === 'reveal') return 'TRUTH_REVEAL';
+  if (ph === 'night') return 'EXPLORATION_DANGEROUS';
+  if (ph === 'vote') return 'FINAL_CONFRONTATION';
+  if (ph === 'day') return 'INVESTIGATION_BREAKTHROUGH';
+  return 'MENU';
+}
+
 function audioStateFor(room: any): string {
   const gs = room.game_state;
   if (['lobby', 'module_selection', 'case_locking'].includes(gs)) return 'MENU';
@@ -104,10 +118,10 @@ export default function RoomShell(props: ShellProps) {
     return () => { stop = true; clearInterval(id); document.removeEventListener('visibilitychange', onVis); };
   }, [props.room.id]);
 
-  if (props.room.mode === 'soup') return <SoupRoom {...props} />;
+  if (props.room.mode === 'soup') return (<><AudioManager state={soupAudioState(props.room)} /><SoupRoom {...props} /></>);
   if (props.room.mode === 'td') return <TDRoom {...props} />;
   if (props.room.mode === 'jbs') return (<><AudioManager state={jbsAudioState(props.room)} /><JbsRoom {...props} /></>);
-  if (props.room.mode === 'botc') return <BotcRoom {...props} />;
+  if (props.room.mode === 'botc') return (<><AudioManager state={botcAudioState(props.room)} /><BotcRoom {...props} /></>);
   if (props.room.mode === 'mcc') return <MccRoom {...props} />;
   if (props.room.mode === 'dnd') return <DndRoom {...props} />;
   if (props.room.mode === 'story') return <StoryRoom {...props} />;

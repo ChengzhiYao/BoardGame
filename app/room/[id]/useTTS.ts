@@ -53,8 +53,10 @@ export function useTTS(opts: { lang?: string; messages: any[]; classify: (m: any
         await new Promise<void>((resolve) => {
           const a = new Audio(url);
           curAudio.current = a;
-          a.onended = () => resolve();
-          a.onerror = () => resolve();
+          const say = (on: boolean) => { try { window.dispatchEvent(new CustomEvent('mn-speaking', { detail: on })); } catch {} };
+          a.onplay = () => say(true);
+          a.onended = () => { say(false); resolve(); };
+          a.onerror = () => { say(false); resolve(); };
           a.play().catch(() => resolve());
         });
       } catch { /* skip */ }

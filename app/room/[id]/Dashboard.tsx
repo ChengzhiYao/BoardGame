@@ -313,7 +313,7 @@ export default function Dashboard(props: ShellProps) {
                   </select>
                   <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submitFromInput()}
                     placeholder={ended ? t('ended_input_ph') : t('input_ph')} disabled={!props.myPlayerId || ended}
-                    className="flex-1 min-w-0 px-4 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch disabled:opacity-50" /> <MicButton value={text} onChange=setText en={EN(lang)} compact={false} />
+                    className="flex-1 min-w-0 px-4 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch disabled:opacity-50" /> <MicButton value={text} onChange={setText} en={EN(lang)} compact={false} />
                 </div>
                 <div className="flex gap-2">
                   <button onClick={sendChat} disabled={!props.myPlayerId || ended}

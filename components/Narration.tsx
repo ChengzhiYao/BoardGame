@@ -1,5 +1,5 @@
 'use client';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { parseBeat, splitBeats } from '@/lib/narrate';
 
 // 旁白呈现：一个节拍一行，逐拍浮现；动作/喊叫/低语/音效/对白各用不同字体、字号、颜色。
@@ -11,6 +11,8 @@ export default function Narration({ text, lang, fresh = false, tone = 'kp', labe
   const cut = collapse && !fresh && !open && beats.length > 5;
   const shown = cut ? beats.slice(0, 3) : beats;
   const en = lang === 'en';
+  // 新旁白出现 → 通知音乐层（按内容换情绪、配拟声、喊叫时来一下惊吓）
+  useEffect(() => { if (fresh && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('mn-narr', { detail: { text, tone } })); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className={`nf nf-${tone} mx-auto w-full max-w-2xl`}>
       {label && <div className="nf-label">{label}</div>}

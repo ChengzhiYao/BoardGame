@@ -177,7 +177,7 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
             <div className="space-y-2">
               <textarea value={guess} onChange={(e) => setGuess(e.target.value)} placeholder="说出你认为的完整真相（汤底）…"
                 className="w-full px-3 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch" rows={3} />
-              <div className="flex gap-2"><MicButton value={guess} onChange=setGuess en={en} compact={false} />
+              <div className="flex gap-2"><MicButton value={guess} onChange={setGuess} en={en} compact={false} />
                 <button onClick={submitGuess} disabled={busy} className="flex-1 px-4 py-2 rounded bg-blood/80 hover:bg-blood text-parchment disabled:opacity-50">提交答案</button>
                 <button onClick={() => setGuessing(false)} className="px-4 py-2 rounded bg-fog border border-parchment/30 text-parchment/70">返回提问</button>
               </div>
@@ -187,7 +187,7 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
               <div className="flex gap-2">
                 <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && ask()}
                   placeholder="提一个是非题…" disabled={busy}
-                  className="flex-1 min-w-0 px-4 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch disabled:opacity-50" /> <MicButton value={text} onChange=setText en={en} compact={false} />
+                  className="flex-1 min-w-0 px-4 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch disabled:opacity-50" /> <MicButton value={text} onChange={setText} en={en} compact={false} />
                 <button onClick={ask} disabled={busy} className="px-5 py-2 rounded bg-eldritch/60 hover:bg-eldritch text-parchment disabled:opacity-50 shrink-0">提问</button>
               </div>
               <div className="flex gap-2">

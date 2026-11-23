@@ -1,4 +1,5 @@
 'use client';
+import { toast } from '@/components/Toast';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -92,9 +93,9 @@ export default function StoryRoom(props: ShellProps) {
     try {
       const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const d = await res.json().catch(() => ({}));
-      if (!res.ok) { alert(d?.error || (en ? 'Error' : '出错了')); return null; }
+      if (!res.ok) { toast(d?.error || (en ? 'Error' : '出错了')); return null; }
       router.refresh(); return d;
-    } catch (e: any) { alert((en ? 'Failed: ' : '失败：') + e.message); return null; }
+    } catch (e: any) { toast((en ? 'Failed: ' : '失败：') + e.message); return null; }
     finally { inFlight.current = false; setBusy(false); }
   }
   const genParams = () => ({ genres, horror_sub: genres.includes('horror') ? horrorSub : [], tone, hero, theme, world, special, forbidden });
@@ -103,9 +104,9 @@ export default function StoryRoom(props: ShellProps) {
   async function revise(intensity: 'light' | 'medium' | 'deep') {
     const d = await call('/api/story/revise', { roomId: props.room.id, mode: 'revise', note: reviseNote, intensity });
     if (d && d.improved === false) {
-      alert(en ? `Tried rewrites but none beat the current score (${d.from}). Kept the current version.` : `试了改写都没超过当前分数（${d.from}），已保留当前版本，没有变差。${intensity !== 'deep' ? '可以试更高强度的「深改冲90」，或' : '可'}在输入框写明要提升哪里再试。`);
+      toast(en ? `Tried rewrites but none beat the current score (${d.from}). Kept the current version.` : `试了改写都没超过当前分数（${d.from}），已保留当前版本，没有变差。${intensity !== 'deep' ? '可以试更高强度的「深改冲90」，或' : '可'}在输入框写明要提升哪里再试。`);
     } else if (d && d.capBound) {
-      alert(en ? `Rewrote the story (structure improved), but the score is capped at ${d.to}${d.capReasons?.length ? ` by: ${d.capReasons.join(', ')}` : ''}. Revise again or name that structural fix to break through.` : `已重写故事（结构有改善），但总分被${d.capReasons?.length ? `『${d.capReasons.join('、')}』` : ''}封顶在 ${d.to} 分。再点一次、或在输入框点名修复该结构项，才能突破封顶。`);
+      toast(en ? `Rewrote the story (structure improved), but the score is capped at ${d.to}${d.capReasons?.length ? ` by: ${d.capReasons.join(', ')}` : ''}. Revise again or name that structural fix to break through.` : `已重写故事（结构有改善），但总分被${d.capReasons?.length ? `『${d.capReasons.join('、')}』` : ''}封顶在 ${d.to} 分。再点一次、或在输入框点名修复该结构项，才能突破封顶。`);
     }
   }
   function rerate() { call('/api/story/revise', { roomId: props.room.id, mode: 'rerate' }); }

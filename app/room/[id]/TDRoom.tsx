@@ -1,4 +1,5 @@
 'use client';
+import { toast } from '@/components/Toast';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -63,14 +64,14 @@ export default function TDRoom(props: ShellProps) {
     try {
       const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const d = await res.json();
-      if (!res.ok) alert(d.error || (en ? 'Something went wrong' : '出错了'));
-    } catch (e: any) { alert((en ? 'Failed: ' : '失败：') + e.message); }
+      if (!res.ok) toast(d.error || (en ? 'Something went wrong' : '出错了'));
+    } catch (e: any) { toast((en ? 'Failed: ' : '失败：') + e.message); }
     finally { setBusy(false); }
   }
 
   async function startGame() {
     const t = Object.entries(types).filter(([, v]) => v).map(([k]) => k);
-    if (!t.length) return alert(en ? 'Pick at least one: Truth or Dare' : '至少选一种：真心话或大冒险');
+    if (!t.length) return toast(en ? 'Pick at least one: Truth or Dare' : '至少选一种：真心话或大冒险');
     await call('/api/td/start', { roomId: props.room.id, settings: { types: t, intensity, environment, forbidden } });
   }
   async function draw(kind: 'truth' | 'dare') { await call('/api/td/draw', { roomId: props.room.id, kind, ai: aiMode }); }

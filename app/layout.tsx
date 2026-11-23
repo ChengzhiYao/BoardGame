@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next';
 import InstallPWA from './InstallPWA';
 import FriendDock from '@/components/FriendDock';
 import Track from '@/components/Track';
+import Toaster from '@/components/Toast';
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.mystnight.com';
 const TITLE = '谜夜 MystNight · AI 主持的在线剧本杀 / 克苏鲁 / 海龟汤';
@@ -37,6 +38,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="zh">
       <body>
+        <Toaster />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSONLD) }} />
         <InstallPWA />
         <FriendDock />

@@ -1,4 +1,5 @@
 'use client';
+import { toast } from '@/components/Toast';
 import Narration from '@/components/Narration';
 import MicButton from '@/components/MicButton';
 import { useEffect, useRef, useState } from 'react';
@@ -68,9 +69,9 @@ export default function DndRoom(props: ShellProps) {
     try {
       const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const d = await res.json().catch(() => ({}));
-      if (!res.ok) { alert(d?.error || (en ? 'Error' : '出错了')); return null; }
+      if (!res.ok) { toast(d?.error || (en ? 'Error' : '出错了')); return null; }
       router.refresh(); return d;
-    } catch (e: any) { alert((en ? 'Failed: ' : '失败：') + e.message); return null; }
+    } catch (e: any) { toast((en ? 'Failed: ' : '失败：') + e.message); return null; }
     finally { inFlight.current = false; setBusy(false); }
   }
 
@@ -85,9 +86,9 @@ export default function DndRoom(props: ShellProps) {
   async function replay() {
     setResetting(true);
     try { const res = await fetch('/api/rooms/replay', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) });
-      const d = await res.json().catch(() => ({})); if (!res.ok) { alert(d.error || (en ? 'Error' : '出错了')); setResetting(false); return; }
+      const d = await res.json().catch(() => ({})); if (!res.ok) { toast(d.error || (en ? 'Error' : '出错了')); setResetting(false); return; }
       if (typeof window !== 'undefined') window.location.reload();
-    } catch (e: any) { alert((en ? 'Failed: ' : '失败：') + e.message); setResetting(false); }
+    } catch (e: any) { toast((en ? 'Failed: ' : '失败：') + e.message); setResetting(false); }
   }
   function startWith(q: any, customText?: string) {
     const theme2 = q ? `《${q.title}》｜${q.setting}｜钩子：${q.hook}｜威胁：${q.threat}｜基调：${q.tone}` : String(customText || '').trim();

@@ -1,4 +1,5 @@
 'use client';
+import { toast, ask } from '@/components/Toast';
 import Narration from '@/components/Narration';
 import MicButton from '@/components/MicButton';
 import { useEffect, useRef, useState } from 'react';
@@ -110,9 +111,9 @@ export default function BotcRoom(props: ShellProps) {
     try {
       const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const d = await res.json();
-      if (!res.ok) alert(d.error || (en ? 'Error' : '出错了'));
+      if (!res.ok) toast(d.error || (en ? 'Error' : '出错了'));
       return d;
-    } catch (e: any) { alert((en ? 'Failed: ' : '失败：') + e.message); }
+    } catch (e: any) { toast((en ? 'Failed: ' : '失败：') + e.message); }
     finally { setBusy(false); }
   }
   // Linger 伴侣邀请的局:TA 来开局(人数/题材按 TA 的口味)
@@ -137,13 +138,13 @@ export default function BotcRoom(props: ShellProps) {
     try {
       const res = await fetch('/api/rooms/replay', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) });
       const d = await res.json().catch(() => ({}));
-      if (!res.ok) { alert(d.error || (en ? 'Error' : '出错了')); setResetting(false); return; }
+      if (!res.ok) { toast(d.error || (en ? 'Error' : '出错了')); setResetting(false); return; }
       if (typeof window !== 'undefined') window.location.reload();
-    } catch (e: any) { alert((en ? 'Failed: ' : '失败：') + e.message); setResetting(false); }
+    } catch (e: any) { toast((en ? 'Failed: ' : '失败：') + e.message); setResetting(false); }
   }
   async function passTurn() { const d = await call('/api/botc/pass', { roomId: props.room.id }); if (d?.ok) router.refresh(); }
-  async function resolveDay() { if (!confirm(en ? 'Tally votes and execute?' : '统计投票并处决？')) return; await call('/api/botc/resolve', { roomId: props.room.id }); }
-  async function resolveNight() { if (!confirm(en ? 'Resolve the night?' : '结算今夜（天亮）？')) return; await call('/api/botc/resolve-night', { roomId: props.room.id }); }
+  async function resolveDay() { if (!(await ask(en ? 'Tally votes and execute?' : '统计投票并处决？'))) return; await call('/api/botc/resolve', { roomId: props.room.id }); }
+  async function resolveNight() { if (!(await ask(en ? 'Resolve the night?' : '结算今夜（天亮）？'))) return; await call('/api/botc/resolve-night', { roomId: props.room.id }); }
   async function sendChat() {
     const c = text.trim(); if (!c || !props.myPlayerId) return;
     setText('');

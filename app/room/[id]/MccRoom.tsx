@@ -1,4 +1,5 @@
 'use client';
+import { toast } from '@/components/Toast';
 import { LightPaywall, LightLine, useLightStatus } from '@/components/LightPay';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -144,13 +145,13 @@ export default function MccRoom(props: ShellProps) {
       if (!res.ok) {
         const msg = d?.error || (en ? 'Error' : '出错了');
         if (quiet && quiet.some((q) => String(msg).includes(q))) { router.refresh(); return null; } // 迟到/竞态：静默刷新，不弹框
-        alert(msg);
+        toast(msg);
         return null;
       }
       router.refresh();
       if (url.endsWith('/start')) setStBump((x) => x + 1);
       return d;
-    } catch (e: any) { alert((en ? 'Failed: ' : '失败：') + e.message); return null; }
+    } catch (e: any) { toast((en ? 'Failed: ' : '失败：') + e.message); return null; }
     finally { inFlight.current = false; setBusy(false); }
   }
   async function start() { await call('/api/mcc/start', { roomId: props.room.id, aiFill, total: totalSeats }); }
@@ -159,9 +160,9 @@ export default function MccRoom(props: ShellProps) {
     try {
       const res = await fetch('/api/rooms/replay', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) });
       const d = await res.json().catch(() => ({}));
-      if (!res.ok) { alert(d.error || (en ? 'Error' : '出错了')); setResetting(false); return; }
+      if (!res.ok) { toast(d.error || (en ? 'Error' : '出错了')); setResetting(false); return; }
       if (typeof window !== 'undefined') window.location.reload();
-    } catch (e: any) { alert((en ? 'Failed: ' : '失败：') + e.message); setResetting(false); }
+    } catch (e: any) { toast((en ? 'Failed: ' : '失败：') + e.message); setResetting(false); }
   }
   async function playCard(card: string, target?: string) {
     setPickCard(''); setSel(null); buzz(12);

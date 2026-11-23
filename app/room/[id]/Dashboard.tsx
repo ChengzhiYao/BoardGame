@@ -1,4 +1,5 @@
 'use client';
+import { toast as notify } from '@/components/Toast';
 import Narration from '@/components/Narration';
 import MicButton from '@/components/MicButton';
 import { useEffect, useRef, useState } from 'react';
@@ -167,7 +168,7 @@ export default function Dashboard(props: ShellProps) {
       room_id: room.id, sender_type: 'player', sender_player_id: props.myPlayerId,
       action_type: 'chat', content: c, visibility: 'public', turn_no: room.current_round || 1,
     });
-    if (error) alert((EN(lang) ? 'Send failed: ' : '发送失败：') + error.message);
+    if (error) notify((EN(lang) ? 'Send failed: ' : '发送失败：') + error.message);
   }
   async function submitAction(content: string, act: string = action) {
     const c = (content || '').trim();
@@ -179,8 +180,8 @@ export default function Dashboard(props: ShellProps) {
         body: JSON.stringify({ roomId: room.id, content: c, action_type: act }),
       });
       const data = await res.json();
-      if (!res.ok) alert(data.error || (EN(lang) ? 'Submit failed' : '提交失败'));
-    } catch (e: any) { alert((EN(lang) ? 'Submit failed: ' : '提交失败：') + e.message); }
+      if (!res.ok) notify(data.error || (EN(lang) ? 'Submit failed' : '提交失败'));
+    } catch (e: any) { notify((EN(lang) ? 'Submit failed: ' : '提交失败：') + e.message); }
     finally { setThinking(false); }
   }
   async function withdrawAction() {
@@ -206,8 +207,8 @@ export default function Dashboard(props: ShellProps) {
       });
       const data = await res.json();
       if (res.status === 402) { setShowUpgrade(true); }
-      else if (!res.ok && !silent) alert(data.error || (EN(lang) ? 'Image failed' : '出图失败'));
-    } catch (e: any) { if (!silent) alert((EN(lang) ? 'Image failed: ' : '出图失败：') + e.message); }
+      else if (!res.ok && !silent) notify(data.error || (EN(lang) ? 'Image failed' : '出图失败'));
+    } catch (e: any) { if (!silent) notify((EN(lang) ? 'Image failed: ' : '出图失败：') + e.message); }
     finally { setGenImg(null); }
   }
 
@@ -232,8 +233,8 @@ export default function Dashboard(props: ShellProps) {
       const r = await fetch('/api/billing/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan, returnTo: `/room/${props.room.id}` }) });
       const d = await r.json();
       if (d.url) { window.location.href = d.url; return; }
-      alert(d.error || (EN(lang) ? 'Failed' : '创建支付失败'));
-    } catch { alert(EN(lang) ? 'Network error' : '网络错误'); }
+      notify(d.error || (EN(lang) ? 'Failed' : '创建支付失败'));
+    } catch { notify(EN(lang) ? 'Network error' : '网络错误'); }
     setUpBusy('');
   }
 
@@ -846,9 +847,9 @@ function EndedBanner({ roomId, lang, isHost }: { roomId: string; lang: string; i
       const res = await fetch('/api/rooms/replay', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId }) });
       const d = await res.json();
       if (res.status === 402) { window.location.href = '/upgrade'; return; }
-      if (!res.ok) { alert(d.error || (EN(lang) ? 'Failed' : '失败')); setReplaying(false); return; }
+      if (!res.ok) { notify(d.error || (EN(lang) ? 'Failed' : '失败')); setReplaying(false); return; }
       // 成功后由实时刷新把双方带回"选择模组"
-    } catch (e: any) { alert(e.message); setReplaying(false); }
+    } catch (e: any) { notify(e.message); setReplaying(false); }
   }
   const L = EN(lang)
     ? { truth: 'Truth: ', mind: 'Mastermind: ', sup: 'Supernatural: ', npc: 'NPC secrets: ', clues: 'Key clues: ', lie: 'lie: ', revealing: 'Unsealing the truth…' }

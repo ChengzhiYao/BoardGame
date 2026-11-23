@@ -134,3 +134,33 @@ ${justHappened ? `
 【刚刚发生的突发事件】${justHappened}——所有人都看到了。这一回合必须让场面对它有反应（有人慌、有人趁乱、配角跑来报告），并让它改变接下来的局势。` : ''}
 【演出感】叙述要像主持人在现场带戏：有声音、有动作、有人物进出场；每次 1~3 句即可，别写成长段散文。`;
 }
+
+// 短本：把完整本的幕合并成「开场 → 搜证 → 对质 → 最终指认 → 真相」，约 25 分钟打完。只改这一局的副本，不动本库。
+export function condenseActs(cf: any) {
+  const acts: any[] = Array.isArray(cf?.acts) ? cf.acts : [];
+  const n = acts.length;
+  if (n <= 5) return cf;
+  const midEnd = Math.max(2, Math.floor((n - 2) / 2));          // 搜证：第 2 幕 ~ midEnd
+  const groups = [[0], range(1, midEnd), range(midEnd + 1, n - 3), [n - 2], [n - 1]].filter((g) => g.length);
+  const merge = (g: number[]) => {
+    const parts = g.map((i) => acts[i]).filter(Boolean);
+    return {
+      ...parts[0],
+      goal: parts.map((a) => a.goal).filter(Boolean).join('；'),
+      event: parts.map((a) => a.event).find(Boolean) || '',
+      show: parts[0]?.show || '',
+      scene: parts[0]?.scene,
+    };
+  };
+  const newActs = groups.map(merge);
+  const mapAct = (a: number) => { const idx = groups.findIndex((g) => g.includes(a - 1)); return idx >= 0 ? idx + 1 : a; };
+  const characters = (cf.characters || []).map((c: any) => {
+    const pages = (c.act_pages || []).map((p: any) => ({ ...p, act: mapAct(Number(p.act) || 2) }));
+    // 同一幕的多页合成一页
+    const byAct: Record<number, string[]> = {};
+    pages.forEach((p: any) => { (byAct[p.act] ||= []).push(p.text); });
+    return { ...c, act_pages: Object.entries(byAct).map(([a, t]) => ({ act: Number(a), text: t.join('\n\n') })) };
+  });
+  return { ...cf, acts: newActs, characters, short: true };
+}
+function range(a: number, b: number) { const r: number[] = []; for (let i = a; i <= b; i++) r.push(i); return r; }

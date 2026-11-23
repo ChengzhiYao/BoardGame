@@ -1,4 +1,5 @@
 'use client';
+import { toast, ask } from '@/components/Toast';
 import Narration from '@/components/Narration';
 import MicButton from '@/components/MicButton';
 import CompanionWaiting from '@/components/CompanionWaiting';
@@ -27,7 +28,8 @@ export default function JbsRoom(props: ShellProps) {
   const [copied, setCopied] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [headcount, setHeadcount] = useState(6);
-  const [pace, setPace] = useState(9);
+  const [pace, setPace] = useState<number>(6);
+  const [short, setShort] = useState(true);
   const [now, setNow] = useState(Date.now());
   const [showCustom, setShowCustom] = useState(false);
   const [custom, setCustom] = useState<Record<string, string>>({});
@@ -164,9 +166,9 @@ export default function JbsRoom(props: ShellProps) {
     try {
       const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const d = await res.json();
-      if (!res.ok) { alert(d.error || (en ? 'Error' : '出错了')); return null; }
+      if (!res.ok) { toast(d.error || (en ? 'Error' : '出错了')); return null; }
       return d;
-    } catch (e: any) { alert((en ? 'Failed: ' : '失败：') + e.message); return null; }
+    } catch (e: any) { toast((en ? 'Failed: ' : '失败：') + e.message); return null; }
     finally { setBusy(false); }
   }
 
@@ -216,16 +218,16 @@ export default function JbsRoom(props: ShellProps) {
       </button>
     </div>
   );
-  async function startScript(id: string) { await call('/api/jbs/start', { roomId: props.room.id, scriptId: id, actMinutes: pace }); }
+  async function startScript(id: string) { await call('/api/jbs/start', { roomId: props.room.id, scriptId: id, actMinutes: pace, short }); }
   async function act_(content: string) { const c = content.trim(); if (!c) return; setText(''); await call('/api/jbs/act', { roomId: props.room.id, content: c }); if (props.room.companion?.name) fetch('/api/linger/react', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) }).catch(() => {}); }
   async function advance(toVote?: boolean, auto?: boolean) { const r = await call('/api/jbs/advance', { roomId: props.room.id, toVote: !!toVote, auto: !!auto }); if (r) router.refresh(); }
   async function vote(target: string) { const r = await call('/api/jbs/vote', { roomId: props.room.id, target }); if (r) setPickVote(null); }
-  async function settle() { if (!confirm(en ? 'Reveal the ending / settle now?' : '现在揭晓结局 / 结算本局？')) return; await call('/api/jbs/settle', { roomId: props.room.id }); }
+  async function settle() { if (!(await ask(en ? 'Reveal the ending / settle now?' : '现在揭晓结局 / 结算本局？'))) return; await call('/api/jbs/settle', { roomId: props.room.id }); }
   async function genAvatars(force?: boolean, silent?: boolean) {
     const r = silent
       ? await fetch('/api/jbs/avatars', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id, force: !!force }) }).then((x) => x.json()).catch(() => null)
       : await call('/api/jbs/avatars', { roomId: props.room.id, force: !!force });
-    if (r?.ok) { router.refresh(); if (!silent && r.remaining > 0) alert(en ? `Generated ${r.done}, ${r.remaining} left — click again to finish.` : `已生成 ${r.done} 张，还剩 ${r.remaining} 张，再点一次补齐。`); }
+    if (r?.ok) { router.refresh(); if (!silent && r.remaining > 0) toast(en ? `Generated ${r.done}, ${r.remaining} left — click again to finish.` : `已生成 ${r.done} 张，还剩 ${r.remaining} 张，再点一次补齐。`); }
     return r;
   }
   async function replay() {
@@ -233,9 +235,9 @@ export default function JbsRoom(props: ShellProps) {
     try {
       const res = await fetch('/api/rooms/replay', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) });
       const d = await res.json().catch(() => ({}));
-      if (!res.ok) { alert(d.error || (en ? 'Error' : '出错了')); setResetting(false); return; }
+      if (!res.ok) { toast(d.error || (en ? 'Error' : '出错了')); setResetting(false); return; }
       if (typeof window !== 'undefined') window.location.reload();
-    } catch (e: any) { alert((en ? 'Failed: ' : '失败：') + e.message); setResetting(false); }
+    } catch (e: any) { toast((en ? 'Failed: ' : '失败：') + e.message); setResetting(false); }
   }
 
   // ===== 和 Linger 伴侣的局:TA 在挑本、开本,不显示大厅/选本 =====
@@ -262,7 +264,7 @@ export default function JbsRoom(props: ShellProps) {
           <h1 className="mt-3 font-serif font-semibold text-[29px] text-[#efe6d2]">{en ? 'One body. A room of suspects.' : '一具尸体，一屋子嫌疑人'}</h1>
           <p className="mt-4 font-serif text-[15px] leading-[1.9] text-parchment/75">{en ? <>Everyone gets a secret role; AI plays the rest.<br />Search, question, and name the killer.</> : <>每人拿一份秘密剧本，AI 扮演其余角色。<br />搜证、对质，最后指认真凶。</>}</p>
           <div className="mt-5 flex items-center gap-2.5 text-[12px] tracking-wider text-parchment/50">
-            <span>{en ? 'Solo is fine' : '一个人也能开本'}</span><span className="w-[3px] h-[3px] rotate-45 bg-[#c9a96e]/60" /><span>{en ? `${count}/8 seated` : `已入座 ${count}/8`}</span>
+            <span>{short ? (en ? '~25 min' : '约 25 分钟') : (en ? '~1 hour' : '约 1 小时')}</span><span className="w-[3px] h-[3px] rotate-45 bg-[#c9a96e]/60" /><span>{en ? 'Solo is fine' : '一个人也能开本'}</span><span className="w-[3px] h-[3px] rotate-45 bg-[#c9a96e]/60" /><span>{en ? `${count}/8 seated` : `已入座 ${count}/8`}</span>
           </div>
           <button onClick={() => genScripts()} disabled={busy || generating} className="mt-8 w-full py-3.5 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] border border-[#a83232]/60 text-[#f2ead9] font-serif font-semibold tracking-[.2em] text-[17px] shadow-[0_10px_40px_-10px_rgba(125,29,29,.7)] disabled:opacity-60">
             {busy || generating ? (en ? 'Picking scripts…' : '正在挑本……') : count <= 1 ? (en ? 'Begin' : '开始') : (en ? `Begin with ${count}` : `${count} 人开始`)}
@@ -275,12 +277,13 @@ export default function JbsRoom(props: ShellProps) {
             </div>
           )}
           <div className="mt-5 flex items-center justify-center gap-5 text-[13px]">
-            <button onClick={() => setShowSettings((v) => !v)} className="text-parchment/50 hover:text-parchment">{en ? 'Cast size & pace' : '人数和节奏'} {showSettings ? '▴' : '▾'}</button>
+            <button onClick={() => setShowSettings((v) => !v)} className="text-parchment/50 hover:text-parchment">{en ? 'Length, cast & pace' : '长度、人数和节奏'} {showSettings ? '▴' : '▾'}</button>
             <span className="w-px h-3 bg-parchment/15" />
             <button onClick={() => setShowCustom(true)} className="text-parchment/50 hover:text-parchment">{en ? 'Write to my taste' : '按我的口味写'}</button>
           </div>
           {showSettings && (
             <div className="mt-4 w-full space-y-3 text-left nf-in">
+              <div><div className="text-[11px] tracking-[.2em] text-parchment/40 mb-1.5">{en ? 'LENGTH' : '长度'}</div><Seg opts={[[1, en ? 'Short · ~25 min' : '短本 · 约 25 分钟'], [0, en ? 'Full · ~1 hr' : '完整本 · 约 1 小时']]} val={short ? 1 : 0} set={(v) => { setShort(v === 1); setPace(v === 1 ? 6 : 9); }} /></div>
               <div><div className="text-[11px] tracking-[.2em] text-parchment/40 mb-1.5">{en ? 'CAST (INCL. AI)' : '总人数（含 AI）'}</div><Seg opts={[[4, '4'], [6, '6'], [8, '8']]} val={headcount} set={setHeadcount} /></div>
               <div><div className="text-[11px] tracking-[.2em] text-parchment/40 mb-1.5">{en ? 'EACH ACT' : '每一幕'}</div><Seg opts={[[6, en ? 'Fast · 6m' : '快 · 6 分'], [9, en ? 'Normal · 9m' : '中 · 9 分'], [13, en ? 'Slow · 13m' : '慢 · 13 分']]} val={pace} set={setPace} /></div>
             </div>

@@ -1,4 +1,5 @@
 'use client';
+import { toast } from '@/components/Toast';
 // 轻玩法（海龟汤 / 猫诅咒）：今日免费局的余量提示 + 用完后的付费面板（$1 一局 / $10 两小时 / 会员）
 import { useEffect, useState } from 'react';
 
@@ -47,8 +48,8 @@ export function LightPaywall({ open, onClose, mode, en }: { open: boolean; onClo
       const r = await fetch('/api/billing/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan, returnTo: rt }) });
       const d = await r.json();
       if (d.url) { window.location.href = d.url; return; }
-      alert(d.error || (en ? 'Failed' : '创建支付失败'));
-    } catch { alert(en ? 'Network error' : '网络错误'); }
+      toast(d.error || (en ? 'Failed' : '创建支付失败'));
+    } catch { toast(en ? 'Network error' : '网络错误'); }
     setBusy('');
   }
   const Opt = ({ plan, price, title, sub, strong }: { plan: string; price: string; title: string; sub: string; strong?: boolean }) => (

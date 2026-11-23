@@ -4,7 +4,8 @@ import { companionNote, sendRecap } from '@/lib/linger/companion';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { callLLMJson } from '@/lib/llm';
 import { buildJbsCasePrompt } from '@/lib/jbs/prompt';
-import { ensureStage, publicStage } from '@/lib/jbs/stage';
+import { ensureStage, publicStage, condenseActs } from '@/lib/jbs/stage';
+import { dmBeat } from '@/lib/jbs/turn';
 import { buildModuleReviewSystem, normalizeModuleQuality } from '@/lib/review/quality';
 import { langDirective } from '@/lib/i18n';
 
@@ -15,9 +16,10 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: '未登录' }, { status: 401 });
 
-  const { roomId, scriptId, actMinutes } = await req.json().catch(() => ({} as any));
+  const { roomId, scriptId, actMinutes, short } = await req.json().catch(() => ({} as any));
+  const isShort = short !== false; // 默认短本
   if (!roomId || !scriptId) return NextResponse.json({ error: '缺少参数' }, { status: 400 });
-  const actMin = Math.min(20, Math.max(2, Number(actMinutes) || 9));
+  const actMin = Math.min(20, Math.max(2, Number(actMinutes) || (isShort ? 6 : 9)));
 
   const admin = createAdminClient();
   const { data: room } = await admin.from('rooms').select('*').eq('id', roomId).maybeSingle();
@@ -66,6 +68,7 @@ export async function POST(req: Request) {
       cf = st.cf;
       if (st.usage) await admin.from('api_usage').insert({ room_id: roomId, kind: 'llm_main', model: st.usage.model, prompt_tokens: st.usage.promptTokens, completion_tokens: st.usage.completionTokens, latency_ms: st.usage.latencyMs });
     } catch (e: any) { await admin.from('error_logs').insert({ room_id: roomId, scope: 'llm', message: '剧本杀补舞台:' + e.message }); }
+    if (isShort) cf = condenseActs(cf);
 
     // 共享评审引擎：对锁定的剧本案件打加权分 + 封顶 + 诊断，存入 case_file.quality（不改表）
     if (!libCase) try {
@@ -152,7 +155,7 @@ export async function POST(req: Request) {
     if (show1) await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', turn_no: 1, content: show1, payload: { type: 'jbs_dm', show: true } });
 
     const acts: any[] = Array.isArray(cf.acts) && cf.acts.length >= 4 ? cf.acts : [];
-    const totalActs = acts.length ? Math.min(8, Math.max(5, acts.length)) : 7;
+    const totalActs = acts.length ? Math.min(8, Math.max(cf.short ? 4 : 5, acts.length)) : (isShort ? 5 : 7);
     const actNames = acts.length
       ? acts.slice(0, totalActs).map((a: any) => a?.name || '')
       : (en ? ['Opening', 'Investigate', 'Relationships', 'Key Evidence', 'Discussion', 'Accusation', 'Reveal'] : ['案件开场', '搜证', '人物关系', '关键证据', '推理讨论', '最终指认', '真相揭晓']);
@@ -162,6 +165,13 @@ export async function POST(req: Request) {
       jbs_act_minutes: actMin, jbs_act_started_at: new Date().toISOString(),
       jbs_total_acts: totalActs, jbs_act_names: actNames, jbs_stage: stage,
     }).eq('id', roomId);
+
+    // 第一幕别让人干等：主持人逐个点名真人玩家，给每人一件马上能做的事
+    try {
+      await dmBeat(admin, roomId, { ...room, jbs_act: 1, jbs_act_minutes: actMin, jbs_stage: stage }, cf,
+        en ? '(Kick-off) Everyone has read their script. Call on each real player BY CHARACTER NAME, one short line each: a pointed question or a concrete first thing to do right now (a place to search, a person to confront). Have one AI character react. Do not reveal clues.'
+           : '（开局点名）大家都读完剧本了。请按角色名逐个点名在座的真人玩家，每人一句：一个尖锐的问题，或一件现在就能做的事（去哪里搜、去质问谁）。再让一个 AI 角色接一句话。不要公布线索。', 1);
+    } catch (e: any) { await admin.from('error_logs').insert({ room_id: roomId, scope: 'llm', message: '剧本杀开局点名:' + e.message }); }
 
     return NextResponse.json({ ok: true });
   } catch (e: any) {

@@ -1,4 +1,5 @@
 'use client';
+import { toast } from '@/components/Toast';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -129,9 +130,9 @@ export default function RoomClient(props: {
         body: JSON.stringify({ roomId: props.room.id, content, action }),
       });
       const data = await res.json();
-      if (!res.ok) alert('守秘人出错：' + (data.error || ''));
+      if (!res.ok) toast('守秘人出错：' + (data.error || ''));
     } catch (e: any) {
-      alert('发送失败：' + e.message);
+      toast('发送失败：' + e.message);
     } finally {
       setThinking(false);
     }

@@ -1,4 +1,5 @@
 'use client';
+import { toast, ask as askConfirm } from '@/components/Toast';
 import Narration from '@/components/Narration';
 import MicButton from '@/components/MicButton';
 import CompanionWaiting from '@/components/CompanionWaiting';
@@ -105,10 +106,10 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
       const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const d = await res.json();
       if (res.status === 402 && d?.reason === 'light_pay') { setPayOpen(true); return d; }
-      if (!res.ok) alert(d.error || '出错了');
+      if (!res.ok) toast(d.error || '出错了');
       setStBump((x) => x + 1);
       return d;
-    } catch (e: any) { alert('失败：' + e.message); }
+    } catch (e: any) { toast('失败：' + e.message); }
     finally { setBusy(false); }
   }
 
@@ -117,6 +118,29 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
   const recent = heats.slice(-3);
   const heat = ended ? 100 : recent.length ? Math.round(Math.max(...recent) * 0.6 + recent[recent.length - 1] * 0.4) : 0;
   const qCount = messages.filter((m) => m.sender_type === 'player').length;
+  const hintsUsed = messages.filter((m) => m.payload?.type === 'soup_hint' && !m.payload?.auto).length;
+  const hintLeft = Math.max(0, 2 - hintsUsed);
+  const [hinting, setHinting] = useState(false);
+  const [revealArm, setRevealArm] = useState(false);
+  async function getHint() {
+    if (hinting) return;
+    if (qCount < 8) { toast(`再问 ${8 - qCount} 个问题，就能要提示`, 'info'); return; }
+    if (!hintLeft) { toast('这碗汤的提示用完了', 'info'); return; }
+    setHinting(true);
+    try { const r = await fetch('/api/soup/hint', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) }); const d = await r.json().catch(() => ({})); if (!r.ok) toast(d.error || '没拿到提示'); }
+    finally { setHinting(false); }
+  }
+  // 卡住 2 分钟没人提问：房主端让主持人主动给一句引导（每碗 1 次）
+  const lastAt = messages.length ? new Date(messages[messages.length - 1].created_at || Date.now()).getTime() : Date.now();
+  const nudged = useRef(false);
+  useEffect(() => {
+    if (!isHost || ended || nudged.current || messages.some((m) => m.payload?.type === 'soup_hint' && m.payload?.auto)) return;
+    if (!messages.some((m) => m.payload?.type === 'soup_surface')) return;
+    const wait = Math.max(5000, 120000 - (Date.now() - lastAt));
+    const id = setTimeout(() => { nudged.current = true; fetch('/api/soup/hint', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id, auto: true }) }).catch(() => {}); }, wait);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastAt, isHost, ended]);
   const heatWord = heat >= 85 ? '就差一步' : heat >= 65 ? '滚烫' : heat >= 35 ? '变暖了' : heat > 0 ? '还很冷' : '未开始';
   useEffect(() => { try { window.dispatchEvent(new CustomEvent('mn-tension', { detail: heat })); } catch {} }, [heat]);
   // 新回答到来时配一声提示音（进房时已有的不响）
@@ -149,7 +173,7 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
   async function start() { await call('/api/soup/generate', { roomId: props.room.id, difficulty, supernatural, tone, gore, horror, edge }); }
   async function ask() { const q = text.trim(); if (!q) return; setText(''); await call('/api/soup/ask', { roomId: props.room.id, question: q }); if (comp) fetch('/api/linger/react', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) }).catch(() => {}); }
   async function submitGuess() { const g = guess.trim(); if (!g) return; setGuess(''); setGuessing(false); await call('/api/soup/guess', { roomId: props.room.id, guess: g }); }
-  async function reveal() { if (!confirm('确定要看汤底吗？看了这局就结束了。')) return; await call('/api/soup/reveal', { roomId: props.room.id }); }
+  async function reveal() { if (!(await askConfirm('确定要看汤底吗？看了这局就结束了。', { ok: '看汤底', cancel: '再想想' }))) return; await call('/api/soup/reveal', { roomId: props.room.id }); }
 
   // 和 Linger 伴侣的局:TA 在出题,不显示大厅
   if (props.room.companion?.name && (state === 'lobby' || (!playing && !ended))) {
@@ -281,9 +305,14 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
                 </div>
                 <button onClick={ask} disabled={busy || !text.trim()} className="shrink-0 h-[46px] px-5 rounded-xl bg-[#c9a96e] text-[#0b0c0f] font-medium disabled:opacity-40">问</button>
               </div>
-              <div className="flex items-center justify-between px-1">
-                <button onClick={() => setGuessing(true)} className={`text-[13.5px] font-serif tracking-wide ${heat >= 65 ? 'text-[#e8b07a] animate-pulse' : 'text-[#c9a96e]'}`}>我知道了 · 说出真相 →</button>
-                <button onClick={reveal} className="text-[12px] text-parchment/35 hover:text-parchment/60">放弃，看汤底</button>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setGuessing(true)} className={`flex-1 h-10 rounded-xl border text-[13.5px] font-serif tracking-wide ${heat >= 65 ? 'border-[#e8b07a]/60 text-[#e8b07a] animate-pulse' : 'border-[#c9a96e]/35 text-[#c9a96e]'}`}>我知道了 · 说出真相</button>
+                <button onClick={getHint} disabled={hinting} className={`shrink-0 h-10 px-3.5 rounded-xl border text-[13px] flex items-center gap-1.5 disabled:opacity-50 ${qCount >= 8 && hintLeft ? 'border-[#8fd3b8]/45 text-[#bfeadb]' : 'border-white/10 text-parchment/40'}`}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.4 1 1.1 1 1.8V16h5v-.3c0-.7.4-1.4 1-1.8A6 6 0 0 0 12 3z" /></svg>
+                  {hinting ? '…' : qCount >= 8 ? `提示 ${hintLeft}` : `提示 ${qCount}/8`}
+                </button>
+                <button onClick={() => { if (revealArm) { setRevealArm(false); call('/api/soup/reveal', { roomId: props.room.id }); } else { setRevealArm(true); setTimeout(() => setRevealArm(false), 3500); } }}
+                  className={`shrink-0 h-10 px-3 rounded-xl text-[12.5px] transition ${revealArm ? 'bg-[#7d1d1d] border border-[#a83232]/60 text-[#f2ead9]' : 'border border-white/10 text-parchment/45'}`}>{revealArm ? '再点一次看汤底' : '看汤底'}</button>
               </div>
             </>
           )}
@@ -314,6 +343,16 @@ function SoupMsg({ m, mine, who }: { m: any; mine: boolean; who: string }) {
   }
   if (type === 'soup_surface') {
     return <Narration text={m.content} fresh={fresh(m)} label="汤面" collapse={false} />;
+  }
+  if (type === 'soup_hint') {
+    return (
+      <div className="flex justify-center nf-in">
+        <div className="max-w-[88%] rounded-2xl border border-[#8fd3b8]/35 bg-[#8fd3b8]/[0.07] px-4 py-2.5 text-center">
+          <div className="text-[10.5px] tracking-[.3em] text-[#8fd3b8]/85">{m.payload?.auto ? '主持人低声说' : '提示'}</div>
+          <div className="mt-0.5 font-serif text-[15px] text-[#e6f5ef]">{m.content}</div>
+        </div>
+      </div>
+    );
   }
   if (type === 'soup_reveal') {
     return <Narration text={m.content} fresh={fresh(m)} tone="reveal" label="汤底" collapse={false} />;

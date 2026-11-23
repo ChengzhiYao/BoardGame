@@ -1,4 +1,5 @@
 'use client';
+import { ask } from '@/components/Toast';
 import { useEffect, useRef, useState } from 'react';
 import { getClientLang } from '@/lib/i18n';
 import { QUIZ } from '@/lib/companion/quiz';
@@ -132,7 +133,7 @@ export default function CompanionPage() {
     setGenerating(false);
   }
   async function resetAll() {
-    if (!window.confirm(L('确定重置?当前的 TA、聊天记录、好感都会清空,重新开始一次。', 'Reset? This wipes your companion, chat and affection, and starts over.'))) return;
+    if (!(await ask(L('确定重置?当前的 TA、聊天记录、好感都会清空,重新开始一次。', 'Reset? This wipes your companion, chat and affection, and starts over.')))) return;
     setBusy(true);
     try { await fetch('/api/companion/reset', { method: 'POST' }); setMsgs([]); setPersona(''); setJob(''); setAnswers({}); setFreeText(''); setMood(60); setAffection(10); setTab('welcome'); flash(L('已重置', 'Reset')); } catch { flash(L('失败', 'Failed')); }
     setBusy(false);

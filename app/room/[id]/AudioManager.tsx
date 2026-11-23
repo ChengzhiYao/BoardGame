@@ -40,7 +40,7 @@ export default function AudioManager({ state }: { state: string }) {
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   const posRef = useRef<{ x: number; y: number } | null>(null);
   const dragRef = useRef<{ dx: number; dy: number } | null>(null);
-  useEffect(() => { try { const s = localStorage.getItem('audiobar_pos'); if (s) { const p = JSON.parse(s); setPos(p); posRef.current = p; } } catch {} }, []);
+  useEffect(() => { try { const s = localStorage.getItem('audiobar_pos'); if (s) { const p = JSON.parse(s); if (p.x < 140 && p.y < 70) { localStorage.removeItem('audiobar_pos'); return; } if (p.x > window.innerWidth - 60 || p.y > window.innerHeight - 40) return; setPos(p); posRef.current = p; } } catch {} }, []); // 别压住左上角的「离开」
   function onGripDown(e: any) {
     const r = barRef.current?.getBoundingClientRect(); if (!r) return;
     dragRef.current = { dx: e.clientX - r.left, dy: e.clientY - r.top };
@@ -52,7 +52,8 @@ export default function AudioManager({ state }: { state: string }) {
     const w = barRef.current?.offsetWidth || 160, h = barRef.current?.offsetHeight || 36;
     const W = typeof window !== 'undefined' ? window.innerWidth : 9999, H = typeof window !== 'undefined' ? window.innerHeight : 9999;
     const x = Math.max(4, Math.min(W - w - 4, e.clientX - dragRef.current.dx));
-    const y = Math.max(4, Math.min(H - h - 4, e.clientY - dragRef.current.dy));
+    let y = Math.max(4, Math.min(H - h - 4, e.clientY - dragRef.current.dy));
+    if (x < 140 && y < 56) y = 56;
     const p = { x, y }; posRef.current = p; setPos(p);
   }
   function onGripUp() { if (dragRef.current) { dragRef.current = null; try { localStorage.setItem('audiobar_pos', JSON.stringify(posRef.current)); } catch {} } }

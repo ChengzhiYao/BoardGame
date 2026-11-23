@@ -78,6 +78,7 @@ export default function FriendDock() {
   const [tab, setTab] = useState<'friends' | 'online' | 'players' | 'messages'>('online');
   const [open, setOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
+  const inRoom = !!pathname && pathname.startsWith('/room/');
   const [dockMin, setDockMin] = useState(false);
   const [dockPos, setDockPos] = useState<{ x: number; y: number }>({ x: 12, y: 64 });
   const [myLoc, setMyLoc] = useState('');
@@ -519,7 +520,7 @@ export default function FriendDock() {
   function toggleCl() { setLfgOpen(false); setClOpen((v) => { const nv = !v; if (nv) { setOpen(false); setBellOpen(false); markClSeen(); } return nv; }); }
 
   return (
-    <div className={isDesktop ? 'fixed z-40 text-parchment flex flex-col gap-2 w-72 overflow-y-auto' : 'fixed bottom-3 right-3 z-40 text-parchment'} style={isDesktop ? { left: dockPos.x, top: dockPos.y, maxHeight: `calc(100vh - ${dockPos.y + 12}px)` } : undefined}>
+    <div className={isDesktop ? 'fixed z-40 text-parchment flex flex-col gap-2 w-72 overflow-y-auto' : inRoom ? 'mn-dock-room fixed right-2 top-[42%] z-40 text-parchment flex flex-col items-end' : 'fixed bottom-3 right-3 z-40 text-parchment'} style={isDesktop ? { left: dockPos.x, top: dockPos.y, maxHeight: `calc(100vh - ${dockPos.y + 12}px)` } : undefined}>
       {isDesktop && dockMin ? (
         <button onClick={() => setDockMin(false)} title="展开社交面板" className="relative w-12 h-12 rounded-full bg-fog/95 border border-eldritch/40 backdrop-blur shadow-xl flex items-center justify-center hover:bg-fog">
           {anyOnline && <span className="absolute inset-0 rounded-full border-2 border-green-400/70 animate-ping pointer-events-none" />}
@@ -728,12 +729,12 @@ export default function FriendDock() {
       {!isDesktop && lfgOpen && showLfg && <div className="mb-2">{lfgBody}</div>}
       {!isDesktop && clOpen && <div className="mb-2">{changelogBody}</div>}
 
-      {!isDesktop && <div className="flex items-center gap-2 justify-end">
-        <button onClick={toggleCl} title={L('更新公告', "What's new")} className="relative w-10 h-10 rounded-full bg-fog/95 border border-eldritch/40 backdrop-blur shadow-xl flex items-center justify-center hover:bg-fog">
+      {!isDesktop && <div className={inRoom ? 'flex flex-col items-end gap-2' : 'flex items-center gap-2 justify-end'}>
+        {!inRoom && <button onClick={toggleCl} title={L('更新公告', "What's new")} className="relative w-10 h-10 rounded-full bg-fog/95 border border-eldritch/40 backdrop-blur shadow-xl flex items-center justify-center hover:bg-fog">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#f2ead9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z" /><line x1="9" y1="13" x2="15" y2="13" /><line x1="9" y1="17" x2="13" y2="17" /></svg>
           {clHasNew && <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-blood border-2 border-fog" />}
-        </button>
-        {showLfg && (
+        </button>}
+        {showLfg && !inRoom && (
           <button onClick={toggleLfg} title={L('找队友', 'Find players')} className="relative w-10 h-10 rounded-full bg-fog/95 border border-eldritch/40 backdrop-blur shadow-xl flex items-center justify-center hover:bg-fog">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f2ead9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 11l18-5v12L3 14z" /><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" /></svg>
           </button>

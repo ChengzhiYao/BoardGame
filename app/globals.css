@@ -113,3 +113,5 @@ input[type=range] { accent-color: #3f7d70; }
 /* 房间左上角的「离开」按钮：给顶栏/步骤条让出位置 */
 .mn-header { padding-left: 88px !important; }
 body:has(.mn-exit) .mn-stepbar { padding-left: 88px; }
+.mn-dock-room > div > button { width: 38px !important; height: 38px !important; opacity: .85; }
+.mn-dock-room > div:first-child:not(:last-child) { max-height: 60vh; overflow-y: auto; position: fixed; right: 3.25rem; top: 20%; }

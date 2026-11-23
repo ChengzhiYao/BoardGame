@@ -124,29 +124,46 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
   }
   // 大厅：还没出题
   if (state === 'lobby' || (!playing && !ended)) {
+    const pickLv = (v: number, lv: string[]) => lv[Math.min(lv.length - 1, Math.max(0, Math.round((v / 100) * (lv.length - 1))))];
+    const summary = [difficulty, { any: '灵异不限', allow: '可灵异', real: '纯现实' }[supernatural as 'any'] || '', pickLv(gore, GORE), pickLv(horror, HORROR), pickLv(edge, EDGE), tone === 'any' ? '基调不限' : tone].filter(Boolean).join(' · ');
     return (
-      <main className="min-h-[100svh] flex flex-col items-center justify-center gap-6 px-6 text-center">
-        <h1 className="text-2xl font-serif text-parchment">海龟汤 · {props.room.name}</h1>
-        <p className="text-parchment/60 max-w-md">主持人会给出一个诡异的「汤面」，你们靠提**是非题**逼近真相，想到了就揭晓。可以叫朋友一起来问。</p>
-        <div className="flex flex-col items-center gap-3 w-full max-w-md">
-          <span className="text-sm text-parchment/50">想多人一起玩，把链接发给同伴：</span>
-          <code className="text-xs px-3 py-2 rounded bg-fog border border-eldritch/30 text-eldritch break-all w-full">{inviteUrl}</code>
-          <button onClick={() => { navigator.clipboard.writeText(inviteUrl); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
-            className="px-4 py-1.5 rounded bg-eldritch/40 hover:bg-eldritch text-parchment text-sm">{copied ? '已复制' : '复制邀请链接'}</button>
+      <main className="min-h-[100svh] flex flex-col items-center px-5 pb-32 text-center" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 76px)' }}>
+        <div className="text-[10px] tracking-[.5em] pl-[.5em] uppercase text-[#c9a96e]/75">Lateral Soup</div>
+        <h1 className="mt-2 font-serif font-semibold text-[30px] sm:text-4xl tracking-[.1em] pl-[.1em] text-[#efe6d2]">海龟汤</h1>
+        <div className="mt-1 text-[13px] text-parchment/45 truncate max-w-full">{props.room.name}</div>
+        <p className="mt-5 max-w-sm font-serif text-[15px] leading-[1.9] text-parchment/80">AI 守着一个诡异的真相。<br />你们只能问「是 / 不是」的问题，一步步逼近它。</p>
+        <div className="mt-5 flex items-center justify-center gap-2.5 text-[12px] tracking-wider text-parchment/55">
+          <span>听汤面</span><span className="w-[3px] h-[3px] rotate-45 bg-[#c9a96e]/60" /><span>问是非题</span><span className="w-[3px] h-[3px] rotate-45 bg-[#c9a96e]/60" /><span>说出真相</span>
         </div>
-        <div className="w-full max-w-md space-y-3 text-left rounded-lg border border-eldritch/20 bg-fog/40 p-4">
-          <div className="text-sm text-parchment/70">出题设置</div>
-          <SoupOptRow label="难度" value={difficulty} set={setDifficulty} opts={[['普通', '普通'], ['困难', '困难'], ['地狱', '地狱']]} />
-          <SoupOptRow label="灵异" value={supernatural} set={setSupernatural} opts={[['any', '不限'], ['allow', '可灵异'], ['real', '纯现实']]} />
-          <SoupSlider label="血腥" value={gore} set={setGore} levels={['不血腥', '轻微', '中等', '较重', '极重']} />
-          <SoupSlider label="恐怖" value={horror} set={setHorror} levels={['不吓人', '微悬', '惊悚', '恐怖', '极致']} />
-          <SoupSlider label="尺度 · 暗黑/成人向" value={edge} set={setEdge} levels={['轻松', '日常', '偏暗', '黑暗', '致郁']} />
-          <SoupOptRow label="基调" value={tone} set={setTone} opts={[['any', '不限'], ['悬疑', '悬疑'], ['惊悚', '惊悚'], ['温情', '温情'], ['黑色幽默', '黑色幽默'], ['搞笑', '搞笑']]} />
-        </div>
+
         <button onClick={start} disabled={busy || generating}
-          className="px-6 py-3 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-50">
-          {busy || generating ? '正在出题…' : '开始 · 来一道海龟汤'}
+          className="mt-7 w-full max-w-sm py-3.5 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] border border-[#a83232]/60 text-[#f2ead9] font-serif font-semibold tracking-[.2em] text-[17px] shadow-[0_10px_40px_-10px_rgba(125,29,29,.7)] disabled:opacity-50">
+          {busy || generating ? '正在出题…' : '开始出题'}
         </button>
+
+        <div className="mt-4 w-full max-w-sm flex items-center gap-2 rounded-xl border border-[#d8c7a8]/[0.13] bg-[#0b0c0f]/60 px-4 py-2.5 text-left">
+          <span className="flex-1 text-[13px] text-parchment/70">叫朋友一起问 <span className="text-parchment/35">· 人多更好猜</span></span>
+          <button onClick={() => { navigator.clipboard.writeText(inviteUrl); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+            className="shrink-0 text-[13px] text-[#c9a96e] border-b border-[#c9a96e]/40">{copied ? '已复制' : '复制链接'}</button>
+          <button onClick={() => { try { (navigator as any).share ? (navigator as any).share({ title: '来一起喝海龟汤', url: inviteUrl }) : navigator.clipboard.writeText(inviteUrl); } catch {} }}
+            className="shrink-0 ml-2 text-[13px] text-parchment/60">分享</button>
+        </div>
+
+        <details className="mt-3 w-full max-w-sm group rounded-xl border border-[#d8c7a8]/[0.13] bg-[#0b0c0f]/60 text-left [&_summary::-webkit-details-marker]:hidden">
+          <summary className="list-none cursor-pointer px-4 py-3 flex items-center gap-2">
+            <span className="text-[13px] text-parchment/75 shrink-0">出题设置</span>
+            <span className="flex-1 min-w-0 truncate text-[12px] text-parchment/40">{summary}</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-parchment/40 transition-transform group-open:rotate-180"><path d="M6 9l6 6 6-6" /></svg>
+          </summary>
+          <div className="px-4 pb-4 pt-1 space-y-3.5 border-t border-[#d8c7a8]/[0.08]">
+            <SoupOptRow label="难度" value={difficulty} set={setDifficulty} opts={[['普通', '普通'], ['困难', '困难'], ['地狱', '地狱']]} />
+            <SoupOptRow label="灵异" value={supernatural} set={setSupernatural} opts={[['any', '不限'], ['allow', '可灵异'], ['real', '纯现实']]} />
+            <SoupSlider label="血腥" value={gore} set={setGore} levels={GORE} />
+            <SoupSlider label="恐怖" value={horror} set={setHorror} levels={HORROR} />
+            <SoupSlider label="尺度 · 暗黑 / 成人向" value={edge} set={setEdge} levels={EDGE} />
+            <SoupOptRow label="基调" value={tone} set={setTone} opts={[['any', '不限'], ['悬疑', '悬疑'], ['惊悚', '惊悚'], ['温情', '温情'], ['黑色幽默', '黑幽默'], ['搞笑', '搞笑']]} />
+          </div>
+        </details>
       </main>
     );
   }
@@ -247,16 +264,27 @@ function SoupMsg({ m, mine, who }: { m: any; mine: boolean; who: string }) {
   );
 }
 
+const GORE = ['不血腥', '轻微', '中等', '较重', '极重'];
+const HORROR = ['不吓人', '微悬', '惊悚', '恐怖', '极致'];
+const EDGE = ['轻松', '日常', '偏暗', '黑暗', '致郁'];
+
+function Seg({ items, active, onPick }: { items: string[]; active: number; onPick: (i: number) => void }) {
+  return (
+    <div className="flex rounded-lg border border-[#d8c7a8]/[0.14] overflow-hidden">
+      {items.map((t, i) => (
+        <button key={i} onClick={() => onPick(i)}
+          className={`flex-1 min-w-0 px-1 py-2 text-[12.5px] truncate transition-colors ${i > 0 ? 'border-l border-[#d8c7a8]/[0.1]' : ''} ${i === active ? 'bg-[#c9a96e]/[0.16] text-[#efe6d2]' : 'text-parchment/50 hover:text-parchment/80'}`}>{t}</button>
+      ))}
+    </div>
+  );
+}
+
 function SoupSlider({ label, value, set, levels }: { label: string; value: number; set: (v: number) => void; levels: string[] }) {
   const idx = Math.min(levels.length - 1, Math.max(0, Math.round((value / 100) * (levels.length - 1))));
   return (
     <div>
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-xs text-parchment/50">{label}</span>
-        <span className="text-xs text-eldritch">{levels[idx]}</span>
-      </div>
-      <input type="range" min={0} max={100} step={5} value={value} onChange={(e) => set(Number(e.target.value))}
-        className="w-full accent-[#3f7d70] cursor-pointer" />
+      <div className="text-[12px] tracking-wider text-parchment/45 mb-1.5">{label}</div>
+      <Seg items={levels} active={idx} onPick={(i) => set(Math.round((i / (levels.length - 1)) * 100))} />
     </div>
   );
 }
@@ -264,15 +292,8 @@ function SoupSlider({ label, value, set, levels }: { label: string; value: numbe
 function SoupOptRow({ label, value, set, opts }: { label: string; value: string; set: (v: string) => void; opts: [string, string][] }) {
   return (
     <div>
-      <div className="text-xs text-parchment/50 mb-1.5">{label}</div>
-      <div className="flex flex-wrap gap-2">
-        {opts.map(([v, t]) => (
-          <button key={v} onClick={() => set(v)}
-            className={`px-3 py-1 rounded-full text-sm border transition-colors ${value === v ? 'bg-eldritch text-parchment border-eldritch' : 'bg-fog border-eldritch/30 text-parchment/55 hover:border-eldritch/60'}`}>
-            {t}
-          </button>
-        ))}
-      </div>
+      <div className="text-[12px] tracking-wider text-parchment/45 mb-1.5">{label}</div>
+      <Seg items={opts.map((o) => o[1])} active={Math.max(0, opts.findIndex((o) => o[0] === value))} onPick={(i) => set(opts[i][0])} />
     </div>
   );
 }

@@ -51,7 +51,7 @@ function audioStateFor(room: any): string {
 
 function RoomExit({ en }: { en: boolean }) {
   return (
-    <a href={en ? '/en' : '/zh'} title={en ? 'Leave — you can come back from the home page' : '离开房间（3 小时内可从首页回来）'}
+    <a href="/play" title={en ? 'Leave — you can come back from your hall' : '离开房间（3 小时内可从「我的大厅」回来）'}
       className="mn-exit fixed left-2 z-[60] h-9 pl-2 pr-3 rounded-full flex items-center gap-1 text-[13px] text-parchment/85 bg-[#0b0c0f]/75 backdrop-blur border border-[#d8c7a8]/15 hover:border-[#c9a96e]/50"
       style={{ top: 'max(10px, env(safe-area-inset-top))' }}>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>

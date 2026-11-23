@@ -58,6 +58,16 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
   }
   const promoAudio = useRef<HTMLAudioElement | null>(null);
   const quickRef = useRef(false);
+  // 老玩家打开首页 → 直接去「我的大厅」（加 ?landing=1 可以看介绍页）
+  const [leaving, setLeaving] = useState(false);
+  useEffect(() => {
+    let ret = false, pend = false;
+    try { ret = localStorage.getItem('mn_returning') === '1'; pend = !!localStorage.getItem('pendingGame'); } catch {}
+    if (!ret || pend || /landing=1/.test(window.location.search)) return;
+    setLeaving(true);
+    fetch('/api/billing/status').then((r) => r.json()).then((d) => { if (d?.loggedIn) router.replace('/play'); else setLeaving(false); }).catch(() => setLeaving(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // 3D 背景跟着手机倾斜 / 鼠标移动转动视角。iPhone 要先点一下屏幕并允许“动作与方向”才拿得到倾斜数据。
   const bgRef = useRef<HTMLIFrameElement | null>(null);
   useEffect(() => {
@@ -145,6 +155,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
         return;
       }
       if (!res.ok) throw new Error(data.error || '创建失败');
+      try { localStorage.setItem('mn_returning', '1'); } catch {}
       router.push(`/room/${data.roomId}${quickRef.current && m === 'soup' ? '?quick=1' : ''}`);
     } catch (e: any) {
       setErr(e.message);
@@ -173,6 +184,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
 
   return (
     <main className="min-h-screen flex flex-col items-center text-center gap-6 pb-16">
+      {leaving && <div className="fixed inset-0 z-[90] bg-ink" />}
       <iframe
         ref={bgRef}
         src="/coc3d-demo.html?embed=1&full=1&auto=1"
@@ -187,7 +199,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
         onLogout={async () => { await signOut(); try { const r = await fetch('/api/billing/status'); setAccount(await r.json()); } catch { setAccount({ loggedIn: false }); } }}
         menu={[
           { label: lang === 'en' ? '＋ Invite friends' : '＋ 邀请好友', onClick: () => { setShowInvite(true); setCopied(false); } },
-          ...(account?.loggedIn ? [{ label: lang === 'en' ? 'My account' : '我的账号', href: '/account' }] : []),
+          ...(account?.loggedIn ? [{ label: lang === 'en' ? 'My hall' : '我的大厅', href: '/play' }, { label: lang === 'en' ? 'My account' : '我的账号', href: '/account' }] : []),
           { label: lang === 'en' ? 'Prices & my games' : '价格 · 我的局数', href: '/upgrade' },
           { label: lang === 'en' ? 'Join with a code' : '输入邀请码加入', onClick: () => setMode('join') },
           { label: lang === 'en' ? '▶ Trailer' : '▶ 宣传片', onClick: openPromo },
@@ -266,7 +278,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
             </div>
             <div className="px-4 py-4 space-y-3 text-left">
               <p className="text-parchment/55 text-sm">{lang === 'en' ? 'Sign in and your game starts right after — free to play.' : '登录后马上开始这局 — 免费畅玩。'}</p>
-              <button onClick={() => signInWithGoogle('/' + lang).catch(() => {})} className="w-full py-2.5 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood text-sm">{t('login_google')}</button>
+              <button onClick={() => signInWithGoogle('/play').catch(() => {})} className="w-full py-2.5 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood text-sm">{t('login_google')}</button>
               <button onClick={() => { setLoginGate(false); setGateEmail(true); }} className="w-full py-2.5 rounded bg-fog hover:bg-eldritch/40 text-parchment border border-eldritch/50 text-sm">{t('login_email')}</button>
             </div>
           </div>

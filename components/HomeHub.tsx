@@ -1,6 +1,6 @@
 'use client';
 // 首页第一屏：卖点 + 全部玩法（九宫格）+ 收费方式，手机一屏看全。点玩法弹出底部卡片看详情、开局。
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { type Lang } from '@/lib/i18n';
 import { GAMES, type GM } from '@/components/GameShowcase';
 import { FREE_MODES, FREE_PLAYS_ON_SIGNUP, MEMBERSHIP, MEMBER_PREMIUM_PLAYS } from '@/lib/pricing';
@@ -9,8 +9,8 @@ type Bi = { zh: string; en: string };
 const L = (lang: Lang, b: Bi) => (lang === 'en' ? b.en : b.zh);
 
 // 九宫格顺序 = 最常玩的在前
-const ORDER: GM[] = ['soup', 'jbs', 'coc', 'botc', 'dnd', 'story', 'td', 'mcc', 'market'];
-const TILE: Record<GM, { short: Bi; line: Bi; color: string; icon: JSX.Element }> = {
+export const ORDER: GM[] = ['soup', 'jbs', 'coc', 'botc', 'dnd', 'story', 'td', 'mcc', 'market'];
+export const TILE: Record<GM, { short: Bi; line: Bi; color: string; icon: JSX.Element }> = {
   soup: { short: { zh: '海龟汤', en: 'Lateral Soup' }, line: { zh: '问是非猜真相', en: 'Yes/no riddles' }, color: '#3f9d8e',
     icon: <><path d="M3 11h18a9 9 0 0 1-18 0z" /><path d="M8 7.5c0-1.5 1-1.5 1-3M12 7.5c0-1.5 1-1.5 1-3M16 7.5c0-1.5 1-1.5 1-3" /></> },
   jbs: { short: { zh: '剧本杀', en: 'Whodunit' }, line: { zh: '找出谁是凶手', en: 'Find the killer' }, color: '#c0453f',
@@ -31,8 +31,8 @@ const TILE: Record<GM, { short: Bi; line: Bi; color: string; icon: JSX.Element }
     icon: <><path d="M3 17l6-6 4 4 8-8" /><path d="M15 7h6v6" /></> },
 };
 
-export function HomeTopBar({ lang, onLang, account, onLogin, onLogout, menu }: {
-  lang: Lang; onLang: (l: Lang) => void; account: any; onLogin: () => void; onLogout: () => void;
+export function HomeTopBar({ lang, onLang, account, onLogin, onLogout, menu, home }: {
+  home?: string; lang: Lang; onLang: (l: Lang) => void; account: any; onLogin: () => void; onLogout: () => void;
   menu: { label: string; onClick?: () => void; href?: string }[];
 }) {
   const en = lang === 'en';
@@ -41,7 +41,7 @@ export function HomeTopBar({ lang, onLang, account, onLogin, onLogout, menu }: {
   return (
     <div className="fixed top-0 inset-x-0 z-40" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
       <div className="mx-auto max-w-5xl h-12 px-3 flex items-center gap-2 bg-ink/55 backdrop-blur-md border-b border-white/5 sm:border-none sm:bg-transparent sm:backdrop-blur-0">
-        <a href={en ? '/en' : '/zh'} className="font-serif font-bold text-[17px] text-[#f2ead9] tracking-wide">{en ? 'MystNight' : '谜夜'}</a>
+        <a href={home || (en ? '/en' : '/zh')} className="font-serif font-bold text-[17px] text-[#f2ead9] tracking-wide">{en ? 'MystNight' : '谜夜'}</a>
         <div className="flex-1" />
         <button onClick={() => onLang(en ? 'zh' : 'en')} className="h-8 px-2.5 rounded-full text-xs text-parchment/75 border border-white/10 bg-white/5">{en ? '中文' : 'EN'}</button>
         {account?.loggedIn ? (
@@ -179,7 +179,7 @@ export function GameSheet({ lang, game, busy, needName, name, setName, onStart, 
 }
 
 // 首页「回到房间」：离开后 3 小时内的未结束房间
-export function ResumeRooms({ lang }: { lang: Lang }) {
+export function ResumeRooms({ lang, heading }: { lang: Lang; heading?: string }) {
   const en = lang === 'en';
   const [rooms, setRooms] = useState<{ id: string; name: string; mode: GM; at: string; state: string; host: boolean }[]>([]);
   const [ask, setAsk] = useState<string | null>(null);
@@ -193,6 +193,7 @@ export function ResumeRooms({ lang }: { lang: Lang }) {
   }
   return (
     <div className="w-full flex flex-col gap-1.5">
+      {heading && <SectionLabel>{heading}</SectionLabel>}
       {rooms.map((r) => (
         <div key={r.id} className="flex items-stretch w-full rounded-xl bg-[#c9a96e]/[0.08] border border-[#c9a96e]/35 backdrop-blur-md overflow-hidden">
           {ask === r.id ? (
@@ -217,6 +218,16 @@ export function ResumeRooms({ lang }: { lang: Lang }) {
           </>)}
         </div>
       ))}
+    </div>
+  );
+}
+
+export function SectionLabel({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3 mb-1.5 mt-1">
+      <span className="text-[11px] tracking-[.35em] uppercase text-[#c9a96e]/75 shrink-0">{children}</span>
+      <span className="flex-1 h-px bg-gradient-to-r from-[#c9a96e]/25 to-transparent" />
+      {right}
     </div>
   );
 }

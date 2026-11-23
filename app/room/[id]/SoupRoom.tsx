@@ -118,7 +118,9 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
   const answers = messages.filter((m) => m.sender_type === 'kp' && m.payload?.type === 'soup_answer');
   const heats = answers.map((m) => Number(m.payload?.heat)).filter((n) => !isNaN(n) && n > 0);
   const recent = heats.slice(-3);
-  const heat = ended ? 100 : recent.length ? Math.round(Math.max(...recent) * 0.6 + recent[recent.length - 1] * 0.4) : 0;
+  const solvedIt = messages.some((m) => m.sender_type === 'kp' && m.payload?.type === 'soup_answer' && /^✅/.test(String(m.content || '')));
+  const peeked = ended && !solvedIt;
+  const heat = ended ? (solvedIt ? 100 : 0) : recent.length ? Math.round(Math.max(...recent) * 0.6 + recent[recent.length - 1] * 0.4) : 0;
   const qCount = messages.filter((m) => m.sender_type === 'player').length;
   const hintsUsed = messages.filter((m) => m.payload?.type === 'soup_hint' && !m.payload?.auto).length;
   const hintLeft = Math.max(0, 2 - hintsUsed);
@@ -143,7 +145,7 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastAt, isHost, ended]);
-  const heatWord = heat >= 85 ? '就差一步' : heat >= 65 ? '滚烫' : heat >= 35 ? '变暖了' : heat > 0 ? '还很冷' : '未开始';
+  const heatWord = peeked ? '看了汤底' : solvedIt ? '猜中了' : heat >= 85 ? '就差一步' : heat >= 65 ? '滚烫' : heat >= 35 ? '变暖了' : heat > 0 ? '还很冷' : '未开始';
   useEffect(() => { try { window.dispatchEvent(new CustomEvent('mn-tension', { detail: heat })); } catch {} }, [heat]);
   // 新回答到来时配一声提示音（进房时已有的不响）
   const heard = useRef<Set<string> | null>(null);

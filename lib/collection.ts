@@ -1,12 +1,13 @@
 // 成长与收藏：从一个人玩过的所有局里算出战绩、称号、汤谱、结局、调查员档案。
 import { streakOf, dayKey } from '@/lib/soup/daily';
 
-export type Badge = { id: string; icon: string; zh: string; en: string; dzh: string; den: string; test: (s: Stats) => boolean };
+export type Badge = { id: string; icon: string; zh: string; en: string; dzh: string; den: string; dark?: boolean; test: (s: Stats) => boolean };
 export type Stats = {
   played: number; modes: number; soupPlayed: number; soupSolved: number; soupNoHint: number; soupSharp: number;
   dailyPlayed: number; dailyTop: number; streak: number; bestStreak: number;
   cocEndings: number; cocGood: number; cocBad: number; cocMad: number; cocVet: number;
   jbsDone: number; botcDone: number; mccPlayed: number; companion: number; bigHost: number;
+  soupPeek: number; soupGrind: number; soupWrong: number; dailyFail: number; cocDead: number; cocInsane: number;
 };
 
 export const BADGES: Badge[] = [
@@ -20,7 +21,7 @@ export const BADGES: Badge[] = [
   { id: 'streak7', icon: '🔥', zh: '一周不断', en: 'Full Week', dzh: '每日一汤连续 7 天', den: '7-day streak', test: (s) => s.bestStreak >= 7 },
   { id: 'streak30', icon: '🌕', zh: '月月有汤', en: 'Moon Cycle', dzh: '每日一汤连续 30 天', den: '30-day streak', test: (s) => s.bestStreak >= 30 },
   { id: 'daily_top', icon: '🥇', zh: '今日榜首', en: 'Top of the Day', dzh: '在每日一汤拿过第一名', den: 'Finish #1 on a Daily Soup', test: (s) => s.dailyTop >= 1 },
-  { id: 'coc_end', icon: '🗝️', zh: '活着讲完', en: 'Saw It Through', dzh: '打完一局克苏鲁跑团', den: 'Reach the end of a Call of Cthulhu story', test: (s) => s.cocEndings >= 1 },
+  { id: 'coc_end', icon: '🗝️', zh: '走到结局', en: 'Saw It Through', dzh: '把一局克苏鲁跑团打到结局', den: 'Reach the end of a Call of Cthulhu story', test: (s) => s.cocEndings >= 1 },
   { id: 'coc_good', icon: '🌅', zh: '拨云见日', en: 'Dawn Breaks', dzh: '跑团打出好结局', den: 'Get a good ending', test: (s) => s.cocGood >= 1 },
   { id: 'coc_bad', icon: '🌑', zh: '深渊回望', en: 'The Abyss Looks Back', dzh: '跑团打出坏结局', den: 'Get a bad ending', test: (s) => s.cocBad >= 1 },
   { id: 'coc_mad', icon: '🌀', zh: '疯狂边缘', en: 'On the Edge', dzh: '理智不到 15 还撑到了结局', den: 'Reach an ending with Sanity under 15', test: (s) => s.cocMad >= 1 },
@@ -31,6 +32,14 @@ export const BADGES: Badge[] = [
   { id: 'mcc', icon: '🐈‍⬛', zh: '九命猫', en: 'Nine Lives', dzh: '玩一局猫猫炸弹', den: 'Play Cat Curse', test: (s) => s.mccPlayed >= 1 },
   { id: 'modes4', icon: '🎲', zh: '百戏通', en: 'Jack of All Games', dzh: '玩过 4 种不同玩法', den: 'Play 4 different games', test: (s) => s.modes >= 4 },
   { id: 'companion', icon: '💞', zh: '和 TA 一起', en: 'Together', dzh: '和 Linger 里的 TA 玩过一局', den: 'Play with your Linger companion', test: (s) => s.companion >= 1 },
+  // —— 黑历史：没通关也算一种经历
+  { id: 'peek1', icon: '🫣', zh: '偷看了一眼', en: 'Just a Peek', dzh: '第一次直接看了汤底', den: 'Peek at the truth for the first time', dark: true, test: (s) => s.soupPeek >= 1 },
+  { id: 'peek10', icon: '🙈', zh: '好奇心害死猫', en: 'Curiosity Killed the Cat', dzh: '看了 10 次汤底', den: 'Peek at the truth 10 times', dark: true, test: (s) => s.soupPeek >= 10 },
+  { id: 'grind', icon: '🪨', zh: '死磕到底', en: 'Stubborn', dzh: '问了 30 问以上才猜中', den: 'Crack a soup after 30+ questions', dark: true, test: (s) => s.soupGrind >= 1 },
+  { id: 'wrong3', icon: '🌀', zh: '越猜越歪', en: 'Way Off', dzh: '一碗汤里说错 3 次真相', den: 'Guess wrong 3 times in one soup', dark: true, test: (s) => s.soupWrong >= 1 },
+  { id: 'daily_fail', icon: '🥀', zh: '今日败北', en: 'Not Today', dzh: '每日一汤没猜出来', den: 'Miss a Daily Soup', dark: true, test: (s) => s.dailyFail >= 1 },
+  { id: 'coc_dead', icon: '🪦', zh: '安息', en: 'Rest in Peace', dzh: '调查员死在了故事里', den: 'Lose an investigator to death', dark: true, test: (s) => s.cocDead >= 1 },
+  { id: 'coc_insane', icon: '🫥', zh: '再也回不来', en: 'Gone Mad', dzh: '调查员彻底疯了', den: 'Lose an investigator to madness', dark: true, test: (s) => s.cocInsane >= 1 },
   { id: 'host', icon: '🏮', zh: '局长', en: 'The Organizer', dzh: '开过一局 3 个真人以上的局', den: 'Host a game with 3+ people', test: (s) => s.bigHost >= 1 },
 ];
 
@@ -51,12 +60,13 @@ export async function collect(admin: any, userId: string, lang: 'zh' | 'en' = 'z
   const puzzles = pz || [];
   const solvedP = puzzles.filter((p: any) => p.status === 'solved');
   const doneP = puzzles.filter((p: any) => p.status === 'solved' || p.status === 'revealed');
-  const { data: sm } = solvedP.length ? await admin.from('messages').select('room_id, sender_type, content, payload').in('room_id', solvedP.map((p: any) => p.room_id)).in('sender_type', ['player', 'kp']).limit(8000) : { data: [] as any[] };
-  const per: Record<string, { q: number; h: number }> = {};
+  const { data: sm } = doneP.length ? await admin.from('messages').select('room_id, sender_type, content, payload').in('room_id', doneP.slice(0, 300).map((p: any) => p.room_id)).in('sender_type', ['player', 'kp']).limit(12000) : { data: [] as any[] };
+  const per: Record<string, { q: number; h: number; w: number }> = {};
   for (const m of sm || []) {
-    const k = per[m.room_id] || (per[m.room_id] = { q: 0, h: 0 });
+    const k = per[m.room_id] || (per[m.room_id] = { q: 0, h: 0, w: 0 });
     if (m.sender_type === 'player' && !String(m.content || '').startsWith('【揭晓】')) k.q++;
     if (m.payload?.type === 'soup_hint' && !m.payload?.auto) k.h++;
+    if (m.sender_type === 'kp' && m.payload?.type === 'soup_answer' && /^❌/.test(String(m.content || ''))) k.w++;
   }
   const soupNoHint = solvedP.filter((p: any) => (per[p.room_id]?.h || 0) === 0).length;
   const soupSharp = solvedP.filter((p: any) => (per[p.room_id]?.q ?? 99) <= 5).length;
@@ -88,10 +98,10 @@ export async function collect(admin: any, userId: string, lang: 'zh' | 'en' = 'z
   const endings = (em || []).map((m: any) => {
     const r = cocRooms.find((x: any) => x.id === m.room_id);
     const txt = String(m.content || '').replace(/^【结局】/, '');
-    const nm = txt.match(/^《([^》]+)》（([^）]+)）/);
+    const nm = txt.match(/^《+([^》]+)》+（([^）]+)）/);
     const kind = /好结局|good/i.test(nm?.[2] || '') ? 'good' : /坏结局|bad/i.test(nm?.[2] || '') || r?.scene_state === 'BAD_ENDING' ? 'bad' : /隐藏/.test(nm?.[2] || '') ? 'hidden' : 'bitter';
     const ch = chars.find((c: any) => c.room_id === m.room_id);
-    return { room: m.room_id, at: m.created_at, story: (cps || []).find((c: any) => c.id === r?.campaign_id)?.title || r?.name || '', name: nm?.[1] || '', kind, label: nm?.[2] || '', text: txt.replace(/^《[^》]+》（[^）]+）\n?/, '').slice(0, 280), who: ch ? { name: ch.name, alive: !isOut(ch), san: ch.san_current } : null };
+    return { room: m.room_id, at: m.created_at, story: (cps || []).find((c: any) => c.id === r?.campaign_id)?.title || r?.name || '', name: nm?.[1] || '', kind, label: nm?.[2] || '', text: txt.replace(/^《+[^》]+》+（[^）]+）\n?/, '').slice(0, 280), who: ch ? { name: ch.name, alive: !isOut(ch), san: ch.san_current } : null };
   });
   const endedRooms = new Set(endings.map((e: any) => e.room));
   const cocMad = chars.filter((c: any) => endedRooms.has(c.room_id) && !isOut(c) && (c.san_current ?? 99) < 15).length;
@@ -113,6 +123,12 @@ export async function collect(admin: any, userId: string, lang: 'zh' | 'en' = 'z
     cocVet: chars.filter((c: any) => (c.veteran?.runs || 1) >= 2 && endedRooms.has(c.room_id)).length,
     jbsDone: jbsEnded.length, botcDone: byMode('botc').filter(ended).length, mccPlayed: byMode('mcc').length,
     companion: rooms.filter((r: any) => r.companion?.name).length, bigHost: 0,
+    soupPeek: doneP.length - solvedP.length,
+    soupGrind: solvedP.filter((p: any) => (per[p.room_id]?.q || 0) >= 30).length,
+    soupWrong: doneP.filter((p: any) => (per[p.room_id]?.w || 0) >= 3).length,
+    dailyFail: dailyMine.filter((r: any) => !r.solved).length,
+    cocDead: chars.filter((c: any) => !!c.status_flags?.dead || (c.hp_current ?? 1) <= 0).length,
+    cocInsane: chars.filter((c: any) => !(c.status_flags?.dead || (c.hp_current ?? 1) <= 0) && (c.status_flags?.retired || (c.san_current ?? 1) <= 0)).length,
   };
   const hosted = rooms.filter((r: any) => r.host_user_id === userId && !r.companion).map((r: any) => r.id).slice(0, 300);
   if (hosted.length) {

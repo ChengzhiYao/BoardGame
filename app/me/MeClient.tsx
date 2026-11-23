@@ -32,10 +32,11 @@ export default function MeClient() {
     </main>
   );
   const s = d.stats || {};
-  const earned = (d.badges || []).filter((b: any) => b.earned).length;
+  const earned = (d.badges || []).filter((b: any) => b.earned && !b.dark).length;
+  const totalB = (d.badges || []).filter((b: any) => !b.dark).length;
 
   return (
-    <main className="min-h-[100svh] pb-20">
+    <main className="min-h-[100svh] pb-36">
       <div aria-hidden className="fixed inset-0 -z-10" style={{ background: 'radial-gradient(90% 60% at 50% 0%, rgba(201,169,110,.13), transparent 60%), #0c0d10' }} />
       <a href="/play" className="fixed left-3 z-30 h-8 px-3 rounded-full flex items-center text-[12.5px] text-parchment/70 border border-white/10 bg-ink/60 backdrop-blur" style={{ top: 'calc(env(safe-area-inset-top) + 10px)' }}>{L('← 大厅', '← Hall')}</a>
       <div className="w-full max-w-xl mx-auto px-5" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 64px)' }}>
@@ -46,7 +47,7 @@ export default function MeClient() {
             {d.avatar ? <img src={d.avatar} alt="" className="w-full h-full object-cover" /> : String(d.name || '?').slice(0, 1)}
           </span>
           <div className="mt-3 font-serif text-[22px] text-[#efe6d2]">{d.name || L('无名调查员', 'Nameless')}</div>
-          <div className="mt-0.5 text-[12px] tracking-[.2em] text-[#c9a96e]/80">{L(`${earned} / ${d.badges.length} 个称号`, `${earned} / ${d.badges.length} titles`)}</div>
+          <div className="mt-0.5 text-[12px] tracking-[.2em] text-[#c9a96e]/80">{L(`${earned} / ${totalB} 个称号`, `${earned} / ${totalB} titles`)}</div>
           <div className="mt-5 w-full grid grid-cols-4 rounded-2xl border border-[#d8c7a8]/[0.12] bg-[#0b0c0f]/70 divide-x divide-white/[0.06]">
             {[[s.played, L('局', 'games')], [s.soupSolved, L('碗猜中', 'soups')], [s.cocEndings + s.jbsDone, L('个结局', 'endings')], [s.streak, L('天连续', 'day streak')]].map(([n, t], i) => (
               <div key={i} className="py-3"><div className="font-serif text-[22px] text-[#efe6d2] leading-none">{n ?? 0}</div><div className="mt-1 text-[11px] text-parchment/45">{t}</div></div>
@@ -55,17 +56,19 @@ export default function MeClient() {
         </div>
 
         {/* 称号墙 */}
-        <section className="mt-8">
-          <div className="text-[11px] tracking-[.28em] text-parchment/40 mb-3">{L('称号', 'TITLES')}</div>
-          <div className="grid grid-cols-4 sm:grid-cols-6 gap-2.5">
-            {d.badges.map((b: any) => (
-              <button key={b.id} onClick={() => setBadge(b)} className="flex flex-col items-center gap-1.5">
-                <span className={`w-14 h-14 rounded-full flex items-center justify-center text-[24px] border transition ${b.earned ? 'border-[#e6c76e]/50 bg-[radial-gradient(circle_at_35%_30%,rgba(230,199,110,.3),rgba(230,199,110,.06))] shadow-[0_0_24px_-6px_rgba(230,199,110,.55)]' : 'border-white/[0.08] bg-white/[0.02] grayscale opacity-35'}`}>{b.icon}</span>
-                <span className={`text-[11px] leading-tight text-center ${b.earned ? 'text-[#efe6d2]' : 'text-parchment/35'}`}>{en ? b.en : b.zh}</span>
-              </button>
-            ))}
-          </div>
-        </section>
+        {([[false, L('称号', 'TITLES'), ''], [true, L('黑历史', 'BLACK MARKS'), L('没通关也算一种经历', 'Not every story ends well')]] as [boolean, string, string][]).map(([dark, head, sub]) => (
+          <section key={String(dark)} className="mt-8">
+            <div className="flex items-baseline gap-2 mb-3"><span className={`text-[11px] tracking-[.28em] ${dark ? 'text-[#a78bfa]/70' : 'text-parchment/40'}`}>{head}</span>{sub && <span className="text-[11px] text-parchment/35">{sub}</span>}</div>
+            <div className="grid grid-cols-4 sm:grid-cols-6 gap-2.5">
+              {d.badges.filter((b: any) => !!b.dark === dark).map((b: any) => (
+                <button key={b.id} onClick={() => setBadge(b)} className="flex flex-col items-center gap-1.5">
+                  <span className={`w-14 h-14 rounded-full flex items-center justify-center text-[24px] border transition ${!b.earned ? 'border-white/[0.08] bg-white/[0.02] grayscale opacity-35' : dark ? 'border-[#a78bfa]/50 bg-[radial-gradient(circle_at_35%_30%,rgba(167,139,250,.28),rgba(167,139,250,.05))] shadow-[0_0_24px_-6px_rgba(167,139,250,.55)]' : 'border-[#e6c76e]/50 bg-[radial-gradient(circle_at_35%_30%,rgba(230,199,110,.3),rgba(230,199,110,.06))] shadow-[0_0_24px_-6px_rgba(230,199,110,.55)]'}`}>{b.icon}</span>
+                  <span className={`text-[11px] leading-tight text-center ${b.earned ? (dark ? 'text-[#d9ccff]' : 'text-[#efe6d2]') : 'text-parchment/35'}`}>{en ? b.en : b.zh}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        ))}
 
         {/* 收藏 */}
         <section className="mt-9">
@@ -144,7 +147,7 @@ export default function MeClient() {
       {badge && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60" onClick={() => setBadge(null)}>
           <div className="w-full max-w-sm m-3 rounded-2xl border border-[#d8c7a8]/15 bg-[#121318] p-6 text-center mn-sheet" onClick={(e) => e.stopPropagation()}>
-            <div className={`mx-auto w-20 h-20 rounded-full flex items-center justify-center text-[36px] border ${badge.earned ? 'border-[#e6c76e]/50 bg-[#e6c76e]/10' : 'border-white/10 grayscale opacity-40'}`}>{badge.icon}</div>
+            <div className={`mx-auto w-20 h-20 rounded-full flex items-center justify-center text-[36px] border ${badge.earned ? (badge.dark ? 'border-[#a78bfa]/50 bg-[#a78bfa]/10' : 'border-[#e6c76e]/50 bg-[#e6c76e]/10') : 'border-white/10 grayscale opacity-40'}`}>{badge.icon}</div>
             <div className="mt-3 font-serif text-[20px] text-[#efe6d2]">{en ? badge.en : badge.zh}</div>
             <div className="mt-1 text-[13px] text-parchment/60">{en ? badge.den : badge.dzh}</div>
             <div className={`mt-3 text-[12px] ${badge.earned ? 'text-[#e6c76e]' : 'text-parchment/40'}`}>{badge.earned ? L('已获得', 'Earned') : L('还没拿到', 'Not yet')}</div>

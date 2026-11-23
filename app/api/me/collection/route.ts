@@ -13,8 +13,8 @@ export async function GET(req: Request) {
   const admin = createAdminClient();
   const c: any = await collect(admin, user.id, lang, true);
   // 打开收藏页也顺便把称号记下来（以后不重复弹）
-  try { await admin.from('profiles').update({ badges: c.earned }).eq('user_id', user.id); } catch {}
-  const badges = BADGES.map((b) => ({ id: b.id, icon: b.icon, zh: b.zh, en: b.en, dzh: b.dzh, den: b.den, earned: c.earned.includes(b.id) }));
+  try { await admin.from('profiles').update({ badges: c.earned, badges_seeded: true }).eq('user_id', user.id); } catch {}
+  const badges = BADGES.map((b) => ({ id: b.id, icon: b.icon, zh: b.zh, en: b.en, dzh: b.dzh, den: b.den, dark: !!b.dark, earned: c.earned.includes(b.id) }));
   const { data: u } = await admin.from('users').select('display_name, avatar_url').eq('id', user.id).maybeSingle();
   return NextResponse.json({ loggedIn: true, name: u?.display_name || '', avatar: u?.avatar_url || '', ...c, badges });
 }

@@ -9,8 +9,8 @@ const pick = (lang: Lang, b: Bi) => (lang === 'en' ? b.en : b.zh);
 
 // Each game's preview is the REAL screen, reproduced 1:1 from the app's own
 // components and rendered (scaled) from /public/screens.html#<game>.
-type Game = { key: GM; name: Bi; meta: Bi; blurb: Bi; rules: Bi[] };
-const GAMES: Game[] = [
+export type Game = { key: GM; name: Bi; meta: Bi; blurb: Bi; rules: Bi[] };
+export const GAMES: Game[] = [
   {
     key: 'story',
     name: { zh: '讲故事', en: 'Storyteller' },

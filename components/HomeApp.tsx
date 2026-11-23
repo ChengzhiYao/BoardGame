@@ -7,9 +7,8 @@ import { ensureSession, signInWithGoogle, signOut } from '@/lib/auth';
 import { tr, getClientLang, setClientLang, type Lang } from '@/lib/i18n';
 import GameShowcase, { type GM } from '@/components/GameShowcase';
 import GameFeedback from '@/components/GameFeedback';
-import MarketChip from '@/components/MarketChip';
-import MusicChip from '@/components/MusicChip';
 import EmailLogin from '@/components/EmailLogin';
+import { HomeTopBar, SellingPoints, GameGrid, PricingStrip, GameSheet } from '@/components/HomeHub';
 
 export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
   const router = useRouter();
@@ -28,6 +27,8 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
   const [copied, setCopied] = useState(false);
   const [resuming, setResuming] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
+  const [account, setAccount] = useState<any>(null);
+  const [picked, setPicked] = useState<GM | null>(null);
   const [loginGate, setLoginGate] = useState(false);
   const [gateEmail, setGateEmail] = useState(false);
   const [contactEmail, setContactEmail] = useState(''); const [contactMsg, setContactMsg] = useState('');
@@ -65,6 +66,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
   useEffect(() => {
     // 预填昵称：账号保存的昵称 > 上次填过的 > Google 邮箱前缀；登录用户以后不用再输名字
     fetch('/api/billing/status').then((r) => r.json()).then((d) => {
+      setAccount(d || { loggedIn: false });
       if (d && d.whitelisted) setIsOwner(true);
       if (d && d.displayName) { setAcctName(d.displayName); setName((prev) => prev || d.displayName); try { localStorage.setItem('name', d.displayName); } catch {} return; }
       try { const n = localStorage.getItem('name'); if (n && n.trim()) { setName((prev) => prev || n.trim()); return; } } catch {}
@@ -99,8 +101,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
     if (!nm && m === 'soup' && quickRef.current) { nm = lang === 'en' ? 'Player' : '玩家'; setName(nm); }
     if (!nm) {
       setErr(t('err_name'));
-      heroRef.current?.scrollIntoView({ behavior: 'smooth' });
-      setTimeout(() => nameRef.current?.focus(), 400);
+      if (!picked) { setPicked(m); }
       return;
     }
     setGameMode(m);
@@ -116,7 +117,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
       const data = await res.json();
       if (res.status === 402) {
         try { localStorage.setItem('pendingGame', JSON.stringify({ mode: m, name: nm, language: lang, ts: Date.now() })); } catch {}
-        if (data.reason === 'login') { setBusy(false); setResuming(false); setLoginGate(true); return; }
+        if (data.reason === 'login') { setBusy(false); setResuming(false); setPicked(null); setLoginGate(true); return; }
         router.push('/upgrade');
         return;
       }
@@ -148,7 +149,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center px-5 pt-20 sm:pt-28 pb-16 gap-6 text-center">
+    <main className="min-h-screen flex flex-col items-center text-center gap-6 pb-16">
       <iframe
         src="/coc3d-demo.html?embed=1&full=1&auto=1"
         title=""
@@ -156,72 +157,63 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
         tabIndex={-1}
         className="fixed inset-0 w-full h-full border-0 pointer-events-none -z-20"
       />
-      <div className="fixed inset-0 pointer-events-none -z-10" style={{ background: 'radial-gradient(125% 85% at 50% 0%, rgba(12,13,16,.30), rgba(12,13,16,.68) 58%, rgba(12,13,16,.93))' }} />
-      <LangToggle lang={lang} onChange={switchLang} />
-      <AccountBadge t={t} lang={lang} />
+      <div className="fixed inset-0 pointer-events-none -z-10" style={{ background: 'radial-gradient(130% 70% at 50% 0%, rgba(12,13,16,.25), rgba(12,13,16,.72) 55%, rgba(12,13,16,.95))' }} />
+      <HomeTopBar lang={lang} onLang={switchLang} account={account}
+        onLogin={() => setLoginGate(true)}
+        onLogout={async () => { await signOut(); try { const r = await fetch('/api/billing/status'); setAccount(await r.json()); } catch { setAccount({ loggedIn: false }); } }}
+        menu={[
+          { label: lang === 'en' ? '＋ Invite friends' : '＋ 邀请好友', onClick: () => { setShowInvite(true); setCopied(false); } },
+          ...(account?.loggedIn ? [{ label: lang === 'en' ? 'My account' : '我的账号', href: '/account' }] : []),
+          { label: lang === 'en' ? 'Prices & my games' : '价格 · 我的局数', href: '/upgrade' },
+          { label: lang === 'en' ? 'Join with a code' : '输入邀请码加入', onClick: () => setMode('join') },
+          { label: lang === 'en' ? '▶ Trailer' : '▶ 宣传片', onClick: openPromo },
+          { label: lang === 'en' ? 'Music' : '音乐', href: '/music' },
+          { label: lang === 'en' ? 'Blog' : '博客', href: lang === 'en' ? '/en/blog' : '/zh/blog' },
+          { label: lang === 'en' ? 'Guestbook' : '留言板', onClick: () => setShowFeedback(true) },
+          { label: lang === 'en' ? 'Contact us' : '联系我们', onClick: () => { setShowContact(true); setContactState('idle'); } },
+          ...(isOwner ? [{ label: lang === 'en' ? 'AI Companion' : 'AI 陪伴', href: '/companion' }] : []),
+        ]} />
 
-      <header ref={heroRef} className="w-full max-w-2xl flex flex-col items-center gap-5">
-        <h1 className="text-[2.6rem] leading-tight md:text-7xl font-serif font-bold tracking-wide text-[#f2ead9] drop-shadow-[0_4px_24px_rgba(0,0,0,.6)]">{t('home_title')}</h1>
-        <p className="max-w-md text-[15px] sm:text-base text-parchment/80 leading-relaxed">{t('home_tagline')}</p>
-
-        {acctName ? (
-          <div className="text-sm text-parchment/50">{lang === 'en' ? 'Playing as ' : '以 '}<b className="text-parchment">{name}</b>{lang === 'en' ? '' : ' 开玩'} · <a href="/account" className="underline hover:text-parchment">{lang === 'en' ? 'change name' : '改名'}</a></div>
-        ) : (
-          <input
-            ref={nameRef}
-            value={name}
-            onChange={(e) => { setName(e.target.value); try { localStorage.setItem('name', e.target.value); } catch {} }}
-            placeholder={t('home_name_ph')}
-            className="w-full max-w-sm px-4 py-3 rounded-xl bg-fog/85 backdrop-blur border border-eldritch/40 text-parchment text-center placeholder:text-parchment/35 outline-none focus:border-eldritch"
-          />
-        )}
-
+      {/* 第一屏：卖点 + 全部玩法 + 收费，一屏看全 */}
+      <section ref={heroRef as any} className="w-full max-w-5xl px-3.5 sm:px-6 min-h-[100svh] flex flex-col justify-start sm:justify-center gap-3 sm:gap-4"
+        style={{ paddingTop: 'calc(env(safe-area-inset-top) + 64px)', paddingBottom: '20px' }}>
+        <div>
+          <h1 className="font-serif font-bold text-[34px] sm:text-6xl leading-none tracking-wide text-[#f2ead9] drop-shadow-[0_4px_24px_rgba(0,0,0,.7)]">{t('home_title')}</h1>
+          <p className="mt-2 text-[14px] sm:text-base text-parchment/80">{lang === 'en' ? 'An AI host runs a game made just for tonight — two players is enough.' : 'AI 当主持人，两个人就能开一局只属于今晚的游戏。'}</p>
+        </div>
+        <SellingPoints lang={lang} />
+        <GameGrid lang={lang} onPick={(g) => (g === 'market' ? router.push('/market') : setPicked(g))} />
+        <PricingStrip lang={lang} />
         {mode === 'idle' ? (
-          <div className="w-full max-w-sm flex flex-col items-stretch gap-2.5">
-            <button onClick={() => { quickRef.current = true; createRoom('soup'); }} disabled={busy}
-              className="group relative px-6 py-3.5 rounded-xl bg-blood hover:bg-[#a83232] text-white border border-[#a83232] shadow-[0_8px_30px_rgba(125,29,29,.45)] disabled:opacity-60">
-              <span className="block text-base font-semibold tracking-wide">{busy && gameMode === 'soup' ? (lang === 'en' ? 'Setting the table…' : '正在出题…') : (lang === 'en' ? '⚡ Play now — a lateral puzzle' : '⚡ 马上开玩 · 来一碗海龟汤')}</span>
-              <span className="block text-xs text-white/70 mt-0.5">{lang === 'en' ? '30 seconds to start · solo or with friends' : '30 秒开局 · 一个人或拉朋友都行'}</span>
+          <div className="flex items-center justify-center gap-4 text-sm">
+            <button onClick={() => { quickRef.current = true; createRoom('soup'); }} disabled={busy} className="text-[#f2ead9] underline underline-offset-4 decoration-[#3f9d8e] disabled:opacity-50">
+              {busy && gameMode === 'soup' ? (lang === 'en' ? 'Setting the table…' : '正在出题…') : (lang === 'en' ? '⚡ Not sure? Play a soup in 30s' : '⚡ 不知道玩啥？30 秒来碗海龟汤')}
             </button>
-            <div className="grid grid-cols-2 gap-2.5">
-              <button onClick={browseGames} className="px-4 py-3 rounded-xl bg-fog/80 hover:bg-eldritch/30 text-parchment border border-eldritch/40 backdrop-blur text-sm">{lang === 'en' ? 'All games ↓' : '全部玩法 ↓'}</button>
-              <button onClick={() => setMode('join')} className="px-4 py-3 rounded-xl bg-fog/80 hover:bg-eldritch/30 text-parchment border border-eldritch/40 backdrop-blur text-sm">{t('join_btn')}</button>
-            </div>
+            <button onClick={() => setMode('join')} className="text-parchment/55 hover:text-parchment">{lang === 'en' ? 'Have a code?' : '有邀请码？'}</button>
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-3">
+          <div className="flex items-center gap-2 w-full max-w-sm mx-auto">
             <input value={joinCode} onChange={(e) => setJoinCode(e.target.value)} placeholder={t('join_code_ph')}
-              className="w-72 px-4 py-3 rounded bg-fog border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch" />
-            <div className="flex gap-4">
-              <button onClick={joinRoom} disabled={busy}
-                className="px-6 py-3 rounded bg-eldritch/70 hover:bg-eldritch text-parchment border border-eldritch disabled:opacity-50">
-                {busy ? t('joining') : t('join_do')}
-              </button>
-              <button onClick={() => setMode('idle')} className="px-6 py-3 rounded bg-fog text-parchment/70 border border-parchment/20">
-                {t('back')}
-              </button>
-            </div>
+              className="flex-1 min-w-0 px-4 py-2.5 rounded-xl bg-ink/90 border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch" />
+            <button onClick={joinRoom} disabled={busy} className="px-4 py-2.5 rounded-xl bg-eldritch text-parchment disabled:opacity-50 shrink-0">{busy ? t('joining') : t('join_do')}</button>
+            <button onClick={() => setMode('idle')} className="px-2 text-parchment/50 shrink-0">✕</button>
           </div>
         )}
-
+        {mode === 'join' && !name.trim() && (
+          <input ref={nameRef} value={name} onChange={(e) => { setName(e.target.value); try { localStorage.setItem('name', e.target.value); } catch {} }}
+            placeholder={t('home_name_ph')} className="w-full max-w-sm mx-auto px-4 py-2.5 rounded-xl bg-ink/90 border border-eldritch/40 text-parchment text-center placeholder:text-parchment/30 outline-none" />
+        )}
         {err && <p className="text-[#e06060] text-sm">{err}</p>}
+        <button onClick={browseGames} className="hidden sm:block mx-auto text-xs text-parchment/40 hover:text-parchment/70">{lang === 'en' ? 'See each game in detail ↓' : '看每个玩法的详细介绍 ↓'}</button>
+      </section>
 
-        <nav className="flex items-center justify-center flex-wrap gap-x-5 gap-y-2 text-sm text-parchment/55">
-          <button onClick={() => { setShowInvite(true); setCopied(false); }} className="text-parchment/85 hover:text-white">{lang === 'en' ? '＋ Invite friends' : '＋ 邀请好友'}</button>
-          <button onClick={openPromo} className="hover:text-parchment">▶ {lang === 'en' ? 'Trailer' : '宣传片'}</button>
-          <a href={lang === 'en' ? '/en/blog' : '/zh/blog'} className="hover:text-parchment">{lang === 'en' ? 'Blog' : '博客'}</a>
-          <button onClick={() => setShowFeedback(true)} className="hover:text-parchment">{lang === 'en' ? 'Guestbook' : '留言板'}</button>
-          <button onClick={() => { setShowContact(true); setContactState('idle'); }} className="hover:text-parchment">{lang === 'en' ? 'Contact' : '联系我们'}</button>
-          {isOwner && <a href="/companion" className="hover:text-parchment">{lang === 'en' ? 'AI Companion' : 'AI 陪伴'}</a>}
-        </nav>
-      </header>
+      <GameSheet lang={lang} game={picked} busy={busy} needName={!acctName} name={name} setName={setName}
+        onStart={(g) => { createRoom(g); }} onClose={() => setPicked(null)} />
 
-      <div className="mt-10 flex flex-col items-center gap-2">
-        <div className="font-mono text-[11px] tracking-[.25em] uppercase text-eldritch/70">{lang === 'en' ? 'Nine games · one AI host' : '九种玩法 · 一个 AI 主持'}</div>
-        <p className="max-w-md text-parchment/45 text-sm leading-relaxed">{lang === 'en' ? 'Every mode is generated live and runs in real time for one player or a full table. Pick one — the AI sets it all up.' : '每个模式都由 AI 现场生成、实时进行，单人或一桌人都能玩。挑一个，剩下的交给 AI。'}</p>
+      <div className="w-full max-w-5xl px-5 pt-6 flex flex-col items-center gap-2">
+        <div className="font-mono text-[11px] tracking-[.25em] uppercase text-eldritch/70">{lang === 'en' ? 'Every game, up close' : '每个玩法的真实画面'}</div>
       </div>
-
-      <GameShowcase lang={lang} busy={busy} onPlay={(m) => (m === 'market' ? router.push('/market') : createRoom(m))} />
+      <div className="w-full px-5"><GameShowcase lang={lang} busy={busy} onPlay={(m) => (m === 'market' ? router.push('/market') : createRoom(m))} /></div>
 
       <LingerPromo lang={lang} />
       <LingerToast lang={lang} />
@@ -335,60 +327,6 @@ function AdminPanel({ lang }: { lang: Lang }) {
       {s.traffic && <div>{en ? '7d visitors' : '近7天访客'} {s.traffic.uv7d} · {en ? 'from search' : '自然搜索'} <span className="text-eldritch">{s.traffic.organic7d}</span></div>}
       {s.traffic && s.traffic.topRefs?.length > 0 && <div className="text-parchment/40 truncate">{en ? 'src' : '来源'}: {s.traffic.topRefs.map((r: any) => `${r.ref}·${r.n}`).join('  ')}</div>}
       {s.traffic && s.traffic.topPages?.length > 0 && <div className="text-parchment/40 truncate">{en ? 'top' : '热门页'}: {s.traffic.topPages.map((r: any) => `${r.path}·${r.n}`).join('  ')}</div>}
-    </div>
-  );
-}
-
-function LangToggle({ lang, onChange }: { lang: Lang; onChange: (l: Lang) => void }) {
-  return (
-    <div className="fixed top-3 left-3 z-20 flex rounded-full overflow-hidden border border-eldritch/30 text-xs">
-      {(['zh', 'en'] as const).map((l) => (
-        <button key={l} onClick={() => onChange(l)}
-          className={`px-3 py-1.5 ${lang === l ? 'bg-eldritch/50 text-parchment' : 'bg-fog/70 text-parchment/50 hover:text-parchment'}`}>
-          {l === 'zh' ? '中' : 'EN'}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function AccountBadge({ t, lang }: { t: (k: string, v?: any) => string; lang?: Lang }) {
-  const [s, setS] = useState<any>(null);
-  const [emailOpen, setEmailOpen] = useState(false);
-  async function load() {
-    try { const r = await fetch('/api/billing/status'); setS(await r.json()); }
-    catch { setS({ loggedIn: false }); }
-  }
-  useEffect(() => { load(); }, []);
-  if (!s) return null;
-  return (
-    <div className="fixed top-3 right-3 z-20 text-xs max-w-[72vw] flex items-center gap-2 justify-end">
-      <MusicChip en={lang === 'en'} />
-      {s.loggedIn && <MarketChip />}
-      {s.loggedIn ? (
-        <div className="flex items-center gap-1.5 sm:gap-2 rounded-full bg-fog/80 border border-eldritch/30 px-2 py-1 text-parchment/80 backdrop-blur min-w-0">
-          <a href="/account" title="账号资料" className="shrink-0">
-            {s.avatarUrl
-              ? <img src={s.avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover border border-eldritch/40" />
-              : <span className="w-6 h-6 rounded-full bg-eldritch/40 flex items-center justify-center text-parchment text-[11px]">{(s.displayName || s.email || '?').slice(0, 1).toUpperCase()}</span>}
-          </a>
-          <a href="/account" className="truncate max-w-[24vw] sm:max-w-[140px] min-w-0 hover:text-parchment" title={s.email}>{s.displayName || s.email}</a>
-          <span className="text-eldritch shrink-0">{s.whitelisted ? t('free_forever') : `${s.credits} ${t('credits_left')}`}</span>
-          <button onClick={async () => { await signOut(); load(); }} className="text-parchment/40 hover:text-parchment underline shrink-0">{t('logout')}</button>
-        </div>
-      ) : (
-        <div className="flex items-center gap-2">
-          <button onClick={() => signInWithGoogle('/').catch(() => {})}
-            className="rounded-full bg-fog/80 border border-eldritch/30 px-3 py-1.5 text-parchment/70 hover:text-parchment backdrop-blur">
-            {t('login_google')}
-          </button>
-          <button onClick={() => setEmailOpen(true)}
-            className="rounded-full bg-fog/80 border border-eldritch/30 px-3 py-1.5 text-parchment/60 hover:text-parchment backdrop-blur">
-            {t('login_email')}
-          </button>
-        </div>
-      )}
-      {emailOpen && <EmailLogin onClose={() => setEmailOpen(false)} />}
     </div>
   );
 }

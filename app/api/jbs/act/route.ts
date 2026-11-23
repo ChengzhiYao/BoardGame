@@ -57,7 +57,7 @@ export async function POST(req: Request) {
     const { data: out, usage } = await callLLMJson<any>({
       system: buildJbsDmPrompt(kase.case_file, curAct, aiNames, realRoster, { elapsedMin, actMin }, myObjs || []) + companionNote(room, room.companion?.role || undefined) + langDirective(room.language),
       messages: [...base, { role: 'user', content: `[${myName}·真人·${me.seat}座] 的行动：${content.trim()}` }],
-      tier: 'main', temperature: 0.8, maxTokens: 2200, retry: true,
+      tier: 'main', temperature: 0.8, maxTokens: 2200, retry: true, proseKey: 'narration',
     });
     await admin.from('api_usage').insert({ room_id: roomId, kind: 'llm_main', model: usage.model, prompt_tokens: usage.promptTokens, completion_tokens: usage.completionTokens, latency_ms: usage.latencyMs });
 

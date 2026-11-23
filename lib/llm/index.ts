@@ -26,6 +26,7 @@ export interface LLMRequest {
   temperature?: number;      // 真相相关用低温，默认 0.6
   maxTokens?: number;
   provider?: Provider;       // 可强制指定某家，默认读环境变量
+  proseKey?: string;         // 模型偶尔只回一段纯文字（没给 JSON）：就把这段文字当作这个字段，不报错
   retry?: boolean;           // 解析失败是否重试一次（默认仅 aux 重试；大主调用慎用，怕超时）
 }
 
@@ -209,6 +210,11 @@ export async function callLLMJson<T = any>(req: LLMRequest): Promise<{ data: T; 
       const data = safeParseJson<T>(t2);
       return { data, usage: { text: t2, provider, model: fbModel, promptTokens: pt, completionTokens: ct, latencyMs: Date.now() - t0 } };
     } catch (e) { lastErr = e; }
+  }
+  // 最后的兜底：模型只回了一段故事文字 → 当作 proseKey 字段，而不是把错误甩给玩家
+  if (req.proseKey && text && text.trim() && !text.includes('{')) {
+    const prose = text.replace(/^```\w*\s*|\s*```$/g, '').trim();
+    return { data: { [req.proseKey]: prose } as any as T, usage: { text, provider, model, promptTokens: pt, completionTokens: ct, latencyMs: Date.now() - t0 } };
   }
   throw lastErr || new Error('LLM JSON 解析失败');
 }

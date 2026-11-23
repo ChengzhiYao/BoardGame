@@ -236,7 +236,7 @@ ${sectionHint}
 【世界状态变化】…（一两句：周围此刻起了什么变化、谁的态度变了。像小说一样写，不写任何数字、不写嫌疑值/SAN/HP 这类术语）
 下一步可行动作放进 guidance.options。骰子已判定，不要再请求。${round >= 25 ? `\n（本局已进行 ${round} 回合。若案件已接近真相或收尾，请果断给出结局：progress.ending_triggered=true 并写好 ending_text 与结局类型。）` : ''}`;
 
-  const { data: out, usage } = await callLLMJson<any>({ system: buildKpTurnSystem(narratorCtx) + langDirective(room.language), messages: [...baseMessages, { role: 'user', content: note }], tier: 'main', temperature: 0.7, maxTokens: 3000, retry: true });
+  const { data: out, usage } = await callLLMJson<any>({ system: buildKpTurnSystem(narratorCtx) + langDirective(room.language), messages: [...baseMessages, { role: 'user', content: note }], tier: 'main', temperature: 0.7, maxTokens: 3000, retry: true, proseKey: 'narration' });
   await admin.from('api_usage').insert({ room_id: roomId, kind: 'llm_main', model: usage.model, prompt_tokens: usage.promptTokens, completion_tokens: usage.completionTokens, latency_ms: usage.latencyMs });
 
   // KP 旁白

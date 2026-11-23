@@ -21,7 +21,16 @@ export default function QuickCast(props: ShellProps & { onAdvanced: () => void }
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || 'error');
       setCast(d.cast || []);
+      if ((d.cast || []).some((c: any) => !c.avatar)) portraits();
     } catch (e: any) { setErr(e.message); }
+  }
+  async function portraits(tries = 0) {
+    try {
+      const r = await fetch('/api/coc/portraits', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) });
+      const d = await r.json();
+      if (Array.isArray(d.cast) && d.cast.length) setCast(d.cast);
+      if (d.pending && tries < 6) setTimeout(() => portraits(tries + 1), 8000);
+    } catch {}
   }
   useEffect(() => { if (!picked) load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -75,7 +84,12 @@ export default function QuickCast(props: ShellProps & { onAdvanced: () => void }
             return (
               <div key={i} className={`snap-center shrink-0 w-[82vw] max-w-[320px] sm:w-[290px] rounded-2xl border bg-gradient-to-b from-[#17181d]/95 to-[#0b0c0f]/95 backdrop-blur-md p-5 flex flex-col text-left ${taken ? 'border-[#d8c7a8]/[0.06] opacity-45' : 'border-[#d8c7a8]/[0.14]'}`}>
                 <div className="flex items-center gap-3.5">
-                  <span className="w-14 h-14 rounded-full border border-[#c9a96e]/40 bg-[#c9a96e]/[0.07] flex items-center justify-center font-serif text-[24px] text-[#efe6d2] shrink-0">{String(c.name || '?').slice(0, 1)}</span>
+                  <span className="relative w-16 h-16 rounded-full overflow-hidden border border-[#c9a96e]/40 bg-[#c9a96e]/[0.07] shrink-0">
+                    {c.avatar
+                      // eslint-disable-next-line @next/next/no-img-element
+                      ? <img src={c.avatar} alt="" className="w-full h-full object-cover nf-in" />
+                      : <span className="absolute inset-0 flex items-end justify-center animate-pulse"><svg width="46" height="46" viewBox="0 0 24 24" fill="rgba(216,199,168,.18)"><circle cx="12" cy="9" r="4.2" /><path d="M3.5 22c.8-4.6 4.3-7.2 8.5-7.2s7.7 2.6 8.5 7.2z" /></svg></span>}
+                  </span>
                   <div className="min-w-0">
                     <div className="font-serif font-semibold text-[21px] leading-tight text-[#efe6d2] truncate">{c.name}</div>
                     <div className="text-[12.5px] text-parchment/50 mt-0.5 truncate">{c.occupation}{c.age ? ` · ${c.age}` : ''}</div>

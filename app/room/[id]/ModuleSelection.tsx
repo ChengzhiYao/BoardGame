@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { ShellProps } from './RoomShell';
+import PosterCard from './PosterCard';
 
 const EN = (l?: string) => l === 'en';
 
@@ -117,26 +118,15 @@ export default function ModuleSelection(props: ShellProps) {
 
       <div className="flex gap-3.5 overflow-x-auto snap-x snap-mandatory px-[9vw] sm:px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:justify-center sm:flex-wrap sm:overflow-visible">
         {modules.map((m, k) => (
-          <div key={m.id} className="snap-center shrink-0 w-[82vw] max-w-[320px] sm:w-[300px] rounded-2xl border border-[#d8c7a8]/[0.14] bg-gradient-to-b from-[#17181d]/95 via-[#101115]/95 to-[#0b0c0f]/95 backdrop-blur-md p-5 flex flex-col text-left shadow-[0_30px_60px_-30px_rgba(0,0,0,.9)]">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[10.5px] tracking-[.25em] text-[#c9a96e]/80 truncate">{[m.genre, m.era].filter(Boolean).join(' · ') || (en ? 'MYSTERY' : '悬疑')}</span>
-              {m.from_library && <span className="shrink-0 text-[10.5px] text-[#9fbf9f]/85">{en ? 'Ready · instant' : '现成 · 秒开'}</span>}
-            </div>
-            <div className="mt-5 font-serif text-[10px] text-parchment/25">{String(k + 1).padStart(2, '0')} / {String(modules.length).padStart(2, '0')}</div>
-            <h2 className="mt-1 font-serif font-semibold text-[26px] leading-tight text-[#efe6d2]">{m.title}</h2>
-            {m.tagline && <p className="mt-2 font-serif italic text-[14px] text-[#c9a96e]/85">{m.tagline}</p>}
-            <p className="mt-4 text-[14px] leading-[1.85] text-parchment/70 line-clamp-6">{m.hook}</p>
-            <div className="mt-4 flex flex-wrap gap-x-3 gap-y-1 text-[11.5px] text-parchment/40">
-              {m.place && <span>{m.place}</span>}{m.difficulty && <span>· {m.difficulty}</span>}{m.duration && <span>· {m.duration}</span>}
-            </div>
-            <div className="mt-5 flex items-center gap-2.5 pt-4 border-t border-[#d8c7a8]/[0.08]">
-              <button onClick={() => listen(m)} className="shrink-0 h-11 px-4 rounded-xl border border-[#c9a96e]/35 text-[13px] text-[#c9a96e] flex items-center gap-2">
-                {playing === m.id ? <span className="flex items-end gap-[2px] h-3">{[0, 1, 2].map((x) => <span key={x} className="w-[2px] rounded-full bg-[#c9a96e] mn-eq" style={{ animationDelay: `${x * 0.15}s`, animationDuration: '.6s' }} />)}</span> : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 5L6 9H3v6h3l5 4z" /><path d="M15.5 9.5a3.5 3.5 0 0 1 0 5" /></svg>}
+          <PosterCard key={m.id} m={m} index={k} total={modules.length} en={en} footer={
+            <div className="flex items-center gap-2.5">
+              <button onClick={() => listen(m)} className="shrink-0 h-11 px-4 rounded-xl border border-white/20 bg-black/20 text-[13px] text-white/85 flex items-center gap-2">
+                {playing === m.id ? <span className="flex items-end gap-[2px] h-3">{[0, 1, 2].map((x) => <span key={x} className="w-[2px] rounded-full bg-white/80 mn-eq" style={{ animationDelay: `${x * 0.15}s`, animationDuration: '.6s' }} />)}</span> : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 5L6 9H3v6h3l5 4z" /><path d="M15.5 9.5a3.5 3.5 0 0 1 0 5" /></svg>}
                 {playing === m.id ? (en ? 'Stop' : '停') : (en ? 'Listen' : '听')}
               </button>
               <button onClick={() => select(m.id)} disabled={busy} className="flex-1 h-11 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] border border-[#a83232]/60 text-[#f2ead9] font-serif tracking-[.12em] disabled:opacity-50">{busy ? '…' : (en ? 'This one' : '就这个')}</button>
             </div>
-          </div>
+          } />
         ))}
       </div>
 

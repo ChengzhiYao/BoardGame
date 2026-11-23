@@ -61,6 +61,7 @@ export async function POST(req: Request) {
     name: c.name, gender: c.gender === 'female' ? 'female' : 'male', age: Number(c.age) || 30, occupation: c.occupation || '', appearance: c.appearance || '',
     personality: c.personality || '', background: c.background || c.tagline || '', personal_goal: c.personal_goal || '', fear: c.fear || c.weakness || '',
     inventory: inv, ...a, ...d, skills, resources, creation_stage: 4, is_complete: true, confirmed: true,
+    ...(c.avatar ? { avatar_url: c.avatar } : {}),
   };
   const { data: ex } = await admin.from('characters').select('id').eq('player_id', me.id).maybeSingle();
   const res = ex ? await admin.from('characters').update(row).eq('id', ex.id) : await admin.from('characters').insert(row);

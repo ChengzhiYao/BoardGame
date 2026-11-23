@@ -9,6 +9,7 @@ import { buildModuleReviewSystem, normalizeModuleQuality } from '@/lib/review/qu
 import { buildJbsScriptGenPrompt, buildJbsCasePrompt } from '@/lib/jbs/prompt';
 import { voiceLine } from '@/lib/soup/voice';
 import { stripMarks } from '@/lib/narrate';
+import { makePoster } from '@/lib/coc/art';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
@@ -34,6 +35,11 @@ export async function POST(req: Request, { params }: { params: { kind: string } 
         if (h || o) { await admin.from('module_library').update({ hook_audio: h, opening_audio: o }).eq('id', r.id); out.voiced++; }
       }
     }
+    // 1.5) 海报：每轮给 1 个还没有海报的达标故事画一张（画一次永久复用，约 0.5 美分一张）
+    try {
+      const { data: np } = await admin.from('module_library').select('id, title, hook, tagline, genre, era, place').eq('passed', true).is('poster_url', null).limit(1);
+      if (np && np[0]) { const u = await makePoster(admin, np[0]); if (u) out.poster = 1; }
+    } catch {}
     // 2) 新做一套完整案件（模组 → 锁定案件 → 审查 → 入库 → 配音）
     // 预算：克苏鲁最多存 260 套，约每 40 分钟写 1 套（到 11/30 大约花 3.5 美元）
     const { count } = await admin.from('module_library').select('id', { count: 'exact', head: true }).eq('source', 'stock');

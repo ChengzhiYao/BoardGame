@@ -50,7 +50,7 @@ export async function POST(req: Request) {
     if (lang === 'zh' && (!customDirection || !Object.values(customDirection).some(Boolean))) {
       const { data: libs } = await admin
         .from('module_library')
-        .select('id, title, hook, tagline, genre, era, place, difficulty, duration, quality, hook_audio')
+        .select('id, title, hook, tagline, genre, era, place, difficulty, duration, quality, hook_audio, poster_url')
         .eq('passed', true)
         .order('created_at', { ascending: false })
         .limit(80);
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
         const take = usable.length >= 8 ? 2 : 1; // 题库厚了就多给现成的（秒开、开场有配音）
         libOption = shuffled.slice(0, take).map((l: any) => ({
           title: l.title, tagline: l.tagline, hook: l.hook, genre: l.genre, era: l.era, place: l.place,
-          difficulty: l.difficulty, duration: l.duration, hook_audio: l.hook_audio || undefined,
+          difficulty: l.difficulty, duration: l.duration, hook_audio: l.hook_audio || undefined, poster_url: l.poster_url || undefined,
           from_library: l.id, quality_score: l.quality?.complexity ?? null,
         }));
       }

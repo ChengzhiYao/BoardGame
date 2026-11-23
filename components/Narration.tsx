@@ -14,7 +14,7 @@ export default function Narration({ text, lang, fresh = false, tone = 'kp', labe
   // 新旁白出现 → 通知音乐层（按内容换情绪、配拟声、喊叫时来一下惊吓）
   useEffect(() => { if (fresh && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('mn-narr', { detail: { text, tone } })); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <div className={`nf nf-${tone} mx-auto w-full max-w-2xl`}>
+    <div className={`nf nf-${tone} mx-auto w-full max-w-2xl text-left`}>
       {label && <div className="nf-label">{label}</div>}
       <div className="nf-body">
         {shown.map((b, i) => (

@@ -35,28 +35,11 @@ export default function AudioManager({ state }: { state: string }) {
   const [voice, setVoice] = useState<VCtrl>(getVoiceControl());
   useEffect(() => subscribeVoiceControl(setVoice), []);
 
-  // 可拖动：玩家自由把悬浮条拖到不挡屏幕的位置，记住坐标
-  const barRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
-  const posRef = useRef<{ x: number; y: number } | null>(null);
-  const dragRef = useRef<{ dx: number; dy: number } | null>(null);
-  useEffect(() => { try { const s = localStorage.getItem('audiobar_pos'); if (s) { const p = JSON.parse(s); if (p.x < 140 && p.y < 70) { localStorage.removeItem('audiobar_pos'); return; } if (p.x > window.innerWidth - 60 || p.y > window.innerHeight - 40) return; setPos(p); posRef.current = p; } } catch {} }, []); // 别压住左上角的「离开」
-  function onGripDown(e: any) {
-    const r = barRef.current?.getBoundingClientRect(); if (!r) return;
-    dragRef.current = { dx: e.clientX - r.left, dy: e.clientY - r.top };
-    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
-    e.preventDefault();
-  }
-  function onGripMove(e: any) {
-    if (!dragRef.current) return;
-    const w = barRef.current?.offsetWidth || 160, h = barRef.current?.offsetHeight || 36;
-    const W = typeof window !== 'undefined' ? window.innerWidth : 9999, H = typeof window !== 'undefined' ? window.innerHeight : 9999;
-    const x = Math.max(4, Math.min(W - w - 4, e.clientX - dragRef.current.dx));
-    let y = Math.max(4, Math.min(H - h - 4, e.clientY - dragRef.current.dy));
-    if (x < 140 && y < 56) y = 56;
-    const p = { x, y }; posRef.current = p; setPos(p);
-  }
-  function onGripUp() { if (dragRef.current) { dragRef.current = null; try { localStorage.setItem('audiobar_pos', JSON.stringify(posRef.current)); } catch {} } }
+  const [open, setOpen] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+  // 记住玩家的音乐开关和音量
+  useEffect(() => { try { const m = localStorage.getItem('mn_music'); if (m === 'off') setMuted(true); const v = Number(localStorage.getItem('mn_vol')); if (v > 0 && v <= 1) setVol(v); } catch {} }, []);
+  useEffect(() => { try { localStorage.setItem('mn_music', muted ? 'off' : 'on'); localStorage.setItem('mn_vol', String(vol)); } catch {} }, [muted, vol]);
 
   const bedRef = useRef<HTMLAudioElement | null>(null);
   const fadeRef = useRef<any>(null);
@@ -137,7 +120,7 @@ export default function AudioManager({ state }: { state: string }) {
       for (const w of sfx.slice(0, 2)) { const hit = SFX_WORDS.find(([re]) => re.test(w)); if (hit) { const k = hit[1]; setTimeout(() => playSfx(k), delay); delay += 900; } }
       if (/!!.+?!!/s.test(text) && enabledRef.current) setTimeout(() => playStinger(0.8), 250);
     };
-    const onSpeak = (e: any) => { duckRef.current = !!e?.detail; if (bedRef.current && lastLoopCat.current) fadeVol(bedRef.current, bedVolume(lastLoopCat.current)); };
+    const onSpeak = (e: any) => { duckRef.current = !!e?.detail; setSpeaking(!!e?.detail); if (bedRef.current && lastLoopCat.current) fadeVol(bedRef.current, bedVolume(lastLoopCat.current)); };
     window.addEventListener('mn-narr', onNarr);
     window.addEventListener('mn-speaking', onSpeak);
     // 情绪覆盖到期 → 回落；同一首放久了换一首同情绪的
@@ -206,23 +189,69 @@ export default function AudioManager({ state }: { state: string }) {
 
   useEffect(() => () => { if (bedRef.current) bedRef.current.pause(); }, []);
 
+  const voiceOn = !!voice && voice.mode !== 'off';
+  const musicOn = !muted;
+  const live = enabled && (speaking || musicOn);
   return (
-    <div ref={barRef} style={pos ? { left: pos.x, top: pos.y, right: 'auto', bottom: 'auto' } : undefined}
-      className="fixed right-2 top-[58px] lg:top-auto lg:bottom-3 lg:right-3 z-50 flex flex-nowrap items-center gap-2 whitespace-nowrap bg-fog/90 border border-eldritch/30 rounded-full px-3 py-1.5 backdrop-blur">
-      <span onPointerDown={onGripDown} onPointerMove={onGripMove} onPointerUp={onGripUp} style={{ touchAction: 'none' }}
-        className="cursor-move select-none text-parchment/40 leading-none px-0.5" title="拖动">⠿</span>
-      {voice && (
-        <button onClick={voice.cycle}
-          title={voice.quota ? '今天的免费语音用完了' : voice.mode === 'off' ? '旁白语音：关' : '旁白语音：开'}
-          className={`text-sm ${voice.mode === 'off' ? 'opacity-40' : ''}`}>
-          {voice.mode === 'off' ? '🔈' : '🎙️'}
+    <>
+      {open && <div className="fixed inset-0 z-[55]" onClick={() => setOpen(false)} />}
+      <div className="fixed right-2.5 top-[58px] lg:top-auto lg:bottom-4 lg:right-4 z-[56] flex flex-col items-end">
+        <button onClick={() => setOpen((v) => !v)} aria-label="声音" title="声音设置"
+          className={`relative w-9 h-9 rounded-full flex items-center justify-center backdrop-blur-md border transition-colors ${open ? 'bg-[#c9a96e]/15 border-[#c9a96e]/50' : 'bg-[#0b0c0f]/75 border-[#d8c7a8]/15 hover:border-[#c9a96e]/40'}`}>
+          {live ? (
+            <span className="flex items-end gap-[2.5px] h-3.5">
+              {[0, 1, 2, 3].map((k) => <span key={k} className="w-[2.5px] rounded-full bg-[#c9a96e] mn-eq" style={{ animationDelay: `${k * 0.13}s`, animationDuration: speaking ? '.55s' : '1.1s' }} />)}
+            </span>
+          ) : (
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="text-parchment/70">
+              <path d="M11 5L6 9H3v6h3l5 4z" />{musicOn || voiceOn ? <path d="M15.5 9.5a3.5 3.5 0 0 1 0 5M18.5 7a7 7 0 0 1 0 10" /> : <path d="M16 9l5 6M21 9l-5 6" />}
+            </svg>
+          )}
+          {!enabled && (musicOn || voiceOn) && <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#c9a96e] border-2 border-ink animate-pulse" />}
         </button>
-      )}
-      <span className="w-px h-4 bg-eldritch/30" />
-      <button onClick={() => setMuted((m) => !m)} className="text-parchment/80 text-sm" title="背景音乐静音">
-        {muted ? '🔇' : '🔊'}
-      </button>
-      <input type="range" min={0} max={1} step={0.05} value={vol} onChange={(e) => setVol(+e.target.value)} className="w-16 accent-eldritch" />
-    </div>
+        {!enabled && (musicOn || voiceOn) && !open && (
+          <div className="mt-2 px-3 py-1.5 rounded-full bg-[#0b0c0f]/85 backdrop-blur border border-[#d8c7a8]/12 text-[11.5px] text-parchment/70 whitespace-nowrap nf-in">轻点任意处，开启声音</div>
+        )}
+        {open && (
+          <div className="mt-2 w-[264px] rounded-xl bg-[#0f1013]/[0.97] backdrop-blur-xl border border-[#d8c7a8]/[0.14] shadow-[0_24px_60px_-12px_rgba(0,0,0,.9)] p-1.5 text-left nf-in">
+            <div className="px-3 pt-2 pb-1.5 text-[10.5px] tracking-[.35em] text-[#c9a96e]/70">声音</div>
+            {voice && (
+              <button onClick={voice.cycle} className="w-full flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-white/[0.03] text-left">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[#c9a96e]/80 shrink-0"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>
+                <span className="flex-1 min-w-0">
+                  <span className="block text-[14.5px] text-[#ece3cf]">旁白语音</span>
+                  <span className={`block text-[11.5px] mt-0.5 ${voice.quota ? 'text-[#e0a070]' : 'text-parchment/45'}`}>{voice.quota ? '今天的免费语音用完了，明天再来' : voiceOn ? (speaking ? '正在朗读…' : 'AI 主持人会念出旁白 · 免费') : '只看文字，不朗读'}</span>
+                </span>
+                <Switch on={voiceOn} />
+              </button>
+            )}
+            <div className="px-3 py-3 rounded-lg">
+              <button onClick={() => setMuted((m) => !m)} className="w-full flex items-center gap-3 text-left">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[#c9a96e]/80 shrink-0"><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></svg>
+                <span className="flex-1 min-w-0">
+                  <span className="block text-[14.5px] text-[#ece3cf]">背景音乐与音效</span>
+                  <span className="block text-[11.5px] mt-0.5 text-parchment/45">{musicOn ? '跟着剧情变化' : '已关闭'}</span>
+                </span>
+                <Switch on={musicOn} />
+              </button>
+              <div className={`mt-3.5 flex items-center gap-3 pl-[30px] transition-opacity ${musicOn ? '' : 'opacity-35 pointer-events-none'}`}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="text-parchment/40 shrink-0"><path d="M11 5L6 9H3v6h3l5 4z" /></svg>
+                <input type="range" min={0.05} max={1} step={0.05} value={vol} onChange={(e) => setVol(+e.target.value)} className="mn-range flex-1" style={{ ['--p' as any]: `${Math.round(((vol - 0.05) / 0.95) * 100)}%` }} aria-label="音乐音量" />
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" className="text-parchment/40 shrink-0"><path d="M11 5L6 9H3v6h3l5 4z" /><path d="M15.5 9.5a3.5 3.5 0 0 1 0 5M18.5 7a7 7 0 0 1 0 10" /></svg>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   );
+}
+
+function Switch({ on }: { on: boolean }) {
+  return (
+    <span className={`relative shrink-0 w-10 h-6 rounded-full transition-colors ${on ? 'bg-[#c9a96e]/85' : 'bg-white/[0.12]'}`}>
+      <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-[#f2ead9] shadow transition-all ${on ? 'left-[18px]' : 'left-0.5'}`} />
+    </span>
+  );
+
 }

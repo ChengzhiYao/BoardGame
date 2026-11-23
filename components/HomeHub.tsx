@@ -31,9 +31,29 @@ export const TILE: Record<GM, { short: Bi; line: Bi; color: string; icon: JSX.El
     icon: <><path d="M3 17l6-6 4 4 8-8" /><path d="M15 7h6v6" /></> },
 };
 
+export type MenuItem = { label: string; onClick?: () => void; href?: string; icon?: keyof typeof MI; group?: number };
+const MI = {
+  hall: 'M3 10.5L12 4l9 6.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z',
+  invite: 'M15 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 3 17.5V19M9 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19 8v6M22 11h-6',
+  code: 'M4 7h16M4 12h16M4 17h10',
+  account: 'M20 21v-1.5a4.5 4.5 0 0 0-4.5-4.5h-7A4.5 4.5 0 0 0 4 19.5V21M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+  price: 'M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8zM7.5 7.5h.01',
+  play: 'M7 5l12 7-12 7z',
+  music: 'M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM21 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z',
+  blog: 'M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5zM4 20.5A2.5 2.5 0 0 1 6.5 18H20',
+  book: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z',
+  mail: 'M4 5h16v14H4zM4 6l8 7 8-7',
+  heart: 'M20.8 5.6a5.5 5.5 0 0 0-7.8 0L12 6.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 22l8.8-8.6a5.5 5.5 0 0 0 0-7.8z',
+  about: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01',
+  out: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
+};
+function MIcon({ k }: { k?: keyof typeof MI }) {
+  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[#c9a96e]/75">{k ? <path d={MI[k]} /> : null}</svg>;
+}
+
 export function HomeTopBar({ lang, onLang, account, onLogin, onLogout, menu, home }: {
   home?: string; lang: Lang; onLang: (l: Lang) => void; account: any; onLogin: () => void; onLogout: () => void;
-  menu: { label: string; onClick?: () => void; href?: string }[];
+  menu: MenuItem[];
 }) {
   const en = lang === 'en';
   const [open, setOpen] = useState(false);
@@ -61,12 +81,38 @@ export function HomeTopBar({ lang, onLang, account, onLogin, onLogout, menu, hom
       {open && (
         <>
           <div className="fixed inset-0 z-[-1]" onClick={() => setOpen(false)} />
-          <div className="absolute right-3 top-[calc(env(safe-area-inset-top)+52px)] w-52 rounded-2xl bg-[#16181e]/95 backdrop-blur border border-white/10 shadow-2xl py-1.5 text-sm">
-            {account?.loggedIn && <div className="px-4 py-2 text-xs text-parchment/45 truncate">{account.displayName || account.email}</div>}
-            {menu.map((m, i) => m.href
-              ? <a key={i} href={m.href} className="block px-4 py-2.5 text-parchment/85 hover:bg-white/5">{m.label}</a>
-              : <button key={i} onClick={() => { setOpen(false); m.onClick?.(); }} className="block w-full text-left px-4 py-2.5 text-parchment/85 hover:bg-white/5">{m.label}</button>)}
-            {account?.loggedIn && <button onClick={() => { setOpen(false); onLogout(); }} className="block w-full text-left px-4 py-2.5 text-parchment/50 hover:bg-white/5 border-t border-white/5 mt-1">{en ? 'Sign out' : '退出登录'}</button>}
+          <div className="absolute right-3 top-[calc(env(safe-area-inset-top)+54px)] w-[232px] max-h-[calc(100svh-80px)] overflow-y-auto rounded-xl bg-[#0f1013]/[0.97] backdrop-blur-xl border border-[#d8c7a8]/[0.14] shadow-[0_24px_60px_-12px_rgba(0,0,0,.9)] text-left nf-in">
+            {account?.loggedIn && (
+              <a href="/account" className="flex items-center gap-3 px-4 py-3.5 border-b border-[#d8c7a8]/[0.08] hover:bg-white/[0.03]">
+                <span className="w-9 h-9 rounded-full overflow-hidden border border-[#c9a96e]/30 bg-[#c9a96e]/10 flex items-center justify-center shrink-0 font-serif text-[#efe6d2]">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  {account.avatarUrl ? <img src={account.avatarUrl} alt="" className="w-full h-full object-cover" /> : String(account.displayName || account.email || '?').slice(0, 1).toUpperCase()}
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate font-serif text-[15px] text-[#efe6d2]">{account.displayName || String(account.email || '').split('@')[0]}</span>
+                  <span className="block text-[11.5px] text-[#c9a96e]/80">{account.whitelisted || account.member ? (en ? '✦ Member' : '✦ 会员') : (en ? `${account.credits ?? 0} premium games` : `豪华局数 ${account.credits ?? 0}`)}</span>
+                </span>
+              </a>
+            )}
+            {[1, 2, 3].map((g) => {
+              const items = menu.filter((m) => (m.group || 1) === g);
+              if (!items.length) return null;
+              return (
+                <div key={g} className={`py-1.5 ${g > 1 ? 'border-t border-[#d8c7a8]/[0.08]' : ''}`}>
+                  {items.map((m, i) => {
+                    const cls = `flex w-full items-center gap-3 px-4 py-2.5 text-left ${g === 3 ? 'text-[13.5px] text-parchment/60' : 'text-[14.5px] text-parchment/90'} hover:bg-white/[0.04] hover:text-[#efe6d2]`;
+                    return m.href
+                      ? <a key={i} href={m.href} className={cls}><MIcon k={m.icon} />{m.label}</a>
+                      : <button key={i} onClick={() => { setOpen(false); m.onClick?.(); }} className={cls}><MIcon k={m.icon} />{m.label}</button>;
+                  })}
+                </div>
+              );
+            })}
+            {account?.loggedIn && (
+              <div className="border-t border-[#d8c7a8]/[0.08] py-1.5">
+                <button onClick={() => { setOpen(false); onLogout(); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-[13.5px] text-parchment/45 hover:text-parchment/80 hover:bg-white/[0.03]"><MIcon k="out" />{en ? 'Sign out' : '退出登录'}</button>
+              </div>
+            )}
           </div>
         </>
       )}
@@ -143,7 +189,7 @@ export function GameSheet({ lang, game, busy, needName, name, setName, onStart, 
   if (!g) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl bg-[#0f1013] border border-[#d8c7a8]/15 shadow-2xl px-5 pt-3 text-left nf-in"
+      <div className="w-full sm:max-w-md max-h-[92svh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-[#0f1013] border border-[#d8c7a8]/15 shadow-2xl px-5 pt-3 text-left nf-in"
         style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }} onClick={(e) => e.stopPropagation()}>
         <div className="mx-auto w-10 h-1 rounded-full bg-white/15 mb-4 sm:hidden" />
         <div className="flex items-center gap-3">
@@ -158,6 +204,7 @@ export function GameSheet({ lang, game, busy, needName, name, setName, onStart, 
             {free ? (en ? 'Free' : '免费') : (en ? '✦ Premium' : '✦ 豪华')}
           </span>
         </div>
+        <Preview game={game} en={en} />
         <p className="mt-4 text-[15px] text-parchment/85 leading-relaxed">{L(lang, g.blurb)}</p>
         <ol className="mt-3 space-y-1.5">
           {g.rules.map((r, i) => (
@@ -228,6 +275,27 @@ export function SectionLabel({ children, right }: { children: React.ReactNode; r
       <span className="text-[11px] tracking-[.35em] uppercase text-[#c9a96e]/75 shrink-0">{children}</span>
       <span className="flex-1 h-px bg-gradient-to-r from-[#c9a96e]/25 to-transparent" />
       {right}
+    </div>
+  );
+}
+
+// 游戏详情里的玩法演示：先是真实界面的静帧，点 ▶ 播放一段对局回放
+function Preview({ game, en }: { game: GM; en: boolean }) {
+  const [play, setPlay] = useState(false);
+  useEffect(() => setPlay(false), [game]);
+  if (game === 'market') return null;
+  return (
+    <div className="mt-4 relative w-full rounded-xl overflow-hidden border border-[#d8c7a8]/[0.12] bg-[#0b0c0f]" style={{ aspectRatio: '1180 / 720' }}>
+      <iframe key={`${game}-${play}`} src={`/screens.html${play ? '?play=1' : ''}#${game}`} title="" loading="lazy" scrolling="no" className="absolute inset-0 w-full h-full border-0 pointer-events-none" />
+      {!play && (
+        <button onClick={() => setPlay(true)} className="absolute inset-0 flex items-center justify-center bg-black/35 hover:bg-black/25 transition-colors group">
+          <span className="flex items-center gap-2.5 pl-3 pr-4 py-2 rounded-full bg-[#0b0c0f]/80 backdrop-blur border border-[#c9a96e]/45 text-[13px] text-[#efe6d2] group-hover:border-[#c9a96e]/80">
+            <span className="w-7 h-7 rounded-full bg-[#c9a96e] flex items-center justify-center"><svg width="11" height="11" viewBox="0 0 24 24" fill="#0b0c0f"><path d="M7 4l14 8-14 8z" /></svg></span>
+            {en ? 'Watch how it plays' : '看看怎么玩'}
+          </span>
+        </button>
+      )}
+      {play && <button onClick={() => setPlay(false)} className="absolute top-2 right-2 px-2.5 py-1 rounded-full bg-black/60 text-[11px] text-parchment/70">{en ? 'Stop' : '停止'}</button>}
     </div>
   );
 }

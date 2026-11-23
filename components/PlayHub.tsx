@@ -76,11 +76,11 @@ export default function PlayHub() {
         onLogin={() => setLoginGate(true)}
         onLogout={async () => { await signOut(); window.location.href = en ? '/en' : '/zh'; }}
         menu={[
-          ...(acct?.loggedIn ? [{ label: en ? 'My account' : '我的账号', href: '/account' }] : []),
-          { label: en ? 'Prices & my games' : '价格 · 我的局数', href: '/upgrade' },
-          { label: en ? 'About MystNight' : '关于谜夜', href: en ? '/en?landing=1' : '/zh?landing=1' },
-          { label: en ? 'Music' : '音乐', href: '/music' },
-          { label: en ? 'Blog' : '博客', href: en ? '/en/blog' : '/zh/blog' },
+          ...(acct?.loggedIn ? [{ label: en ? 'My account' : '我的账号', href: '/account', icon: 'account' as const, group: 1 }] : []),
+          { label: en ? 'Prices & my games' : '价格与局数', href: '/upgrade', icon: 'price' as const, group: 1 },
+          { label: en ? 'About MystNight' : '关于谜夜', href: en ? '/en?landing=1' : '/zh?landing=1', icon: 'about' as const, group: 2 },
+          { label: en ? 'Music' : '音乐', href: '/music', icon: 'music' as const, group: 3 },
+          { label: en ? 'Blog' : '博客', href: en ? '/en/blog' : '/zh/blog', icon: 'blog' as const, group: 3 },
         ]} />
 
       <div className="w-full max-w-3xl px-4 sm:px-6 flex flex-col gap-6 sm:gap-8 pb-20" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 72px)' }}>

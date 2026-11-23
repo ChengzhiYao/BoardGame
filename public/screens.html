@@ -464,4 +464,11 @@ html,body{margin:0;padding:0;background:transparent;overflow:hidden}
 function mccArt(node){var hand=[['curse','CURSE'],['ward','WARD'],['mirror','MIRROR'],['swap','SWAP'],['peek','PEEK']];var n=hand.length,h='';hand.forEach(function(c,i){h+='<div class="s-hc" style="--r:'+((i-(n-1)/2)*6)+'deg;--y:'+(Math.abs(i-(n-1)/2)*11)+'px">'+svg(c[0])+'<b>'+c[1]+'</b></div>';});node.innerHTML=node.innerHTML.replace('__HAND__',h).replace('__ART0__',svg('hiss')).replace('__ART1__',svg('curse')).replace('__ART2__',svg('ward'));}
 var key=(location.hash||'#coc').slice(1);var tpl=document.getElementById('tpl-'+key);var stage=document.getElementById('stage');
 if(tpl){var node=tpl.content.firstElementChild.cloneNode(true);if(key==='mcc')mccArt(node);stage.appendChild(node);var fit=function(){stage.style.transform='scale('+(window.innerWidth/1180)+')';};fit();window.addEventListener('resize',fit);window.addEventListener('hashchange',function(){location.reload();});}
+/* ?play=1：把这一屏当成一段对局回放——内容一条条出现，播完停一会儿再从头 */
+if(tpl&&/play=1/.test(location.search)){var items=[].slice.call(node.querySelectorAll('.s-log > *'));if(items.length<3)items=[].slice.call(node.querySelectorAll('.s-mid > *, .s-aside > *, .s-log > *'));if(items.length<3)items=[].slice.call(node.children[node.children.length-1].children);
+items.forEach(function(el){el.style.transition='opacity .6s ease, transform .6s ease';});
+var reset=function(){items.forEach(function(el){el.style.opacity='0';el.style.transform='translateY(10px)';});};
+var i=0;var log=node.querySelector('.s-log');reset();
+var step=function(){if(i<items.length){var el=items[i++];el.style.opacity='1';el.style.transform='none';if(log)log.scrollTop=log.scrollHeight;setTimeout(step,i<3?700:1100);}else{setTimeout(function(){reset();i=0;setTimeout(step,600);},2600);}};
+setTimeout(step,400);}
 </script></body></html>

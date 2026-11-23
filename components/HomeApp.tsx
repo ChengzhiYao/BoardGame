@@ -5,10 +5,11 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ensureSession, signInWithGoogle, signOut } from '@/lib/auth';
 import { tr, getClientLang, setClientLang, type Lang } from '@/lib/i18n';
-import GameShowcase, { type GM } from '@/components/GameShowcase';
+import { type GM } from '@/components/GameShowcase';
 import GameFeedback from '@/components/GameFeedback';
 import EmailLogin from '@/components/EmailLogin';
-import { HomeTopBar, SellingPoints, GameGrid, PricingStrip, GameSheet, ResumeRooms } from '@/components/HomeHub';
+import { HomeTopBar, GameSheet } from '@/components/HomeHub';
+import { LandingHero, LandingDemo, LandingWhy, LandingGames, LandingProof, LandingFaq, LandingFinal } from '@/components/Landing';
 
 export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
   const router = useRouter();
@@ -131,7 +132,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
   async function createRoom(m: GM = gameMode, nameOverride?: string) {
     let nm = (nameOverride ?? name).trim();
     // 马上开玩：没填名字就先用默认名，之后在账号里能改
-    if (!nm && m === 'soup' && quickRef.current) { nm = lang === 'en' ? 'Player' : '玩家'; setName(nm); }
+    if (!nm && (quickRef.current || m === 'soup')) { nm = lang === 'en' ? 'Player' : '玩家'; setName(nm); }
     if (!nm) {
       setErr(t('err_name'));
       if (!picked) { setPicked(m); }
@@ -183,7 +184,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center text-center gap-6 pb-16">
+    <main className="min-h-screen flex flex-col items-center text-center pb-16">
       {leaving && <div className="fixed inset-0 z-[90] bg-ink" />}
       <iframe
         ref={bgRef}
@@ -198,60 +199,44 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
         onLogin={() => setLoginGate(true)}
         onLogout={async () => { await signOut(); try { const r = await fetch('/api/billing/status'); setAccount(await r.json()); } catch { setAccount({ loggedIn: false }); } }}
         menu={[
-          { label: lang === 'en' ? '＋ Invite friends' : '＋ 邀请好友', onClick: () => { setShowInvite(true); setCopied(false); } },
-          ...(account?.loggedIn ? [{ label: lang === 'en' ? 'My hall' : '我的大厅', href: '/play' }, { label: lang === 'en' ? 'My account' : '我的账号', href: '/account' }] : []),
-          { label: lang === 'en' ? 'Prices & my games' : '价格 · 我的局数', href: '/upgrade' },
-          { label: lang === 'en' ? 'Join with a code' : '输入邀请码加入', onClick: () => setMode('join') },
-          { label: lang === 'en' ? '▶ Trailer' : '▶ 宣传片', onClick: openPromo },
-          { label: lang === 'en' ? 'Music' : '音乐', href: '/music' },
-          { label: lang === 'en' ? 'Blog' : '博客', href: lang === 'en' ? '/en/blog' : '/zh/blog' },
-          { label: lang === 'en' ? 'Guestbook' : '留言板', onClick: () => setShowFeedback(true) },
-          { label: lang === 'en' ? 'Contact us' : '联系我们', onClick: () => { setShowContact(true); setContactState('idle'); } },
-          ...(isOwner ? [{ label: lang === 'en' ? 'AI Companion' : 'AI 陪伴', href: '/companion' }] : []),
+          ...(account?.loggedIn ? [{ label: lang === 'en' ? 'My hall' : '我的大厅', href: '/play', icon: 'hall' as const, group: 1 }] : []),
+          { label: lang === 'en' ? 'Invite friends' : '邀请好友', onClick: () => { setShowInvite(true); setCopied(false); }, icon: 'invite' as const, group: 1 },
+          { label: lang === 'en' ? 'Join with a code' : '输入邀请码加入', onClick: () => setMode('join'), icon: 'code' as const, group: 1 },
+          ...(account?.loggedIn ? [{ label: lang === 'en' ? 'My account' : '我的账号', href: '/account', icon: 'account' as const, group: 2 }] : []),
+          { label: lang === 'en' ? 'Prices & my games' : '价格与局数', href: '/upgrade', icon: 'price' as const, group: 2 },
+          { label: lang === 'en' ? 'Trailer' : '宣传片', onClick: openPromo, icon: 'play' as const, group: 3 },
+          { label: lang === 'en' ? 'Music' : '音乐', href: '/music', icon: 'music' as const, group: 3 },
+          { label: lang === 'en' ? 'Blog' : '博客', href: lang === 'en' ? '/en/blog' : '/zh/blog', icon: 'blog' as const, group: 3 },
+          { label: lang === 'en' ? 'Guestbook' : '留言板', onClick: () => setShowFeedback(true), icon: 'book' as const, group: 3 },
+          { label: lang === 'en' ? 'Contact us' : '联系我们', onClick: () => { setShowContact(true); setContactState('idle'); }, icon: 'mail' as const, group: 3 },
+          ...(isOwner ? [{ label: lang === 'en' ? 'AI Companion' : 'AI 陪伴', href: '/companion', icon: 'heart' as const, group: 3 }] : []),
         ]} />
 
-      {/* 第一屏：卖点 + 全部玩法 + 收费，一屏看全 */}
-      <section ref={heroRef as any} className="w-full max-w-3xl px-3.5 sm:px-6 min-h-[100svh] flex flex-col justify-start sm:justify-center gap-3 sm:gap-4"
-        style={{ paddingTop: 'calc(env(safe-area-inset-top) + 64px)', paddingBottom: '20px' }}>
-        <div>
-          <div className="text-[10px] sm:text-[11px] tracking-[.5em] uppercase text-[#c9a96e]/70 mb-2.5 pl-[.5em]">{lang === 'en' ? 'An AI-hosted night of mysteries' : 'MystNight'}</div>
-          <h1 className="font-serif font-semibold text-[38px] sm:text-6xl leading-none tracking-[.12em] pl-[.12em] text-[#efe6d2] [text-shadow:0_2px_30px_rgba(0,0,0,.8)]">{t('home_title')}</h1>
-          <p className="mt-3 font-serif text-[14px] sm:text-[17px] tracking-wide text-parchment/75 [text-shadow:0_1px_12px_rgba(0,0,0,.9)]">{lang === 'en' ? 'An AI host runs tonight’s game. Two players is enough.' : 'AI 当主持人，两个人就能开一局今晚的游戏'}</p>
-        </div>
-        <SellingPoints lang={lang} />
-        <ResumeRooms lang={lang} />
-        <GameGrid lang={lang} onPick={(g) => (g === 'market' ? router.push('/market') : setPicked(g))} />
-        <PricingStrip lang={lang} />
-        {mode === 'idle' ? (
-          <div className="flex items-center justify-center gap-4 text-sm">
-            <button onClick={() => { quickRef.current = true; createRoom('soup'); }} disabled={busy} className="font-serif text-[#e6dcc6] border-b border-[#c9a96e]/50 pb-0.5 disabled:opacity-50">
-              {busy && gameMode === 'soup' ? (lang === 'en' ? 'Setting the table…' : '正在出题…') : (lang === 'en' ? 'Not sure? Start a lateral puzzle in 30s →' : '不知道玩什么？30 秒开一局海龟汤 →')}
-            </button>
-            <button onClick={() => setMode('join')} className="text-parchment/55 hover:text-parchment">{lang === 'en' ? 'Have a code?' : '有邀请码？'}</button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 w-full max-w-sm mx-auto">
-            <input value={joinCode} onChange={(e) => setJoinCode(e.target.value)} placeholder={t('join_code_ph')}
-              className="flex-1 min-w-0 px-4 py-2.5 rounded-xl bg-ink/90 border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch" />
-            <button onClick={joinRoom} disabled={busy} className="px-4 py-2.5 rounded-xl bg-eldritch text-parchment disabled:opacity-50 shrink-0">{busy ? t('joining') : t('join_do')}</button>
-            <button onClick={() => setMode('idle')} className="px-2 text-parchment/50 shrink-0">✕</button>
-          </div>
-        )}
-        {mode === 'join' && !name.trim() && (
-          <input ref={nameRef} value={name} onChange={(e) => { setName(e.target.value); try { localStorage.setItem('name', e.target.value); } catch {} }}
-            placeholder={t('home_name_ph')} className="w-full max-w-sm mx-auto px-4 py-2.5 rounded-xl bg-ink/90 border border-eldritch/40 text-parchment text-center placeholder:text-parchment/30 outline-none" />
-        )}
-        {err && <p className="text-[#e06060] text-sm">{err}</p>}
-        <button onClick={browseGames} className="hidden sm:block mx-auto text-xs text-parchment/40 hover:text-parchment/70">{lang === 'en' ? 'See each game in detail ↓' : '看每个玩法的详细介绍 ↓'}</button>
-      </section>
+      <LandingHero lang={lang} busy={busy && gameMode === 'soup'} name={name} setName={setName} needName={!acctName}
+        onPlay={() => { quickRef.current = true; createRoom('soup'); }}
+        onMore={() => document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth' })} />
+      {err && <p className="-mt-16 mb-10 text-[#e06060] text-sm">{err}</p>}
+      <LandingDemo lang={lang} busy={busy && gameMode === 'soup'} onPlay={() => { quickRef.current = true; createRoom('soup'); }} />
+      <LandingWhy lang={lang} />
+      <LandingGames lang={lang} onPick={(g) => (g === 'market' ? router.push('/market') : setPicked(g))} />
+      <LandingProof lang={lang} />
+      <LandingFaq lang={lang} />
+      <LandingFinal lang={lang} busy={busy && gameMode === 'soup'} onPlay={() => { quickRef.current = true; createRoom('soup'); }} />
 
       <GameSheet lang={lang} game={picked} busy={busy} needName={!acctName} name={name} setName={setName}
         onStart={(g) => { createRoom(g); }} onClose={() => setPicked(null)} />
 
-      <div className="w-full max-w-5xl px-5 pt-6 flex flex-col items-center gap-2">
-        <div className="font-mono text-[11px] tracking-[.25em] uppercase text-eldritch/70">{lang === 'en' ? 'Every game, up close' : '每个玩法的真实画面'}</div>
-      </div>
-      <div className="w-full px-5"><GameShowcase lang={lang} busy={busy} onPlay={(m) => (m === 'market' ? router.push('/market') : createRoom(m))} /></div>
+      {mode === 'join' && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center" onClick={() => setMode('idle')}>
+          <div className="w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl bg-[#0f1013] border border-[#d8c7a8]/15 px-5 pt-5 space-y-3 text-left" style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }} onClick={(e) => e.stopPropagation()}>
+            <div className="font-serif text-lg text-[#efe6d2]">{lang === 'en' ? 'Join a friend’s game' : '加入朋友的房间'}</div>
+            {!acctName && <input value={name} onChange={(e) => { setName(e.target.value); try { localStorage.setItem('name', e.target.value); } catch {} }} placeholder={t('home_name_ph')} className="w-full px-4 py-3 rounded-xl bg-ink border border-[#d8c7a8]/15 text-parchment placeholder:text-parchment/35 outline-none focus:border-[#c9a96e]/50" />}
+            <input value={joinCode} onChange={(e) => setJoinCode(e.target.value)} placeholder={t('join_code_ph')} className="w-full px-4 py-3 rounded-xl bg-ink border border-[#d8c7a8]/15 text-parchment placeholder:text-parchment/35 outline-none focus:border-[#c9a96e]/50" />
+            {err && <p className="text-[#e06060] text-sm">{err}</p>}
+            <button onClick={joinRoom} disabled={busy} className="w-full py-3 rounded-xl bg-[#7d1d1d] border border-[#a83232]/60 text-[#f2ead9] font-serif tracking-[.15em] disabled:opacity-50">{busy ? t('joining') : t('join_do')}</button>
+          </div>
+        </div>
+      )}
 
       <LingerPromo lang={lang} />
       <LingerToast lang={lang} />

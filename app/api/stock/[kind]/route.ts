@@ -35,11 +35,11 @@ export async function POST(req: Request, { params }: { params: { kind: string } 
       }
     }
     // 2) 新做一套完整案件（模组 → 锁定案件 → 审查 → 入库 → 配音）
-    // 预算：克苏鲁最多存 150 套，每小时最多写 1 套（到 11/30 大约花 2 美元）
+    // 预算：克苏鲁最多存 400 套，每 25 分钟最多写 1 套（到 11/30 大约花 5 美元）
     const { count } = await admin.from('module_library').select('id', { count: 'exact', head: true }).eq('source', 'stock');
     const { data: lastC } = await admin.from('module_library').select('created_at').eq('source', 'stock').order('created_at', { ascending: false }).limit(1).maybeSingle();
-    const recentC = lastC?.created_at && Date.now() - new Date(lastC.created_at).getTime() < 55 * 60000;
-    if ((count || 0) < 150 && !recentC && Date.now() - t0 < 60000) {
+    const recentC = lastC?.created_at && Date.now() - new Date(lastC.created_at).getTime() < 24 * 60000;
+    if ((count || 0) < 400 && !recentC && Date.now() - t0 < 60000) {
       try {
         const { data: g } = await callLLMJson<{ modules: any[] }>({ system: buildModuleGenPrompt(), messages: [{ role: 'user', content: '请生成 3 个候选模组。' }], tier: 'main', temperature: 1.0, maxTokens: 2000 });
         const chosen = (g.modules || [])[Math.floor(Math.random() * Math.max(1, (g.modules || []).length))];
@@ -67,11 +67,11 @@ export async function POST(req: Request, { params }: { params: { kind: string } 
         if (o || b) { await admin.from('jbs_case_library').update({ opening_audio: o, blurb_audio: b }).eq('id', r.id); out.voiced++; }
       }
     }
-    // 预算：剧本杀最多存 150 套，每小时最多写 1 套（到 11/30 大约花 2 美元）
+    // 预算：剧本杀最多存 400 套，每 25 分钟最多写 1 套（到 11/30 大约花 5 美元）
     const { count } = await admin.from('jbs_case_library').select('id', { count: 'exact', head: true });
     const { data: lastJ } = await admin.from('jbs_case_library').select('created_at').order('created_at', { ascending: false }).limit(1).maybeSingle();
-    const recentJ = lastJ?.created_at && Date.now() - new Date(lastJ.created_at).getTime() < 55 * 60000;
-    if ((count || 0) < 150 && !recentJ && Date.now() - t0 < 60000) {
+    const recentJ = lastJ?.created_at && Date.now() - new Date(lastJ.created_at).getTime() < 24 * 60000;
+    if ((count || 0) < 400 && !recentJ && Date.now() - t0 < 60000) {
       const headcount = [4, 5, 5, 6, 6, 6][Math.floor(Math.random() * 6)];
       try {
         const { data: sd } = await callLLMJson<{ scripts: any[] }>({ system: buildJbsScriptGenPrompt(headcount, null), messages: [{ role: 'user', content: '请生成 3 个剧本。' }], tier: 'main', temperature: 1.0, maxTokens: 1800 });

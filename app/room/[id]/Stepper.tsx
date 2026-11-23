@@ -10,11 +10,11 @@ export default function Stepper({ current, lang = 'zh' }: { current: string; lan
   const idx = Math.max(0, GROUPS.findIndex((g) => g.keys.includes(current)));
   const en = lang === 'en';
   return (
-    <div className="mn-stepbar w-full" style={{ paddingTop: 'max(14px, env(safe-area-inset-top))' }}>
-      <div className="flex items-center justify-center gap-2.5 h-9">
+    <div className="mn-stepbar w-full" style={{ paddingTop: 'calc(max(10px, env(safe-area-inset-top)) + 56px)' }}>
+      <div className="mx-auto w-fit flex items-center justify-center gap-2.5 h-9 px-4 rounded-full bg-white/[0.03] border border-white/[0.06] whitespace-nowrap">
         {GROUPS.map((g, i) => (
           <div key={i} className="flex items-center gap-2.5">
-            <span className={`flex items-center gap-1.5 text-[12px] tracking-[.12em] ${i === idx ? 'text-[#efe6d2]' : i < idx ? 'text-[#c9a96e]/70' : 'text-parchment/30'}`}>
+            <span className={`flex items-center gap-1.5 whitespace-nowrap text-[12px] tracking-[.12em] ${i === idx ? 'text-[#efe6d2]' : i < idx ? 'text-[#c9a96e]/70' : 'text-parchment/30'}`}>
               <span className={`w-1.5 h-1.5 rounded-full ${i === idx ? 'bg-[#c9a96e] shadow-[0_0_8px_#c9a96e]' : i < idx ? 'bg-[#c9a96e]/60' : 'bg-parchment/20'}`} />
               {en ? g.en : g.zh}
             </span>

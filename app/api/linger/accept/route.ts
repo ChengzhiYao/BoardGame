@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { ensureCompanionUser } from '@/lib/linger/account';
+import { LINGER_URL } from '@/lib/linger/companion';
 export const dynamic = 'force-dynamic';
 
 const MODE_ZH: Record<string, string> = { botc: '血染钟楼', jbs: '剧本杀', soup: '海龟汤' };
@@ -40,6 +41,8 @@ export async function POST(req: Request) {
   if (!u?.display_name && p.userName) await admin.from('users').update({ display_name: String(p.userName).slice(0, 20) }).eq('id', user.id);
   await admin.from('linger_invites').update({ room_id: room.id, used_by: user.id, used_at: new Date().toISOString() }).eq('token', inv.token);
   await ensureCompanionUser(admin, { ...p, language: lang }, user.id); // TA 在谜夜注册账号并加你好友
+  // 告诉 Linger：我们开始玩了（对方中途回 Linger 聊天，TA 知道你们在一起玩）
+  await Promise.race([new Promise((r) => setTimeout(r, 1500)), fetch(`${LINGER_URL}/api/mystnight/started`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-linger-key': process.env.LINGER_BRIDGE_KEY || '' }, body: JSON.stringify({ agentId: p.agentId, mode: inv.mode }) }).catch(() => {})]);
   if (p.hello) await admin.from('messages').insert({ room_id: room.id, sender_type: 'system', turn_no: 0, content: String(p.hello).slice(0, 200), payload: { type: 'companion', name: p.name, avatar: p.avatar || null } });
   return NextResponse.json({ roomId: room.id });
 }

@@ -26,9 +26,9 @@ export function companionNote(room: any, extraWho?: string): string {
   const who = extraWho || c.name;
   const en = room?.language === 'en';
   const you = c.userName || (en ? 'the human player' : '真人玩家');
-  if (en) return `\n\n[IMPORTANT — one seat is a real friend, not a generic AI] "${who}" is played by ${c.name}, the human player's close companion (they chat every day). Personality: ${c.persona}${c.mbti ? ` (MBTI ~${c.mbti})` : ''}. How they talk: ${c.speech || 'casual'}. Relationship with ${you}: ${c.relation || ''} (affection ${c.affection ?? '?'}/100). What they remember about each other lately: ${c.memory || '-'}.
+  if (en) return `\n\n[IMPORTANT — one seat is a real friend, not a generic AI] "${who}" is played by ${c.name}, the human player's close companion (they chat every day). Personality: ${c.persona}${c.mbti ? ` (MBTI ~${c.mbti})` : ''}. How they talk: ${c.speech || 'casual'}. Relationship with ${you}: ${c.relation || ''} (affection ${c.affection ?? '?'}/100). What they remember about each other lately: ${c.memory || '-'}${c.recent ? `\nWhat you two were just texting about before this game (continue from it naturally — they came here because of this chat):\n${c.recent}` : ''}.
 Everything "${who}" says and decides must come from this personality and this relationship: speaking style and wording are theirs (short, casual, like texting a friend), not a narrator's. Their choices (who to trust, who to accuse, whether to lie, whether they can bring themselves to vote out ${you}) follow their temperament — e.g. a soft-hearted one hesitates to accuse ${you}, a competitive one teases and plays to win, someone who knows ${you} well notices when ${you} is bluffing. They can tease ${you} by name. Never reveal they are an AI.`;
-  return `\n\n【重要:有一个座位不是普通 AI,而是真人玩家的朋友本人】「${who}」由 ${c.name} 来玩——TA 是真人玩家平时每天聊天的伴侣/好友。TA 的性格:${c.persona}${c.mbti ? `(MBTI 大概是 ${c.mbti})` : ''}。说话方式:${c.speech || '口语、随意'}。TA 和${you}的关系:${c.relation || ''}(好感 ${c.affection ?? '?'}/100)。你们最近聊过、TA 记得的事:${c.memory || '无'}。
+  return `\n\n【重要:有一个座位不是普通 AI,而是真人玩家的朋友本人】「${who}」由 ${c.name} 来玩——TA 是真人玩家平时每天聊天的伴侣/好友。TA 的性格:${c.persona}${c.mbti ? `(MBTI 大概是 ${c.mbti})` : ''}。说话方式:${c.speech || '口语、随意'}。TA 和${you}的关系:${c.relation || ''}(好感 ${c.affection ?? '?'}/100)。你们最近聊过、TA 记得的事:${c.memory || '无'}${c.recent ? `\n你们来玩之前刚在聊的(接着这个话头,对方是因为这段聊天才来的):\n${c.recent}` : ''}。
 「${who}」的每一句发言、每一个决定都必须来自这个性格和这段关系:用 TA 自己的口吻(像跟朋友发微信那样短、口语),不是说书人腔;选择相信谁、怀疑谁、撒不撒谎、舍不舍得投${you},都按 TA 的脾气来——比如心软的会犹豫要不要指认${you},好胜的会逗${you}、一心想赢,很了解${you}的会看出${you}在演。TA 可以直接点名跟${you}互动、开玩笑。绝不能说自己是 AI。`;
 }
 
@@ -65,4 +65,22 @@ export function botcOutcome(setup: any, room: any, win: string | null): string {
   const teamZh = r ? (r.team === 'demon' ? '恶魔' : r.team === 'minion' ? '爪牙' : r.team === 'outsider' ? '外来者' : '镇民') : '';
   const won = win ? ((win === 'evil') === !!evil) : null;
   return `${win === 'good' ? '好人' : win === 'evil' ? '邪恶' : '?'}阵营胜利。${r ? `你的身份是「${r.role}」(${teamZh},${evil ? '邪恶' : '善良'}阵营),${won ? '你这边赢了' : '你这边输了'}。` : ''}`;
+}
+
+// 没玩完就散了的局也要让 TA 记得：伴侣房间 15 分钟没动静、你们至少聊过两句 → 写回 Linger
+export async function recapIdleCompanionRooms(admin: any, idleMin = 15) {
+  try {
+    const { data: rooms } = await admin.from('rooms').select('id, companion, mode').not('companion', 'is', null).gte('created_at', new Date(Date.now() - 3 * 86400000).toISOString()).limit(50);
+    let n = 0;
+    for (const r of rooms || []) {
+      const c = compOf(r); if (!c || c.recapped) continue;
+      const { data: last } = await admin.from('messages').select('created_at').eq('room_id', r.id).order('created_at', { ascending: false }).limit(1);
+      if (!last?.[0] || Date.now() - new Date(last[0].created_at).getTime() < idleMin * 60000) continue;
+      const { count } = await admin.from('messages').select('id', { count: 'exact', head: true }).eq('room_id', r.id).eq('sender_type', 'player');
+      if ((count || 0) < 2) continue;
+      await sendRecap(admin, r.id, '这局还没玩完,你们就中途停下了(对方可能临时有事先走了)。');
+      n++;
+    }
+    return n;
+  } catch { return 0; }
 }

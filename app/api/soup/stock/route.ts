@@ -1,6 +1,7 @@
 // 海龟汤题库补货（Linger 每 10 分钟叫一次）：先给没配音的题补配音，再按「哪类最少就补哪类」新出几道题并配音。
 // Fish 免费期内尽量多攒；免费结束（遇到 quota）就只补题不配音。
 import { NextResponse } from 'next/server';
+import { recapIdleCompanionRooms } from '@/lib/linger/companion';
 import { createAdminClient } from '@/lib/supabase/server';
 import { callLLMJson } from '@/lib/llm';
 import { buildSoupGenPrompt } from '@/lib/soup/prompt';
@@ -19,8 +20,10 @@ export async function POST(req: Request) {
   const key = process.env.LINGER_BRIDGE_KEY || '';
   if (!key || req.headers.get('x-linger-key') !== key) return NextResponse.json({ ok: false }, { status: 401 });
   const admin = createAdminClient();
+  // 顺手：没玩完就散的伴侣局，写回 Linger 让 TA 记得（每 10 分钟跟着库存任务跑一次）
+  const recapped = await recapIdleCompanionRooms(admin);
   const t0 = Date.now();
-  const out: any = { voiced: 0, made: 0 };
+  const out: any = { voiced: 0, made: 0, recapped };
   let voiceDead = false;
   const { data: qv } = await admin.from('app_kv').select('value').eq('key', 'soup_voice_quota').maybeSingle();
   if (qv?.value?.until && Date.now() < qv.value.until) voiceDead = true;

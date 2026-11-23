@@ -333,10 +333,10 @@ function SoupMsg({ m, mine, who }: { m: any; mine: boolean; who: string }) {
   if (type === 'companion') {
     return (
       <div className="flex items-start gap-2">
-        {m.payload?.avatar ? <img src={m.payload.avatar} alt="" className="w-8 h-8 rounded-full object-cover border border-eldritch/40 shrink-0" /> : <span className="w-8 h-8 rounded-full bg-eldritch/40 shrink-0" />}
+        {m.payload?.avatar ? <img src={m.payload.avatar} alt="" className="w-8 h-8 rounded-full object-cover border border-white/10 shrink-0" /> : <span className="w-8 h-8 rounded-full bg-white/[0.06] shrink-0" />}
         <div className="flex flex-col items-start">
           <span className="text-xs text-parchment/40 mb-1">{m.payload?.name}</span>
-          <div className="max-w-[80%] px-4 py-2 rounded-lg bg-fog border border-eldritch/40 text-parchment/90">{m.content}</div>
+          <div className="max-w-[80%] px-4 py-2 rounded-xl bg-[#121318] border border-white/10 text-parchment/90">{m.content}</div>
         </div>
       </div>
     );
@@ -390,7 +390,7 @@ const EDGE = ['轻松', '日常', '偏暗', '黑暗', '致郁'];
 
 function Seg({ items, active, onPick }: { items: string[]; active: number; onPick: (i: number) => void }) {
   return (
-    <div className="flex rounded-lg border border-[#d8c7a8]/[0.14] overflow-hidden">
+    <div className="flex rounded-xl border border-[#d8c7a8]/[0.14] overflow-hidden">
       {items.map((t, i) => (
         <button key={i} onClick={() => onPick(i)}
           className={`flex-1 min-w-0 px-1 py-2 text-[12.5px] truncate transition-colors ${i > 0 ? 'border-l border-[#d8c7a8]/[0.1]' : ''} ${i === active ? 'bg-[#c9a96e]/[0.16] text-[#efe6d2]' : 'text-parchment/50 hover:text-parchment/80'}`}>{t}</button>

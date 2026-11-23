@@ -170,11 +170,11 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
         ]} />
 
       {/* 第一屏：卖点 + 全部玩法 + 收费，一屏看全 */}
-      <section ref={heroRef as any} className="w-full max-w-5xl px-3.5 sm:px-6 min-h-[100svh] flex flex-col justify-start sm:justify-center gap-3 sm:gap-4"
+      <section ref={heroRef as any} className="w-full max-w-3xl px-3.5 sm:px-6 min-h-[100svh] flex flex-col justify-start sm:justify-center gap-3 sm:gap-4"
         style={{ paddingTop: 'calc(env(safe-area-inset-top) + 64px)', paddingBottom: '20px' }}>
         <div>
           <h1 className="font-serif font-bold text-[34px] sm:text-6xl leading-none tracking-wide text-[#f2ead9] drop-shadow-[0_4px_24px_rgba(0,0,0,.7)]">{t('home_title')}</h1>
-          <p className="mt-2 text-[14px] sm:text-base text-parchment/80">{lang === 'en' ? 'An AI host runs a game made just for tonight — two players is enough.' : 'AI 当主持人，两个人就能开一局只属于今晚的游戏。'}</p>
+          <p className="mt-2 text-[14px] sm:text-base text-parchment/85 [text-shadow:0_1px_12px_rgba(0,0,0,.9)]">{lang === 'en' ? 'An AI host runs tonight’s game. Two players is enough.' : 'AI 当主持人，两个人就能开一局今晚的游戏'}</p>
         </div>
         <SellingPoints lang={lang} />
         <GameGrid lang={lang} onPick={(g) => (g === 'market' ? router.push('/market') : setPicked(g))} />

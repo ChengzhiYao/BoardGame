@@ -113,7 +113,7 @@
       for (var i = 0; i < stars.length; i++) { var s = stars[i]; var a = 0.35 + 0.35 * Math.sin(T * s.s + s.tw); ctx.globalAlpha = a; ctx.fillStyle = '#e8e2d0'; ctx.fillRect(s.x * W - mx * 8, s.y * H - my * 6, s.r, s.r); }
 
       // 月亮 + 光晕
-      var mxp = W * (small ? 0.78 : 0.82) - mx * 14, myp = H * 0.16 - my * 10, mr = small ? 26 : 38;
+      var mxp = W * (small ? 0.87 : 0.82) - mx * 14, myp = H * (small ? 0.09 : 0.16) - my * 10, mr = small ? 20 : 38;
       var halo = ctx.createRadialGradient(mxp, myp, mr * 0.6, mxp, myp, mr * 6);
       halo.addColorStop(0, 'rgba(230,220,190,.20)'); halo.addColorStop(1, 'rgba(230,220,190,0)');
       ctx.globalAlpha = 1; ctx.fillStyle = halo; ctx.fillRect(0, 0, W, H);

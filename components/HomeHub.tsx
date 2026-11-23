@@ -11,23 +11,23 @@ const L = (lang: Lang, b: Bi) => (lang === 'en' ? b.en : b.zh);
 // 九宫格顺序 = 最常玩的在前
 const ORDER: GM[] = ['soup', 'jbs', 'coc', 'botc', 'dnd', 'story', 'td', 'mcc', 'market'];
 const TILE: Record<GM, { short: Bi; line: Bi; color: string; icon: JSX.Element }> = {
-  soup: { short: { zh: '海龟汤', en: 'Lateral Soup' }, line: { zh: '只问是非，猜出真相', en: 'Yes/no to the truth' }, color: '#3f9d8e',
+  soup: { short: { zh: '海龟汤', en: 'Lateral Soup' }, line: { zh: '问是非猜真相', en: 'Yes/no riddles' }, color: '#3f9d8e',
     icon: <><path d="M3 11h18a9 9 0 0 1-18 0z" /><path d="M8 7.5c0-1.5 1-1.5 1-3M12 7.5c0-1.5 1-1.5 1-3M16 7.5c0-1.5 1-1.5 1-3" /></> },
-  jbs: { short: { zh: '剧本杀', en: 'Murder Mystery' }, line: { zh: '找出谁是凶手', en: 'Unmask the killer' }, color: '#c0453f',
+  jbs: { short: { zh: '剧本杀', en: 'Whodunit' }, line: { zh: '找出谁是凶手', en: 'Find the killer' }, color: '#c0453f',
     icon: <><path d="M14.5 3.5l6 6-8.5 8.5-3-3z" /><path d="M9 15l-5.5 5.5M5.5 13.5l5 5" /></> },
-  coc: { short: { zh: '克苏鲁跑团', en: 'Cthulhu' }, line: { zh: '理智会流失的探案', en: 'Horror with sanity' }, color: '#4f9a6a',
+  coc: { short: { zh: '克苏鲁跑团', en: 'Cthulhu' }, line: { zh: '理智会流失', en: 'Cosmic horror' }, color: '#4f9a6a',
     icon: <><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></> },
-  botc: { short: { zh: '血染钟楼', en: 'Bloodbound' }, line: { zh: '隐藏身份找恶魔', en: 'Find the demon' }, color: '#9a5bc4',
+  botc: { short: { zh: '血染钟楼', en: 'Bloodbound' }, line: { zh: '找出恶魔', en: 'Find the demon' }, color: '#9a5bc4',
     icon: <><circle cx="12" cy="13.5" r="7.5" /><path d="M12 10v3.5l2.5 2M9 2.5h6M12 2.5v3.5" /></> },
-  dnd: { short: { zh: '龙与地下城', en: 'D&D' }, line: { zh: '骰子、打怪、升级', en: 'Dice, loot, level up' }, color: '#d9a441',
+  dnd: { short: { zh: '龙与地下城', en: 'D&D' }, line: { zh: '打怪升级', en: 'Dice & loot' }, color: '#d9a441',
     icon: <><path d="M12 2l9 5v10l-9 5-9-5V7z" /><path d="M12 2L7 11h10zM7 11l5 11 5-11M3 7l4 4M21 7l-4 4" /></> },
-  story: { short: { zh: '讲故事', en: 'Storyteller' }, line: { zh: 'AI 写好读给你听', en: 'A story read aloud' }, color: '#5aa0c4',
+  story: { short: { zh: '讲故事', en: 'Storyteller' }, line: { zh: '读给你听', en: 'Read aloud' }, color: '#5aa0c4',
     icon: <><path d="M2 5.5c3-1 7-1 10 1 3-2 7-2 10-1v13c-3-1-7-1-10 1-3-2-7-2-10-1z" /><path d="M12 6.5v13" /></> },
-  td: { short: { zh: '真心话', en: 'Truth or Dare' }, line: { zh: '派对现场出题', en: 'Live party prompts' }, color: '#d9668f',
+  td: { short: { zh: '真心话', en: 'Truth or Dare' }, line: { zh: '派对现场出题', en: 'Party prompts' }, color: '#d9668f',
     icon: <><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" /><path d="M12 8v4.5M12 15.5v.2" /></> },
-  mcc: { short: { zh: '午夜猫诅咒', en: 'Cat Curse' }, line: { zh: '抽到诅咒猫出局', en: 'Draw it, you’re out' }, color: '#8f7bd6',
+  mcc: { short: { zh: '午夜猫诅咒', en: 'Cat Curse' }, line: { zh: '抽到就出局', en: 'Don’t draw it' }, color: '#8f7bd6',
     icon: <><path d="M4 20V9l3-5.5 3.5 4h3L17 3.5 20 9v11z" /><path d="M9 13.5h.01M15 13.5h.01M10.5 17h3" /></> },
-  market: { short: { zh: '身价场', en: 'The Market' }, line: { zh: '买卖玩家冲榜', en: 'Trade, top the board' }, color: '#c9a54a',
+  market: { short: { zh: '身价场', en: 'The Market' }, line: { zh: '买卖玩家冲榜', en: 'Trade players' }, color: '#c9a54a',
     icon: <><path d="M3 17l6-6 4 4 8-8" /><path d="M15 7h6v6" /></> },
 };
 
@@ -76,10 +76,10 @@ export function HomeTopBar({ lang, onLang, account, onLogin, onLogout, menu }: {
 
 export function SellingPoints({ lang }: { lang: Lang }) {
   const pts: Bi[] = [
-    { zh: 'AI 全程当主持', en: 'AI runs the table' },
-    { zh: '2 人就能开局', en: '2 players is enough' },
-    { zh: '每局现编不重样', en: 'Never the same game' },
-    { zh: '免下载 · 手机直接玩', en: 'No download' },
+    { zh: 'AI 全程主持', en: 'AI host' },
+    { zh: '2 人就能开', en: '2+ players' },
+    { zh: '每局都不一样', en: 'Never the same' },
+    { zh: '免下载', en: 'No download' },
   ];
   return (
     <div className="flex flex-wrap justify-center gap-1.5">
@@ -94,20 +94,20 @@ export function SellingPoints({ lang }: { lang: Lang }) {
 
 export function GameGrid({ lang, onPick }: { lang: Lang; onPick: (g: GM) => void }) {
   return (
-    <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-9 gap-2 sm:gap-2.5 w-full">
+    <div className="grid grid-cols-3 gap-2 sm:gap-3 w-full">
       {ORDER.map((k) => {
         const t = TILE[k]; const free = FREE_MODES.includes(k);
         return (
           <button key={k} onClick={() => onPick(k)}
-            className="relative text-left rounded-2xl px-2.5 pt-2.5 pb-2 min-h-[84px] bg-[#111318]/80 backdrop-blur border border-white/[0.08] hover:border-white/20 overflow-hidden"
+            className="relative text-left rounded-2xl px-2.5 pt-2.5 pb-2 sm:px-4 sm:pt-4 sm:pb-3.5 min-h-[84px] sm:min-h-[112px] bg-[#111318]/80 backdrop-blur border border-white/[0.08] hover:border-white/20 overflow-hidden"
             style={{ boxShadow: `inset 0 1px 0 rgba(255,255,255,.04), inset 0 -40px 40px -30px ${t.color}33` }}>
             <span className="absolute top-2 right-2 text-[10px] leading-none px-1.5 py-[3px] rounded-full font-medium"
               style={free ? { background: 'rgba(76,163,106,.2)', color: '#8fdca8' } : { background: 'rgba(217,164,65,.16)', color: '#e7c27a' }}>
               {free ? (lang === 'en' ? 'Free' : '免费') : '✦'}
             </span>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={t.color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{t.icon}</svg>
-            <div className="mt-1.5 text-[14px] font-semibold text-[#f2ead9] leading-tight truncate">{L(lang, t.short)}</div>
-            <div className="text-[11px] text-parchment/55 leading-tight truncate mt-0.5">{L(lang, t.line)}</div>
+            <svg viewBox="0 0 24 24" fill="none" stroke={t.color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-[22px] h-[22px] sm:w-7 sm:h-7">{t.icon}</svg>
+            <div className="mt-1.5 sm:mt-2.5 text-[14px] sm:text-[17px] font-semibold text-[#f2ead9] leading-tight truncate">{L(lang, t.short)}</div>
+            <div className="text-[11px] sm:text-[13px] text-parchment/55 leading-tight truncate mt-0.5 sm:mt-1">{L(lang, t.line)}</div>
           </button>
         );
       })}
@@ -124,14 +124,16 @@ export function PricingStrip({ lang }: { lang: Lang }) {
     { tag: en ? 'Member' : '会员', color: '#f2ead9', text: en ? `$${m}/mo · unlimited free modes + ${MEMBER_PREMIUM_PLAYS} premium/mo ($${y}/yr)` : `$${m}/月 · 免费玩法无限 + 每月 ${MEMBER_PREMIUM_PLAYS} 局豪华（年付 $${y}）` },
   ];
   return (
-    <a href="/upgrade" className="block w-full rounded-2xl bg-[#111318]/80 backdrop-blur border border-white/[0.08] px-3.5 py-2.5 text-left hover:border-white/20">
+    <a href="/upgrade" className="block w-full rounded-2xl bg-[#111318]/80 backdrop-blur border border-white/[0.08] px-3.5 py-2.5 sm:px-5 sm:py-4 text-left hover:border-white/20">
+      <div className="sm:grid sm:grid-cols-3 sm:gap-5">
       {rows.map((r, i) => (
-        <div key={i} className="flex items-baseline gap-2.5 py-[3px]">
-          <span className="shrink-0 w-9 text-[11.5px] font-semibold" style={{ color: r.color }}>{r.tag}</span>
-          <span className="text-[12.5px] text-parchment/80 leading-snug">{r.text}</span>
+        <div key={i} className="flex items-baseline gap-2.5 py-[3px] sm:flex-col sm:gap-1">
+          <span className={`shrink-0 ${en ? 'w-14' : 'w-9'} sm:w-auto text-[11.5px] sm:text-xs font-semibold`} style={{ color: r.color }}>{r.tag}</span>
+          <span className="text-[12.5px] sm:text-[13.5px] text-parchment/80 leading-snug">{r.text}</span>
         </div>
       ))}
-      <div className="mt-1 text-[11.5px] text-parchment/45 text-right">{en ? 'Prices & packs →' : '价格与局数包 →'}</div>
+      </div>
+      <div className="mt-1 sm:mt-2 text-[11.5px] text-parchment/45 text-right">{en ? 'Prices & packs →' : '价格与局数包 →'}</div>
     </a>
   );
 }

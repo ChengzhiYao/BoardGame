@@ -206,6 +206,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
           { label: lang === 'en' ? 'Join with a code' : '输入邀请码加入', onClick: () => setMode('join'), icon: 'code' as const, group: 1 },
           ...(account?.loggedIn ? [{ label: lang === 'en' ? 'My account' : '我的账号', href: '/account', icon: 'account' as const, group: 2 }] : []),
           ...(account?.loggedIn ? [{ label: lang === 'en' ? 'My collection' : '我的收藏', href: '/me', icon: 'trophy' as const, group: 2 }] : []),
+          { label: lang === 'en' ? 'Leaderboard' : '排行榜', href: '/ranks', icon: 'trophy' as const, group: 2 },
           { label: lang === 'en' ? 'Prices & my games' : '价格与局数', href: '/upgrade', icon: 'price' as const, group: 2 },
           { label: lang === 'en' ? 'Trailer' : '宣传片', onClick: openPromo, icon: 'play' as const, group: 3 },
           { label: lang === 'en' ? 'Music' : '音乐', href: '/music', icon: 'music' as const, group: 3 },

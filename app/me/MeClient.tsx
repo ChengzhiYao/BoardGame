@@ -17,9 +17,11 @@ export default function MeClient() {
   const [tab, setTab] = useState<'soup' | 'end' | 'inv'>('soup');
   const [open, setOpen] = useState<string | null>(null);
   const [badge, setBadge] = useState<any>(null);
+  const [rk, setRk] = useState<any>(null);
   useEffect(() => {
     let e = false; try { e = getClientLang() === 'en'; } catch {} setEn(e);
     fetch(`/api/me/collection?lang=${e ? 'en' : 'zh'}`).then((r) => r.json()).then(setD).catch(() => setD({ loggedIn: false }));
+    fetch('/api/ranks?win=all').then((r) => r.json()).then(setRk).catch(() => {});
   }, []);
   const L = (zh: string, e: string) => (en ? e : zh);
   const fmtDay = (s: string) => { try { return new Date(s).toLocaleDateString(en ? 'en-US' : 'zh-CN', { month: 'short', day: 'numeric' }); } catch { return ''; } };
@@ -54,6 +56,18 @@ export default function MeClient() {
             ))}
           </div>
         </div>
+
+        {/* 全站排名 */}
+        {rk?.cats && (
+          <a href="/ranks" className="mt-3 grid grid-cols-3 gap-2">
+            {(['games', 'solved', 'rate'] as const).map((k) => { const m = rk.cats[k]?.me; const name = { games: L('局数', 'Games'), solved: L('猜中', 'Cracked'), rate: L('猜中率', 'Crack rate') }[k]; return (
+              <div key={k} className="rounded-xl border border-[#e6c76e]/20 bg-[#e6c76e]/[0.05] px-2 py-2 text-center">
+                <div className="text-[10.5px] text-parchment/45">{name}</div>
+                {m?.rank ? <><div className="font-serif text-[15px] text-[#f6ecd0]">#{m.rank}</div><div className="text-[10.5px] text-[#e6c76e]/80">{L(`超过 ${m.beat}%`, `top ${100 - m.beat}%`)}</div></> : <div className="text-[12px] text-parchment/35 py-1.5">{L('未上榜', '—')}</div>}
+              </div>
+            ); })}
+          </a>
+        )}
 
         {/* 称号墙 */}
         {([[false, L('称号', 'TITLES'), ''], [true, L('黑历史', 'BLACK MARKS'), L('没通关也算一种经历', 'Not every story ends well')]] as [boolean, string, string][]).map(([dark, head, sub]) => (

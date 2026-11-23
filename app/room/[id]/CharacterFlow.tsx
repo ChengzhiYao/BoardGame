@@ -54,7 +54,7 @@ function Waiting({ label, chars, need, total, lang }: { label: string; chars: an
   const n = total || 2;
   return (
     <div className="flex flex-col items-center gap-3 text-center">
-      <div className="w-7 h-7 border-2 border-eldritch/30 border-t-eldritch rounded-full animate-spin" />
+      <div className="w-7 h-7 border-2 border-white/10 border-t-eldritch rounded-full animate-spin" />
       <p className="text-parchment/70">{label}{EN(lang) ? `, waiting for the others… (${done}/${n})` : `，等待其他人……（${done}/${n}）`}</p>
     </div>
   );
@@ -64,13 +64,13 @@ function WaitingReady({ players, lang }: { players: any[]; lang: string }) {
   const n = players.length || 2;
   return (
     <div className="flex flex-col items-center gap-3 text-center">
-      <div className="w-7 h-7 border-2 border-eldritch/30 border-t-eldritch rounded-full animate-spin" />
+      <div className="w-7 h-7 border-2 border-white/10 border-t-eldritch rounded-full animate-spin" />
       <p className="text-parchment/70">{EN(lang) ? `You’re ready, waiting for the others… (${done}/${n})` : `你已准备就绪，等待其他人……（${done}/${n}）`}</p>
     </div>
   );
 }
 
-const FIELD = 'px-3 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch w-full';
+const FIELD = 'px-3 py-2 rounded-xl bg-[#121318] border border-white/10 text-parchment placeholder:text-parchment/30 outline-none focus:border-[#c9a96e]/50 w-full';
 
 function InfoForm(props: ShellProps) {
   const en = EN(props.room.language);
@@ -99,7 +99,7 @@ function InfoForm(props: ShellProps) {
     <Wrap title={en ? `Create investigator (${props.mySeat})` : `创建调查员（${props.mySeat}）`} desc={en ? 'Tap “Random” to fill everything in and tweak, or write it all yourself.' : '可以点「随机生成」一键填好，再按需修改；也可以全部自己写。'}>
       <div className="flex justify-center">
         <button type="button" onClick={() => setF(randomInvestigator(props.room.language))}
-          className="px-5 py-2 rounded bg-eldritch/40 hover:bg-eldritch/70 text-parchment text-sm border border-eldritch/50">
+          className="px-5 py-2 rounded-xl bg-white/[0.06] hover:bg-[#c9a96e]/20 text-parchment text-sm border border-white/10">
           🎲 {en ? 'Random investigator' : '随机生成一个调查员'}
         </button>
       </div>
@@ -128,7 +128,7 @@ function InfoForm(props: ShellProps) {
             const on = (f.inventory || []).includes(item);
             return (
               <button key={item} type="button" onClick={() => toggleItem(item)}
-                className={`px-2.5 py-1 rounded text-xs border ${on ? 'bg-blood/40 border-blood text-parchment' : 'bg-fog border-eldritch/30 text-parchment/60 hover:border-eldritch/60'}`}>
+                className={`px-2.5 py-1 rounded-xl text-xs border ${on ? 'bg-[#7d1d1d]/40 border-[#a83232]/60 text-parchment' : 'bg-[#121318] border-white/10 text-parchment/60 hover:border-[#c9a96e]/45'}`}>
                 {item}
               </button>
             );
@@ -136,8 +136,8 @@ function InfoForm(props: ShellProps) {
         </div>
       </div>
 
-      {err && <p className="text-blood text-sm">{err}</p>}
-      <button onClick={submit} disabled={busy} className="self-center px-6 py-2.5 rounded bg-blood/80 hover:bg-blood text-parchment disabled:opacity-50">
+      {err && <p className="text-[#e06060] text-sm">{err}</p>}
+      <button onClick={submit} disabled={busy} className="self-center px-6 py-2.5 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] text-parchment disabled:opacity-50">
         {busy ? (en ? 'Submitting…' : '提交中…') : (en ? 'Submit profile' : '提交资料')}
       </button>
     </Wrap>
@@ -172,7 +172,7 @@ function AttributeForm(props: ShellProps) {
     <Wrap title={en ? 'Roll stats' : '分配属性'} desc={en ? 'Click “Reroll” to roll a set (3D6). Confirm when happy.' : '点击「重掷」生成一组属性（3D6 法）。满意后确定。'}>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {ATTR_LABELS.map(([k, zh, eng]) => (
-          <div key={k} className="p-3 rounded bg-fog border border-eldritch/30 text-center">
+          <div key={k} className="p-3 rounded-xl bg-[#121318] border border-white/10 text-center">
             <div className="text-xs text-parchment/50">{en ? eng : zh}</div>
             <div className="text-2xl font-serif text-parchment">{(attrs as any)[k]}</div>
           </div>
@@ -181,10 +181,10 @@ function AttributeForm(props: ShellProps) {
       <div className="flex justify-center gap-6 text-sm text-parchment/70">
         <span>HP {d.hp_max}</span><span>SAN {d.san_current}</span><span>{en ? 'Luck' : '幸运'} {d.luck}</span><span>MOV {d.mov}</span><span>DB {d.db}</span>
       </div>
-      {err && <p className="text-blood text-sm text-center">{err}</p>}
+      {err && <p className="text-[#e06060] text-sm text-center">{err}</p>}
       <div className="flex justify-center gap-3">
-        <button onClick={() => setAttrs(rollAttributes())} disabled={busy} className="px-5 py-2 rounded bg-fog border border-eldritch/40 text-parchment hover:bg-eldritch/20 disabled:opacity-50">{en ? 'Reroll' : '重掷'}</button>
-        <button onClick={submit} disabled={busy} className="px-6 py-2 rounded bg-blood/80 hover:bg-blood text-parchment disabled:opacity-50">{busy ? (en ? 'Confirming…' : '确定中…') : (en ? 'Confirm stats' : '确定属性')}</button>
+        <button onClick={() => setAttrs(rollAttributes())} disabled={busy} className="px-5 py-2 rounded-xl bg-[#121318] border border-white/10 text-parchment hover:bg-white/[0.06] disabled:opacity-50">{en ? 'Reroll' : '重掷'}</button>
+        <button onClick={submit} disabled={busy} className="px-6 py-2 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] text-parchment disabled:opacity-50">{busy ? (en ? 'Confirming…' : '确定中…') : (en ? 'Confirm stats' : '确定属性')}</button>
       </div>
     </Wrap>
   );
@@ -228,20 +228,20 @@ function SkillForm(props: ShellProps & { myChar: any }) {
           const base = baseFor(def, char);
           const added = alloc[def.name] || 0;
           return (
-            <div key={def.name} className="flex items-center justify-between px-3 py-2 rounded bg-fog border border-eldritch/20">
+            <div key={def.name} className="flex items-center justify-between px-3 py-2 rounded-xl bg-[#121318] border border-white/10">
               <span className="text-sm text-parchment/80">{en ? (def.en || def.name) : def.name}</span>
               <div className="flex items-center gap-2">
-                <button onClick={() => change(def.name, base, -5)} className="w-6 h-6 rounded bg-ink text-parchment/70">−</button>
+                <button onClick={() => change(def.name, base, -5)} className="w-6 h-6 rounded-xl bg-[#0e0f13] text-parchment/70">−</button>
                 <span className="w-10 text-center text-parchment">{base + added}</span>
-                <button onClick={() => change(def.name, base, +5)} className="w-6 h-6 rounded bg-ink text-parchment/70">+</button>
+                <button onClick={() => change(def.name, base, +5)} className="w-6 h-6 rounded-xl bg-[#0e0f13] text-parchment/70">+</button>
               </div>
             </div>
           );
         })}
       </div>
-      <div className={`text-center text-sm ${remaining < 0 ? 'text-blood' : 'text-parchment/60'}`}>{en ? `Skill points left: ${remaining}` : `剩余技能点：${remaining}`}</div>
-      {err && <p className="text-blood text-sm text-center">{err}</p>}
-      <button onClick={submit} disabled={busy} className="self-center px-6 py-2 rounded bg-blood/80 hover:bg-blood text-parchment disabled:opacity-50">{busy ? (en ? 'Submitting…' : '提交中…') : (en ? 'Finish skills' : '完成技能分配')}</button>
+      <div className={`text-center text-sm ${remaining < 0 ? 'text-[#e06060]' : 'text-parchment/60'}`}>{en ? `Skill points left: ${remaining}` : `剩余技能点：${remaining}`}</div>
+      {err && <p className="text-[#e06060] text-sm text-center">{err}</p>}
+      <button onClick={submit} disabled={busy} className="self-center px-6 py-2 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] text-parchment disabled:opacity-50">{busy ? (en ? 'Submitting…' : '提交中…') : (en ? 'Finish skills' : '完成技能分配')}</button>
     </Wrap>
   );
 }
@@ -291,7 +291,7 @@ function ConfirmView(props: ShellProps) {
           const c = props.initialCharacters.find((x) => x.player_id === p?.id);
           const isMine = p?.id === props.myPlayerId;
           return (
-            <div key={seat} className={`p-4 rounded-lg bg-fog border ${seat === 'A' ? 'border-eldritch/40' : 'border-blood/40'}`}>
+            <div key={seat} className={`p-4 rounded-xl bg-[#121318] border ${seat === 'A' ? 'border-white/10' : 'border-[#a83232]/40'}`}>
               <div className="flex items-center gap-3 mb-2">
                 <Avatar url={c?.avatar_url} loading={isMine && avatarBusy} seat={seat} />
                 <div className="font-serif text-lg text-parchment">{c?.name || nameOfUser(p?.user_id)}（{seat}）</div>
@@ -312,24 +312,24 @@ function ConfirmView(props: ShellProps) {
         })}
       </div>
       {myChar && !myChar.avatar_url && !avatarBusy && (
-        <button onClick={genAvatar} className="self-center text-sm text-eldritch hover:text-parchment underline">{en ? 'No avatar? Tap to retry' : '头像没出来？点此重试生成'}</button>
+        <button onClick={genAvatar} className="self-center text-sm text-[#c9a96e] hover:text-parchment underline">{en ? 'No avatar? Tap to retry' : '头像没出来？点此重试生成'}</button>
       )}
-      {avatarErr && <p className="text-blood text-xs text-center">{(en ? 'Avatar failed: ' : '头像生成失败：') + avatarErr}</p>}
-      {err && <p className="text-blood text-sm text-center">{err}</p>}
-      <button onClick={confirm} disabled={busy} className="self-center px-6 py-2.5 rounded bg-blood/80 hover:bg-blood text-parchment disabled:opacity-50">{busy ? (en ? 'Confirming…' : '确认中…') : (en ? 'Confirm my sheet' : '确认我的角色卡')}</button>
+      {avatarErr && <p className="text-[#e06060] text-xs text-center">{(en ? 'Avatar failed: ' : '头像生成失败：') + avatarErr}</p>}
+      {err && <p className="text-[#e06060] text-sm text-center">{err}</p>}
+      <button onClick={confirm} disabled={busy} className="self-center px-6 py-2.5 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] text-parchment disabled:opacity-50">{busy ? (en ? 'Confirming…' : '确认中…') : (en ? 'Confirm my sheet' : '确认我的角色卡')}</button>
     </Wrap>
   );
 }
 
 function Avatar({ url, loading, seat }: { url?: string; loading?: boolean; seat: string }) {
-  const ring = seat === 'A' ? 'border-eldritch/50' : 'border-blood/50';
+  const ring = seat === 'A' ? 'border-white/10' : 'border-[#a83232]/50';
   return (
-    <div className={`w-14 h-14 rounded-full overflow-hidden border-2 ${ring} bg-ink flex items-center justify-center shrink-0`}>
+    <div className={`w-14 h-14 rounded-full overflow-hidden border-2 ${ring} bg-[#0e0f13] flex items-center justify-center shrink-0`}>
       {url ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={url} alt="" className="w-full h-full object-cover" />
       ) : loading ? (
-        <div className="w-5 h-5 border-2 border-eldritch/30 border-t-eldritch rounded-full animate-spin" />
+        <div className="w-5 h-5 border-2 border-white/10 border-t-eldritch rounded-full animate-spin" />
       ) : (
         <span className="text-parchment/30 text-xs">{seat}</span>
       )}
@@ -348,11 +348,11 @@ function BriefingView(props: ShellProps) {
   }
   return (
     <Wrap title={en ? 'A word from the Keeper' : '守秘人的提醒'}>
-      <div className="p-5 rounded-lg bg-eldritch/10 border border-eldritch/30 text-parchment/85 leading-relaxed whitespace-pre-line">
+      <div className="p-5 rounded-xl bg-white/[0.06] border border-white/10 text-parchment/85 leading-relaxed whitespace-pre-line">
         {en ? RULE_BRIEFING_EN : RULE_BRIEFING}
       </div>
-      {err && <p className="text-blood text-sm text-center">{err}</p>}
-      <button onClick={ack} disabled={busy} className="self-center px-6 py-2.5 rounded bg-blood/80 hover:bg-blood text-parchment disabled:opacity-50">{busy ? (en ? 'One moment…' : '请稍候…') : (en ? 'Ready — begin' : '准备好了，开始调查')}</button>
+      {err && <p className="text-[#e06060] text-sm text-center">{err}</p>}
+      <button onClick={ack} disabled={busy} className="self-center px-6 py-2.5 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] text-parchment disabled:opacity-50">{busy ? (en ? 'One moment…' : '请稍候…') : (en ? 'Ready — begin' : '准备好了，开始调查')}</button>
     </Wrap>
   );
 }

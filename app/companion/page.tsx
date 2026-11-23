@@ -310,18 +310,18 @@ export default function CompanionPage() {
     if (k) return <div className="w-24 h-24 rounded-2xl bg-white/5 flex flex-col items-center justify-center select-none"><span className="text-5xl leading-none">{k.e}</span><span className="text-[11px] text-parchment/70 mt-1.5">{k.t}</span></div>;
     const ph = t.match(PHOTO_RE);
     if (ph) return <img src={ph[1]} alt="" onClick={() => setZoomSrc(ph[1])} className="max-w-[60%] max-h-64 rounded-xl object-cover cursor-zoom-in border border-white/5" />;
-    return <div className={`max-w-[72%] px-3.5 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-words ${mine ? 'rounded-br-md bg-[#2a5e3a] text-parchment' : 'rounded-bl-md bg-fog/80 border border-eldritch/25 text-parchment'}`}>{text}</div>;
+    return <div className={`max-w-[72%] px-3.5 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-words ${mine ? 'rounded-br-md bg-[#2a5e3a] text-parchment' : 'rounded-bl-md bg-[#121318] border border-white/10 text-parchment'}`}>{text}</div>;
   }
 
   if (!loaded) return <main className="min-h-screen" />;
   if (!allowed) return (
     <main className="min-h-screen flex items-center justify-center text-parchment px-6 text-center">
-      <div className="max-w-xs"><div className="text-4xl mb-3">🌙</div><p className="font-serif text-lg mb-2">{L('AI 陪伴暂未开放', 'AI Companion — coming soon')}</p><p className="text-parchment/50 text-sm mb-4">{L('这个功能还在内测中,敬请期待。', 'This feature is in private testing. Stay tuned.')}</p><a href="/" className="underline text-eldritch text-sm">{L('← 返回首页', '← Home')}</a></div>
+      <div className="max-w-xs"><div className="text-4xl mb-3">🌙</div><p className="font-serif text-lg mb-2">{L('AI 陪伴暂未开放', 'AI Companion — coming soon')}</p><p className="text-parchment/50 text-sm mb-4">{L('这个功能还在内测中,敬请期待。', 'This feature is in private testing. Stay tuned.')}</p><a href="/" className="underline text-[#c9a96e] text-sm">{L('← 返回首页', '← Home')}</a></div>
     </main>
   );
   if (!loggedIn) return (
     <main className="min-h-screen flex items-center justify-center text-parchment px-6 text-center">
-      <div><p className="mb-3">{L('登录后即可拥有你的 AI 陪伴', 'Log in to meet your AI companion')}</p><a href="/" className="underline text-eldritch">{L('← 回首页登录', '← Home to log in')}</a></div>
+      <div><p className="mb-3">{L('登录后即可拥有你的 AI 陪伴', 'Log in to meet your AI companion')}</p><a href="/" className="underline text-[#c9a96e]">{L('← 回首页登录', '← Home to log in')}</a></div>
     </main>
   );
 
@@ -329,7 +329,7 @@ export default function CompanionPage() {
     <main className="min-h-screen text-parchment max-w-xl mx-auto px-4 py-6 flex flex-col">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2.5 min-w-0">
-          {avatarUrl ? <img src={avatarUrl} alt="" onClick={() => setZoom(true)} className="cursor-zoom-in w-9 h-9 rounded-full object-cover border border-eldritch/40" /> : <span className="w-9 h-9 rounded-full bg-eldritch/40 flex items-center justify-center text-sm shrink-0">{(aiName || '?').slice(0,1)}</span>}
+          {avatarUrl ? <img src={avatarUrl} alt="" onClick={() => setZoom(true)} className="cursor-zoom-in w-9 h-9 rounded-full object-cover border border-white/10" /> : <span className="w-9 h-9 rounded-full bg-white/[0.06] flex items-center justify-center text-sm shrink-0">{(aiName || '?').slice(0,1)}</span>}
           <div className="leading-tight min-w-0"><div className="font-serif text-lg truncate">{aiName}</div><div className="text-[11px] text-parchment/40">{typing ? L('对方正在输入…','typing…') : avatarGen ? L('画像生成中…','drawing…') : L('在线','online')}</div></div>
         </div>
         <div className="flex items-center gap-3 shrink-0">
@@ -339,8 +339,8 @@ export default function CompanionPage() {
       </div>
 
       {!installHidden && !standalone && (
-        <div className="mb-3 flex items-center gap-3 rounded-xl bg-fog/90 border border-eldritch/30 px-3 py-2">
-          <img src="/companion-192.png" alt="" className="w-9 h-9 rounded-lg shrink-0" />
+        <div className="mb-3 flex items-center gap-3 rounded-xl bg-[#121318] border border-white/10 px-3 py-2">
+          <img src="/companion-192.png" alt="" className="w-9 h-9 rounded-xl shrink-0" />
           <div className="flex-1 min-w-0 text-[12px] leading-snug">
             <div className="text-parchment text-[13px]">{L('把 TA 放到手机桌面', 'Add to home screen')}</div>
             <div className="text-parchment/60">{
@@ -351,19 +351,19 @@ export default function CompanionPage() {
               : L('点地址栏右侧的「安装」图标,或浏览器菜单 →「安装应用」', 'Use the install icon in the address bar')
             }</div>
           </div>
-          {inMystApp && <button onClick={() => { try { navigator.clipboard.writeText(location.origin + '/companion'); flash(L('链接已复制', 'Link copied')); } catch {} }} className="shrink-0 px-3 py-1.5 rounded-lg border border-eldritch/40 text-sm">{L('复制链接', 'Copy link')}</button>}
-          {!inMystApp && installEvt && <button onClick={installApp} className="shrink-0 px-3 py-1.5 rounded-lg bg-blood/85 hover:bg-blood border border-blood text-sm">{L('添加', 'Add')}</button>}
+          {inMystApp && <button onClick={() => { try { navigator.clipboard.writeText(location.origin + '/companion'); flash(L('链接已复制', 'Link copied')); } catch {} }} className="shrink-0 px-3 py-1.5 rounded-xl border border-white/10 text-sm">{L('复制链接', 'Copy link')}</button>}
+          {!inMystApp && installEvt && <button onClick={installApp} className="shrink-0 px-3 py-1.5 rounded-xl bg-[#7d1d1d]/85 hover:bg-[#8e2323] border border-[#a83232]/60 text-sm">{L('添加', 'Add')}</button>}
           <button onClick={hideInstall} aria-label="close" className="shrink-0 w-7 h-7 text-parchment/40 hover:text-parchment">✕</button>
         </div>
       )}
       {tab === 'welcome' ? (
         <div className="flex flex-col items-center justify-center text-center gap-5 py-10 min-h-[55vh]">
-          <div className="w-20 h-20 rounded-full bg-gradient-to-b from-eldritch/40 to-blood/20 border border-eldritch/40 flex items-center justify-center text-4xl">🌙</div>
+          <div className="w-20 h-20 rounded-full bg-gradient-to-b from-eldritch/40 to-blood/20 border border-white/10 flex items-center justify-center text-4xl">🌙</div>
           <div>
             <h2 className="text-2xl font-serif mb-2">{L('遇见一个只属于你的 TA', 'Meet someone made for you')}</h2>
             <p className="text-parchment/55 text-sm leading-relaxed max-w-xs mx-auto">{L('TA 不是助手,是一个有职业、有脾气、有心情的"人"。会在你没找 TA 的时候主动想起你。先回答几个小问题,让我们为你把 TA 找出来——不是你挑的,是你遇到的。', 'Not an assistant — a person with a job, moods, a temper, who reaches out when you least expect it. Answer a few questions and we\'ll find them for you — not picked, discovered.')}</p>
           </div>
-          <button onClick={() => setTab('quiz')} className="px-8 py-3 rounded-full bg-blood/80 hover:bg-blood border border-blood text-parchment">{L('开始遇见 →', 'Begin →')}</button>
+          <button onClick={() => setTab('quiz')} className="px-8 py-3 rounded-full bg-[#7d1d1d] hover:bg-[#8e2323] border border-[#a83232]/60 text-parchment">{L('开始遇见 →', 'Begin →')}</button>
           <button onClick={() => setTab('setup')} className="text-xs text-parchment/35 hover:text-parchment">{L('或者,我想自己捏一个', 'or set one up myself')}</button>
         </div>
       ) : tab === 'quiz' ? (
@@ -374,7 +374,7 @@ export default function CompanionPage() {
             <div className="grid grid-cols-3 gap-2">
               {([['f', L('女生', 'A girl')], ['m', L('男生', 'A guy')], ['any', L('随缘', 'Either')]] as const).map(([k, label]) => (
                 <button key={k} onClick={() => setGender(k)}
-                  className={`text-sm px-3 py-2 rounded-lg border transition ${gender === k ? 'bg-blood/30 border-blood text-parchment' : 'bg-ink/50 border-eldritch/30 text-parchment/70 hover:border-eldritch'}`}>{label}</button>
+                  className={`text-sm px-3 py-2 rounded-xl border transition ${gender === k ? 'bg-[#7d1d1d]/30 border-[#a83232]/60 text-parchment' : 'bg-[#0e0f13]/50 border-white/10 text-parchment/70 hover:border-[#c9a96e]/45'}`}>{label}</button>
               ))}
             </div>
           </div>
@@ -384,7 +384,7 @@ export default function CompanionPage() {
               <div className="grid grid-cols-1 gap-2">
                 {q.opts.map((op) => (
                   <button key={op.key} onClick={() => setAnswers((a) => ({ ...a, [q.id]: op.key }))}
-                    className={`text-left text-sm px-3 py-2 rounded-lg border transition ${answers[q.id] === op.key ? 'bg-blood/30 border-blood text-parchment' : 'bg-ink/50 border-eldritch/30 text-parchment/70 hover:border-eldritch'}`}>
+                    className={`text-left text-sm px-3 py-2 rounded-xl border transition ${answers[q.id] === op.key ? 'bg-[#7d1d1d]/30 border-[#a83232]/60 text-parchment' : 'bg-[#0e0f13]/50 border-white/10 text-parchment/70 hover:border-[#c9a96e]/45'}`}>
                     {en ? op.en : op.zh}
                   </button>
                 ))}
@@ -393,56 +393,56 @@ export default function CompanionPage() {
           ))}
           <div>
             <div className="text-sm text-parchment/85 mb-2">{L('最后,一个最近让你着迷的东西 / 你偷偷的梦想(选填)', 'Last — something you are into / a secret dream (optional)')}</div>
-            <input value={freeText} onChange={(e) => setFreeText(e.target.value)} placeholder={L('一句话就好……', 'One line…')} className="w-full px-3 py-2.5 rounded bg-ink border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch text-sm" />
+            <input value={freeText} onChange={(e) => setFreeText(e.target.value)} placeholder={L('一句话就好……', 'One line…')} className="w-full px-3 py-2.5 rounded-xl bg-[#0e0f13] border border-white/10 text-parchment placeholder:text-parchment/30 outline-none focus:border-[#c9a96e]/50 text-sm" />
           </div>
-          <button onClick={runGenerate} disabled={generating} className="w-full py-3 rounded-lg bg-blood/80 hover:bg-blood border border-blood disabled:opacity-40">{generating ? L('正在生成 TA……', 'Conjuring…') : L('生成我的伴侣', 'Create my companion')}</button>
+          <button onClick={runGenerate} disabled={generating} className="w-full py-3 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] border border-[#a83232]/60 disabled:opacity-40">{generating ? L('正在生成 TA……', 'Conjuring…') : L('生成我的伴侣', 'Create my companion')}</button>
           <button onClick={() => setTab('setup')} className="w-full text-xs text-parchment/40 hover:text-parchment">{L('跳过,我自己手动设置', 'Skip — set up manually')}</button>
         </div>
       ) : tab === 'setup' ? (
         <div className="space-y-4">
-          <div className="flex gap-4 text-xs text-parchment/60 rounded-lg bg-ink/50 border border-eldritch/20 px-3 py-2">
+          <div className="flex gap-4 text-xs text-parchment/60 rounded-xl bg-[#0e0f13]/50 border border-white/10 px-3 py-2">
             <span>{L('心情', 'Mood')} <b className="text-amber-300">{mood}</b>/100</span>
-            <span>{L('好感', 'Affection')} <b className="text-blood">{affection}</b>/100</span>
+            <span>{L('好感', 'Affection')} <b className="text-[#e06060]">{affection}</b>/100</span>
             <span className="text-parchment/35">{L('随聊天变化', 'changes as you talk')}</span>
           </div>
-          {!pushOn ? <button onClick={enablePush} className="w-full py-2.5 rounded-lg bg-blood/80 hover:bg-blood border border-blood text-sm">{L('开启主动推送 · 让 TA 能主动找你', 'Enable push — let it reach out')}</button> : <div className="text-center text-xs text-green-400">{L('✓ 主动推送已开', '✓ Push on')}</div>}
+          {!pushOn ? <button onClick={enablePush} className="w-full py-2.5 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] border border-[#a83232]/60 text-sm">{L('开启主动推送 · 让 TA 能主动找你', 'Enable push — let it reach out')}</button> : <div className="text-center text-xs text-green-400">{L('✓ 主动推送已开', '✓ Push on')}</div>}
           <div className="flex items-center justify-between gap-2 text-xs">
             <span className="text-parchment/45">{nextReachAt ? L('TA 大概会在 ', 'Next reach-out ~ ') + new Date(nextReachAt).toLocaleString([], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) + L(' 左右找你', '') : ''}</span>
-            <button onClick={testPush} className="shrink-0 px-3 py-1.5 rounded border border-eldritch/40 text-parchment/70 hover:text-parchment">{L('发一条测试推送', 'Send test push')}</button>
+            <button onClick={testPush} className="shrink-0 px-3 py-1.5 rounded-xl border border-white/10 text-parchment/70 hover:text-parchment">{L('发一条测试推送', 'Send test push')}</button>
           </div>
           {pushDiag && <div className="text-xs text-parchment/60 break-all">{pushDiag}</div>}
           <div>
             <label className="text-sm text-parchment/60">{L('TA 的名字', 'Its name')}</label>
-            <input value={aiName} onChange={(e) => setAiName(e.target.value)} className="w-full mt-1 px-3 py-2 rounded bg-ink border border-eldritch/40 text-parchment outline-none focus:border-eldritch" />
+            <input value={aiName} onChange={(e) => setAiName(e.target.value)} className="w-full mt-1 px-3 py-2 rounded-xl bg-[#0e0f13] border border-white/10 text-parchment outline-none focus:border-[#c9a96e]/50" />
           </div>
           <div>
             <label className="text-sm text-parchment/60">{L('TA 的性格 / 你希望 TA 是什么样', "Its personality / how you want it")}</label>
-            <textarea value={persona} onChange={(e) => setPersona(e.target.value)} rows={5} placeholder={L('例如:温柔、爱调侃、关心我的作息,聊音乐和电影,像多年老友……', 'e.g. warm, teasing, cares about my sleep, loves music & films, like an old friend…')} className="w-full mt-1 px-3 py-2 rounded bg-ink border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch resize-none text-sm" />
+            <textarea value={persona} onChange={(e) => setPersona(e.target.value)} rows={5} placeholder={L('例如:温柔、爱调侃、关心我的作息,聊音乐和电影,像多年老友……', 'e.g. warm, teasing, cares about my sleep, loves music & films, like an old friend…')} className="w-full mt-1 px-3 py-2 rounded-xl bg-[#0e0f13] border border-white/10 text-parchment placeholder:text-parchment/30 outline-none focus:border-[#c9a96e]/50 resize-none text-sm" />
           </div>
           <div>
             <label className="text-sm text-parchment/60">{L('TA 的职业 / 工作', 'Its job')}</label>
-            <input value={job} onChange={(e) => setJob(e.target.value)} placeholder={L('例如:医院夜班护士 / 自由插画师 / 咖啡店店员……', 'e.g. night-shift nurse / freelance illustrator / barista…')} className="w-full mt-1 px-3 py-2 rounded bg-ink border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch text-sm" />
+            <input value={job} onChange={(e) => setJob(e.target.value)} placeholder={L('例如:医院夜班护士 / 自由插画师 / 咖啡店店员……', 'e.g. night-shift nurse / freelance illustrator / barista…')} className="w-full mt-1 px-3 py-2 rounded-xl bg-[#0e0f13] border border-white/10 text-parchment placeholder:text-parchment/30 outline-none focus:border-[#c9a96e]/50 text-sm" />
             <p className="text-[11px] text-parchment/40 mt-1">{L('TA 会按这份工作的作息过日子——上班忙时回得慢,下班才松弛。', 'It lives by this job — slower when working, freer off hours.')}</p>
           </div>
           <div>
             <label className="text-sm text-parchment/60">{L('主动找你的频率', 'How often it reaches out')}</label>
             <div className="flex gap-2 mt-1">
               {[['daily', L('每天', 'Daily')], ['twice', L('一天两次', 'Twice a day')], ['few', L('每周几次', 'A few / week')]].map(([k, lbl]) => (
-                <button key={k} onClick={() => setFreq(k)} className={`px-3 py-1.5 rounded-full border text-sm ${freq === k ? 'bg-eldritch/40 border-eldritch' : 'border-eldritch/30 text-parchment/60'}`}>{lbl}</button>
+                <button key={k} onClick={() => setFreq(k)} className={`px-3 py-1.5 rounded-full border text-sm ${freq === k ? 'bg-white/[0.06] border-[#c9a96e]/50' : 'border-white/10 text-parchment/60'}`}>{lbl}</button>
               ))}
             </div>
           </div>
           <label className="flex items-center gap-2 text-sm text-parchment/70"><input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />{L('开启主动陪伴', 'Companion active')}</label>
-          <button onClick={saveSetup} disabled={busy} className="w-full py-2.5 rounded bg-blood/80 hover:bg-blood border border-blood disabled:opacity-40">{busy ? L('保存中…', 'Saving…') : L('保存设定', 'Save')}</button>
-          <button onClick={genAvatar} disabled={avatarGen} className="w-full py-2 rounded border border-eldritch/40 text-parchment/70 hover:bg-eldritch/20 text-sm disabled:opacity-40">{avatarGen ? L('生成头像中…','drawing…') : L('重新生成头像','Regenerate avatar')}</button>
-          <button onClick={resetAll} disabled={busy} className="w-full py-2 rounded border border-blood/40 text-blood/80 hover:bg-blood/10 text-sm disabled:opacity-40">{L('重置 · 重新开始 onboarding', 'Reset · start over')}</button>
+          <button onClick={saveSetup} disabled={busy} className="w-full py-2.5 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] border border-[#a83232]/60 disabled:opacity-40">{busy ? L('保存中…', 'Saving…') : L('保存设定', 'Save')}</button>
+          <button onClick={genAvatar} disabled={avatarGen} className="w-full py-2 rounded-xl border border-white/10 text-parchment/70 hover:bg-white/[0.06] text-sm disabled:opacity-40">{avatarGen ? L('生成头像中…','drawing…') : L('重新生成头像','Regenerate avatar')}</button>
+          <button onClick={resetAll} disabled={busy} className="w-full py-2 rounded-xl border border-[#a83232]/40 text-[#e06060] hover:bg-[#7d1d1d]/10 text-sm disabled:opacity-40">{L('重置 · 重新开始 onboarding', 'Reset · start over')}</button>
           {!standalone && <a href="/" className="block text-center text-xs text-parchment/35 hover:text-parchment/70 pt-2">{L('返回谜夜首页', 'Back to MystNight')}</a>}
           <p className="text-xs text-parchment/40 leading-relaxed">{L('提示:在手机浏览器里把本页「添加到主屏」,再点上面「开启主动推送」,TA 才能在你没开 App 时也主动找你(iPhone 需 iOS16.4+ 且已添加到主屏)。', 'Tip: add this page to your home screen, then enable push, so it can reach you even when the app is closed (iPhone needs iOS 16.4+ and add-to-home-screen).')}</p>
         </div>
       ) : (
         <>
           <div className="flex-1 space-y-3 overflow-y-auto pb-4 min-h-[50vh]">
-            <div className="text-center py-3"><span className="inline-block px-2.5 py-1 rounded bg-white/5 text-parchment/40 text-[11px]">{L(`你已添加了${aiName},现在可以开始聊天了。`, `You added ${aiName}. You can start chatting now.`)}</span></div>
+            <div className="text-center py-3"><span className="inline-block px-2.5 py-1 rounded-xl bg-white/5 text-parchment/40 text-[11px]">{L(`你已添加了${aiName},现在可以开始聊天了。`, `You added ${aiName}. You can start chatting now.`)}</span></div>
             {msgs.map((m, i) => (
               m.role === 'user' ? (
                 <div key={i} className="flex justify-end">
@@ -450,40 +450,40 @@ export default function CompanionPage() {
                 </div>
               ) : (
                 <div key={i} className="flex items-end gap-2">
-                  {avatarUrl ? <img src={avatarUrl} alt="" onClick={() => setZoom(true)} className="cursor-zoom-in w-7 h-7 rounded-full object-cover border border-eldritch/40 shrink-0" /> : <span className="w-7 h-7 rounded-full bg-eldritch/40 flex items-center justify-center text-xs shrink-0">{(aiName || '?').slice(0,1)}</span>}
+                  {avatarUrl ? <img src={avatarUrl} alt="" onClick={() => setZoom(true)} className="cursor-zoom-in w-7 h-7 rounded-full object-cover border border-white/10 shrink-0" /> : <span className="w-7 h-7 rounded-full bg-white/[0.06] flex items-center justify-center text-xs shrink-0">{(aiName || '?').slice(0,1)}</span>}
                   {bubble(m.text, false)}
                 </div>
               )
             ))}
-            {typing && <div className="flex items-end gap-2">{avatarUrl ? <img src={avatarUrl} alt="" onClick={() => setZoom(true)} className="cursor-zoom-in w-7 h-7 rounded-full object-cover border border-eldritch/40 shrink-0" /> : <span className="w-7 h-7 rounded-full bg-eldritch/40 shrink-0" />}<div className="px-3.5 py-2.5 rounded-2xl rounded-bl-md bg-fog/80 border border-eldritch/25 text-parchment/40 text-sm">···</div></div>}
+            {typing && <div className="flex items-end gap-2">{avatarUrl ? <img src={avatarUrl} alt="" onClick={() => setZoom(true)} className="cursor-zoom-in w-7 h-7 rounded-full object-cover border border-white/10 shrink-0" /> : <span className="w-7 h-7 rounded-full bg-white/[0.06] shrink-0" />}<div className="px-3.5 py-2.5 rounded-2xl rounded-bl-md bg-[#121318] border border-white/10 text-parchment/40 text-sm">···</div></div>}
             <div ref={endRef} />
           </div>
           {stickerOpen && (
-            <div className="grid grid-cols-5 gap-2 p-2 mb-1 rounded-xl bg-ink/95 border border-eldritch/30">
+            <div className="grid grid-cols-5 gap-2 p-2 mb-1 rounded-xl bg-[#0e0f13]/95 border border-white/10">
               {Object.entries(STICKERS).map(([name, k]) => (
-                <button key={name} onClick={() => { send(`[sticker:${name}]`); setStickerOpen(false); }} className="flex flex-col items-center justify-center py-1.5 rounded-lg hover:bg-white/5">
+                <button key={name} onClick={() => { send(`[sticker:${name}]`); setStickerOpen(false); }} className="flex flex-col items-center justify-center py-1.5 rounded-xl hover:bg-white/5">
                   <span className="text-3xl leading-none">{k.e}</span><span className="text-[10px] text-parchment/60 mt-1">{k.t}</span>
                 </button>
               ))}
             </div>
           )}
           <div className="flex items-center gap-2 pt-2 sticky bottom-0 pb-1">
-            <button onClick={toggleVoice} title={L('语音输入','Voice')} className={`shrink-0 w-10 h-10 rounded-full border flex items-center justify-center ${recording ? 'bg-blood/70 border-blood animate-pulse' : 'bg-ink border-eldritch/40 text-parchment/70 hover:text-parchment'}`}>
+            <button onClick={toggleVoice} title={L('语音输入','Voice')} className={`shrink-0 w-10 h-10 rounded-full border flex items-center justify-center ${recording ? 'bg-[#7d1d1d] border-[#a83232]/60 animate-pulse' : 'bg-[#0e0f13] border-white/10 text-parchment/70 hover:text-parchment'}`}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
             </button>
-            <button onClick={() => setStickerOpen((v) => !v)} title={L('表情','Stickers')} className={`shrink-0 w-10 h-10 rounded-full border flex items-center justify-center text-lg ${stickerOpen ? 'bg-eldritch/30 border-eldritch' : 'bg-ink border-eldritch/40'}`}>😊</button>
-            <input value={text} onChange={(e) => { setText(e.target.value); if (replyTimer.current && !responding.current) scheduleRespond(); }} onKeyDown={(e) => e.key === 'Enter' && send()} onFocus={() => setStickerOpen(false)} placeholder={recording ? L('在听……','listening…') : L('说点什么…', 'Say something…')} className="flex-1 min-w-0 px-3.5 py-2.5 rounded-full bg-ink border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch text-sm" />
-            <button onClick={() => send()} disabled={!text.trim()} className="shrink-0 px-5 py-2.5 rounded-full bg-blood/80 hover:bg-blood border border-blood disabled:opacity-40 text-sm">{L('发送', 'Send')}</button>
+            <button onClick={() => setStickerOpen((v) => !v)} title={L('表情','Stickers')} className={`shrink-0 w-10 h-10 rounded-full border flex items-center justify-center text-lg ${stickerOpen ? 'bg-white/[0.06] border-[#c9a96e]/50' : 'bg-[#0e0f13] border-white/10'}`}>😊</button>
+            <input value={text} onChange={(e) => { setText(e.target.value); if (replyTimer.current && !responding.current) scheduleRespond(); }} onKeyDown={(e) => e.key === 'Enter' && send()} onFocus={() => setStickerOpen(false)} placeholder={recording ? L('在听……','listening…') : L('说点什么…', 'Say something…')} className="flex-1 min-w-0 px-3.5 py-2.5 rounded-full bg-[#0e0f13] border border-white/10 text-parchment placeholder:text-parchment/30 outline-none focus:border-[#c9a96e]/50 text-sm" />
+            <button onClick={() => send()} disabled={!text.trim()} className="shrink-0 px-5 py-2.5 rounded-full bg-[#7d1d1d] hover:bg-[#8e2323] border border-[#a83232]/60 disabled:opacity-40 text-sm">{L('发送', 'Send')}</button>
           </div>
         </>
       )}
       {zoomSrc && (
         <div onClick={() => setZoomSrc(null)} className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center p-4 cursor-zoom-out">
-          <img src={zoomSrc} alt={aiName} className="max-w-full max-h-[90vh] rounded-lg object-contain shadow-2xl" />
+          <img src={zoomSrc} alt={aiName} className="max-w-full max-h-[90vh] rounded-xl object-contain shadow-2xl" />
           <button onClick={() => setZoomSrc(null)} aria-label="close" className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 text-white text-xl leading-none">×</button>
         </div>
       )}
-      {toast && <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-ink border border-eldritch/40 text-parchment text-sm shadow-xl">{toast}</div>}
+      {toast && <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-[#0e0f13] border border-white/10 text-parchment text-sm shadow-xl">{toast}</div>}
     </main>
   );
 }

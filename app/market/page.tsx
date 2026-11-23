@@ -55,7 +55,7 @@ export default function MarketPage() {
   if (!s || !s.loggedIn) return (
     <main className="min-h-screen flex flex-col items-center justify-center gap-4 text-parchment px-6 text-center">
       <p className="text-parchment/70">{L('登录后进入身价场。', 'Sign in to enter The Market.')}</p>
-      <a href="/" className="px-5 py-2.5 rounded bg-blood/80 hover:bg-blood border border-blood">{L('返回首页', 'Home')}</a>
+      <a href="/" className="px-5 py-2.5 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] border border-[#a83232]/60">{L('返回首页', 'Home')}</a>
     </main>
   );
   const fmt = (n: number) => '¥' + (n || 0).toLocaleString();
@@ -83,7 +83,7 @@ export default function MarketPage() {
       </div>
 
       {/* 我的身价 */}
-      <div className="mk-card rounded-2xl border border-amber-500/20 bg-fog/60 p-4 mb-5 flex flex-col sm:flex-row gap-4 items-start">
+      <div className="mk-card rounded-2xl border border-amber-500/20 bg-[#121318] p-4 mb-5 flex flex-col sm:flex-row gap-4 items-start">
         <Av url={me.avatar} name={me.name} big />
         <div className="flex-1 text-sm leading-relaxed text-parchment/70">
           <div className="flex items-center gap-2 flex-wrap">
@@ -91,7 +91,7 @@ export default function MarketPage() {
             <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">{(en ? me.rank.en : me.rank.zh)} · Lv.{me.rank.level}</span>
           </div>
           <div className="flex items-center gap-2 mt-1 mb-0.5">
-            <div className="h-1.5 rounded-full bg-ink overflow-hidden w-40"><div className="h-full mk-xp transition-[width] duration-700" style={{ width: (me.rank.prog * 100) + '%' }} /></div>
+            <div className="h-1.5 rounded-full bg-[#0e0f13] overflow-hidden w-40"><div className="h-full mk-xp transition-[width] duration-700" style={{ width: (me.rank.prog * 100) + '%' }} /></div>
             <span className="text-[10px] text-parchment/40">{me.rank.nextMin ? `${me.rank.exp}/${me.rank.nextMin} EXP` : 'MAX'}</span>
           </div>
           <div className="mt-1 grid grid-cols-2 gap-x-6 gap-y-0.5">
@@ -103,21 +103,21 @@ export default function MarketPage() {
           <div className="mt-1.5 text-parchment/55">{me.ownerName ? L(`被 ${me.ownerName} 持有`, `Owned by ${me.ownerName}`) : protectedNow ? L('🛡 保护期中', '🛡 Protected') : L('自由身', 'Free agent')}</div>
         </div>
         <div className="flex flex-wrap gap-2 sm:flex-col sm:items-end sm:text-right">
-          <button disabled={!me.dailyAvailable || !!busy} onClick={() => act('/api/market/daily')} className="text-xs px-3 py-1.5 rounded bg-eldritch/60 hover:bg-eldritch disabled:opacity-40">{me.dailyAvailable ? L('领每日 +100', 'Daily +100') : L('今日已领', 'Claimed')}</button>
-          <button disabled={!!busy || me.cash < (me.hypeCost || 0)} onClick={() => act('/api/market/hype')} className="text-xs px-3 py-1.5 rounded bg-amber-700/60 hover:bg-amber-700/80 disabled:opacity-40">{L(`炒作身价 ¥${me.hypeCost ?? ''}`, `Hype ¥${me.hypeCost ?? ''}`)}</button>
-          <button disabled={!me.fateAvailable || !!busy} onClick={() => act('/api/market/fate')} className="text-xs px-3 py-1.5 rounded bg-blood/70 hover:bg-blood disabled:opacity-40">{me.fateAvailable ? L('命运卡', 'Fate card') : L('命运卡(明日)', 'Fate (tomorrow)')}</button>
-          {me.ownerName && <button disabled={!!busy} onClick={() => act('/api/market/please')} className="text-xs px-3 py-1.5 rounded bg-eldritch/50 hover:bg-eldritch">{L('讨好主人', 'Please owner')}</button>}
-          {me.ownerName && <button disabled={!!busy} onClick={() => act('/api/market/redeem')} className="text-xs px-3 py-1.5 rounded bg-fog border border-eldritch/40 hover:bg-eldritch/30">{L(`赎身 ${fmt(me.price)}`, `Redeem ${fmt(me.price)}`)}</button>}
-          <button disabled={!!busy} onClick={() => act('/api/market/optout', { out: !me.optedOut })} className="text-xs px-3 py-1.5 rounded bg-fog border border-eldritch/30 text-parchment/60 hover:text-parchment">{me.optedOut ? L('重新加入', 'Rejoin') : L('退出市场', 'Leave')}</button>
+          <button disabled={!me.dailyAvailable || !!busy} onClick={() => act('/api/market/daily')} className="text-xs px-3 py-1.5 rounded-xl bg-[#c9a96e]/20 hover:bg-white/10 disabled:opacity-40">{me.dailyAvailable ? L('领每日 +100', 'Daily +100') : L('今日已领', 'Claimed')}</button>
+          <button disabled={!!busy || me.cash < (me.hypeCost || 0)} onClick={() => act('/api/market/hype')} className="text-xs px-3 py-1.5 rounded-xl bg-amber-700/60 hover:bg-amber-700/80 disabled:opacity-40">{L(`炒作身价 ¥${me.hypeCost ?? ''}`, `Hype ¥${me.hypeCost ?? ''}`)}</button>
+          <button disabled={!me.fateAvailable || !!busy} onClick={() => act('/api/market/fate')} className="text-xs px-3 py-1.5 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] disabled:opacity-40">{me.fateAvailable ? L('命运卡', 'Fate card') : L('命运卡(明日)', 'Fate (tomorrow)')}</button>
+          {me.ownerName && <button disabled={!!busy} onClick={() => act('/api/market/please')} className="text-xs px-3 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/10">{L('讨好主人', 'Please owner')}</button>}
+          {me.ownerName && <button disabled={!!busy} onClick={() => act('/api/market/redeem')} className="text-xs px-3 py-1.5 rounded-xl bg-[#121318] border border-white/10 hover:bg-white/[0.06]">{L(`赎身 ${fmt(me.price)}`, `Redeem ${fmt(me.price)}`)}</button>}
+          <button disabled={!!busy} onClick={() => act('/api/market/optout', { out: !me.optedOut })} className="text-xs px-3 py-1.5 rounded-xl bg-[#121318] border border-white/10 text-parchment/60 hover:text-parchment">{me.optedOut ? L('重新加入', 'Rejoin') : L('退出市场', 'Leave')}</button>
         </div>
       </div>
 
-      <div className="rounded-xl border border-eldritch/25 bg-fog/40 px-4 py-3 mb-5 flex flex-wrap items-center gap-x-5 gap-y-2">
+      <div className="rounded-xl border border-white/10 bg-[#121318] px-4 py-3 mb-5 flex flex-wrap items-center gap-x-5 gap-y-2">
         <span className="text-sm text-parchment/80">{L('每日任务', 'Daily quests')}</span>
         <Quest ok={me.quest.buy >= 1} label={L('买入 1 人', 'Buy 1')} />
         <Quest ok={me.quest.work >= 1} label={L('打工 1 次', 'Work 1')} />
         <Quest ok={me.quest.social >= 1} label={L('互动 1 次', 'Interact 1')} />
-        <button disabled={!me.quest.canClaim || !!busy} onClick={() => act('/api/market/quest')} className="ml-auto text-xs px-3 py-1.5 rounded bg-amber-600/70 hover:bg-amber-600 text-ink font-medium disabled:opacity-40 disabled:text-parchment">{me.quest.claimed ? L('今日已领', 'Claimed') : L('领取 +200', 'Claim +200')}</button>
+        <button disabled={!me.quest.canClaim || !!busy} onClick={() => act('/api/market/quest')} className="ml-auto text-xs px-3 py-1.5 rounded-xl bg-amber-600/70 hover:bg-amber-600 text-ink font-medium disabled:opacity-40 disabled:text-parchment">{me.quest.claimed ? L('今日已领', 'Claimed') : L('领取 +200', 'Claim +200')}</button>
       </div>
 
       <div className="grid md:grid-cols-[1fr_300px] gap-5">
@@ -129,13 +129,13 @@ export default function MarketPage() {
               <div className="text-sm text-parchment/80">{L('购买玩家', 'Buy players')}</div>
               <label className="text-[11px] text-parchment/45 flex items-center gap-1 cursor-pointer"><input type="checkbox" checked={onlyAfford} onChange={(e) => setOnlyAfford(e.target.checked)} /> {L('只看买得起的', 'Affordable only')}</label>
             </div>
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={L('搜索玩家…', 'Search players…')} className="w-full mb-3 px-3 py-2 rounded-lg bg-ink border border-eldritch/30 text-parchment placeholder:text-parchment/30 text-sm outline-none focus:border-eldritch" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={L('搜索玩家…', 'Search players…')} className="w-full mb-3 px-3 py-2 rounded-xl bg-[#0e0f13] border border-white/10 text-parchment placeholder:text-parchment/30 text-sm outline-none focus:border-[#c9a96e]/50" />
             <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
               {list.length === 0 && <div className="text-sm text-parchment/40 py-6 text-center">{L('没有匹配的玩家', 'No players')}</div>}
               {list.map((r: any, i: number) => (
                 <Row key={r.id} i={i} r={r} sub={r.ownerName ? L(`主人:${r.ownerName}`, `Owner: ${r.ownerName}`) : L('自由身', 'Free')} right={
                   r.status === 'buyable'
-                    ? <button disabled={!!busy || r.price > me.cash} onClick={() => act('/api/market/buy', { targetId: r.id })} className="mk-buy text-xs px-3 py-1.5 rounded bg-blood/80 hover:bg-blood disabled:opacity-40 shrink-0">{L('买入', 'Buy')} {fmt(r.price)}</button>
+                    ? <button disabled={!!busy || r.price > me.cash} onClick={() => act('/api/market/buy', { targetId: r.id })} className="mk-buy text-xs px-3 py-1.5 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] disabled:opacity-40 shrink-0">{L('买入', 'Buy')} {fmt(r.price)}</button>
                     : <span className="text-[11px] text-parchment/40 shrink-0">{({ mine: L('你持有', 'Yours'), protected: L('保护中', 'Protected'), working: L('打工中', 'Working'), capped: L('满10', 'Capped'), soldout: L('今日售罄', 'Sold out') } as any)[r.status] || ''}</span>
                 } />
               ))}
@@ -150,11 +150,11 @@ export default function MarketPage() {
               {s.team.map((t: any, i: number) => (
                 <Row key={t.id} i={i} r={t} sub={t.working ? L('打工中', 'At work') : L('空闲', 'Idle')} right={
                   <div className="flex gap-1.5 shrink-0">
-                    <button disabled={!!busy || t.working} onClick={() => act('/api/market/work', { targetId: t.id })} className="text-[11px] px-2 py-1 rounded bg-eldritch/60 hover:bg-eldritch disabled:opacity-40">{L('打工', 'Work')}</button>
-                    <button disabled={!!busy} onClick={() => act('/api/market/interact', { targetId: t.id, kind: 'soothe' })} className="text-[11px] px-2 py-1 rounded bg-eldritch/40 hover:bg-eldritch">{L('安抚', 'Soothe')}</button>
-                    <button disabled={!!busy} onClick={() => act('/api/market/interact', { targetId: t.id, kind: 'torment' })} className="text-[11px] px-2 py-1 rounded bg-blood/60 hover:bg-blood">{L('折磨', 'Torment')}</button>
-                    <button disabled={!!busy} onClick={() => { const n = window.prompt(L('给 TA 起个绰号(留空清除)', 'Nickname (blank to clear)'), ''); if (n !== null) act('/api/market/nick', { targetId: t.id, name: n }); }} className="text-[11px] px-2 py-1 rounded bg-fog border border-eldritch/30 text-parchment/60 hover:text-parchment">{L('绰号', 'Rename')}</button>
-                    <button disabled={!!busy} onClick={() => act('/api/market/release', { targetId: t.id })} className="text-[11px] px-2 py-1 rounded bg-fog border border-eldritch/30 text-parchment/50 hover:text-parchment">{L('释放', 'Release')}</button>
+                    <button disabled={!!busy || t.working} onClick={() => act('/api/market/work', { targetId: t.id })} className="text-[11px] px-2 py-1 rounded-xl bg-[#c9a96e]/20 hover:bg-white/10 disabled:opacity-40">{L('打工', 'Work')}</button>
+                    <button disabled={!!busy} onClick={() => act('/api/market/interact', { targetId: t.id, kind: 'soothe' })} className="text-[11px] px-2 py-1 rounded-xl bg-white/[0.06] hover:bg-white/10">{L('安抚', 'Soothe')}</button>
+                    <button disabled={!!busy} onClick={() => act('/api/market/interact', { targetId: t.id, kind: 'torment' })} className="text-[11px] px-2 py-1 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323]">{L('折磨', 'Torment')}</button>
+                    <button disabled={!!busy} onClick={() => { const n = window.prompt(L('给 TA 起个绰号(留空清除)', 'Nickname (blank to clear)'), ''); if (n !== null) act('/api/market/nick', { targetId: t.id, name: n }); }} className="text-[11px] px-2 py-1 rounded-xl bg-[#121318] border border-white/10 text-parchment/60 hover:text-parchment">{L('绰号', 'Rename')}</button>
+                    <button disabled={!!busy} onClick={() => act('/api/market/release', { targetId: t.id })} className="text-[11px] px-2 py-1 rounded-xl bg-[#121318] border border-white/10 text-parchment/50 hover:text-parchment">{L('释放', 'Release')}</button>
                   </div>
                 } />
               ))}
@@ -167,7 +167,7 @@ export default function MarketPage() {
           {me.ownerName && (
             <div>
               <div className="text-[11px] tracking-wider uppercase text-parchment/40 mb-2">{L('我的主人', 'My owner')}</div>
-              <div className="rounded-xl border border-eldritch/20 bg-fog/40 px-3 py-2.5 text-sm text-parchment/75">{me.ownerName}</div>
+              <div className="rounded-xl border border-white/10 bg-[#121318] px-3 py-2.5 text-sm text-parchment/75">{me.ownerName}</div>
             </div>
           )}
           <div>
@@ -187,13 +187,13 @@ export default function MarketPage() {
             <div className="text-[11px] tracking-wider uppercase text-parchment/40 mb-2">{L('事件记录', 'Activity')}</div>
             <div className="space-y-0 max-h-80 overflow-y-auto pr-1">
               {s.feed.length === 0 && <div className="text-sm text-parchment/40 py-3">{L('还没有动态', 'No activity')}</div>}
-              {s.feed.map((f: any, i: number) => (<div key={i} className="text-xs text-parchment/60 border-t border-eldritch/10 py-2">{f.text}</div>))}
+              {s.feed.map((f: any, i: number) => (<div key={i} className="text-xs text-parchment/60 border-t border-white/10 py-2">{f.text}</div>))}
             </div>
           </div>
         </div>
       </div>
 
-      {toast && <div className="mk-toast fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-ink border border-amber-500/40 text-parchment text-sm shadow-xl">{toast}</div>}
+      {toast && <div className="mk-toast fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-[#0e0f13] border border-amber-500/40 text-parchment text-sm shadow-xl">{toast}</div>}
     </main>
   );
 }
@@ -214,11 +214,11 @@ function Quest({ ok, label }: { ok: boolean; label: string }) {
 }
 function Av({ url, name, big }: { url?: string | null; name: string; big?: boolean }) {
   const c = big ? 'w-16 h-16 text-2xl' : 'w-8 h-8 text-sm';
-  return url ? <img src={url} alt="" className={`${c} rounded-full object-cover border border-eldritch/30 shrink-0`} /> : <span className={`${c} rounded-full bg-eldritch/40 flex items-center justify-center shrink-0`}>{(name || '?').slice(0, 1).toUpperCase()}</span>;
+  return url ? <img src={url} alt="" className={`${c} rounded-full object-cover border border-white/10 shrink-0`} /> : <span className={`${c} rounded-full bg-white/[0.06] flex items-center justify-center shrink-0`}>{(name || '?').slice(0, 1).toUpperCase()}</span>;
 }
 function Row({ r, right, sub, i }: { r: any; right?: any; sub?: string; i?: number }) {
   return (
-    <div className="mk-row flex items-center gap-3 rounded-xl border border-eldritch/15 bg-fog/40 px-3 py-2 hover:border-eldritch/40 transition-colors" style={{ animationDelay: ((i || 0) * 35) + 'ms' }}>
+    <div className="mk-row flex items-center gap-3 rounded-xl border border-white/10 bg-[#121318] px-3 py-2 hover:border-[#c9a96e]/45 transition-colors" style={{ animationDelay: ((i || 0) * 35) + 'ms' }}>
       <Av url={r.avatar} name={r.name} />
       <div className="flex-1 min-w-0 leading-tight">
         <div className="truncate text-sm">{r.name}{typeof r.price === 'number' && <span className="text-amber-300/80 text-xs ml-2">¥{r.price.toLocaleString()}</span>}</div>

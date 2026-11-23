@@ -31,8 +31,8 @@ function Avatar({ url, name, online }: { url?: string | null; name: string; onli
   return (
     <div className="relative shrink-0">
       {url
-        ? <img src={url} alt="" className="w-7 h-7 rounded-full object-cover border border-eldritch/30" />
-        : <span className="w-7 h-7 rounded-full bg-eldritch/40 flex items-center justify-center text-[11px] text-parchment">{(name || '?').slice(0, 1).toUpperCase()}</span>}
+        ? <img src={url} alt="" className="w-7 h-7 rounded-full object-cover border border-white/10" />
+        : <span className="w-7 h-7 rounded-full bg-white/[0.06] flex items-center justify-center text-[11px] text-parchment">{(name || '?').slice(0, 1).toUpperCase()}</span>}
       {online && <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400 border-2 border-fog" />}
     </div>
   );
@@ -53,15 +53,15 @@ function ChatBox({ msgs, text, setText, send, empty, hint, disabled, footer, en 
     <>
       <div className="h-40 overflow-y-auto px-3 py-2 space-y-1.5 flex flex-col">
         {msgs.length === 0 && <div className="text-xs text-parchment/35 m-auto">{empty}</div>}
-        {msgs.map((m, i) => (<div key={i} className={`max-w-[80%] px-2.5 py-1.5 rounded-xl text-xs leading-snug ${m.mine ? 'self-end bg-blood/30 border border-blood/40' : 'self-start bg-ink/70 border border-eldritch/30'}`}>{m.text}</div>))}
+        {msgs.map((m, i) => (<div key={i} className={`max-w-[80%] px-2.5 py-1.5 rounded-xl text-xs leading-snug ${m.mine ? 'self-end bg-[#7d1d1d]/30 border border-[#a83232]/40' : 'self-start bg-[#0e0f13]/70 border border-white/10'}`}>{m.text}</div>))}
       </div>
       {hint && !disabled && <div className="px-3 pt-1 text-[11px] text-parchment/45 leading-snug">{hint}</div>}
       {disabled ? (
-        <div className="p-2 border-t border-eldritch/20">{footer}</div>
+        <div className="p-2 border-t border-white/10">{footer}</div>
       ) : (
-        <div className="flex gap-1.5 p-2 border-t border-eldritch/20">
-          <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()} placeholder={en ? 'Say something…' : '说点什么…'} className="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg bg-ink border border-eldritch/30 text-parchment placeholder:text-parchment/30 text-xs outline-none focus:border-eldritch" />
-          <button onClick={send} className="px-3 py-1.5 rounded-lg bg-eldritch/60 hover:bg-eldritch text-parchment text-xs shrink-0">{en ? 'Send' : '发送'}</button>
+        <div className="flex gap-1.5 p-2 border-t border-white/10">
+          <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()} placeholder={en ? 'Say something…' : '说点什么…'} className="flex-1 min-w-0 px-2.5 py-1.5 rounded-xl bg-[#0e0f13] border border-white/10 text-parchment placeholder:text-parchment/30 text-xs outline-none focus:border-[#c9a96e]/50" />
+          <button onClick={send} className="px-3 py-1.5 rounded-xl bg-[#c9a96e]/20 hover:bg-white/10 text-parchment text-xs shrink-0">{en ? 'Send' : '发送'}</button>
         </div>
       )}
     </>
@@ -410,14 +410,14 @@ export default function FriendDock() {
             {inbox.filter((t) => t.unread > 0).map((t) => (
               <div key={'dm' + t.userId} className="flex items-center gap-1.5 text-xs">
                 <span className="truncate flex-1">💬 <b>{t.name}</b> {en ? 'sent ' : '发来 '}{t.unread}{en ? ' msgs' : ' 条消息'}</span>
-                <button onClick={() => openThread(t.userId, t.name)} className="px-2 py-0.5 rounded bg-blood/80 hover:bg-blood text-parchment shrink-0">{L('查看', 'View')}</button>
+                <button onClick={() => openThread(t.userId, t.name)} className="px-2 py-0.5 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] text-parchment shrink-0">{L('查看', 'View')}</button>
               </div>
             ))}
             {graph.incoming.map((r) => (
               <div key={'bi' + r.id} className="flex items-center gap-1.5 text-xs">
                 <span className="truncate flex-1"><b>{r.name}</b>{en ? ' sent you a friend request' : ' 请求加你好友'}</span>
-                <button onClick={() => respondReq(r.id, true)} className="px-2 py-0.5 rounded bg-green-700/70 hover:bg-green-700 text-parchment shrink-0">{L('同意', 'Accept')}</button>
-                <button onClick={() => respondReq(r.id, false)} className="px-2 py-0.5 rounded bg-ink/70 border border-eldritch/30 text-parchment/60 shrink-0">{L('拒绝', 'Decline')}</button>
+                <button onClick={() => respondReq(r.id, true)} className="px-2 py-0.5 rounded-xl bg-green-700/70 hover:bg-green-700 text-parchment shrink-0">{L('同意', 'Accept')}</button>
+                <button onClick={() => respondReq(r.id, false)} className="px-2 py-0.5 rounded-xl bg-[#0e0f13]/70 border border-white/10 text-parchment/60 shrink-0">{L('拒绝', 'Decline')}</button>
               </div>
             ))}
             {notifs.filter((n) => !n.id.startsWith('req:')).length > 0 && (
@@ -438,23 +438,23 @@ export default function FriendDock() {
           </div>
   );
   const lfgBody = (
-    <div className="w-72 rounded-2xl border border-eldritch/30 bg-fog/95 backdrop-blur shadow-2xl overflow-hidden flex flex-col max-h-[42vh]">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-eldritch/20 text-sm shrink-0">
+    <div className="w-72 rounded-2xl border border-white/10 bg-[#121318] backdrop-blur shadow-2xl overflow-hidden flex flex-col max-h-[42vh]">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-white/10 text-sm shrink-0">
         <span className="text-parchment/80">{L('找队友', 'Find players')}</span>
-        <button onClick={() => setLfgForm((v) => !v)} className="text-xs px-2 py-0.5 rounded bg-blood/80 hover:bg-blood text-parchment">{lfgForm ? L('取消', 'Cancel') : L('＋ 发公告', '+ Post')}</button>
+        <button onClick={() => setLfgForm((v) => !v)} className="text-xs px-2 py-0.5 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] text-parchment">{lfgForm ? L('取消', 'Cancel') : L('＋ 发公告', '+ Post')}</button>
       </div>
       {lfgForm && (
-        <div className="px-3 py-2 border-b border-eldritch/15 space-y-1.5 shrink-0">
-          <input value={lfgGame} onChange={(e) => setLfgGame(e.target.value)} placeholder={L('想玩什么游戏（如 剧本杀/海龟汤）', 'What game? (e.g. Murder Mystery)')} className="w-full px-2.5 py-1.5 rounded-lg bg-ink border border-eldritch/30 text-parchment placeholder:text-parchment/30 text-xs outline-none focus:border-eldritch" />
-          <input value={lfgTimes} onChange={(e) => setLfgTimes(e.target.value)} placeholder={L('常在线时间（如 晚上 8-11 点）', 'Usual online time (e.g. 8–11pm)')} className="w-full px-2.5 py-1.5 rounded-lg bg-ink border border-eldritch/30 text-parchment placeholder:text-parchment/30 text-xs outline-none focus:border-eldritch" />
-          <textarea value={lfgNote} onChange={(e) => setLfgNote(e.target.value)} rows={2} placeholder={L('想找什么样的队友…', 'What players are you looking for…')} className="w-full px-2.5 py-1.5 rounded-lg bg-ink border border-eldritch/30 text-parchment placeholder:text-parchment/30 text-xs outline-none focus:border-eldritch resize-none" />
-          <button onClick={createLfg} className="w-full py-1.5 rounded-lg bg-eldritch/60 hover:bg-eldritch text-parchment text-xs">{L('发布公告', 'Post')}</button>
+        <div className="px-3 py-2 border-b border-white/10 space-y-1.5 shrink-0">
+          <input value={lfgGame} onChange={(e) => setLfgGame(e.target.value)} placeholder={L('想玩什么游戏（如 剧本杀/海龟汤）', 'What game? (e.g. Murder Mystery)')} className="w-full px-2.5 py-1.5 rounded-xl bg-[#0e0f13] border border-white/10 text-parchment placeholder:text-parchment/30 text-xs outline-none focus:border-[#c9a96e]/50" />
+          <input value={lfgTimes} onChange={(e) => setLfgTimes(e.target.value)} placeholder={L('常在线时间（如 晚上 8-11 点）', 'Usual online time (e.g. 8–11pm)')} className="w-full px-2.5 py-1.5 rounded-xl bg-[#0e0f13] border border-white/10 text-parchment placeholder:text-parchment/30 text-xs outline-none focus:border-[#c9a96e]/50" />
+          <textarea value={lfgNote} onChange={(e) => setLfgNote(e.target.value)} rows={2} placeholder={L('想找什么样的队友…', 'What players are you looking for…')} className="w-full px-2.5 py-1.5 rounded-xl bg-[#0e0f13] border border-white/10 text-parchment placeholder:text-parchment/30 text-xs outline-none focus:border-[#c9a96e]/50 resize-none" />
+          <button onClick={createLfg} className="w-full py-1.5 rounded-xl bg-[#c9a96e]/20 hover:bg-white/10 text-parchment text-xs">{L('发布公告', 'Post')}</button>
         </div>
       )}
       <div className="flex-1 min-h-0 overflow-y-auto px-3 py-2 space-y-2.5">
         {lfg.length === 0 && <div className="text-xs text-parchment/35 py-8 text-center">{L('还没有组队公告 · 发一个吧', 'No posts yet · create one')}</div>}
         {lfg.map((post) => (
-          <div key={post.id} className="border border-eldritch/15 rounded-lg px-2.5 py-2">
+          <div key={post.id} className="border border-white/10 rounded-xl px-2.5 py-2">
             <div className="flex items-center gap-2">
               <Avatar url={post.author.avatar} name={post.author.name} />
               <div className="flex-1 min-w-0 leading-tight"><div className="truncate text-sm">{post.author.name}</div><div className="text-[10px] text-parchment/35">{ago(post.ts)}</div></div>
@@ -467,17 +467,17 @@ export default function FriendDock() {
             </div>
             <div className="mt-1.5">
               {post.mine ? (
-                <button onClick={() => setLfgExpand((e) => (e === post.id ? null : post.id))} className="text-[11px] text-eldritch hover:text-parchment">{post.applicantCount}{L(' 人申请', ' applied')}{post.applicantCount > 0 ? (lfgExpand === post.id ? ' ▲' : ' ▼') : ''}</button>
+                <button onClick={() => setLfgExpand((e) => (e === post.id ? null : post.id))} className="text-[11px] text-[#c9a96e] hover:text-parchment">{post.applicantCount}{L(' 人申请', ' applied')}{post.applicantCount > 0 ? (lfgExpand === post.id ? ' ▲' : ' ▼') : ''}</button>
               ) : post.applied ? <span className="text-[11px] text-green-400">{L('✓ 已申请', '✓ Applied')}</span>
                 : applyFor === post.id ? (
                   <div className="flex gap-1.5">
-                    <input value={applyMsg} onChange={(e) => setApplyMsg(e.target.value)} placeholder={L('留言（可选）', 'Message (optional)')} className="flex-1 min-w-0 px-2 py-1 rounded bg-ink border border-eldritch/30 text-parchment placeholder:text-parchment/30 text-xs outline-none focus:border-eldritch" />
-                    <button onClick={() => applyLfg(post.id)} className="text-xs px-2 py-1 rounded bg-blood/80 hover:bg-blood text-parchment shrink-0">{L('提交', 'Submit')}</button>
+                    <input value={applyMsg} onChange={(e) => setApplyMsg(e.target.value)} placeholder={L('留言（可选）', 'Message (optional)')} className="flex-1 min-w-0 px-2 py-1 rounded-xl bg-[#0e0f13] border border-white/10 text-parchment placeholder:text-parchment/30 text-xs outline-none focus:border-[#c9a96e]/50" />
+                    <button onClick={() => applyLfg(post.id)} className="text-xs px-2 py-1 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] text-parchment shrink-0">{L('提交', 'Submit')}</button>
                   </div>
-                ) : <button onClick={() => { setApplyFor(post.id); setApplyMsg(''); }} className="text-xs px-2.5 py-0.5 rounded bg-blood/80 hover:bg-blood text-parchment">{L('申请', 'Apply')}</button>}
+                ) : <button onClick={() => { setApplyFor(post.id); setApplyMsg(''); }} className="text-xs px-2.5 py-0.5 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] text-parchment">{L('申请', 'Apply')}</button>}
             </div>
             {post.mine && lfgExpand === post.id && (post.applicants || []).map((ap: any) => (
-              <div key={ap.id} className="text-[11px] mt-1 pl-2 border-l-2 border-eldritch/30 text-parchment/70"><b className="text-parchment">{ap.name}</b>{ap.message ? '：' + ap.message : ''}</div>
+              <div key={ap.id} className="text-[11px] mt-1 pl-2 border-l-2 border-white/10 text-parchment/70"><b className="text-parchment">{ap.name}</b>{ap.message ? '：' + ap.message : ''}</div>
             ))}
             {post.mine && lfgExpand === post.id && post.applicantCount === 0 && <div className="text-[11px] mt-1 text-parchment/35">{L('还没有人申请', 'No applicants yet')}</div>}
           </div>
@@ -486,27 +486,27 @@ export default function FriendDock() {
     </div>
   );
   const changelogBody = (
-    <div onClick={() => clHasNew && markClSeen()} className="w-72 rounded-2xl border border-eldritch/30 bg-fog/95 backdrop-blur shadow-2xl overflow-hidden flex flex-col max-h-[38vh]">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-eldritch/20 text-sm shrink-0">
-        <span className="text-parchment/80 flex items-center gap-1.5">{L('更新公告', "What's new")}{clHasNew && <span className="text-[9px] px-1 py-0.5 rounded bg-blood text-parchment">NEW</span>}</span>
-        {clAdmin && <button onClick={(e) => { e.stopPropagation(); setClForm((v) => !v); }} className="text-xs px-2 py-0.5 rounded bg-blood/80 hover:bg-blood text-parchment">{clForm ? L('取消', 'Cancel') : L('＋ 发布', '+ Post')}</button>}
+    <div onClick={() => clHasNew && markClSeen()} className="w-72 rounded-2xl border border-white/10 bg-[#121318] backdrop-blur shadow-2xl overflow-hidden flex flex-col max-h-[38vh]">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-white/10 text-sm shrink-0">
+        <span className="text-parchment/80 flex items-center gap-1.5">{L('更新公告', "What's new")}{clHasNew && <span className="text-[9px] px-1 py-0.5 rounded-xl bg-[#7d1d1d] text-parchment">NEW</span>}</span>
+        {clAdmin && <button onClick={(e) => { e.stopPropagation(); setClForm((v) => !v); }} className="text-xs px-2 py-0.5 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] text-parchment">{clForm ? L('取消', 'Cancel') : L('＋ 发布', '+ Post')}</button>}
       </div>
       {clForm && clAdmin && (
-        <div className="px-3 py-2 border-b border-eldritch/15 space-y-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-          <input value={clTitle} onChange={(e) => setClTitle(e.target.value)} placeholder={L('标题', 'Title')} className="w-full px-2.5 py-1.5 rounded-lg bg-ink border border-eldritch/30 text-parchment placeholder:text-parchment/30 text-xs outline-none focus:border-eldritch" />
-          <textarea value={clBody} onChange={(e) => setClBody(e.target.value)} rows={3} placeholder={L('更新内容…', 'Update details…')} className="w-full px-2.5 py-1.5 rounded-lg bg-ink border border-eldritch/30 text-parchment placeholder:text-parchment/30 text-xs outline-none focus:border-eldritch resize-none" />
-          <button onClick={createCl} className="w-full py-1.5 rounded-lg bg-eldritch/60 hover:bg-eldritch text-parchment text-xs">{L('发布更新', 'Publish')}</button>
+        <div className="px-3 py-2 border-b border-white/10 space-y-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+          <input value={clTitle} onChange={(e) => setClTitle(e.target.value)} placeholder={L('标题', 'Title')} className="w-full px-2.5 py-1.5 rounded-xl bg-[#0e0f13] border border-white/10 text-parchment placeholder:text-parchment/30 text-xs outline-none focus:border-[#c9a96e]/50" />
+          <textarea value={clBody} onChange={(e) => setClBody(e.target.value)} rows={3} placeholder={L('更新内容…', 'Update details…')} className="w-full px-2.5 py-1.5 rounded-xl bg-[#0e0f13] border border-white/10 text-parchment placeholder:text-parchment/30 text-xs outline-none focus:border-[#c9a96e]/50 resize-none" />
+          <button onClick={createCl} className="w-full py-1.5 rounded-xl bg-[#c9a96e]/20 hover:bg-white/10 text-parchment text-xs">{L('发布更新', 'Publish')}</button>
         </div>
       )}
       <div className="flex-1 min-h-0 overflow-y-auto px-3 py-2 space-y-2.5">
         {changelog.length === 0 && <div className="text-xs text-parchment/35 py-8 text-center">{L('暂无更新', 'No updates yet')}</div>}
         {changelog.map((e) => (
-          <div key={e.id} className="border-b border-eldritch/10 pb-2">
+          <div key={e.id} className="border-b border-white/10 pb-2">
             <div className="flex items-center gap-1.5">
-              {e.ts > clSeenTs && <span className="w-1.5 h-1.5 rounded-full bg-blood shrink-0" />}
+              {e.ts > clSeenTs && <span className="w-1.5 h-1.5 rounded-full bg-[#7d1d1d] shrink-0" />}
               <span className="text-sm text-parchment flex-1 min-w-0 truncate">{e.title}</span>
               <span className="text-[10px] text-parchment/35 shrink-0">{ago(e.ts, en)}</span>
-              {clAdmin && <button onClick={(ev) => { ev.stopPropagation(); delCl(e.id); }} className="text-[10px] text-parchment/30 hover:text-blood shrink-0">×</button>}
+              {clAdmin && <button onClick={(ev) => { ev.stopPropagation(); delCl(e.id); }} className="text-[10px] text-parchment/30 hover:text-[#e06060] shrink-0">×</button>}
             </div>
             {e.body && <div className="text-xs text-parchment/65 whitespace-pre-wrap mt-0.5 leading-snug">{e.body}</div>}
           </div>
@@ -522,19 +522,19 @@ export default function FriendDock() {
   return (
     <div className={isDesktop ? 'fixed z-40 text-parchment flex flex-col gap-2 w-72 overflow-y-auto' : inRoom ? 'mn-dock-room fixed right-[52px] top-[max(10px,env(safe-area-inset-top))] z-[55] text-parchment flex flex-col items-end' : 'fixed bottom-3 right-3 z-40 text-parchment'} style={isDesktop ? { left: dockPos.x, top: dockPos.y, maxHeight: `calc(100vh - ${dockPos.y + 12}px)` } : undefined}>
       {isDesktop && dockMin ? (
-        <button onClick={() => setDockMin(false)} title="展开社交面板" className="relative w-12 h-12 rounded-full bg-fog/95 border border-eldritch/40 backdrop-blur shadow-xl flex items-center justify-center hover:bg-fog">
+        <button onClick={() => setDockMin(false)} title="展开社交面板" className="relative w-12 h-12 rounded-full bg-[#121318] border border-white/10 backdrop-blur shadow-xl flex items-center justify-center hover:bg-[#121318]">
           {anyOnline && <span className="absolute inset-0 rounded-full border-2 border-green-400/70 animate-ping pointer-events-none" />}
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f2ead9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
-          {(peopleBadge > 0 || clHasNew) && <span className="absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-blood text-[10px] flex items-center justify-center border border-fog">{peopleBadge > 0 ? (peopleBadge > 99 ? '99+' : peopleBadge) : '!'}</span>}
+          {(peopleBadge > 0 || clHasNew) && <span className="absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-[#7d1d1d] text-[10px] flex items-center justify-center border border-fog">{peopleBadge > 0 ? (peopleBadge > 99 ? '99+' : peopleBadge) : '!'}</span>}
         </button>
       ) : (<>
       {(open || isDesktop) && (
-        <div className={`${isDesktop ? 'w-72 max-h-[50%] overflow-y-auto shrink-0' : 'mb-2 w-72 overflow-hidden'} rounded-2xl border border-eldritch/30 bg-fog/95 backdrop-blur shadow-2xl`}>
-          <div onPointerDown={startDrag} onPointerMove={onDragMove} onPointerUp={endDrag} className={`flex items-center gap-2 px-3 py-2 border-b border-eldritch/20 sticky top-0 bg-fog/95 backdrop-blur z-10 ${isDesktop ? 'cursor-move touch-none' : ''}`} title={isDesktop ? '按住拖动面板' : undefined}>
+        <div className={`${isDesktop ? 'w-72 max-h-[50%] overflow-y-auto shrink-0' : 'mb-2 w-72 overflow-hidden'} rounded-2xl border border-white/10 bg-[#121318] backdrop-blur shadow-2xl`}>
+          <div onPointerDown={startDrag} onPointerMove={onDragMove} onPointerUp={endDrag} className={`flex items-center gap-2 px-3 py-2 border-b border-white/10 sticky top-0 bg-[#121318] backdrop-blur z-10 ${isDesktop ? 'cursor-move touch-none' : ''}`} title={isDesktop ? '按住拖动面板' : undefined}>
             {isDesktop && <svg width="11" height="11" viewBox="0 0 10 16" fill="currentColor" className="text-parchment/40 shrink-0"><circle cx="2" cy="3" r="1.3" /><circle cx="8" cy="3" r="1.3" /><circle cx="2" cy="8" r="1.3" /><circle cx="8" cy="8" r="1.3" /><circle cx="2" cy="13" r="1.3" /><circle cx="8" cy="13" r="1.3" /></svg>}
             <div className="flex gap-3 text-sm flex-1 min-w-0">
-              {isDesktop && showFriends && <button onClick={() => setTab('messages')} className={tab === 'messages' ? 'text-parchment font-medium' : 'text-parchment/40 hover:text-parchment'}>{L('消息', 'Messages')}{unseen > 0 && <span className="text-blood"> · {unseen}</span>}</button>}
-              {showFriends && <button onClick={() => { setTab('friends'); setPeer(null); }} className={tab === 'friends' ? 'text-parchment font-medium' : 'text-parchment/40 hover:text-parchment'}>{L('好友', 'Friends')}{anyFriendOnline && <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 ml-1 align-middle animate-pulse" />}{graph.incoming.length > 0 && <span className="text-blood"> · {graph.incoming.length}</span>}</button>}
+              {isDesktop && showFriends && <button onClick={() => setTab('messages')} className={tab === 'messages' ? 'text-parchment font-medium' : 'text-parchment/40 hover:text-parchment'}>{L('消息', 'Messages')}{unseen > 0 && <span className="text-[#e06060]"> · {unseen}</span>}</button>}
+              {showFriends && <button onClick={() => { setTab('friends'); setPeer(null); }} className={tab === 'friends' ? 'text-parchment font-medium' : 'text-parchment/40 hover:text-parchment'}>{L('好友', 'Friends')}{anyFriendOnline && <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 ml-1 align-middle animate-pulse" />}{graph.incoming.length > 0 && <span className="text-[#e06060]"> · {graph.incoming.length}</span>}</button>}
               {showOnline && <button onClick={() => setTab('online')} className={tab === 'online' ? 'text-parchment font-medium' : 'text-parchment/40 hover:text-parchment'}>{L('在线', 'Online')}{people.length > 0 && <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 ml-1 align-middle animate-pulse" />}{people.length > 0 && <span className="text-green-400"> {people.length}</span>}</button>}
               {showPlayers && <button onClick={() => { setTab('players'); setPeer(null); if (dir === null) loadDir(); }} className={tab === 'players' ? 'text-parchment font-medium' : 'text-parchment/40 hover:text-parchment'}>{L('玩家', 'Players')}{Object.keys(lobbyById).length > 0 && <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 ml-1 align-middle animate-pulse" />}</button>}
             </div>
@@ -545,39 +545,39 @@ export default function FriendDock() {
           {tab === 'friends' && showFriends && (
             <>
               {graph.incoming.length > 0 && (
-                <div className="px-3 py-2 border-b border-eldritch/15 space-y-1.5">
-                  <div className="text-[11px] text-blood/90">{L('好友请求', 'Friend requests')}</div>
+                <div className="px-3 py-2 border-b border-white/10 space-y-1.5">
+                  <div className="text-[11px] text-[#e06060]">{L('好友请求', 'Friend requests')}</div>
                   {graph.incoming.map((r) => (
                     <div key={r.id} className="flex items-center gap-2 text-sm">
                       <span className="truncate flex-1">{r.name}</span>
-                      <button onClick={() => respondReq(r.id, true)} className="text-xs px-2 py-0.5 rounded bg-green-700/70 hover:bg-green-700 text-parchment shrink-0">{L('同意', 'Accept')}</button>
-                      <button onClick={() => respondReq(r.id, false)} className="text-xs px-2 py-0.5 rounded bg-ink/70 border border-eldritch/30 text-parchment/60 shrink-0">{L('拒绝', 'Decline')}</button>
+                      <button onClick={() => respondReq(r.id, true)} className="text-xs px-2 py-0.5 rounded-xl bg-green-700/70 hover:bg-green-700 text-parchment shrink-0">{L('同意', 'Accept')}</button>
+                      <button onClick={() => respondReq(r.id, false)} className="text-xs px-2 py-0.5 rounded-xl bg-[#0e0f13]/70 border border-white/10 text-parchment/60 shrink-0">{L('拒绝', 'Decline')}</button>
                     </div>
                   ))}
                 </div>
               )}
-              <div className="px-3 py-2 space-y-1.5 border-b border-eldritch/15 max-h-44 overflow-y-auto">
+              <div className="px-3 py-2 space-y-1.5 border-b border-white/10 max-h-44 overflow-y-auto">
                 {roster.length === 0 && graph.friends.length === 0 && <div className="text-xs text-parchment/40 py-1">{L('还没有好友 · 去「玩家」里加好友', 'No friends yet · add from Players')}</div>}
                 {roster.map((email) => { const onl = fOnline[email]; const name = email.split('@')[0];
                   return (<div key={'w' + email} className="flex items-center gap-2 text-sm">
                     <Avatar name={name} online={!!onl} />
                     <span className="truncate flex-1" title={email}>{name}</span>
                     {onl && onl.roomId && onl.roomId !== roomId
-                      ? <button onClick={() => requestJoin(onl.roomId!, name)} className="text-xs px-2 py-0.5 rounded bg-blood/80 hover:bg-blood text-parchment shrink-0">{L('加入', 'Join')}</button>
+                      ? <button onClick={() => requestJoin(onl.roomId!, name)} className="text-xs px-2 py-0.5 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] text-parchment shrink-0">{L('加入', 'Join')}</button>
                       : <span className="text-[10px] text-parchment/40 shrink-0">{onl ? (onl.roomId ? L('同房', 'In room') : L('在线', 'Online')) : L('离线', 'Offline')}</span>}
                   </div>); })}
                 {graph.friends.map((f) => { const lob = lobbyById[f.id]; const onl = !!lob || comps.some((c) => c.id === f.id) || !!(f as any).bot;
                   if ((f as any).bot || comps.some((c) => c.id === f.id)) return (<div key={'g' + f.id} className="flex items-center gap-2 text-sm">
                     <Avatar url={f.avatar} name={f.name} online />
                     <div className="flex-1 min-w-0 leading-tight"><div className="truncate">{f.name}</div><div className="text-[10px] text-green-400/80 truncate">💬 {L('Linger 好友', 'Linger friend')}</div></div>
-                    <button onClick={() => openThread(f.id, f.name)} className="text-xs px-2 py-0.5 rounded bg-blood/80 hover:bg-blood text-parchment shrink-0">{L('私聊', 'Chat')}</button>
+                    <button onClick={() => openThread(f.id, f.name)} className="text-xs px-2 py-0.5 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] text-parchment shrink-0">{L('私聊', 'Chat')}</button>
                   </div>);
                   return (<div key={'g' + f.id} className="flex items-center gap-2 text-sm">
                     <Avatar url={f.avatar} name={f.name} online={onl} />
                     <div className="flex-1 min-w-0 leading-tight"><div className="truncate">{f.name}</div>{(lobbyById[f.id]?.loc || f.loc) && <div className="text-[10px] text-parchment/35 truncate">📍 {lobbyById[f.id]?.loc || f.loc}</div>}</div>
-                    {onl && lob!.roomId && lob!.roomId !== roomId && <button onClick={() => requestJoin(lob!.roomId!, f.name)} className="text-[10px] px-2 py-0.5 rounded bg-eldritch/40 text-parchment/70 shrink-0">{L('加入', 'Join')}</button>}
-                    {(!onl || !lob!.roomId) && <button onClick={() => invitePlay({ uid: lob?.uid, userId: f.id, name: f.name, online: onl })} className="text-[10px] px-2 py-0.5 rounded bg-eldritch/40 text-parchment/70 hover:bg-eldritch shrink-0">{L('邀请', 'Invite')}</button>}
-                    {onl ? <button onClick={() => openDm({ uid: lob!.uid, name: f.name, roomId: lob!.roomId, userId: f.id })} className="text-xs px-2 py-0.5 rounded bg-blood/80 hover:bg-blood text-parchment shrink-0">{L('私聊', 'Chat')}</button> : <span className="text-[10px] text-parchment/40 shrink-0">{L('离线', 'Offline')}</span>}
+                    {onl && lob!.roomId && lob!.roomId !== roomId && <button onClick={() => requestJoin(lob!.roomId!, f.name)} className="text-[10px] px-2 py-0.5 rounded-xl bg-white/[0.06] text-parchment/70 shrink-0">{L('加入', 'Join')}</button>}
+                    {(!onl || !lob!.roomId) && <button onClick={() => invitePlay({ uid: lob?.uid, userId: f.id, name: f.name, online: onl })} className="text-[10px] px-2 py-0.5 rounded-xl bg-white/[0.06] text-parchment/70 hover:bg-white/10 shrink-0">{L('邀请', 'Invite')}</button>}
+                    {onl ? <button onClick={() => openDm({ uid: lob!.uid, name: f.name, roomId: lob!.roomId, userId: f.id })} className="text-xs px-2 py-0.5 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] text-parchment shrink-0">{L('私聊', 'Chat')}</button> : <span className="text-[10px] text-parchment/40 shrink-0">{L('离线', 'Offline')}</span>}
                   </div>); })}
               </div>
             </>
@@ -589,7 +589,7 @@ export default function FriendDock() {
                 <div key={'lc' + c.id} className="flex items-center gap-2 text-sm py-1">
                   <Avatar url={c.avatar} name={c.name} online />
                   <div className="flex-1 min-w-0 leading-tight"><div className="truncate">{c.name}</div><div className="text-[10px] text-green-400/80 truncate">💬 {L('你的 Linger 好友', 'Your Linger friend')}</div></div>
-                  <button onClick={() => openThread(c.id, c.name)} className="text-xs px-2 py-0.5 rounded bg-blood/80 hover:bg-blood text-parchment shrink-0">{L('私聊', 'Chat')}</button>
+                  <button onClick={() => openThread(c.id, c.name)} className="text-xs px-2 py-0.5 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] text-parchment shrink-0">{L('私聊', 'Chat')}</button>
                 </div>
               ))}
               {people.length === 0 && comps.length === 0 && <div className="text-xs text-parchment/40 py-8 text-center">{L('现在没有其他人在线', 'No one else online now')}</div>}
@@ -597,9 +597,9 @@ export default function FriendDock() {
                 <div key={p.uid} className="flex items-center gap-2 text-sm py-1">
                   <Avatar url={p.avatar} name={p.name} online />
                   <div className="flex-1 min-w-0 leading-tight"><div className="truncate">{p.name}</div>{(() => { const md = (p.userId && playing[p.userId]?.mode) || p.mode; const rid = (p.userId && playing[p.userId]?.roomId) || p.roomId; return (rid && md) ? <div className="text-[10px] text-green-400/80 truncate">🎮 {L('正在玩 ', 'Playing ')}{MODE_LABEL[md] ? (en ? MODE_LABEL[md].en : MODE_LABEL[md].zh) : md}</div> : p.loc ? <div className="text-[10px] text-parchment/35 truncate">📍 {p.loc}</div> : null; })()}</div>
-                  {(() => { const rid = (p.userId && playing[p.userId]?.roomId) || p.roomId; return rid && rid !== roomId ? <button onClick={() => requestJoin(rid, p.name)} className="text-[10px] px-2 py-0.5 rounded bg-eldritch/40 text-parchment/70 shrink-0">{L('加入', 'Join')}</button> : null; })()}
-                  {(() => { const rid = (p.userId && playing[p.userId]?.roomId) || p.roomId; return !rid ? <button onClick={() => invitePlay({ uid: p.uid, userId: p.userId, name: p.name, online: true })} className="text-[10px] px-2 py-0.5 rounded bg-eldritch/40 text-parchment/70 hover:bg-eldritch shrink-0">{L('邀请', 'Invite')}</button> : null; })()}
-                  <button onClick={() => openDm(p)} className="text-xs px-2 py-0.5 rounded bg-blood/80 hover:bg-blood text-parchment shrink-0">{L('私聊', 'Chat')}</button>
+                  {(() => { const rid = (p.userId && playing[p.userId]?.roomId) || p.roomId; return rid && rid !== roomId ? <button onClick={() => requestJoin(rid, p.name)} className="text-[10px] px-2 py-0.5 rounded-xl bg-white/[0.06] text-parchment/70 shrink-0">{L('加入', 'Join')}</button> : null; })()}
+                  {(() => { const rid = (p.userId && playing[p.userId]?.roomId) || p.roomId; return !rid ? <button onClick={() => invitePlay({ uid: p.uid, userId: p.userId, name: p.name, online: true })} className="text-[10px] px-2 py-0.5 rounded-xl bg-white/[0.06] text-parchment/70 hover:bg-white/10 shrink-0">{L('邀请', 'Invite')}</button> : null; })()}
+                  <button onClick={() => openDm(p)} className="text-xs px-2 py-0.5 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] text-parchment shrink-0">{L('私聊', 'Chat')}</button>
                 </div>
               ))}
             </div>
@@ -614,13 +614,13 @@ export default function FriendDock() {
             const blocked = gated && (threadGated || sent >= 1);
             const rel = pid && (friendIds.has(pid) || comps.some((c) => c.id === pid)) ? 'friend' : pid && outIds.has(pid) ? 'out' : pid && inIds.has(pid) ? 'in' : 'none';
             const addBtn = rel === 'none'
-              ? <button onClick={() => pid && addFriend(pid)} className="text-xs px-2 py-0.5 rounded bg-eldritch/50 hover:bg-eldritch text-parchment shrink-0">{L('加好友', 'Add friend')}</button>
+              ? <button onClick={() => pid && addFriend(pid)} className="text-xs px-2 py-0.5 rounded-xl bg-white/[0.06] hover:bg-white/10 text-parchment shrink-0">{L('加好友', 'Add friend')}</button>
               : rel === 'out' ? <span className="text-[10px] text-parchment/40 shrink-0">{L('待通过', 'Pending')}</span>
-              : rel === 'in' ? <button onClick={() => pid && respondReq(pid, true)} className="text-xs px-2 py-0.5 rounded bg-green-700/70 hover:bg-green-700 text-parchment shrink-0">{L('同意', 'Accept')}</button>
+              : rel === 'in' ? <button onClick={() => pid && respondReq(pid, true)} className="text-xs px-2 py-0.5 rounded-xl bg-green-700/70 hover:bg-green-700 text-parchment shrink-0">{L('同意', 'Accept')}</button>
               : <span className="text-[10px] text-green-400 shrink-0">{L('好友', 'Friend')}</span>;
             return (
             <>
-              <div className="flex items-center gap-2 px-3 py-2 border-b border-eldritch/15 text-sm">
+              <div className="flex items-center gap-2 px-3 py-2 border-b border-white/10 text-sm">
                 <button onClick={() => setPeer(null)} className="text-parchment/50 hover:text-parchment">←</button>
                 <span className="truncate flex-1">{peer.name}</span>
                 {gated && addBtn}
@@ -646,8 +646,8 @@ export default function FriendDock() {
                 return (<div key={pp.id} className="flex items-center gap-2 text-sm py-1">
                   <button onClick={() => openProfile(pp.id)} title={L('查看资料', 'View profile')} className="relative shrink-0">
                     {pp.avatar
-                      ? <img src={pp.avatar} alt="" className="w-7 h-7 rounded-full object-cover border border-eldritch/30" />
-                      : <span className="w-7 h-7 rounded-full bg-eldritch/40 flex items-center justify-center text-[11px] text-parchment">{pp.name.slice(0, 1).toUpperCase()}</span>}
+                      ? <img src={pp.avatar} alt="" className="w-7 h-7 rounded-full object-cover border border-white/10" />
+                      : <span className="w-7 h-7 rounded-full bg-white/[0.06] flex items-center justify-center text-[11px] text-parchment">{pp.name.slice(0, 1).toUpperCase()}</span>}
                     {online && <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400 border-2 border-fog" />}
                   </button>
                   <button onClick={() => openProfile(pp.id)} className="flex-1 min-w-0 leading-tight text-left">
@@ -657,12 +657,12 @@ export default function FriendDock() {
                   </button>
                   {rel === '好友' ? <span className="text-[10px] text-green-400 shrink-0">{L('好友', 'Friend')}</span>
                     : rel === '待通过' ? <span className="text-[10px] text-parchment/40 shrink-0">{L('待通过', 'Pending')}</span>
-                    : rel === 'incoming' ? <button onClick={() => respondReq(pp.id, true)} className="text-xs px-2 py-0.5 rounded bg-green-700/70 hover:bg-green-700 text-parchment shrink-0">{L('同意', 'Accept')}</button>
-                    : <button onClick={() => addFriend(pp.id)} className="text-xs px-1.5 py-0.5 rounded bg-eldritch/50 hover:bg-eldritch text-parchment shrink-0">{as || L('加好友', 'Add')}</button>}
-                  <button onClick={() => openThread(pp.id, pp.name)} className="text-xs px-1.5 py-0.5 rounded bg-eldritch/40 hover:bg-eldritch text-parchment shrink-0">{L('私聊', 'Chat')}</button>
+                    : rel === 'incoming' ? <button onClick={() => respondReq(pp.id, true)} className="text-xs px-2 py-0.5 rounded-xl bg-green-700/70 hover:bg-green-700 text-parchment shrink-0">{L('同意', 'Accept')}</button>
+                    : <button onClick={() => addFriend(pp.id)} className="text-xs px-1.5 py-0.5 rounded-xl bg-white/[0.06] hover:bg-white/10 text-parchment shrink-0">{as || L('加好友', 'Add')}</button>}
+                  <button onClick={() => openThread(pp.id, pp.name)} className="text-xs px-1.5 py-0.5 rounded-xl bg-white/[0.06] hover:bg-white/10 text-parchment shrink-0">{L('私聊', 'Chat')}</button>
                   {st === 'ok' ? <span className="text-[10px] text-green-400 shrink-0">{L('✓邀请', '✓ Invited')}</span>
                     : st === 'sending' ? <span className="text-[10px] text-parchment/40 shrink-0">…</span>
-                    : <button onClick={() => invite(pp.id)} className="text-xs px-2 py-0.5 rounded bg-blood/80 hover:bg-blood text-parchment shrink-0" title={L('邮件邀请一起玩', 'Email invite to play')}>{st && st !== 'ok' ? st : L('邀请', 'Invite')}</button>}
+                    : <button onClick={() => invite(pp.id)} className="text-xs px-2 py-0.5 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] text-parchment shrink-0" title={L('邮件邀请一起玩', 'Email invite to play')}>{st && st !== 'ok' ? st : L('邀请', 'Invite')}</button>}
                 </div>); })}
             </div>
           )}
@@ -673,8 +673,8 @@ export default function FriendDock() {
       {isDesktop && changelogBody}
 
       {!isDesktop && bellOpen && (
-        <div className="mb-2 w-64 rounded-2xl border border-eldritch/30 bg-fog/95 backdrop-blur shadow-2xl overflow-hidden">
-          <div className="flex items-center justify-between px-3 py-2 border-b border-eldritch/20 text-sm">
+        <div className="mb-2 w-64 rounded-2xl border border-white/10 bg-[#121318] backdrop-blur shadow-2xl overflow-hidden">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-white/10 text-sm">
             <span className="text-parchment/80">{L('消息', 'Messages')}</span>
             <button onClick={() => setBellOpen(false)} className="text-parchment/50 hover:text-parchment text-base leading-none px-1">–</button>
           </div>
@@ -687,8 +687,8 @@ export default function FriendDock() {
         const rel = pid && friendIds.has(pid) ? 'friend' : pid && outIds.has(pid) ? 'out' : pid && inIds.has(pid) ? 'in' : 'none';
         return (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setProfile(null)}>
-          <div className="w-full max-w-sm rounded-2xl bg-fog border border-eldritch/40 shadow-2xl overflow-hidden text-parchment" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-eldritch/20">
+          <div className="w-full max-w-sm rounded-2xl bg-[#121318] border border-white/10 shadow-2xl overflow-hidden text-parchment" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/10">
               <span className="text-sm text-parchment/70">{L('玩家资料', 'Player profile')}</span>
               <button onClick={() => setProfile(null)} className="text-parchment/50 hover:text-parchment text-base leading-none px-1">✕</button>
             </div>
@@ -697,19 +697,19 @@ export default function FriendDock() {
             : (<div className="px-4 py-4">
                 <div className="flex items-center gap-3 mb-3">
                   {profile.avatar
-                    ? <img src={profile.avatar} alt="" className="w-14 h-14 rounded-full object-cover border border-eldritch/40" />
-                    : <span className="w-14 h-14 rounded-full bg-eldritch/40 flex items-center justify-center text-xl">{String(profile.name).slice(0, 1).toUpperCase()}</span>}
+                    ? <img src={profile.avatar} alt="" className="w-14 h-14 rounded-full object-cover border border-white/10" />
+                    : <span className="w-14 h-14 rounded-full bg-white/[0.06] flex items-center justify-center text-xl">{String(profile.name).slice(0, 1).toUpperCase()}</span>}
                   <div className="min-w-0">
                     <div className="text-lg font-serif truncate">{profile.name}</div>
                     <div className="text-[11px] text-parchment/40">{profile.lastSeen ? L('最近在线 ', 'Last seen ') + ago(profile.lastSeen, en) : L('从未上线', 'Never online')}{profile.joinedAt ? L(' · 加入于 ', ' · joined ') + new Date(profile.joinedAt).toLocaleDateString() : ''}</div>
                   </div>
                 </div>
-                {profile.bio && <div className="text-sm text-parchment/75 bg-ink/40 border border-eldritch/20 rounded-lg px-3 py-2 mb-3 whitespace-pre-wrap">{profile.bio}</div>}
+                {profile.bio && <div className="text-sm text-parchment/75 bg-[#0e0f13]/40 border border-white/10 rounded-xl px-3 py-2 mb-3 whitespace-pre-wrap">{profile.bio}</div>}
                 <div className="text-xs text-parchment/50 mb-1.5">{L('玩过的游戏 · 共 ', 'Games played · ')}{profile.gamesPlayed}{L(' 局', ' total')}</div>
                 <div className="max-h-40 overflow-y-auto space-y-1 mb-3">
                   {(!profile.games || profile.games.length === 0) && <div className="text-xs text-parchment/35 py-2">{L('还没有游戏记录', 'No game history')}</div>}
                   {(profile.games || []).map((g: any, i: number) => (
-                    <div key={i} className="flex items-center justify-between text-xs border-b border-eldritch/10 py-1">
+                    <div key={i} className="flex items-center justify-between text-xs border-b border-white/10 py-1">
                       <span className="text-parchment/80">{en ? (MODE_EN[g.mode] || g.modeName) : g.modeName}{g.ended ? '' : L(' ·进行中', ' · ongoing')}</span>
                       <span className="text-parchment/35">{new Date(g.ts).toLocaleDateString()}</span>
                     </div>
@@ -718,9 +718,9 @@ export default function FriendDock() {
                 <div className="flex gap-2">
                   {rel === 'friend' ? <span className="flex-1 text-center text-xs text-green-400 py-2">{L('已是好友', 'Already friends')}</span>
                     : rel === 'out' ? <span className="flex-1 text-center text-xs text-parchment/40 py-2">{L('好友请求待通过', 'Request pending')}</span>
-                    : rel === 'in' ? <button onClick={() => pid && (respondReq(pid, true), setProfile(null))} className="flex-1 py-2 rounded bg-green-700/70 hover:bg-green-700 text-sm">{L('同意好友', 'Accept')}</button>
-                    : <button onClick={() => pid && addFriend(pid)} className="flex-1 py-2 rounded bg-eldritch/50 hover:bg-eldritch text-sm">{L('加好友', 'Add friend')}</button>}
-                  <button onClick={() => { if (pid) { openThread(pid, profile.name); setProfile(null); } }} className="flex-1 py-2 rounded bg-blood/80 hover:bg-blood text-sm">{L('私聊', 'Chat')}</button>
+                    : rel === 'in' ? <button onClick={() => pid && (respondReq(pid, true), setProfile(null))} className="flex-1 py-2 rounded-xl bg-green-700/70 hover:bg-green-700 text-sm">{L('同意好友', 'Accept')}</button>
+                    : <button onClick={() => pid && addFriend(pid)} className="flex-1 py-2 rounded-xl bg-white/[0.06] hover:bg-white/10 text-sm">{L('加好友', 'Add friend')}</button>}
+                  <button onClick={() => { if (pid) { openThread(pid, profile.name); setProfile(null); } }} className="flex-1 py-2 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] text-sm">{L('私聊', 'Chat')}</button>
                 </div>
               </div>)}
           </div>
@@ -730,63 +730,63 @@ export default function FriendDock() {
       {!isDesktop && clOpen && <div className="mb-2">{changelogBody}</div>}
 
       {!isDesktop && <div className={inRoom ? 'flex items-center gap-2' : 'flex items-center gap-2 justify-end'}>
-        {!inRoom && <button onClick={toggleCl} title={L('更新公告', "What's new")} className="relative w-10 h-10 rounded-full bg-fog/95 border border-eldritch/40 backdrop-blur shadow-xl flex items-center justify-center hover:bg-fog">
+        {!inRoom && <button onClick={toggleCl} title={L('更新公告', "What's new")} className="relative w-10 h-10 rounded-full bg-[#121318] border border-white/10 backdrop-blur shadow-xl flex items-center justify-center hover:bg-[#121318]">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#f2ead9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z" /><line x1="9" y1="13" x2="15" y2="13" /><line x1="9" y1="17" x2="13" y2="17" /></svg>
-          {clHasNew && <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-blood border-2 border-fog" />}
+          {clHasNew && <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-[#7d1d1d] border-2 border-fog" />}
         </button>}
         {showLfg && !inRoom && (
-          <button onClick={toggleLfg} title={L('找队友', 'Find players')} className="relative w-10 h-10 rounded-full bg-fog/95 border border-eldritch/40 backdrop-blur shadow-xl flex items-center justify-center hover:bg-fog">
+          <button onClick={toggleLfg} title={L('找队友', 'Find players')} className="relative w-10 h-10 rounded-full bg-[#121318] border border-white/10 backdrop-blur shadow-xl flex items-center justify-center hover:bg-[#121318]">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f2ead9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 11l18-5v12L3 14z" /><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" /></svg>
           </button>
         )}
         {showFriends && (
-          <button onClick={toggleBell} title={L('消息', 'Messages')} className="relative w-10 h-10 rounded-full bg-fog/95 border border-eldritch/40 backdrop-blur shadow-xl flex items-center justify-center hover:bg-fog">
+          <button onClick={toggleBell} title={L('消息', 'Messages')} className="relative w-10 h-10 rounded-full bg-[#121318] border border-white/10 backdrop-blur shadow-xl flex items-center justify-center hover:bg-[#121318]">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f2ead9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
-            {unseen > 0 && <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-blood text-[10px] flex items-center justify-center">{unseen}</span>}
+            {unseen > 0 && <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-[#7d1d1d] text-[10px] flex items-center justify-center">{unseen}</span>}
           </button>
         )}
-        <button onClick={toggleDock} title={L('好友 / 在线 / 玩家', 'Friends / Online / Players')} className="relative w-12 h-12 rounded-full bg-fog/95 border border-eldritch/40 backdrop-blur shadow-xl flex items-center justify-center hover:bg-fog">
+        <button onClick={toggleDock} title={L('好友 / 在线 / 玩家', 'Friends / Online / Players')} className="relative w-12 h-12 rounded-full bg-[#121318] border border-white/10 backdrop-blur shadow-xl flex items-center justify-center hover:bg-[#121318]">
           {anyOnline && <span className="absolute inset-0 rounded-full border-2 border-green-400/70 animate-ping pointer-events-none" />}
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f2ead9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
-          {peopleBadge > 0 && <span className="absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-blood text-[10px] font-medium flex items-center justify-center border border-fog">{peopleBadge > 99 ? '99+' : peopleBadge}</span>}
+          {peopleBadge > 0 && <span className="absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-[#7d1d1d] text-[10px] font-medium flex items-center justify-center border border-fog">{peopleBadge > 99 ? '99+' : peopleBadge}</span>}
         </button>
       </div>}
       </>)}
       {knockOut && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setKnockOut(null)}>
-          <div onClick={(e) => e.stopPropagation()} className="w-72 rounded-2xl border border-eldritch/40 bg-fog/95 shadow-2xl p-5 text-center">
+          <div onClick={(e) => e.stopPropagation()} className="w-72 rounded-2xl border border-white/10 bg-[#121318] shadow-2xl p-5 text-center">
             <div className="text-3xl mb-2 animate-pulse">🚪</div>
             <div className="text-sm text-parchment/85">{en ? `Asking ${knockOut.name} to let you in…` : `正在申请加入 ${knockOut.name} 的房间…`}</div>
             <div className="text-xs text-parchment/45 mt-1">{en ? 'Waiting for them to accept' : '等待对方同意'}</div>
-            <button onClick={() => setKnockOut(null)} className="mt-4 w-full py-2 rounded-lg bg-ink/70 border border-eldritch/30 text-parchment/70 text-sm hover:bg-ink">{L('取消等待', 'Cancel')}</button>
+            <button onClick={() => setKnockOut(null)} className="mt-4 w-full py-2 rounded-xl bg-[#0e0f13]/70 border border-white/10 text-parchment/70 text-sm hover:bg-[#0e0f13]">{L('取消等待', 'Cancel')}</button>
           </div>
         </div>
       )}
       {knockIn && (
         <div className="fixed inset-0 z-[121] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="w-72 rounded-2xl border border-blood/40 bg-fog/95 shadow-2xl p-5 text-center">
+          <div className="w-72 rounded-2xl border border-[#a83232]/40 bg-[#121318] shadow-2xl p-5 text-center">
             <div className="text-3xl mb-2">✋</div>
             <div className="text-sm text-parchment/90"><b>{knockIn.fromName}</b>{en ? ' wants to join your room' : ' 申请加入你的房间'}</div>
             <div className="flex gap-2 mt-4">
-              <button disabled={knockBusy} onClick={() => replyKnock(false)} className="flex-1 py-2 rounded-lg bg-ink/70 border border-eldritch/30 text-parchment/70 text-sm hover:bg-ink disabled:opacity-40">{L('拒绝', 'Decline')}</button>
-              <button disabled={knockBusy} onClick={() => replyKnock(true)} className="flex-1 py-2 rounded-lg bg-green-700/80 hover:bg-green-700 text-parchment text-sm disabled:opacity-40">{knockBusy ? L('处理中…', '…') : L('同意', 'Accept')}</button>
+              <button disabled={knockBusy} onClick={() => replyKnock(false)} className="flex-1 py-2 rounded-xl bg-[#0e0f13]/70 border border-white/10 text-parchment/70 text-sm hover:bg-[#0e0f13] disabled:opacity-40">{L('拒绝', 'Decline')}</button>
+              <button disabled={knockBusy} onClick={() => replyKnock(true)} className="flex-1 py-2 rounded-xl bg-green-700/80 hover:bg-green-700 text-parchment text-sm disabled:opacity-40">{knockBusy ? L('处理中…', '…') : L('同意', 'Accept')}</button>
             </div>
           </div>
         </div>
       )}
       {playInvite && (
         <div className="fixed inset-0 z-[121] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="w-72 rounded-2xl border border-blood/40 bg-fog/95 shadow-2xl p-5 text-center">
+          <div className="w-72 rounded-2xl border border-[#a83232]/40 bg-[#121318] shadow-2xl p-5 text-center">
             <div className="text-3xl mb-2">🎲</div>
             <div className="text-sm text-parchment/90"><b>{playInvite.fromName}</b>{en ? ' invites you to play' : ' 邀请你一起玩'}{playInvite.mode && MODE_LABEL[playInvite.mode] ? ' · ' + (en ? MODE_LABEL[playInvite.mode].en : MODE_LABEL[playInvite.mode].zh) : ''}</div>
             <div className="flex gap-2 mt-4">
-              <button disabled={piBusy} onClick={() => setPlayInvite(null)} className="flex-1 py-2 rounded-lg bg-ink/70 border border-eldritch/30 text-parchment/70 text-sm hover:bg-ink disabled:opacity-40">{L('稍后', 'Later')}</button>
-              <button disabled={piBusy} onClick={acceptPlayInvite} className="flex-1 py-2 rounded-lg bg-green-700/80 hover:bg-green-700 text-parchment text-sm disabled:opacity-40">{piBusy ? L('加入中…', '…') : L('加入', 'Join')}</button>
+              <button disabled={piBusy} onClick={() => setPlayInvite(null)} className="flex-1 py-2 rounded-xl bg-[#0e0f13]/70 border border-white/10 text-parchment/70 text-sm hover:bg-[#0e0f13] disabled:opacity-40">{L('稍后', 'Later')}</button>
+              <button disabled={piBusy} onClick={acceptPlayInvite} className="flex-1 py-2 rounded-xl bg-green-700/80 hover:bg-green-700 text-parchment text-sm disabled:opacity-40">{piBusy ? L('加入中…', '…') : L('加入', 'Join')}</button>
             </div>
           </div>
         </div>
       )}
-      {tip && <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[130] px-4 py-2 rounded-full bg-ink border border-eldritch/40 text-parchment text-sm shadow-xl">{tip}</div>}
+      {tip && <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[130] px-4 py-2 rounded-full bg-[#0e0f13] border border-white/10 text-parchment text-sm shadow-xl">{tip}</div>}
     </div>
   );
 }

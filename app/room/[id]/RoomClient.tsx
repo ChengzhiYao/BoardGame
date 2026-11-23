@@ -144,7 +144,7 @@ export default function RoomClient(props: {
   function SeatBadge({ p, label }: { p?: Player; label: string }) {
     const isOnline = p ? !!online[p.user_id] : false;
     return (
-      <div className="flex items-center gap-2 px-3 py-1.5 rounded bg-fog border border-eldritch/30">
+      <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#121318] border border-white/10">
         <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-400' : 'bg-parchment/30'}`} />
         <span className="text-sm text-parchment/80">
           {label}：{p ? nameOfUser(p.user_id) : '空席（等待加入）'}
@@ -157,10 +157,10 @@ export default function RoomClient(props: {
   return (
     <main className="min-h-screen flex flex-col">
       {/* 顶栏 */}
-      <header className="mn-header flex flex-wrap items-center justify-between gap-3 px-5 py-3 border-b border-eldritch/20">
+      <header className="mn-header flex flex-wrap items-center justify-between gap-3 px-5 py-3 border-b border-white/10">
         <div className="flex items-center gap-3">
           <span className="font-serif text-lg text-parchment">{props.room.name}</span>
-          <span className="text-xs px-2 py-0.5 rounded bg-eldritch/20 text-parchment/60">
+          <span className="text-xs px-2 py-0.5 rounded-xl bg-white/[0.06] text-parchment/60">
             {statusLabel(props.room.status)}
           </span>
         </div>
@@ -172,9 +172,9 @@ export default function RoomClient(props: {
 
       {/* 邀请条（仅在还没满员时显示） */}
       {!seatB && (
-        <div className="flex flex-wrap items-center gap-3 px-5 py-2 bg-fog/60 border-b border-eldritch/10">
+        <div className="flex flex-wrap items-center gap-3 px-5 py-2 bg-[#121318] border-b border-white/10">
           <span className="text-sm text-parchment/70">把邀请链接发给同伴：</span>
-          <code className="text-xs px-2 py-1 rounded bg-ink border border-eldritch/30 text-eldritch break-all">
+          <code className="text-xs px-2 py-1 rounded-xl bg-[#0e0f13] border border-white/10 text-[#c9a96e] break-all">
             {inviteUrl}
           </code>
           <button
@@ -183,7 +183,7 @@ export default function RoomClient(props: {
               setCopied(true);
               setTimeout(() => setCopied(false), 1500);
             }}
-            className="text-xs px-3 py-1 rounded bg-eldritch/40 hover:bg-eldritch/70 text-parchment"
+            className="text-xs px-3 py-1 rounded-xl bg-white/[0.06] hover:bg-[#c9a96e]/20 text-parchment"
           >
             {copied ? '已复制' : '复制链接'}
           </button>
@@ -215,7 +215,7 @@ export default function RoomClient(props: {
         {thinking && (
           <div className="flex flex-col items-start">
             <span className="text-xs text-parchment/40 mb-1">守秘人</span>
-            <div className="px-4 py-2 rounded-lg bg-fog border border-eldritch/30 text-parchment/50 italic">
+            <div className="px-4 py-2 rounded-xl bg-[#121318] border border-white/10 text-parchment/50 italic">
               守秘人正在凝视着深渊……
             </div>
           </div>
@@ -224,11 +224,11 @@ export default function RoomClient(props: {
       </section>
 
       {/* 底栏：行动类型 + 输入 */}
-      <footer className="mn-composer px-5 py-3 border-t border-eldritch/20 flex items-center gap-2">
+      <footer className="mn-composer px-5 py-3 border-t border-white/10 flex items-center gap-2">
         <select
           value={action}
           onChange={(e) => setAction(e.target.value)}
-          className="px-2 py-2 rounded bg-fog border border-eldritch/30 text-parchment text-sm"
+          className="px-2 py-2 rounded-xl bg-[#121318] border border-white/10 text-parchment text-sm"
         >
           {Object.entries(ACTIONS).map(([k, v]) => (
             <option key={k} value={k}>
@@ -242,12 +242,12 @@ export default function RoomClient(props: {
           onKeyDown={(e) => e.key === 'Enter' && send()}
           placeholder={props.myPlayerId ? '描述你的行动…' : '你不在这个房间里'}
           disabled={!props.myPlayerId}
-          className="flex-1 px-4 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch disabled:opacity-50"
+          className="flex-1 px-4 py-2 rounded-xl bg-[#121318] border border-white/10 text-parchment placeholder:text-parchment/30 outline-none focus:border-[#c9a96e]/50 disabled:opacity-50"
         />
         <button
           onClick={send}
           disabled={!props.myPlayerId}
-          className="px-5 py-2 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-50"
+          className="px-5 py-2 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] text-parchment border border-[#a83232]/60 disabled:opacity-50"
         >
           发送
         </button>
@@ -274,10 +274,10 @@ function Bubble({
         {action ? ` · ${action}` : ''}
       </span>
       <div
-        className={`max-w-[75%] px-4 py-2 rounded-lg leading-relaxed ${
+        className={`max-w-[75%] px-4 py-2 rounded-xl leading-relaxed ${
           mine
-            ? 'bg-blood/30 border border-blood/40'
-            : 'bg-fog border border-eldritch/30'
+            ? 'bg-[#7d1d1d]/30 border border-[#a83232]/40'
+            : 'bg-[#121318] border border-white/10'
         } text-parchment/90`}
       >
         {content}

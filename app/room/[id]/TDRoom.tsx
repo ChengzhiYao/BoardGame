@@ -77,17 +77,21 @@ export default function TDRoom(props: ShellProps) {
   async function draw(kind: 'truth' | 'dare') { await call('/api/td/draw', { roomId: props.room.id, kind, ai: aiMode }); }
 
   if (!playing) {
-    const FIELD = 'w-full px-3 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch';
+    const FIELD = 'w-full px-3 py-2 rounded-xl bg-[#121318] border border-white/10 text-parchment placeholder:text-parchment/30 outline-none focus:border-[#c9a96e]/50';
     return (
       <main className="min-h-[100svh] flex flex-col items-center justify-center gap-5 px-6 py-8">
-        <h1 className="text-2xl font-serif text-parchment">{en ? 'Truth or Dare' : '真心话大冒险'} · {props.room.name}</h1>
+        <div className="text-center">
+          <div className="text-[10.5px] tracking-[.45em] pl-[.45em] text-[#f29ac0]/85">{en ? 'ALWAYS FREE' : '永 久 免 费'}</div>
+          <h1 className="mt-3 font-serif font-semibold text-[28px] text-[#efe6d2]">{en ? 'Truth or Dare' : '真心话大冒险'}</h1>
+          <p className="mt-2 font-serif text-[14px] text-parchment/60">{en ? 'AI writes questions that fit your crowd and your room.' : 'AI 按你们的尺度和场合出题，越玩越敢。'}</p>
+        </div>
         <div className="w-full max-w-md space-y-4">
           <div>
             <div className="text-sm text-parchment/70 mb-2">{en ? 'What to play?' : '玩什么？'}</div>
             <div className="flex gap-2">
               {(['truth', 'dare'] as const).map((k) => (
                 <button key={k} onClick={() => setTypes((p) => ({ ...p, [k]: !p[k] }))}
-                  className={`flex-1 px-4 py-2 rounded text-sm border ${(types as any)[k] ? 'bg-blood/30 border-blood text-parchment' : 'bg-fog border-eldritch/30 text-parchment/60'}`}>{en ? (k === 'truth' ? 'Truth' : 'Dare') : (k === 'truth' ? '真心话' : '大冒险')}</button>
+                  className={`flex-1 px-4 py-2 rounded-xl text-sm border ${(types as any)[k] ? 'bg-[#7d1d1d]/30 border-[#a83232]/60 text-parchment' : 'bg-[#121318] border-white/10 text-parchment/60'}`}>{en ? (k === 'truth' ? 'Truth' : 'Dare') : (k === 'truth' ? '真心话' : '大冒险')}</button>
               ))}
             </div>
           </div>
@@ -107,13 +111,13 @@ export default function TDRoom(props: ShellProps) {
 
           <div className="pt-1 space-y-2 text-center">
             <div className="text-xs text-parchment/50">{en ? 'Playing with others? Send the link:' : '多人一起玩？把链接发给同伴：'}</div>
-            <code className="block text-xs px-3 py-2 rounded bg-fog border border-eldritch/30 text-eldritch break-all">{inviteUrl}</code>
+            <code className="block text-xs px-3 py-2 rounded-xl bg-[#121318] border border-white/10 text-[#c9a96e] break-all">{inviteUrl}</code>
             <button onClick={() => { navigator.clipboard.writeText(inviteUrl); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
-              className="px-4 py-1.5 rounded bg-eldritch/40 hover:bg-eldritch text-parchment text-xs">{copied ? (en ? 'Copied' : '已复制') : (en ? 'Copy invite link' : '复制邀请链接')}</button>
+              className="px-4 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/10 text-parchment text-xs">{copied ? (en ? 'Copied' : '已复制') : (en ? 'Copy invite link' : '复制邀请链接')}</button>
           </div>
 
           <button onClick={startGame} disabled={busy}
-            className="w-full px-6 py-3 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-50">{busy ? (en ? 'Starting…' : '开始中…') : (en ? 'Start' : '开始游戏')}</button>
+            className="w-full px-6 py-3 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] text-parchment border border-[#a83232]/60 disabled:opacity-50">{busy ? (en ? 'Starting…' : '开始中…') : (en ? 'Start' : '开始游戏')}</button>
         </div>
       </main>
     );
@@ -121,7 +125,7 @@ export default function TDRoom(props: ShellProps) {
 
   return (
     <main className="h-[100svh] flex flex-col overflow-hidden">
-      <header className="mn-header px-4 py-3 border-b border-eldritch/20 flex items-center justify-between">
+      <header className="mn-header px-4 py-3 border-b border-white/10 flex items-center justify-between">
         <span className="font-serif text-parchment">{en ? 'Truth or Dare' : '真心话大冒险'} · {props.room.name}</span>
         <span className="text-xs text-parchment/50">{en ? 'Intensity' : '尺度'} {settings.intensity}{settings.environment ? ` · ${settings.environment}` : ''}</span>
       </header>
@@ -129,7 +133,7 @@ export default function TDRoom(props: ShellProps) {
       <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-3 max-w-2xl w-full mx-auto">
         {messages.map((m) => {
           const type = m.payload?.type;
-          if (type === 'td') return <div key={m.id} className="mx-auto max-w-xl rounded-lg bg-blood/15 border border-blood/40 px-4 py-3 text-parchment leading-relaxed">{m.content}</div>;
+          if (type === 'td') return <div key={m.id} className="mx-auto max-w-xl rounded-xl bg-[#7d1d1d]/15 border border-[#a83232]/40 px-4 py-3 text-parchment leading-relaxed">{m.content}</div>;
           if (m.sender_type === 'system') return <div key={m.id} className="text-center text-sm text-parchment/50">{m.content}</div>;
           return <div key={m.id} className="text-center text-sm text-parchment/70">{nameOf(m.sender_player_id)}：{m.content}</div>;
         })}
@@ -137,17 +141,17 @@ export default function TDRoom(props: ShellProps) {
         <div ref={bottomRef} />
       </div>
 
-      <div className="mn-composer border-t border-eldritch/20 px-4 py-3 space-y-2 max-w-2xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+      <div className="mn-composer border-t border-white/10 px-4 py-3 space-y-2 max-w-2xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
         <label className="flex items-center justify-center gap-2 text-xs text-parchment/60">
           <input type="checkbox" checked={aiMode} onChange={(e) => setAiMode(e.target.checked)} />
           {en ? '✨ Let AI write a fresh one for this game’s settings (saved to the pool, free to reuse)' : '✨ 让 AI 按本局设置现编一题（会存进题库，下次免费复用）'}
         </label>
         <div className="flex gap-2">
           {allowed.includes('truth') && (
-            <button onClick={() => draw('truth')} disabled={busy} className="flex-1 px-4 py-3 rounded bg-eldritch/60 hover:bg-eldritch text-parchment disabled:opacity-50">{en ? 'Draw Truth' : '抽真心话'}</button>
+            <button onClick={() => draw('truth')} disabled={busy} className="flex-1 px-4 py-3 rounded-xl bg-[#c9a96e]/20 hover:bg-white/10 text-parchment disabled:opacity-50">{en ? 'Draw Truth' : '抽真心话'}</button>
           )}
           {allowed.includes('dare') && (
-            <button onClick={() => draw('dare')} disabled={busy} className="flex-1 px-4 py-3 rounded bg-blood/70 hover:bg-blood text-parchment disabled:opacity-50">{en ? 'Draw Dare' : '抽大冒险'}</button>
+            <button onClick={() => draw('dare')} disabled={busy} className="flex-1 px-4 py-3 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] text-parchment disabled:opacity-50">{en ? 'Draw Dare' : '抽大冒险'}</button>
           )}
         </div>
       </div>

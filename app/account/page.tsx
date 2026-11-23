@@ -79,7 +79,7 @@ export default function AccountPage() {
   if (!loggedIn) return (
     <main className="min-h-screen flex flex-col items-center justify-center gap-4 text-parchment px-6 text-center">
       <p className="text-parchment/70">{L('请先登录后再编辑账号资料。', 'Please sign in to edit your profile.')}</p>
-      <a href="/" className="px-5 py-2.5 rounded bg-blood/80 hover:bg-blood border border-blood">{L('返回首页', 'Back to home')}</a>
+      <a href="/" className="px-5 py-2.5 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] border border-[#a83232]/60">{L('返回首页', 'Back to home')}</a>
     </main>
   );
 
@@ -93,10 +93,10 @@ export default function AccountPage() {
 
         <div className="flex items-center gap-4 mb-6">
           {avatarUrl
-            ? <img src={avatarUrl} alt="" className="w-20 h-20 rounded-full object-cover border border-eldritch/40" />
-            : <span className="w-20 h-20 rounded-full bg-eldritch/40 flex items-center justify-center text-2xl">{(displayName || email || '?').slice(0, 1).toUpperCase()}</span>}
+            ? <img src={avatarUrl} alt="" className="w-20 h-20 rounded-full object-cover border border-white/10" />
+            : <span className="w-20 h-20 rounded-full bg-white/[0.06] flex items-center justify-center text-2xl">{(displayName || email || '?').slice(0, 1).toUpperCase()}</span>}
           <div>
-            <button onClick={() => fileRef.current?.click()} disabled={uploading} className="px-4 py-2 rounded bg-fog border border-eldritch/40 hover:bg-eldritch/30 text-sm disabled:opacity-50">{uploading ? L('上传中…', 'Uploading…') : L('上传头像', 'Upload avatar')}</button>
+            <button onClick={() => fileRef.current?.click()} disabled={uploading} className="px-4 py-2 rounded-xl bg-[#121318] border border-white/10 hover:bg-white/[0.06] text-sm disabled:opacity-50">{uploading ? L('上传中…', 'Uploading…') : L('上传头像', 'Upload avatar')}</button>
             <input ref={fileRef} type="file" accept="image/*" onChange={onPick} className="hidden" />
             <p className="text-[11px] text-parchment/40 mt-1.5">JPG / PNG / GIF, ≤ 3MB</p>
           </div>
@@ -104,15 +104,15 @@ export default function AccountPage() {
 
         <label className="block text-sm text-parchment/60 mb-1">{L('昵称', 'Display name')}</label>
         <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={40}
-          className="w-full px-3 py-2.5 rounded bg-fog border border-eldritch/40 text-parchment outline-none focus:border-eldritch mb-4" />
+          className="w-full px-3 py-2.5 rounded-xl bg-[#121318] border border-white/10 text-parchment outline-none focus:border-[#c9a96e]/50 mb-4" />
 
         <label className="block text-sm text-parchment/60 mb-1">{L('个性签名', 'Bio')}</label>
         <textarea value={bio} onChange={(e) => setBio(e.target.value)} maxLength={200} rows={3} placeholder={L('写点介绍自己的话…', 'Say something about yourself…')}
-          className="w-full px-3 py-2.5 rounded bg-fog border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch resize-none" />
+          className="w-full px-3 py-2.5 rounded-xl bg-[#121318] border border-white/10 text-parchment placeholder:text-parchment/30 outline-none focus:border-[#c9a96e]/50 resize-none" />
         <div className="text-right text-[11px] text-parchment/30 mb-5">{bio.length}/200</div>
 
         <div className="flex items-center gap-3">
-          <button onClick={save} disabled={saving} className="px-6 py-2.5 rounded bg-blood/80 hover:bg-blood border border-blood disabled:opacity-50">{saving ? L('保存中…', 'Saving…') : L('保存', 'Save')}</button>
+          <button onClick={save} disabled={saving} className="px-6 py-2.5 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] border border-[#a83232]/60 disabled:opacity-50">{saving ? L('保存中…', 'Saving…') : L('保存', 'Save')}</button>
           {msg && <span className="text-sm text-parchment/60">{msg}</span>}
         </div>
 

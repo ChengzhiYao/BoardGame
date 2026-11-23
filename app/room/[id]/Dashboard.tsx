@@ -4,8 +4,8 @@ import MicButton from '@/components/MicButton';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import Stepper from './Stepper';
 import { playSfx } from '@/lib/audio/sfx';
+import { playAnswerSfx } from '@/lib/audio/answerSfx';
 import type { ShellProps } from './RoomShell';
 import { tr } from '@/lib/i18n';
 import { useTTS } from './useTTS';
@@ -220,18 +220,80 @@ export default function Dashboard(props: ShellProps) {
     setUpBusy('');
   }
 
+  const en = EN(lang);
+  const [sheet, setSheet] = useState<null | 'me' | 'clues' | 'goal'>(null);
+  const solo = players.length <= 1;
+  const [mode, setMode] = useState<'act' | 'chat'>('act');
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // 新线索提示：线索数增加时弹一条小卡片
+  const [toast, setToast] = useState<string | null>(null);
+  const clueCount = useRef(props.initialClues.length);
+  useEffect(() => {
+    const n = props.initialClues.length;
+    if (n > clueCount.current) {
+      const c = props.initialClues[n - 1];
+      setToast(c?.title || (en ? 'New clue' : '新线索'));
+      try { playAnswerSfx('right'); } catch {}
+      const id = setTimeout(() => setToast(null), 3800);
+      clueCount.current = n;
+      return () => clearTimeout(id);
+    }
+    clueCount.current = n;
+  }, [props.initialClues, en]);
+
+  // 故事流：消息 + 已画好的场景图，按时间合在一起
+  const stream = (() => {
+    const imgs = doneImages.map((i) => ({ __img: true, ...i }));
+    const all: any[] = [...messages, ...imgs];
+    return all.sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')));
+  })();
+
+  const myOptions: string[] = (() => {
+    if (!guidance) return [];
+    const arr = Array.isArray(guidance.options) ? guidance.options : [];
+    return arr.map((o: any) => typeof o === 'string' ? { for: 'all', text: o } : { for: o.for || 'all', text: o.text || '' })
+      .filter((o: any) => o.text && (o.for === 'all' || o.for === props.mySeat)).map((o: any) => o.text).slice(0, 4);
+  })();
+  const goal = (() => {
+    if (!guidance) return null;
+    const k = props.mySeat === 'A' ? 'a' : props.mySeat === 'B' ? 'b' : '';
+    const g = (k && guidance[k]) || { location: guidance.location, goal: guidance.goal, investigables: guidance.investigables };
+    return g && (g.location || g.goal) ? g : null;
+  })();
+
+  const canAct = !!props.myPlayerId && !myReady && !resolving && !ended && !myOut;
+  function send() {
+    if (mode === 'chat' && !solo) { sendChat(); return; }
+    submitAction(text, action);
+    setAction('free');
+  }
+  function pick(opt: string) {
+    setText(opt); setAction('investigate'); setMode('act');
+    setTimeout(() => { inputRef.current?.focus(); }, 30);
+  }
+  // 输入框自动长高（最多 4 行）
+  useEffect(() => {
+    const el = inputRef.current; if (!el) return;
+    el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 112) + 'px';
+  }, [text]);
+
+  const others = [...players].filter((p) => p.seat !== props.mySeat).sort((a, b) => a.seat.localeCompare(b.seat));
+  const waitingOn = others.filter((p) => !room.pending_actions?.[p.seat]?.content).map((p) => charNameOrUser(p.seat));
+  const clueTotal = props.initialClues.length;
+
   return (
-    <main className="h-[100svh] flex flex-col overflow-hidden">
+    <main className="mn-coc h-[100svh] flex flex-col overflow-hidden">
       {showUpgrade && (
         <div className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowUpgrade(false)}>
-          <div className="w-full max-w-sm rounded-2xl bg-fog border border-eldritch/40 shadow-2xl p-5" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-1"><span className="font-serif text-parchment text-lg">{EN(lang) ? 'Unlock scene art' : '解锁场景配图'}</span><button onClick={() => setShowUpgrade(false)} className="text-parchment/50 hover:text-parchment px-2">✕</button></div>
-            <p className="text-parchment/55 text-sm mb-4">{EN(lang) ? 'Membership turns on AI scene images for this game and all your games — unlimited. Upgrade now and keep playing this very session.' : '开通会员即可为本局(以及你所有对局)无限生成 AI 场景配图。立即升级,不用重开,这一局马上就能出图。'}</p>
+          <div className="w-full max-w-sm rounded-2xl bg-[#121318] border border-[#c9a96e]/25 shadow-2xl p-5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-1"><span className="font-serif text-[#efe6d2] text-lg">{en ? 'Unlock scene art' : '解锁场景配图'}</span><button onClick={() => setShowUpgrade(false)} className="text-parchment/50 hover:text-parchment px-2">✕</button></div>
+            <p className="text-parchment/55 text-sm mb-4">{en ? 'Membership turns on AI scene images for this game and all your games — unlimited. Upgrade now and keep playing this very session.' : '开通会员即可为本局(以及你所有对局)无限生成 AI 场景配图。立即升级,不用重开,这一局马上就能出图。'}</p>
             <div className="space-y-2">
-              <button onClick={() => upgrade('monthly')} disabled={!!upBusy} className="w-full py-3 rounded-lg bg-blood/80 hover:bg-blood border border-blood text-parchment disabled:opacity-40 flex items-center justify-between px-4"><span>{EN(lang) ? 'Monthly' : '月费会员'}</span><span className="font-serif">$10<span className="text-parchment/50 text-xs">/mo</span></span></button>
-              <button onClick={() => upgrade('yearly')} disabled={!!upBusy} className="w-full py-3 rounded-lg bg-fog border border-eldritch/50 hover:bg-eldritch/30 text-parchment disabled:opacity-40 flex items-center justify-between px-4"><span>{EN(lang) ? 'Yearly · save 50%' : '年费会员 · 省 50%'}</span><span className="font-serif">$60<span className="text-parchment/50 text-xs">/yr</span></span></button>
+              <button onClick={() => upgrade('monthly')} disabled={!!upBusy} className="w-full py-3 rounded-xl bg-[#7d1d1d] border border-[#a83232]/60 text-[#f2ead9] disabled:opacity-40 flex items-center justify-between px-4"><span>{en ? 'Monthly' : '月费会员'}</span><span className="font-serif">$10<span className="text-parchment/50 text-xs">/mo</span></span></button>
+              <button onClick={() => upgrade('yearly')} disabled={!!upBusy} className="w-full py-3 rounded-xl bg-white/[0.04] border border-white/10 text-parchment disabled:opacity-40 flex items-center justify-between px-4"><span>{en ? 'Yearly · save 50%' : '年费会员 · 省 50%'}</span><span className="font-serif">$60<span className="text-parchment/50 text-xs">/yr</span></span></button>
             </div>
-            <p className="text-[11px] text-parchment/35 mt-3">{EN(lang) ? 'Paid via Stripe. You return here right after.' : '通过 Stripe 安全支付,付完自动回到本局。'}</p>
+            <p className="text-[11px] text-parchment/35 mt-3">{en ? 'Paid via Stripe. You return here right after.' : '通过 Stripe 安全支付,付完自动回到本局。'}</p>
           </div>
         </div>
       )}
@@ -244,224 +306,374 @@ export default function Dashboard(props: ShellProps) {
         onLoad={() => { try { sceneRef.current?.contentWindow?.postMessage({ type: 'scene', state: scene3d }, '*'); } catch {} }}
         className="fixed inset-0 w-full h-full border-0 pointer-events-none -z-10"
       />
-      <Stepper current={props.room.game_state} lang={lang} />
+      {/* 压暗背景，让文字始终好读 */}
+      <div aria-hidden className="fixed inset-0 -z-[5] pointer-events-none bg-[radial-gradient(120%_80%_at_50%_30%,rgba(11,12,15,.35),rgba(11,12,15,.88))]" />
 
-      {ended && <EndedBanner roomId={props.room.id} lang={lang} isHost={props.userId === props.room.host_user_id} />}
-
-      <div className="flex items-center justify-between px-4 py-2 text-xs text-parchment/50 border-b border-eldritch/10">
-        <span>{t('dash_round', { n: props.room.current_round || 1 })}</span>
-        <SuspicionMeter value={props.room.suspicion || 0} lang={lang} />
-        <span>{t('dash_img_budget')} {props.room.image_used}/{props.room.image_budget}</span>
-      </div>
-      <WorldClock clock={props.room.world_clock} round={props.room.current_round || 1} lang={lang} />
-
-      <div className="lg:hidden flex border-b border-eldritch/15 text-sm">
-        {(['story', 'chars', 'clues'] as const).map((k) => (
-          <button key={k} onClick={() => setMobileTab(k)}
-            className={`flex-1 py-2.5 ${mobileTab === k ? 'bg-blood/25 text-parchment border-b-2 border-blood' : 'text-parchment/50'}`}>
-            {t(`tab_${k}`)}
+      {/* ── 顶部：我的状态（一行） ── */}
+      <header className="shrink-0 px-3" style={{ paddingTop: 'calc(max(10px, env(safe-area-inset-top)) + 50px)' }}>
+        <div className="mx-auto max-w-2xl flex items-center gap-2.5 h-14 px-2.5 rounded-2xl bg-[#0e0f13]/70 backdrop-blur-md border border-white/[0.07]">
+          <button onClick={() => setSheet('me')} className="flex items-center gap-2.5 min-w-0 flex-1 text-left">
+            <Avatar char={myChar} size={38} />
+            <span className="min-w-0 flex-1">
+              <span className="block text-[13.5px] text-[#efe6d2] font-serif truncate leading-tight">{myChar?.name || (en ? 'You' : '你')}</span>
+              <span className="mt-1 flex items-center gap-2">
+                <MiniBar v={myChar?.hp_current} m={myChar?.hp_max} c="#b3413d" label="HP" />
+                <MiniBar v={myChar?.san_current} m={myChar?.san_max} c="#5aa39a" label="SAN" />
+              </span>
+            </span>
           </button>
-        ))}
-      </div>
+          <span className="w-px h-7 bg-white/10" />
+          <Suspicion value={room.suspicion || 0} en={en} />
+          <button onClick={() => setSheet('clues')} className="relative h-10 pl-2.5 pr-3 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center gap-1.5 text-[12.5px] text-[#d8c7a8]">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="6.5" /><path d="M20 20l-4.2-4.2" /></svg>
+            {en ? 'Clues' : '线索'}
+            <span className={`min-w-[18px] h-[18px] px-1 rounded-full text-[10.5px] flex items-center justify-center ${clueTotal ? 'bg-[#c9a96e] text-[#14110b]' : 'bg-white/10 text-parchment/50'} ${toast ? 'mn-ping' : ''}`}>{clueTotal}</span>
+          </button>
+        </div>
+        <Clock clock={room.world_clock} round={room.current_round || 1} en={en} />
+      </header>
 
-      <div className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-[260px_1fr_300px] overflow-hidden">
-        <aside className={`border-r border-eldritch/15 p-3 space-y-3 overflow-y-auto min-h-0 lg:block ${mobileTab === 'chars' ? 'block flex-1' : 'hidden'}`}>
-          {[...players].sort((a, b) => a.seat.localeCompare(b.seat)).map((p) => (
-            <CharacterCard key={p.seat} seat={p.seat} char={charOfSeat(p.seat)} name={nameOfUser(p?.user_id)} online={!!online[p?.user_id as string]} lang={lang} />
-          ))}
-        </aside>
+      {toast && (
+        <button onClick={() => { setToast(null); setSheet('clues'); }} className="fixed left-1/2 -translate-x-1/2 z-[55] nf-in max-w-[86vw] flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-[#17140d]/95 border border-[#c9a96e]/40 shadow-[0_10px_40px_rgba(0,0,0,.6)]" style={{ top: 'calc(max(10px, env(safe-area-inset-top)) + 118px)' }}>
+          <span className="text-[#c9a96e] text-[11px] tracking-[.2em] shrink-0">{en ? 'NEW CLUE' : '新线索'}</span>
+          <span className="text-[13.5px] text-[#efe6d2] truncate">{toast}</span>
+        </button>
+      )}
 
-        <section className={`flex-col overflow-hidden min-h-0 lg:flex ${mobileTab === 'story' ? 'flex flex-1' : 'hidden'}`}>
-          <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-3">
-            {messages.map((m) => (
-              <MessageRow key={m.id} m={m} mine={m.sender_player_id === props.myPlayerId}
-                seat={playerById(m.sender_player_id)?.seat} who={nameOfUser(playerById(m.sender_player_id)?.user_id)} lang={lang} />
-            ))}
-            {(thinking || resolving) && <div className="text-center text-parchment/40 italic text-sm">{t('resolving')}</div>}
-            {!ended && guidance && (
-              <GuidanceBlock g={guidance} mySeat={props.mySeat} lang={lang} disabled={!props.myPlayerId || myReady || resolving || myOut} onPick={(opt) => submitAction(opt, 'investigate')} />
-            )}
-            {!ended && !guidance && !resolving && (
-              <div className="mx-auto max-w-2xl text-center text-sm text-parchment/45 italic border border-eldritch/20 rounded-lg px-4 py-3">
-                {t('guide_hint')}
+      {/* ── 故事 ── */}
+      <section className="flex-1 min-h-0 overflow-y-auto mn-fade-top">
+        <div className="mx-auto max-w-2xl px-4 pt-5 pb-6 space-y-4">
+          <div className="text-center text-[11px] tracking-[.3em] text-parchment/30">{en ? `ROUND ${room.current_round || 1}` : `第 ${room.current_round || 1} 回合`}</div>
+          {stream.map((m) => m.__img
+            ? <SceneImage key={'i' + m.id} img={m} en={en} />
+            : <MessageRow key={m.id} m={m} mine={m.sender_player_id === props.myPlayerId}
+                seat={playerById(m.sender_player_id)?.seat} who={charNameOrUser(playerById(m.sender_player_id)?.seat || '')} lang={lang} />
+          )}
+          {(thinking || resolving) && <KeeperTyping en={en} />}
+          <div ref={bottomRef} className="h-1" />
+        </div>
+      </section>
+
+      {/* ── 底部：行动 ── */}
+      <footer className="shrink-0 px-3 pt-2 bg-gradient-to-t from-[#0b0c0f] via-[#0b0c0f]/95 to-[#0b0c0f]/0" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
+        <div className="mx-auto max-w-2xl space-y-2">
+          {ended ? (
+            <EndedBanner roomId={props.room.id} lang={lang} isHost={props.userId === props.room.host_user_id} />
+          ) : myOut ? (
+            <div className="rounded-2xl border border-[#a83232]/40 bg-[#2a0e0e]/60 px-4 py-3.5 text-center text-[13.5px] text-[#e8b4b4]">{t('out_notice')}</div>
+          ) : myReady ? (
+            <div className="rounded-2xl border border-[#c9a96e]/25 bg-[#14120d]/85 backdrop-blur px-4 py-3">
+              <div className="flex items-center gap-2 text-[11px] tracking-[.18em] text-[#c9a96e]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#c9a96e] animate-pulse" />
+                {resolving ? (en ? 'THE KEEPER IS TELLING WHAT HAPPENS' : '守秘人正在讲述后果') : waitingOn.length ? (en ? `WAITING FOR ${waitingOn.join(', ')}` : `等 ${waitingOn.join('、')} 行动`) : (en ? 'SENT TO THE KEEPER' : '已交给守秘人')}
               </div>
-            )}
-            <div ref={bottomRef} />
-          </div>
-
-          <div className="mn-composer border-t border-eldritch/20 px-4 py-3 space-y-2 shrink-0" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
-            <RoundStatus room={room} players={players} nameOfSeat={charNameOrUser} lang={lang} />
-
-            {myOut && !ended ? (
-              <div className="text-center text-sm text-blood py-1">{t('out_notice')}</div>
-            ) : myReady && !ended ? (
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-eldritch shrink-0">{t('submitted')}</span>
-                <span className="flex-1 text-parchment/80 truncate">{myPending}</span>
-                <button onClick={withdrawAction} disabled={resolving}
-                  className="px-3 py-1.5 rounded bg-fog border border-parchment/30 text-parchment/80 text-xs disabled:opacity-40">
-                  {resolving ? t('resolving_short') : t('withdraw')}
-                </button>
+              <div className="mt-1.5 flex items-start gap-3">
+                <p className="flex-1 text-[14px] text-[#efe6d2]/90 leading-relaxed">{myPending}</p>
+                {!resolving && <button onClick={withdrawAction} className="shrink-0 text-[12.5px] text-parchment/55 hover:text-parchment underline underline-offset-4 decoration-parchment/25">{t('withdraw')}</button>}
               </div>
-            ) : (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className={`text-xs px-2 py-1 rounded ${props.mySeat === 'A' ? 'bg-eldritch/30' : 'bg-blood/30'} text-parchment shrink-0`}>{t('you')} · {props.mySeat}</span>
-                  <select value={action} onChange={(e) => setAction(e.target.value)} disabled={ended}
-                    className="px-2 py-2 rounded bg-fog border border-eldritch/30 text-parchment text-sm disabled:opacity-40 shrink-0">
-                    {['investigate', 'talk', 'combat', 'move', 'free'].map((k) => <option key={k} value={k}>{ACT(lang, k)}</option>)}
-                  </select>
-                  <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submitFromInput()}
-                    placeholder={ended ? t('ended_input_ph') : t('input_ph')} disabled={!props.myPlayerId || ended}
-                    className="flex-1 min-w-0 px-4 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch disabled:opacity-50" /> <MicButton value={text} onChange={setText} en={EN(lang)} compact={false} />
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={sendChat} disabled={!props.myPlayerId || ended}
-                    className="flex-1 px-3 py-2 rounded bg-fog border border-eldritch/40 text-parchment text-sm hover:bg-eldritch/20 disabled:opacity-50">{t('btn_chat')}</button>
-                  <button onClick={submitFromInput} disabled={!props.myPlayerId || thinking || resolving || ended}
-                    className="flex-1 px-4 py-2 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-50">{t('btn_submit')}</button>
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
-
-        <aside className={`border-l border-eldritch/15 p-3 space-y-4 overflow-y-auto min-h-0 lg:block ${mobileTab === 'clues' ? 'block flex-1' : 'hidden'}`}>
-          <Panel title={t('panel_scene')}>
-            {suggestedImages.map((img) => (
-              <div key={img.id} className="mb-3 p-2 rounded bg-fog border border-eldritch/40">
-                <div className="text-xs text-eldritch mb-1">{EN(lang) ? 'Suggested image · ' : '建议配图 · '}{IMG_TYPE[EN(lang) ? 'en' : 'zh'][img.image_type] || IMG_TYPE[EN(lang) ? 'en' : 'zh'].scene_image}</div>
-                <div className="text-[11px] text-parchment/50 mb-2 line-clamp-3">{img.prompt}</div>
-                <button onClick={() => makeImage(img.id)} disabled={genImg === img.id || img.status === 'generating'}
-                  className="w-full px-3 py-1.5 rounded bg-eldritch/50 hover:bg-eldritch text-parchment text-xs disabled:opacity-50">
-                  {genImg === img.id || img.status === 'generating' ? (EN(lang) ? 'Generating…' : '出图中…') : img.status === 'failed' ? (EN(lang) ? 'Retry' : '重试出图') : (EN(lang) ? 'Generate this image' : '生成这张配图')}
-                </button>
-              </div>
-            ))}
-            {doneImages.length === 0 && suggestedImages.length === 0 && <Empty text={t('scene_empty')} />}
-            <div className="space-y-2">
-              {doneImages.map((img) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img key={img.id} src={img.storage_url} alt="" className="rounded border border-eldritch/30 w-full" />
-              ))}
             </div>
-          </Panel>
+          ) : (
+            <>
+              {goal && (
+                <button onClick={() => setSheet('goal')} className="w-full flex items-center gap-2 px-1 text-left text-[12.5px] text-parchment/55">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#c9a96e" strokeWidth="2" strokeLinecap="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z" /><circle cx="12" cy="9.5" r="2.4" /></svg>
+                  <span className="truncate"><span className="text-[#d8c7a8]/85">{goal.location}</span>{goal.goal ? <span className="text-parchment/40"> · {goal.goal}</span> : null}</span>
+                </button>
+              )}
+              {myOptions.length > 0 && (
+                <div className="-mx-3 px-3 flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {myOptions.map((o, i) => (
+                    <button key={i} onClick={() => pick(o)} disabled={!canAct}
+                      className={`shrink-0 h-9 px-3.5 rounded-full border text-[13px] whitespace-nowrap transition disabled:opacity-40 ${text === o ? 'border-[#c9a96e]/70 bg-[#c9a96e]/15 text-[#efe6d2]' : 'border-white/12 bg-white/[0.04] text-[#d8c7a8]/85 hover:border-[#c9a96e]/40'}`}>
+                      {o}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="flex items-end gap-2">
+                {!solo && (
+                  <button onClick={() => setMode(mode === 'act' ? 'chat' : 'act')} title={en ? 'Switch: act / talk to party' : '切换：行动 / 对队友说'}
+                    className={`shrink-0 h-12 w-12 rounded-2xl border flex flex-col items-center justify-center text-[10px] gap-0.5 ${mode === 'act' ? 'border-[#a83232]/50 bg-[#7d1d1d]/30 text-[#f2d6d6]' : 'border-[#5aa39a]/50 bg-[#5aa39a]/15 text-[#cfe9e4]'}`}>
+                    {mode === 'act'
+                      ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 19l9-9M14 5l5 5-3 3-5-5z" /></svg>
+                      : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5h16v11H9l-5 4z" /></svg>}
+                    {mode === 'act' ? (en ? 'Act' : '行动') : (en ? 'Party' : '队内')}
+                  </button>
+                )}
+                <div className={`flex-1 min-w-0 flex items-end rounded-2xl border bg-[#0f1014]/90 backdrop-blur pl-4 pr-1.5 py-1.5 transition ${mode === 'chat' && !solo ? 'border-[#5aa39a]/35' : 'border-white/[0.12] focus-within:border-[#c9a96e]/50'}`}>
+                  <textarea ref={inputRef} rows={1} value={text} onChange={(e) => setText(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !(e.nativeEvent as any).isComposing) { e.preventDefault(); send(); } }}
+                    placeholder={mode === 'chat' && !solo ? (en ? 'Say something to the party…' : '对队友说……') : (en ? 'What do you do?' : '你要做什么？')}
+                    disabled={!props.myPlayerId || (mode === 'act' && !canAct)}
+                    style={{ resize: 'none' }} className="flex-1 min-w-0 resize-none bg-transparent py-[7px] text-[15px] leading-[22px] text-[#efe6d2] placeholder:text-parchment/35 outline-none disabled:opacity-50" />
+                  <MicButton value={text} onChange={setText} en={en} compact />
+                </div>
+                <button onClick={send} disabled={!text.trim() || (mode === 'act' && !canAct) || thinking} aria-label={en ? 'Send' : '发送'}
+                  className="shrink-0 h-12 w-12 rounded-2xl bg-[#7d1d1d] border border-[#a83232]/60 text-[#f2ead9] flex items-center justify-center disabled:opacity-35 enabled:shadow-[0_0_22px_rgba(168,50,50,.35)]">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5.5 11.5L12 5l6.5 6.5" /></svg>
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </footer>
 
-          <Panel title={t('panel_clue')}>
-            {props.initialClues.length === 0 ? <Empty text={t('clue_empty')} /> : (
-              <ClueBoard clues={props.initialClues} roomId={props.room.id} lang={lang} />
+      {/* ── 抽屉 ── */}
+      <Sheet open={sheet === 'me'} onClose={() => setSheet(null)} title={en ? 'Investigators' : '调查员'}>
+        <div className="space-y-3">
+          {[...players].sort((a, b) => (a.seat === props.mySeat ? -1 : b.seat === props.mySeat ? 1 : a.seat.localeCompare(b.seat))).map((p) => (
+            <CharacterCard key={p.seat} char={charOfSeat(p.seat)} name={nameOfUser(p?.user_id)} online={!!online[p?.user_id as string]} me={p.seat === props.mySeat} lang={lang} />
+          ))}
+        </div>
+      </Sheet>
+      <Sheet open={sheet === 'goal'} onClose={() => setSheet(null)} title={en ? 'Where you are' : '你现在'}>
+        {goal && (
+          <div className="space-y-4 text-[14px]">
+            <Field k={en ? 'Location' : '位置'} v={goal.location} />
+            <Field k={en ? 'Goal' : '目标'} v={goal.goal} />
+            {Array.isArray(goal.investigables) && goal.investigables.length > 0 && (
+              <div>
+                <div className="text-[11px] tracking-[.2em] text-[#c9a96e]/80 mb-2">{en ? 'WORTH A LOOK' : '身边值得查的'}</div>
+                <div className="flex flex-wrap gap-2">{goal.investigables.map((x: string, i: number) => (
+                  <button key={i} onClick={() => { pick((en ? 'Examine ' : '仔细查看') + x); setSheet(null); }} className="px-3 py-1.5 rounded-full border border-white/12 bg-white/[0.04] text-[13px] text-[#d8c7a8]">{x}</button>
+                ))}</div>
+              </div>
             )}
-          </Panel>
-
-          <Panel title={t('panel_npc')}>
-            {props.initialNpcs.length === 0 ? <Empty text={t('npc_empty')} /> : (
-              <ul className="space-y-1">
+            <p className="text-[12.5px] text-parchment/40 leading-relaxed">{en ? 'Suggestions are only a nudge — type anything you want to do.' : '建议只是提示——你想做什么都可以直接打字或说出来。'}</p>
+          </div>
+        )}
+      </Sheet>
+      <Sheet open={sheet === 'clues'} onClose={() => setSheet(null)} title={en ? 'Casebook' : '调查笔记'}>
+        <div className="space-y-6">
+          {doneImages.length > 0 && (
+            <div>
+              <SheetLabel>{en ? 'Scenes' : '现场'}</SheetLabel>
+              <div className="grid grid-cols-2 gap-2">
+                {doneImages.map((img) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img key={img.id} src={img.storage_url} alt="" className="rounded-xl border border-white/10 w-full aspect-square object-cover" />
+                ))}
+              </div>
+            </div>
+          )}
+          <div>
+            <SheetLabel>{en ? 'Clues' : '线索'}</SheetLabel>
+            {props.initialClues.length === 0 ? <p className="text-[13px] text-parchment/35">{t('clue_empty')}</p> : <ClueBoard clues={props.initialClues} roomId={props.room.id} lang={lang} />}
+          </div>
+          {props.initialNpcs.length > 0 && (
+            <div>
+              <SheetLabel>{en ? 'People met' : '遇到的人'}</SheetLabel>
+              <ul className="space-y-2">
                 {props.initialNpcs.map((n) => (
-                  <li key={n.id} className="text-sm text-parchment/80">{n.name} <span className="text-parchment/40 text-xs">{n.role}</span></li>
+                  <li key={n.id} className="flex items-baseline gap-2 text-[14px] text-[#efe6d2]/90">{n.name}<span className="text-parchment/40 text-[12px]">{n.role}</span></li>
                 ))}
               </ul>
-            )}
-          </Panel>
-        </aside>
-      </div>
+            </div>
+          )}
+          {suggestedImages.some((i) => i.status === 'failed') && (
+            <div>
+              <SheetLabel>{en ? 'Scene art' : '配图'}</SheetLabel>
+              {suggestedImages.filter((i) => i.status === 'failed').map((img) => (
+                <button key={img.id} onClick={() => makeImage(img.id)} disabled={genImg === img.id} className="w-full mb-2 px-3 py-2 rounded-xl border border-white/10 text-[12.5px] text-parchment/70 text-left disabled:opacity-50">
+                  {genImg === img.id ? (en ? 'Drawing…' : '正在画…') : (en ? 'Retry: ' : '重画：') + (IMG_TYPE[en ? 'en' : 'zh'][img.image_type] || '')}
+                </button>
+              ))}
+            </div>
+          )}
+          <p className="text-[11.5px] text-parchment/30">{t('dash_img_budget')} {room.image_used}/{room.image_budget}</p>
+        </div>
+      </Sheet>
     </main>
   );
 }
 
+function Avatar({ char, size }: { char: any; size: number }) {
+  return (
+    <span className="relative shrink-0 rounded-full overflow-hidden border border-[#c9a96e]/40 bg-[#c9a96e]/[0.07] flex items-end justify-center" style={{ width: size, height: size }}>
+      {char?.avatar_url
+        // eslint-disable-next-line @next/next/no-img-element
+        ? <img src={char.avatar_url} alt="" className="w-full h-full object-cover" />
+        : <svg width={size * 0.8} height={size * 0.8} viewBox="0 0 24 24" fill="rgba(216,199,168,.22)"><circle cx="12" cy="9" r="4.2" /><path d="M3.5 22c.8-4.6 4.3-7.2 8.5-7.2s7.7 2.6 8.5 7.2z" /></svg>}
+    </span>
+  );
+}
+
+function MiniBar({ v, m, c, label }: { v?: number; m?: number; c: string; label: string }) {
+  const pct = m ? Math.max(0, Math.min(100, ((v || 0) / m) * 100)) : 0;
+  const low = pct <= 30;
+  return (
+    <span className="flex items-center gap-1.5 min-w-0">
+      <span className="text-[9.5px] tracking-wider text-parchment/40">{label}</span>
+      <span className="w-12 sm:w-16 h-[5px] rounded-full bg-white/10 overflow-hidden"><span className={`block h-full rounded-full transition-[width] duration-700 ${low ? 'animate-pulse' : ''}`} style={{ width: `${pct}%`, background: c }} /></span>
+      <span className={`text-[10.5px] tabular-nums ${low ? 'text-[#e06060]' : 'text-parchment/55'}`}>{v ?? '–'}</span>
+    </span>
+  );
+}
+
+function Suspicion({ value, en }: { value: number; en: boolean }) {
+  const lv = value >= 12 ? 3 : value >= 8 ? 2 : value >= 3 ? 1 : 0;
+  const notes = en ? ['Calm', 'Watched', 'Lockdown', 'Hunted'] : ['平静', '被注意', '封锁', '被追捕'];
+  const color = ['rgba(216,199,168,.45)', '#d6a64a', '#e0773d', '#e04848'][lv];
+  return (
+    <span className="flex flex-col items-center justify-center px-1 shrink-0" title={(en ? 'Suspicion ' : '嫌疑 ') + value}>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" className={lv >= 2 ? 'animate-pulse' : ''}><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z" /><circle cx="12" cy="12" r="2.6" fill={lv ? color : 'none'} /></svg>
+      <span className="text-[9.5px] mt-0.5" style={{ color }}>{notes[lv]}</span>
+    </span>
+  );
+}
+
+function Clock({ clock, round, en }: { clock: any[]; round: number; en: boolean }) {
+  const ev = (Array.isArray(clock) ? clock : [])
+    .filter((e) => e && !e.fired && !e.hidden && (Number(e.due_round) || 0) >= round)
+    .sort((a, b) => (a.due_round || 0) - (b.due_round || 0))[0];
+  if (!ev) return null;
+  const left = Math.max(0, (ev.due_round || 0) - round);
+  return (
+    <div className="mx-auto max-w-2xl mt-1.5 flex items-center justify-center gap-2 text-[12px] text-[#e3b66a]/85">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="13" r="8" /><path d="M12 9v4l2.5 2M9 2h6" /></svg>
+      <span className="truncate">{ev.label}</span>
+      <span className="text-[#e3b66a]/55 shrink-0">· {left === 0 ? (en ? 'this round' : '就在这回合') : en ? `${left} rounds` : `还剩 ${left} 回合`}</span>
+    </div>
+  );
+}
+
+function KeeperTyping({ en }: { en: boolean }) {
+  return (
+    <div className="flex items-center justify-center gap-2.5 py-3 text-[12.5px] tracking-[.18em] text-[#c9a96e]/75">
+      <span className="flex gap-1">{[0, 1, 2].map((i) => <span key={i} className="w-1.5 h-1.5 rounded-full bg-[#c9a96e]/80 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</span>
+      {en ? 'The Keeper is speaking' : '守秘人正在讲述'}
+    </div>
+  );
+}
+
+function SceneImage({ img, en }: { img: any; en: boolean }) {
+  return (
+    <figure className="nf-in mx-auto max-w-2xl rounded-2xl overflow-hidden border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,.5)]">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={img.storage_url} alt="" className="w-full max-h-[52vh] object-cover" />
+      <figcaption className="px-3 py-1.5 text-[10.5px] tracking-[.22em] text-parchment/40 bg-black/40">{IMG_TYPE[en ? 'en' : 'zh'][img.image_type] || ''}</figcaption>
+    </figure>
+  );
+}
+
+function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
+  useEffect(() => {
+    if (!open) return;
+    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k);
+  }, [open, onClose]);
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[70]" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] mn-fadein" />
+      <div onClick={(e) => e.stopPropagation()}
+        className="mn-sheet absolute inset-x-0 bottom-0 max-h-[84svh] rounded-t-3xl lg:inset-x-auto lg:right-0 lg:top-0 lg:bottom-0 lg:max-h-none lg:w-[400px] lg:rounded-none lg:rounded-l-3xl bg-[#111216] border-t lg:border-t-0 lg:border-l border-white/10 flex flex-col">
+        <div className="shrink-0 pt-2.5 lg:pt-5 px-5">
+          <div className="mx-auto w-10 h-1 rounded-full bg-white/15 lg:hidden" />
+          <div className="mt-3 lg:mt-0 flex items-center justify-between">
+            <h2 className="font-serif text-[18px] text-[#efe6d2] tracking-[.06em]">{title}</h2>
+            <button onClick={onClose} className="w-9 h-9 -mr-2 rounded-full text-parchment/50 hover:text-parchment flex items-center justify-center">✕</button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 pt-3" style={{ paddingBottom: 'max(24px, env(safe-area-inset-bottom))' }}>{children}</div>
+      </div>
+    </div>
+  );
+}
+function SheetLabel({ children }: { children: React.ReactNode }) { return <div className="text-[11px] tracking-[.24em] text-[#c9a96e]/75 mb-2.5">{children}</div>; }
+function Field({ k, v }: { k: string; v?: string }) {
+  if (!v) return null;
+  return <div><div className="text-[11px] tracking-[.2em] text-[#c9a96e]/80 mb-1">{k}</div><div className="text-[#efe6d2]/90 leading-relaxed">{v}</div></div>;
+}
+
 function MessageRow({ m, mine, seat, who, lang }: { m: any; mine: boolean; seat?: string; who: string; lang: string }) {
   const t = tr(lang);
+  const en = EN(lang);
   const type = m.payload?.type;
   if (m.sender_type === 'system' && type === 'ending') {
-    return (
-      <div className="mx-auto max-w-2xl text-center my-2">
-        <Narration text={m.content} lang={lang} fresh={fresh(m)} tone="reveal" label={EN(lang) ? 'Ending' : '结局'} collapse={false} />
-      </div>
-    );
+    return <Narration text={m.content} lang={lang} fresh={fresh(m)} tone="reveal" label={en ? 'Ending' : '结局'} collapse={false} />;
   }
   if (m.sender_type === 'system') {
-    if (type === 'world') {
-      return <div className="mx-auto max-w-2xl text-center text-sm text-amber-400/90 bg-amber-900/15 border border-amber-700/30 rounded px-3 py-1.5">{m.content}</div>;
-    }
     if (type === 'private') {
       return (
-        <div className="mx-auto max-w-2xl rounded-lg bg-blood/10 border border-blood/30 px-4 py-2 text-parchment/85 italic text-sm">
-          <span className="text-[10px] text-blood not-italic">{EN(lang) ? 'Only you · ' : '仅你可见 · '}</span>{m.content}
+        <div className="rounded-2xl bg-[#2a0e0e]/55 border border-[#a83232]/35 px-4 py-3 text-[14px] text-[#efe6d2]/90 leading-relaxed">
+          <div className="text-[10.5px] tracking-[.22em] text-[#e08a8a] mb-1">{en ? 'ONLY YOU' : '只有你知道'}</div>{m.content}
         </div>
       );
     }
-    if (type === 'deduction') {
-      return <div className="mx-auto max-w-2xl text-center text-sm text-emerald-300 bg-emerald-900/15 border border-emerald-700/30 rounded px-3 py-1.5">{m.content}</div>;
-    }
-    const color = type === 'dice' ? 'text-eldritch' : type === 'san' ? 'text-blood' : type === 'combat' ? 'text-red-400' : 'text-parchment/50';
-    return <div className={`text-center text-sm ${color}`}>{m.content}</div>;
+    const st: Record<string, string> = {
+      world: 'text-[#e3b66a] border-[#e3b66a]/25 bg-[#e3b66a]/[0.06]',
+      deduction: 'text-[#8fd3b8] border-[#8fd3b8]/25 bg-[#8fd3b8]/[0.06]',
+      dice: 'text-[#d8c7a8]/80 border-white/10 bg-white/[0.03]',
+      san: 'text-[#9fd0c8] border-[#5aa39a]/30 bg-[#5aa39a]/[0.08]',
+      combat: 'text-[#ef8f8f] border-[#a83232]/30 bg-[#a83232]/[0.08]',
+    };
+    const icon = type === 'dice' ? '⚂ ' : type === 'san' ? '◎ ' : type === 'combat' ? '✕ ' : type === 'deduction' ? '◆ ' : type === 'world' ? '⏳ ' : '';
+    return (
+      <div className="flex justify-center">
+        <span className={`max-w-full px-3.5 py-1.5 rounded-full border text-[12.5px] leading-snug text-center ${st[type] || 'text-parchment/45 border-white/[0.06] bg-transparent'}`}>{icon}{m.content}</span>
+      </div>
+    );
   }
   if (m.sender_type === 'kp') {
-    const st = String(m.payload?.scene_state || '');
-    const tone = /MONSTER|CHASE|COMBAT|FINAL|PARANORMAL|COSMIC|BAD/.test(st) ? 'danger' : /BREAKTHROUGH|TRUTH|CLUE|GOOD/.test(st) ? 'reveal' : 'kp';
+    const sst = String(m.payload?.scene_state || '');
+    const tone = /MONSTER|CHASE|COMBAT|FINAL|PARANORMAL|COSMIC|BAD/.test(sst) ? 'danger' : /BREAKTHROUGH|TRUTH|CLUE|GOOD/.test(sst) ? 'reveal' : 'kp';
     return <Narration text={m.content} lang={lang} fresh={fresh(m)} tone={tone as any} label={t('kp')} />;
   }
-  const isA = seat === 'A';
-  const act = m.action_type && m.action_type !== 'free' ? ACT(lang, m.action_type) : '';
+  const chat = m.action_type === 'chat';
   return (
-    <div className={`flex flex-col ${isA ? 'items-start' : 'items-end'}`}>
-      <span className="text-xs text-parchment/40 mb-1">{who}（{seat}）{act ? ` · ${act}` : ''}{mine ? ` · ${t('you')}` : ''}</span>
-      <div className={`max-w-[80%] px-4 py-2 rounded-lg leading-relaxed text-parchment/90 border ${isA ? 'bg-eldritch/20 border-eldritch/40' : 'bg-blood/25 border-blood/40'}`}>{m.content}</div>
+    <div className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
+      <span className="text-[11px] text-parchment/35 mb-1 px-1">{mine ? (en ? 'You' : '你') : who}{chat ? (en ? ' · to the party' : ' · 对队友') : ''}</span>
+      <div className={`max-w-[86%] px-4 py-2.5 text-[14.5px] leading-relaxed ${chat
+        ? 'rounded-2xl border border-[#5aa39a]/25 bg-[#5aa39a]/[0.08] text-[#d9ece8] italic'
+        : mine ? 'rounded-2xl rounded-br-md border border-[#c9a96e]/30 bg-[#c9a96e]/[0.09] text-[#efe6d2]'
+          : 'rounded-2xl rounded-bl-md border border-white/10 bg-white/[0.04] text-[#efe6d2]/90'}`}>{m.content}</div>
     </div>
   );
 }
 
-function CharacterCard({ seat, char, name, online, lang }: { seat: string; char: any; name: string; online: boolean; lang: string }) {
-  const accent = seat === 'A' ? 'border-eldritch/50' : 'border-blood/50';
+function CharacterCard({ char, name, online, me, lang }: { char: any; name: string; online: boolean; me: boolean; lang: string }) {
+  const en = EN(lang);
   const flags = char?.status_flags || {};
-  const STAT = EN(lang)
-    ? { retired: 'Out', indef: 'Insane', temp: 'Temp. insane', dying: 'Dying', wounded: 'Wounded', ok: 'Normal' }
-    : { retired: '退场', indef: '长期疯狂', temp: '临时疯狂', dying: '濒死', wounded: '受伤', ok: '正常' };
+  const STAT = en
+    ? { retired: 'Out', indef: 'Insane', temp: 'Temp. insane', dying: 'Dying', wounded: 'Wounded', ok: 'Steady' }
+    : { retired: '退场', indef: '长期疯狂', temp: '临时疯狂', dying: '濒死', wounded: '受伤', ok: '尚好' };
   const status = flags.retired ? STAT.retired : flags.indef_insanity ? STAT.indef : flags.temp_insanity ? STAT.temp : flags.dying ? STAT.dying : flags.wounded ? STAT.wounded : STAT.ok;
   return (
-    <div className={`p-3 rounded-lg bg-fog border ${accent}`}>
-      <div className="flex items-center gap-2 mb-2">
-        <div className={`w-10 h-10 rounded-full overflow-hidden border ${accent} bg-ink flex items-center justify-center shrink-0`}>
-          {char?.avatar_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={char.avatar_url} alt="" className="w-full h-full object-cover" />
-          ) : <span className="text-parchment/30 text-xs">{seat}</span>}
+    <div className={`rounded-2xl border p-4 ${me ? 'border-[#c9a96e]/30 bg-[#c9a96e]/[0.05]' : 'border-white/10 bg-white/[0.03]'}`}>
+      <div className="flex items-center gap-3">
+        <span className="relative"><Avatar char={char} size={52} /><span className={`absolute bottom-0.5 right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-[#111216] ${online ? 'bg-[#6fcf8e]' : 'bg-white/25'}`} /></span>
+        <div className="min-w-0 flex-1">
+          <div className="font-serif text-[16px] text-[#efe6d2] truncate">{char?.name || name}{me && <span className="ml-2 text-[11px] text-[#c9a96e]">{en ? 'you' : '你'}</span>}</div>
+          <div className="text-[12.5px] text-parchment/50 truncate">{char?.occupation}{char?.current_location ? ` · ${char.current_location}` : ''}</div>
         </div>
-        <span className="font-serif text-parchment flex-1">{char?.name || name}</span>
-        <span className="flex items-center gap-1 text-xs text-parchment/50">
-          <span className={`w-2 h-2 rounded-full ${online ? 'bg-green-400' : 'bg-parchment/30'}`} />{seat}
-        </span>
+        <span className={`text-[11.5px] px-2 py-0.5 rounded-full border ${status === STAT.ok ? 'border-white/10 text-parchment/50' : 'border-[#a83232]/50 text-[#ef8f8f]'}`}>{status}</span>
       </div>
-      {char ? (
-        <div className="space-y-2 text-xs text-parchment/70">
-          <div>{char.occupation}</div>
-          {char.current_location && <div className="text-eldritch">📍 {char.current_location}</div>}
-          <Bar label="HP" value={char.hp_current} max={char.hp_max} color="bg-blood" />
-          <Bar label="SAN" value={char.san_current} max={char.san_max} color="bg-eldritch" />
-          <div>{EN(lang) ? 'Luck' : '幸运'} {char.luck} ｜ {EN(lang) ? 'Status: ' : '状态：'}<span className={status === STAT.ok ? '' : 'text-blood'}>{status}</span></div>
+      {char && (
+        <div className="mt-3.5 space-y-2.5">
+          <Bar label="HP" v={char.hp_current} m={char.hp_max} c="#b3413d" />
+          <Bar label={en ? 'SAN' : '理智'} v={char.san_current} m={char.san_max} c="#5aa39a" />
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12.5px] text-parchment/55 pt-1">
+            <span>{en ? 'Luck' : '幸运'} <span className="text-[#efe6d2]/80">{char.luck}</span></span>
+            {char.resources && Object.entries(char.resources).map(([k, v]) => <span key={k}>{k} <span className="text-[#efe6d2]/80">{String(v)}</span></span>)}
+          </div>
           {Array.isArray(char.inventory) && char.inventory.length > 0 && (
-            <div className="text-parchment/50">{EN(lang) ? 'Items: ' : '道具：'}{char.inventory.join('、')}</div>
-          )}
-          {char.resources && Object.keys(char.resources).length > 0 && (
-            <div className="text-amber-400/80">{EN(lang) ? 'Resources: ' : '资源：'}{Object.entries(char.resources).map(([k, v]) => `${k} ${v}`).join('　')}</div>
+            <div className="flex flex-wrap gap-1.5 pt-0.5">{char.inventory.map((x: string, i: number) => <span key={i} className="px-2.5 py-1 rounded-lg bg-white/[0.05] border border-white/[0.07] text-[12px] text-parchment/70">{x}</span>)}</div>
           )}
         </div>
-      ) : <div className="text-xs text-parchment/40">{EN(lang) ? 'No character sheet yet' : '尚未创建角色卡'}</div>}
+      )}
     </div>
   );
 }
 
-function Bar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
-  const pct = max ? Math.max(0, Math.min(100, (value / max) * 100)) : 0;
+function Bar({ label, v, m, c }: { label: string; v: number; m: number; c: string }) {
+  const pct = m ? Math.max(0, Math.min(100, (v / m) * 100)) : 0;
   return (
     <div>
-      <div className="flex justify-between text-[10px] text-parchment/50"><span>{label}</span><span>{value}/{max}</span></div>
-      <div className="h-1.5 rounded bg-ink overflow-hidden"><div className={`h-full ${color}`} style={{ width: `${pct}%` }} /></div>
+      <div className="flex justify-between text-[11.5px] text-parchment/50 mb-1"><span>{label}</span><span className="tabular-nums">{v}/{m}</span></div>
+      <div className="h-2 rounded-full bg-white/[0.07] overflow-hidden"><div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${pct}%`, background: c }} /></div>
     </div>
   );
-}
-
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
-  return <div><h3 className="text-xs uppercase tracking-widest text-parchment/40 mb-2">{title}</h3>{children}</div>;
 }
 
 function ClueBoard({ clues, roomId, lang }: { clues: any[]; roomId: string; lang: string }) {
@@ -544,104 +756,6 @@ function ClueBoard({ clues, roomId, lang }: { clues: any[]; roomId: string; lang
         <div className="text-[10px] text-parchment/35">{t('deduce_hint')}</div>
         {msg && <div className="text-xs text-emerald-300/90">{msg}</div>}
       </div>
-    </div>
-  );
-}
-
-function WorldClock({ clock, round, lang }: { clock: any[]; round: number; lang: string }) {
-  const t = tr(lang);
-  const events = (Array.isArray(clock) ? clock : [])
-    .filter((e) => e && !e.fired && !e.hidden && (Number(e.due_round) || 0) >= round)
-    .sort((a, b) => (a.due_round || 0) - (b.due_round || 0))
-    .slice(0, 2);
-  if (!events.length) return null;
-  return (
-    <div className="flex items-center gap-3 px-4 py-1.5 text-xs border-b border-amber-700/20 bg-amber-900/10 text-amber-300/90 overflow-x-auto">
-      <span className="shrink-0">{t('clock_flow')}</span>
-      {events.map((e) => {
-        const left = Math.max(0, (e.due_round || 0) - round);
-        return <span key={e.id} className="shrink-0 text-amber-200/80">· {e.label}（{t('rounds_left', { n: left })}）</span>;
-      })}
-    </div>
-  );
-}
-
-function RoundStatus({ room, players, nameOfSeat, lang }: { room: any; players: any[]; nameOfSeat: (seat: string) => string; lang: string }) {
-  const pending = room.pending_actions || {};
-  const seats = [...(players || [])].map((p) => p.seat).sort();
-  const resolving = room.resolution_status === 'resolving';
-  const submitted = EN(lang) ? 'submitted' : '已提交';
-  const acting = EN(lang) ? 'acting…' : '行动中…';
-  const allIn = seats.length > 0 && seats.every((s) => !!pending[s]?.content);
-  const Pill = ({ ready, name, seat }: { ready: boolean; name: string; seat: string }) => (
-    <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs ${ready ? 'border-green-500/50 text-green-400 bg-green-900/15' : 'border-parchment/20 text-parchment/45'}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${ready ? 'bg-green-400' : 'bg-parchment/30 animate-pulse'}`} />
-      {seat}·{name} {ready ? submitted : acting}
-    </span>
-  );
-  return (
-    <div className="flex items-center justify-center gap-2 flex-wrap">
-      {seats.map((s) => <Pill key={s} ready={!!pending[s]?.content} name={nameOfSeat(s)} seat={s} />)}
-      {resolving ? (
-        <span className="text-xs text-amber-400">{EN(lang) ? 'Keeper is resolving…' : '守秘人结算中…'}</span>
-      ) : allIn ? null : (
-        <span className="text-xs text-parchment/40">{EN(lang) ? 'Resolves once everyone submits' : '所有人都提交后开始结算'}</span>
-      )}
-    </div>
-  );
-}
-
-function SuspicionMeter({ value, lang }: { value: number; lang: string }) {
-  const color = value >= 12 ? 'text-red-500' : value >= 8 ? 'text-orange-400' : value >= 5 ? 'text-amber-400' : value >= 3 ? 'text-yellow-500' : 'text-parchment/50';
-  const notesZh = ['高危', '警察介入', '区域封锁', '有人巡逻', 'NPC警惕', '平静'];
-  const notesEn = ['Critical', 'Police closing in', 'Area locked down', 'Patrols out', 'NPCs wary', 'Calm'];
-  const N = EN(lang) ? notesEn : notesZh;
-  const note = value >= 15 ? N[0] : value >= 12 ? N[1] : value >= 8 ? N[2] : value >= 5 ? N[3] : value >= 3 ? N[4] : N[5];
-  return (
-    <span className={`flex items-center gap-1 ${color}`}>
-      {EN(lang) ? 'Suspicion' : '嫌疑'} {value} · {note}
-    </span>
-  );
-}
-function Empty({ text }: { text: string }) { return <div className="text-xs text-parchment/30 italic">{text}</div>; }
-
-function GuidanceBlock({ g, mySeat, disabled, onPick, lang }: { g: any; mySeat: string | null; disabled: boolean; onPick: (opt: string) => void; lang: string }) {
-  const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
-  const norm = (Array.isArray(g.options) ? g.options : []).map((o: any) =>
-    typeof o === 'string' ? { for: 'all', text: o } : { for: o.for || 'all', text: o.text || '' }
-  );
-  const myOptions = norm.filter((o: any) => o.text && (o.for === 'all' || o.for === mySeat));
-  const seatKey = mySeat === 'A' ? 'a' : 'b';
-  const mine = g[seatKey] || { location: g.location, goal: g.goal, investigables: g.investigables };
-  const L = EN(lang)
-    ? { loc: 'Location', goal: 'Goal', inv: 'You can investigate', choose: `You (${mySeat}) can`, free: 'Or type any free action below — do whatever you want.' }
-    : { loc: '你的位置', goal: '你的目标', inv: '你身边可调查', choose: `你（${mySeat}）可以选择`, free: '或在下方输入框「自由行动」，做任何你想做的事。' };
-  return (
-    <div className="mx-auto max-w-2xl mt-1 rounded-lg border border-eldritch/40 bg-fog/60 p-4 space-y-3">
-      <div className="grid sm:grid-cols-2 gap-x-4 gap-y-1 text-sm">
-        {mine.location && <div><span className="text-eldritch text-xs">【{L.loc}】</span><span className="text-parchment/90"> {mine.location}</span></div>}
-        {mine.goal && <div><span className="text-eldritch text-xs">【{L.goal}】</span><span className="text-parchment/90"> {mine.goal}</span></div>}
-      </div>
-      {Array.isArray(mine.investigables) && mine.investigables.length > 0 && (
-        <div className="text-sm">
-          <span className="text-eldritch text-xs">【{L.inv}】</span>
-          <span className="text-parchment/70"> {mine.investigables.join(' · ')}</span>
-        </div>
-      )}
-      {myOptions.length > 0 && (
-        <div className="space-y-2">
-          <div className="text-eldritch text-xs">【{L.choose}】</div>
-          <div className="grid gap-2">
-            {myOptions.map((opt: any, i: number) => (
-              <button key={i} onClick={() => onPick(opt.text)} disabled={disabled}
-                className="text-left px-3 py-2 rounded bg-ink/60 hover:bg-eldritch/25 border border-eldritch/30 text-parchment/90 text-sm disabled:opacity-40">
-                <span className="text-eldritch mr-2">{letters[i] || '·'}.</span>{opt.text}
-              </button>
-            ))}
-          </div>
-          <div className="text-[11px] text-parchment/40">{L.free}</div>
-        </div>
-      )}
     </div>
   );
 }

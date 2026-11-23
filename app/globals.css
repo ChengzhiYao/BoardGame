@@ -145,3 +145,13 @@ body:has(.mn-exit) .mn-stepbar { padding-left: 88px; }
 @keyframes mnEcg { 0%,100% { opacity: .25; } 50% { opacity: .9; } }
 .mn-ecg { animation: mnEcg 1.6s ease-in-out infinite; }
 .mn-scratch { background-image: repeating-linear-gradient(115deg, transparent 0 38px, rgba(255,255,255,.035) 38px 39px, transparent 39px 90px), repeating-linear-gradient(68deg, transparent 0 61px, rgba(120,0,0,.08) 61px 62px, transparent 62px 140px); }
+
+/* CoC 主界面 */
+.mn-fade-top { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 22px); mask-image: linear-gradient(to bottom, transparent 0, #000 22px); }
+.mn-fadein { animation: mnFadeIn .22s ease-out both; }
+@keyframes mnFadeIn { from { opacity: 0 } to { opacity: 1 } }
+.mn-sheet { animation: mnSheetUp .32s cubic-bezier(.2,.8,.2,1) both; box-shadow: 0 -20px 60px rgba(0,0,0,.55); }
+@keyframes mnSheetUp { from { transform: translateY(40px); opacity: 0 } to { transform: none; opacity: 1 } }
+@media (min-width: 1024px) { .mn-sheet { animation-name: mnSheetIn; } @keyframes mnSheetIn { from { transform: translateX(40px); opacity: 0 } to { transform: none; opacity: 1 } } }
+.mn-ping { animation: mnPing 1s ease-out 3; }
+@keyframes mnPing { 0% { box-shadow: 0 0 0 0 rgba(201,169,110,.7) } 100% { box-shadow: 0 0 0 10px rgba(201,169,110,0) } }

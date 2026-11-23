@@ -15,7 +15,7 @@ export async function startRoom(mode: string, name: string, lang: 'zh' | 'en', o
     const res = await fetch('/api/rooms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: `${name}${lang === 'en' ? sfx[1] : sfx[0]}`, displayName: name, mode, language: lang }) });
     const data = await res.json().catch(() => ({}));
     if (res.status === 402) {
-      try { localStorage.setItem('pendingGame', JSON.stringify({ mode, name, language: lang, ts: Date.now() })); } catch {}
+      try { localStorage.setItem('pendingGame', JSON.stringify({ mode, name, language: lang, quick: !!opts.quick, ts: Date.now() })); } catch {}
       return data.reason === 'login' ? { login: true } : { upgrade: true };
     }
     if (!res.ok) return { error: data.error || (lang === 'en' ? 'Could not open the room' : '开房失败') };

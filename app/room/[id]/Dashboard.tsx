@@ -134,7 +134,7 @@ export default function Dashboard(props: ShellProps) {
     lang,
     messages,
     roomId: props.room.id,
-    classify: (m: any) => (m.sender_type === 'kp' ? { kind: 'narrator' as const, text: m.content } : null),
+    classify: (m: any) => (m.sender_type === 'kp' ? { kind: 'narrator' as const, text: m.content, audio: m.payload?.audio } : null),
   });
   const myReady = !!room.pending_actions?.[props.mySeat as string]?.content;
   const resolving = room.resolution_status === 'resolving';

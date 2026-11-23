@@ -31,7 +31,13 @@ export async function POST(req: Request) {
 
   const { data: players } = await admin.from('players').select('id, seat').eq('room_id', roomId);
   const realSeats = (players || []).map((p: any) => p.seat).filter((s: string) => /^[A-H]$/.test(s)).sort();
-  const headcount = Math.max(realSeats.length, Math.min(8, Number(chosen.headcount) || 6));
+  let headcount = Math.max(realSeats.length, Math.min(8, Number(chosen.headcount) || 6));
+  // 题库现成案件：人数够就直接用（不再生成，开场白有配音）
+  let libCase: any = null;
+  if (chosen.from_library) {
+    const { data: lc } = await admin.from('jbs_case_library').select('id, headcount, case_file, opening_audio, plays').eq('id', chosen.from_library).maybeSingle();
+    if (lc?.case_file && lc.headcount >= realSeats.length) { libCase = lc; headcount = lc.headcount; }
+  }
 
   // 原子锁：只有把 phase 从 script/lobby 抢到 locking 的那一个请求能继续，避免多人同时点"选这个"导致重复开本。
   const { data: claimed } = await admin.from('rooms').update({ jbs_phase: 'locking', modules_generating: true }).eq('id', roomId).in('jbs_phase', ['script', 'lobby']).select('id');
@@ -40,15 +46,22 @@ export async function POST(req: Request) {
   await admin.from('jbs_cases').delete().eq('room_id', roomId);
   await admin.from('jbs_characters').delete().eq('room_id', roomId);
   try {
-    const { data: cf, usage } = await callLLMJson<any>({
-      system: buildJbsCasePrompt(chosen, headcount, realSeats) + langDirective(room.language),
-      messages: [{ role: 'user', content: '请生成隐藏案件与全部角色。' }],
-      tier: 'main', temperature: 0.8, maxTokens: 5200,
-    });
-    await admin.from('api_usage').insert({ room_id: roomId, kind: 'llm_main', model: usage.model, prompt_tokens: usage.promptTokens, completion_tokens: usage.completionTokens, latency_ms: usage.latencyMs });
+    let cf: any;
+    if (libCase) {
+      cf = JSON.parse(JSON.stringify(libCase.case_file));
+      await admin.from('jbs_case_library').update({ plays: (libCase.plays || 0) + 1 }).eq('id', libCase.id);
+    } else {
+      const g = await callLLMJson<any>({
+        system: buildJbsCasePrompt(chosen, headcount, realSeats) + langDirective(room.language),
+        messages: [{ role: 'user', content: '请生成隐藏案件与全部角色。' }],
+        tier: 'main', temperature: 0.8, maxTokens: 5200,
+      });
+      cf = g.data;
+      await admin.from('api_usage').insert({ room_id: roomId, kind: 'llm_main', model: g.usage.model, prompt_tokens: g.usage.promptTokens, completion_tokens: g.usage.completionTokens, latency_ms: g.usage.latencyMs });
+    }
 
     // 共享评审引擎：对锁定的剧本案件打加权分 + 封顶 + 诊断，存入 case_file.quality（不改表）
-    try {
+    if (!libCase) try {
       const { data: rev, usage: ru } = await callLLMJson<any>({
         system: buildModuleReviewSystem('jbs', room.language),
         messages: [{ role: 'user', content: '剧本案件：\n' + JSON.stringify(cf).slice(0, 6000) }],
@@ -123,7 +136,7 @@ export async function POST(req: Request) {
     await admin.from('messages').insert({
       room_id: roomId, sender_type: 'kp', turn_no: 1,
       content: cf.opening || (en ? 'The story begins.' : '故事，从这里开始。'),
-      payload: { type: 'jbs_dm' },
+      payload: { type: 'jbs_dm', audio: libCase?.opening_audio || undefined },
     });
 
     const acts: any[] = Array.isArray(cf.acts) && cf.acts.length >= 4 ? cf.acts : [];

@@ -35,7 +35,7 @@ export default function PlayHub() {
       setName(n);
       // 登录前点了要登录的游戏：登录回来直接开
       let pend: any = null; try { pend = JSON.parse(localStorage.getItem('pendingGame') || 'null'); } catch {}
-      if (d?.loggedIn && pend?.ts && Date.now() - pend.ts < 600000) { try { localStorage.removeItem('pendingGame'); } catch {} go(pend.mode, pend.name || n); }
+      if (d?.loggedIn && pend?.ts && Date.now() - pend.ts < 600000) { try { localStorage.removeItem('pendingGame'); } catch {} go(pend.mode, pend.name || n, !!pend.quick); }
     }).catch(() => setAcct({ loggedIn: false }));
     fetch('/api/rooms/history').then((r) => r.json()).then((d) => setHist(Array.isArray(d?.rooms) ? d.rooms : [])).catch(() => setHist([]));
     // 3D 背景跟着倾斜/鼠标
@@ -48,11 +48,11 @@ export default function PlayHub() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function go(mode: GM | string, nm?: string) {
+  async function go(mode: GM | string, nm?: string, quick = false) {
     if (mode === 'market') { router.push('/market'); return; }
     const n = (nm ?? name).trim() || (en ? 'Player' : '玩家');
     setBusy(String(mode)); setErr('');
-    const r = await startRoom(String(mode), n, en ? 'en' : 'zh');
+    const r = await startRoom(String(mode), n, en ? 'en' : 'zh', { quick });
     if (r.url) { window.location.href = r.url; return; }
     setBusy(null);
     if (r.login) { setPicked(null); setLoginGate(true); return; }

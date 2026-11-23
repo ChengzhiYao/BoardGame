@@ -42,16 +42,11 @@ export function LandingHero({ lang, busy, onPlay, onMore, name, setName, needNam
         </p>
       </Reveal>
       <Reveal delay={550} className="w-full max-w-xs mx-auto mt-8">
-        {needName && (
-          <input value={name} onChange={(e) => { setName(e.target.value); try { localStorage.setItem('name', e.target.value); } catch {} }}
-            placeholder={en ? 'Your nickname (optional)' : '你的昵称（可不填）'}
-            className="mb-2.5 w-full px-4 py-3 rounded-xl bg-[#0b0c0f]/70 backdrop-blur border border-[#d8c7a8]/15 text-parchment text-center placeholder:text-parchment/35 outline-none focus:border-[#c9a96e]/50" />
-        )}
         <button onClick={onPlay} disabled={busy}
           className="w-full py-4 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] border border-[#a83232]/60 text-[#f2ead9] font-serif font-semibold tracking-[.18em] text-[17px] shadow-[0_14px_50px_-12px_rgba(125,29,29,.85)] disabled:opacity-60">
           {busy ? (en ? 'Setting the table…' : '正在摆好桌子…') : (en ? 'Play free now' : '免费开一局')}
         </button>
-        <div className="mt-3 text-[12px] tracking-[.12em] text-parchment/50">{en ? 'No download · no sign-up to try' : '不用下载 · 不用注册就能玩'}</div>
+        <div className="mt-3 text-[12px] tracking-[.12em] text-parchment/50">{en ? 'One-tap Google sign-in · free · no download' : 'Google 一键登录 · 免费 · 不用下载'}</div>
       </Reveal>
       <button onClick={onMore} className="mt-12 flex flex-col items-center gap-1.5 text-[11px] tracking-[.3em] text-parchment/45 hover:text-parchment/80">
         {en ? 'TRY ONE HERE' : '先在这里试一碗'}
@@ -255,7 +250,7 @@ export function LandingProof({ lang }: { lang: Lang }) {
 export function LandingFaq({ lang }: { lang: Lang }) {
   const en = lang === 'en';
   const qa: [Bi, Bi][] = [
-    [{ zh: '要下载吗？', en: 'Do I need to download anything?' }, { zh: '不用。手机、电脑打开网页就能玩，也可以添加到桌面当 App 用。', en: 'No. It runs in your browser on phone or computer — you can add it to your home screen too.' }],
+    [{ zh: '要下载吗？要注册吗？', en: 'Do I need to download or sign up?' }, { zh: '不用下载，手机、电脑打开网页就能玩。用 Google 或邮箱一键登录就行，免费，你的每一局都会帮你存好。', en: 'No download — it runs in your browser. Sign in with Google or email in one tap; it’s free and your games are saved.' }],
     [{ zh: '一个人能玩吗？', en: 'Can I play alone?' }, { zh: '能。AI 会补齐所有空位。想和朋友玩，开局后把链接发给他就行。', en: 'Yes — the AI fills every empty seat. To play with a friend, just send them the link.' }],
     [{ zh: '收费吗？', en: 'Is it free?' }, { zh: '海龟汤、真心话、猫诅咒、身价场每周免费玩 2 小时；剧本杀、跑团等豪华玩法新号送 2 局。', en: 'Lateral Soup, Truth or Dare, Cat Curse and the Market are free for 2 hours a week; new accounts get 2 premium games.' }],
   ];

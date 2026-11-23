@@ -8,6 +8,8 @@ export async function POST(req: Request) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: '未登录' }, { status: 401 });
+  // 所有游戏都要登录（Google / 邮箱）才能玩，匿名会话不放行
+  if ((user as any).is_anonymous || !user.email) return NextResponse.json({ error: '登录后即可加入', reason: 'login' }, { status: 401 });
 
   const body = await req.json().catch(() => ({} as any));
   const token = (body.token || '').trim();

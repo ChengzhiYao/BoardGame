@@ -114,6 +114,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
       setResuming(true);
       try { const r = await fetch('/api/billing/status'); const d = await r.json(); if (!d.loggedIn) { setResuming(false); return; } } catch { setResuming(false); return; }
       try { localStorage.removeItem('pendingGame'); } catch {}
+      quickRef.current = !!pend.quick;
       createRoom(pend.mode, pend.name);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -150,7 +151,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
       });
       const data = await res.json();
       if (res.status === 402) {
-        try { localStorage.setItem('pendingGame', JSON.stringify({ mode: m, name: nm, language: lang, ts: Date.now() })); } catch {}
+        try { localStorage.setItem('pendingGame', JSON.stringify({ mode: m, name: nm, language: lang, quick: quickRef.current, ts: Date.now() })); } catch {}
         if (data.reason === 'login') { setBusy(false); setResuming(false); setPicked(null); setLoginGate(true); return; }
         router.push('/upgrade');
         return;

@@ -130,6 +130,7 @@ async function maybeStartPlaying(admin: any, roomId: string) {
 
   let opening = '雾气在四周缓缓聚拢。你们的调查，从这里开始。';
   let openingGuidance: any = null;
+  let openingAudio: string | undefined;
   if (room.campaign_id) {
     const { data: campaign } = await admin
       .from('campaigns')
@@ -138,6 +139,7 @@ async function maybeStartPlaying(admin: any, roomId: string) {
       .maybeSingle();
     if (campaign?.setting?.opening_scene) opening = campaign.setting.opening_scene;
     if (campaign?.setting?.opening_guidance) openingGuidance = campaign.setting.opening_guidance;
+    if (campaign?.setting?.opening_audio) openingAudio = campaign.setting.opening_audio;
   }
 
   await admin.from('rooms').update({ game_state: 'playing', turn_count: 1 }).eq('id', roomId);
@@ -149,6 +151,6 @@ async function maybeStartPlaying(admin: any, roomId: string) {
     sender_type: 'kp',
     content: opening,
     turn_no: 1,
-    payload: openingGuidance ? { guidance: openingGuidance } : {},
+    payload: { ...(openingGuidance ? { guidance: openingGuidance } : {}), ...(openingAudio ? { audio: openingAudio } : {}) },
   });
 }

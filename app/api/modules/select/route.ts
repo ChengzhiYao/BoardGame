@@ -48,12 +48,14 @@ export async function POST(req: Request) {
     let caseData: any = null;
     let quality: any = null;
 
+    let openingAudio: string | null = null;
     // A. 复用模组库里的现成案件（跳过生成+审查，省 token）
     if (chosen.from_library) {
       const { data: lib } = await admin.from('module_library').select('*').eq('id', chosen.from_library).maybeSingle();
       if (lib?.case_file) {
         caseData = lib.case_file;
         quality = lib.quality;
+        openingAudio = lib.opening_audio || null;
         await admin.from('module_library').update({ times_used: (lib.times_used || 0) + 1 }).eq('id', lib.id);
       }
     }
@@ -109,6 +111,7 @@ export async function POST(req: Request) {
           place: chosen.place,
           theme,
           opening_scene: caseData.opening_scene || '',
+          opening_audio: openingAudio || undefined,
           opening_guidance: caseData.opening_guidance || null,
           quality,
         },

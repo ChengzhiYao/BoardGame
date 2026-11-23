@@ -8,8 +8,7 @@ import { tr, getClientLang, setClientLang, type Lang } from '@/lib/i18n';
 import GameShowcase, { type GM } from '@/components/GameShowcase';
 import GameFeedback from '@/components/GameFeedback';
 import EmailLogin from '@/components/EmailLogin';
-import NightBackground from '@/components/NightBackground';
-import { HomeTopBar, SellingPoints, GameGrid, PricingStrip, GameSheet } from '@/components/HomeHub';
+import { HomeTopBar, SellingPoints, GameGrid, PricingStrip, GameSheet, ResumeRooms } from '@/components/HomeHub';
 
 export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
   const router = useRouter();
@@ -59,6 +58,29 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
   }
   const promoAudio = useRef<HTMLAudioElement | null>(null);
   const quickRef = useRef(false);
+  // 3D 背景跟着手机倾斜 / 鼠标移动转动视角。iPhone 要先点一下屏幕并允许“动作与方向”才拿得到倾斜数据。
+  const bgRef = useRef<HTMLIFrameElement | null>(null);
+  useEffect(() => {
+    let base: { b: number; g: number } | null = null;
+    const send = (x: number, y: number) => { try { bgRef.current?.contentWindow?.postMessage({ type: 'tilt', x, y }, '*'); } catch {} };
+    const onOri = (e: DeviceOrientationEvent) => {
+      if (e.beta == null || e.gamma == null) return;
+      if (!base) base = { b: e.beta, g: e.gamma }; // 以拿起手机时的角度为中心
+      send((e.gamma - base.g) / 18, -(e.beta - base.b) / 22); // 约 18° 就到最大幅度，灵敏
+    };
+    const onMove = (e: PointerEvent) => { if (e.pointerType === 'mouse') send((e.clientX / innerWidth - 0.5) * 2, -(e.clientY / innerHeight - 0.5) * 2); };
+    let asked = false;
+    const ask = () => {
+      if (asked) return; asked = true;
+      const D: any = (window as any).DeviceOrientationEvent;
+      if (D && typeof D.requestPermission === 'function') D.requestPermission().then((r: string) => { if (r === 'granted') window.addEventListener('deviceorientation', onOri); }).catch(() => {});
+    };
+    window.addEventListener('deviceorientation', onOri);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('touchend', ask, { once: true });
+    window.addEventListener('click', ask, { once: true });
+    return () => { window.removeEventListener('deviceorientation', onOri); window.removeEventListener('pointermove', onMove); window.removeEventListener('touchend', ask); window.removeEventListener('click', ask); };
+  }, []);
   const heroRef = useRef<HTMLElement | null>(null);
   const nameRef = useRef<HTMLInputElement | null>(null);
   function openPromo() { setShowPromo(true); try { const a = new Audio('/audio/veil-of-night/loop1.ogg'); a.loop = true; a.volume = 0.5; a.play().catch(() => {}); promoAudio.current = a; } catch {} }
@@ -151,8 +173,15 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
 
   return (
     <main className="min-h-screen flex flex-col items-center text-center gap-6 pb-16">
-      <NightBackground />
-      <div className="fixed inset-0 pointer-events-none -z-10" style={{ background: 'radial-gradient(120% 60% at 50% 38%, rgba(8,10,22,.35), rgba(8,10,22,0) 70%)' }} />
+      <iframe
+        ref={bgRef}
+        src="/coc3d-demo.html?embed=1&full=1&auto=1"
+        title=""
+        aria-hidden
+        tabIndex={-1}
+        className="fixed inset-0 w-full h-full border-0 pointer-events-none -z-20"
+      />
+      <div className="fixed inset-0 pointer-events-none -z-10" style={{ background: 'radial-gradient(125% 85% at 50% 0%, rgba(12,13,16,.30), rgba(12,13,16,.68) 58%, rgba(12,13,16,.93))' }} />
       <HomeTopBar lang={lang} onLang={switchLang} account={account}
         onLogin={() => setLoginGate(true)}
         onLogout={async () => { await signOut(); try { const r = await fetch('/api/billing/status'); setAccount(await r.json()); } catch { setAccount({ loggedIn: false }); } }}
@@ -173,16 +202,18 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
       <section ref={heroRef as any} className="w-full max-w-3xl px-3.5 sm:px-6 min-h-[100svh] flex flex-col justify-start sm:justify-center gap-3 sm:gap-4"
         style={{ paddingTop: 'calc(env(safe-area-inset-top) + 64px)', paddingBottom: '20px' }}>
         <div>
-          <h1 className="font-serif font-bold text-[34px] sm:text-6xl leading-none tracking-wide text-[#f2ead9] drop-shadow-[0_4px_24px_rgba(0,0,0,.7)]">{t('home_title')}</h1>
-          <p className="mt-2 text-[14px] sm:text-base text-parchment/85 [text-shadow:0_1px_12px_rgba(0,0,0,.9)]">{lang === 'en' ? 'An AI host runs tonight’s game. Two players is enough.' : 'AI 当主持人，两个人就能开一局今晚的游戏'}</p>
+          <div className="text-[10px] sm:text-[11px] tracking-[.5em] uppercase text-[#c9a96e]/70 mb-2.5 pl-[.5em]">{lang === 'en' ? 'An AI-hosted night of mysteries' : 'MystNight'}</div>
+          <h1 className="font-serif font-semibold text-[38px] sm:text-6xl leading-none tracking-[.12em] pl-[.12em] text-[#efe6d2] [text-shadow:0_2px_30px_rgba(0,0,0,.8)]">{t('home_title')}</h1>
+          <p className="mt-3 font-serif text-[14px] sm:text-[17px] tracking-wide text-parchment/75 [text-shadow:0_1px_12px_rgba(0,0,0,.9)]">{lang === 'en' ? 'An AI host runs tonight’s game. Two players is enough.' : 'AI 当主持人，两个人就能开一局今晚的游戏'}</p>
         </div>
         <SellingPoints lang={lang} />
+        <ResumeRooms lang={lang} />
         <GameGrid lang={lang} onPick={(g) => (g === 'market' ? router.push('/market') : setPicked(g))} />
         <PricingStrip lang={lang} />
         {mode === 'idle' ? (
           <div className="flex items-center justify-center gap-4 text-sm">
-            <button onClick={() => { quickRef.current = true; createRoom('soup'); }} disabled={busy} className="text-[#f2ead9] underline underline-offset-4 decoration-[#3f9d8e] disabled:opacity-50">
-              {busy && gameMode === 'soup' ? (lang === 'en' ? 'Setting the table…' : '正在出题…') : (lang === 'en' ? '⚡ Not sure? Play a soup in 30s' : '⚡ 不知道玩啥？30 秒来碗海龟汤')}
+            <button onClick={() => { quickRef.current = true; createRoom('soup'); }} disabled={busy} className="font-serif text-[#e6dcc6] border-b border-[#c9a96e]/50 pb-0.5 disabled:opacity-50">
+              {busy && gameMode === 'soup' ? (lang === 'en' ? 'Setting the table…' : '正在出题…') : (lang === 'en' ? 'Not sure? Start a lateral puzzle in 30s →' : '不知道玩什么？30 秒开一局海龟汤 →')}
             </button>
             <button onClick={() => setMode('join')} className="text-parchment/55 hover:text-parchment">{lang === 'en' ? 'Have a code?' : '有邀请码？'}</button>
           </div>

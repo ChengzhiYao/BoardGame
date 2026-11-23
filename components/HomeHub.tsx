@@ -82,11 +82,9 @@ export function SellingPoints({ lang }: { lang: Lang }) {
     { zh: '免下载', en: 'No download' },
   ];
   return (
-    <div className="flex flex-wrap justify-center gap-1.5">
+    <div className="flex flex-wrap justify-center items-center gap-x-3 gap-y-1 text-[12px] sm:text-[13px] tracking-[.08em] text-parchment/60">
       {pts.map((p, i) => (
-        <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12.5px] text-parchment/85 bg-white/[0.06] border border-white/10 backdrop-blur">
-          <span className="w-1 h-1 rounded-full bg-[#d9a441]" />{L(lang, p)}
-        </span>
+        <span key={i} className="inline-flex items-center gap-3">{i > 0 && <span className="w-[3px] h-[3px] rotate-45 bg-[#c9a96e]/60" />}{L(lang, p)}</span>
       ))}
     </div>
   );
@@ -99,15 +97,13 @@ export function GameGrid({ lang, onPick }: { lang: Lang; onPick: (g: GM) => void
         const t = TILE[k]; const free = FREE_MODES.includes(k);
         return (
           <button key={k} onClick={() => onPick(k)}
-            className="relative text-left rounded-2xl px-2.5 pt-2.5 pb-2 sm:px-4 sm:pt-4 sm:pb-3.5 min-h-[84px] sm:min-h-[112px] bg-[#111318]/80 backdrop-blur border border-white/[0.08] hover:border-white/20 overflow-hidden"
-            style={{ boxShadow: `inset 0 1px 0 rgba(255,255,255,.04), inset 0 -40px 40px -30px ${t.color}33` }}>
-            <span className="absolute top-2 right-2 text-[10px] leading-none px-1.5 py-[3px] rounded-full font-medium"
-              style={free ? { background: 'rgba(76,163,106,.2)', color: '#8fdca8' } : { background: 'rgba(217,164,65,.16)', color: '#e7c27a' }}>
-              {free ? (lang === 'en' ? 'Free' : '免费') : '✦'}
+            className="group relative text-left rounded-xl px-3 pt-3 pb-2.5 sm:px-4 sm:pt-4 sm:pb-3.5 min-h-[86px] sm:min-h-[112px] bg-[#0b0c0f]/60 backdrop-blur-md border border-[#d8c7a8]/[0.13] hover:border-[#c9a96e]/45 hover:bg-[#0b0c0f]/75 transition-colors">
+            <span className={`absolute top-2.5 right-3 text-[10px] tracking-[.12em] ${free ? 'text-[#9fbf9f]/80' : 'text-[#c9a96e]/85'}`}>
+              {free ? (lang === 'en' ? 'FREE' : '免费') : '✦'}
             </span>
-            <svg viewBox="0 0 24 24" fill="none" stroke={t.color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-[22px] h-[22px] sm:w-7 sm:h-7">{t.icon}</svg>
-            <div className="mt-1.5 sm:mt-2.5 text-[14px] sm:text-[17px] font-semibold text-[#f2ead9] leading-tight truncate">{L(lang, t.short)}</div>
-            <div className="text-[11px] sm:text-[13px] text-parchment/55 leading-tight truncate mt-0.5 sm:mt-1">{L(lang, t.line)}</div>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className="w-[20px] h-[20px] sm:w-6 sm:h-6 text-[#d8c7a8]/55 group-hover:text-[#c9a96e] transition-colors">{t.icon}</svg>
+            <div className="mt-2 sm:mt-3 font-serif text-[15px] sm:text-[18px] font-semibold tracking-wide text-[#ece3cf] leading-tight truncate">{L(lang, t.short)}</div>
+            <div className="text-[11px] sm:text-[12.5px] text-parchment/45 leading-tight truncate mt-1">{L(lang, t.line)}</div>
           </button>
         );
       })}
@@ -119,21 +115,21 @@ export function PricingStrip({ lang }: { lang: Lang }) {
   const en = lang === 'en';
   const m = MEMBERSHIP.monthly.price / 100, y = MEMBERSHIP.yearly.price / 100;
   const rows: { tag: string; color: string; text: string }[] = [
-    { tag: en ? 'Free' : '免费', color: '#8fdca8', text: en ? 'Soup, Truth or Dare, Cat Curse, Market — 2 hrs every week' : '海龟汤 · 真心话 · 猫诅咒 · 身价场，每周 2 小时' },
-    { tag: en ? 'New' : '新人', color: '#e7c27a', text: en ? `${FREE_PLAYS_ON_SIGNUP} free ✦ premium games when you sign up` : `注册送 ${FREE_PLAYS_ON_SIGNUP} 局 ✦ 豪华大作` },
-    { tag: en ? 'Member' : '会员', color: '#f2ead9', text: en ? `$${m}/mo · unlimited free modes + ${MEMBER_PREMIUM_PLAYS} premium/mo ($${y}/yr)` : `$${m}/月 · 免费玩法无限 + 每月 ${MEMBER_PREMIUM_PLAYS} 局豪华（年付 $${y}）` },
+    { tag: en ? 'Free' : '免费', color: '#9fbf9f', text: en ? 'Soup, Truth or Dare, Cat Curse, Market — 2 hrs every week' : '海龟汤 · 真心话 · 猫诅咒 · 身价场，每周 2 小时' },
+    { tag: en ? 'New' : '新人', color: '#c9a96e', text: en ? `${FREE_PLAYS_ON_SIGNUP} free ✦ premium games when you sign up` : `注册送 ${FREE_PLAYS_ON_SIGNUP} 局 ✦ 豪华大作` },
+    { tag: en ? 'Member' : '会员', color: '#ece3cf', text: en ? `$${m}/mo · unlimited free modes + ${MEMBER_PREMIUM_PLAYS} premium/mo ($${y}/yr)` : `$${m}/月 · 免费玩法无限 + 每月 ${MEMBER_PREMIUM_PLAYS} 局豪华（年付 $${y}）` },
   ];
   return (
-    <a href="/upgrade" className="block w-full rounded-2xl bg-[#111318]/80 backdrop-blur border border-white/[0.08] px-3.5 py-2.5 sm:px-5 sm:py-4 text-left hover:border-white/20">
+    <a href="/upgrade" className="block w-full rounded-xl bg-[#0b0c0f]/60 backdrop-blur-md border border-[#d8c7a8]/[0.13] px-4 py-3 sm:px-6 sm:py-4 text-left hover:border-[#c9a96e]/40 transition-colors">
       <div className="sm:grid sm:grid-cols-3 sm:gap-5">
       {rows.map((r, i) => (
         <div key={i} className="flex items-baseline gap-2.5 py-[3px] sm:flex-col sm:gap-1">
-          <span className={`shrink-0 ${en ? 'w-14' : 'w-9'} sm:w-auto text-[11.5px] sm:text-xs font-semibold`} style={{ color: r.color }}>{r.tag}</span>
-          <span className="text-[12.5px] sm:text-[13.5px] text-parchment/80 leading-snug">{r.text}</span>
+          <span className={`shrink-0 ${en ? 'w-14' : 'w-9'} sm:w-auto font-serif text-[12px] sm:text-[13px] font-semibold tracking-wider`} style={{ color: r.color }}>{r.tag}</span>
+          <span className="text-[12.5px] sm:text-[13.5px] text-parchment/70 leading-snug">{r.text}</span>
         </div>
       ))}
       </div>
-      <div className="mt-1 sm:mt-2 text-[11.5px] text-parchment/45 text-right">{en ? 'Prices & packs →' : '价格与局数包 →'}</div>
+      <div className="mt-1.5 sm:mt-2 text-[11px] tracking-[.1em] text-[#c9a96e]/70 text-right">{en ? 'Prices & packs →' : '价格与局数包 →'}</div>
     </a>
   );
 }
@@ -147,25 +143,25 @@ export function GameSheet({ lang, game, busy, needName, name, setName, onStart, 
   if (!g) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl bg-[#14161b] border border-white/10 shadow-2xl px-5 pt-3 text-left nf-in"
+      <div className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl bg-[#0f1013] border border-[#d8c7a8]/15 shadow-2xl px-5 pt-3 text-left nf-in"
         style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }} onClick={(e) => e.stopPropagation()}>
         <div className="mx-auto w-10 h-1 rounded-full bg-white/15 mb-4 sm:hidden" />
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: `${t.color}22`, border: `1px solid ${t.color}55` }}>
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke={t.color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{t.icon}</svg>
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center border border-[#c9a96e]/35 bg-[#c9a96e]/[0.06]">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#c9a96e" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">{t.icon}</svg>
           </div>
           <div className="min-w-0 flex-1">
             <div className="font-serif text-xl font-bold text-[#f2ead9] leading-tight">{L(lang, g.name)}</div>
             <div className="text-xs text-parchment/50 mt-0.5">{L(lang, g.meta)}</div>
           </div>
-          <span className="text-[11px] px-2 py-1 rounded-full font-medium shrink-0" style={free ? { background: 'rgba(76,163,106,.2)', color: '#8fdca8' } : { background: 'rgba(217,164,65,.16)', color: '#e7c27a' }}>
+          <span className={`text-[11px] tracking-[.1em] shrink-0 ${free ? 'text-[#9fbf9f]' : 'text-[#c9a96e]'}`}>
             {free ? (en ? 'Free' : '免费') : (en ? '✦ Premium' : '✦ 豪华')}
           </span>
         </div>
         <p className="mt-4 text-[15px] text-parchment/85 leading-relaxed">{L(lang, g.blurb)}</p>
         <ol className="mt-3 space-y-1.5">
           {g.rules.map((r, i) => (
-            <li key={i} className="flex gap-2.5 text-sm text-parchment/70"><span className="font-mono text-xs mt-0.5 shrink-0" style={{ color: t.color }}>{String(i + 1).padStart(2, '0')}</span>{L(lang, r)}</li>
+            <li key={i} className="flex gap-2.5 text-sm text-parchment/70"><span className="font-serif text-xs mt-0.5 shrink-0 text-[#c9a96e]/80">{String(i + 1).padStart(2, '0')}</span>{L(lang, r)}</li>
           ))}
         </ol>
         {!free && <div className="mt-3 text-xs text-parchment/45">{en ? `Uses 1 game (new accounts get ${FREE_PLAYS_ON_SIGNUP} free; members get ${MEMBER_PREMIUM_PLAYS}/month).` : `每局消耗 1 局（新号送 ${FREE_PLAYS_ON_SIGNUP} 局，会员每月送 ${MEMBER_PREMIUM_PLAYS} 局）。`}</div>}
@@ -174,10 +170,30 @@ export function GameSheet({ lang, game, busy, needName, name, setName, onStart, 
             placeholder={en ? 'Your nickname' : '你的昵称'} className="mt-4 w-full px-4 py-3 rounded-xl bg-ink border border-white/10 text-parchment placeholder:text-parchment/35 outline-none focus:border-eldritch" />
         )}
         <button onClick={() => onStart(game)} disabled={busy || (needName && !name.trim())}
-          className="mt-4 w-full py-3.5 rounded-2xl text-white font-semibold text-base disabled:opacity-60" style={{ background: t.color }}>
+          className="mt-4 w-full py-3.5 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] border border-[#a83232]/60 text-[#f2ead9] font-serif font-semibold tracking-[.15em] text-base disabled:opacity-50">
           {busy ? (en ? 'Opening…' : '正在开房…') : (en ? `Start ${L(lang, t.short)}` : `开始${L(lang, t.short)}`)}
         </button>
       </div>
+    </div>
+  );
+}
+
+// 首页「回到房间」：离开后 3 小时内的未结束房间
+export function ResumeRooms({ lang }: { lang: Lang }) {
+  const en = lang === 'en';
+  const [rooms, setRooms] = useState<{ id: string; name: string; mode: GM }[]>([]);
+  useEffect(() => { fetch('/api/rooms/mine').then((r) => r.json()).then((d) => setRooms(Array.isArray(d?.rooms) ? d.rooms : [])).catch(() => {}); }, []);
+  if (!rooms.length) return null;
+  return (
+    <div className="w-full flex flex-col gap-1.5">
+      {rooms.map((r) => (
+        <a key={r.id} href={`/room/${r.id}`} className="flex items-center gap-3 w-full rounded-xl px-4 py-2.5 text-left bg-[#c9a96e]/[0.08] border border-[#c9a96e]/35 hover:bg-[#c9a96e]/[0.14] backdrop-blur-md">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#c9a96e] animate-pulse shrink-0" />
+          <span className="text-[12px] tracking-[.1em] text-[#c9a96e] shrink-0">{en ? 'Back to your game' : '回到房间'}</span>
+          <span className="flex-1 min-w-0 truncate font-serif text-[14px] text-[#ece3cf]">{r.name || (TILE[r.mode] ? L(lang, TILE[r.mode].short) : '')}</span>
+          <span className="text-[#c9a96e] shrink-0">→</span>
+        </a>
+      ))}
     </div>
   );
 }

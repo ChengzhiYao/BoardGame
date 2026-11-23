@@ -109,3 +109,7 @@ input[type=range] { accent-color: #3f7d70; }
 .mn-composer { background: linear-gradient(to top, rgba(12,13,16,.98) 60%, rgba(12,13,16,.85)); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-top-color: rgba(47,93,84,.25) !important; }
 .mn-composer input:not([type=range]), .mn-composer textarea { background: #15171c; border-color: rgba(63,125,112,.35); min-height: 44px; }
 .mn-composer button { min-height: 40px; }
+
+/* 房间左上角的「离开」按钮：给顶栏/步骤条让出位置 */
+.mn-header { padding-left: 88px !important; }
+body:has(.mn-exit) .mn-stepbar { padding-left: 88px; }

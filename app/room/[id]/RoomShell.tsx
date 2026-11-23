@@ -49,6 +49,17 @@ function audioStateFor(room: any): string {
   return 'MENU';
 }
 
+function RoomExit({ en }: { en: boolean }) {
+  return (
+    <a href={en ? '/en' : '/zh'} title={en ? 'Leave — you can come back from the home page' : '离开房间（3 小时内可从首页回来）'}
+      className="mn-exit fixed left-2 z-[60] h-9 pl-2 pr-3 rounded-full flex items-center gap-1 text-[13px] text-parchment/85 bg-[#0b0c0f]/75 backdrop-blur border border-[#d8c7a8]/15 hover:border-[#c9a96e]/50"
+      style={{ top: 'max(10px, env(safe-area-inset-top))' }}>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+      {en ? 'Leave' : '离开'}
+    </a>
+  );
+}
+
 export type ShellProps = {
   room: any;
   initialPlayers: any[];
@@ -118,13 +129,26 @@ export default function RoomShell(props: ShellProps) {
     return () => { stop = true; clearInterval(id); document.removeEventListener('visibilitychange', onVis); };
   }, [props.room.id]);
 
-  if (props.room.mode === 'soup') return (<><AudioManager state={soupAudioState(props.room)} /><SoupRoom {...props} /></>);
-  if (props.room.mode === 'td') return <TDRoom {...props} />;
-  if (props.room.mode === 'jbs') return (<><AudioManager state={jbsAudioState(props.room)} /><JbsRoom {...props} /></>);
-  if (props.room.mode === 'botc') return (<><AudioManager state={botcAudioState(props.room)} /><BotcRoom {...props} /></>);
-  if (props.room.mode === 'mcc') return <MccRoom {...props} />;
-  if (props.room.mode === 'dnd') return <DndRoom {...props} />;
-  if (props.room.mode === 'story') return <StoryRoom {...props} />;
+  // 离开房间：所有声音（音乐、音效、旁白、浏览器朗读）立刻停掉
+  useEffect(() => {
+    const Orig = window.Audio;
+    const made: HTMLAudioElement[] = [];
+    const Tracked: any = function (src?: string) { const a = new Orig(src); made.push(a); return a; };
+    Tracked.prototype = Orig.prototype;
+    (window as any).Audio = Tracked;
+    const kill = () => { made.forEach((a) => { try { a.pause(); a.removeAttribute('src'); a.load(); } catch {} }); made.length = 0; try { window.speechSynthesis?.cancel(); } catch {} };
+    window.addEventListener('pagehide', kill);
+    return () => { kill(); (window as any).Audio = Orig; window.removeEventListener('pagehide', kill); };
+  }, []);
+
+  const exit = <RoomExit en={props.room.language === 'en'} />;
+  if (props.room.mode === 'soup') return (<>{exit}<AudioManager state={soupAudioState(props.room)} /><SoupRoom {...props} /></>);
+  if (props.room.mode === 'td') return (<>{exit}<TDRoom {...props} /></>);
+  if (props.room.mode === 'jbs') return (<>{exit}<AudioManager state={jbsAudioState(props.room)} /><JbsRoom {...props} /></>);
+  if (props.room.mode === 'botc') return (<>{exit}<AudioManager state={botcAudioState(props.room)} /><BotcRoom {...props} /></>);
+  if (props.room.mode === 'mcc') return (<>{exit}<MccRoom {...props} /></>);
+  if (props.room.mode === 'dnd') return (<>{exit}<DndRoom {...props} /></>);
+  if (props.room.mode === 'story') return (<>{exit}<StoryRoom {...props} /></>);
 
   const state = props.room.game_state || 'lobby';
   const audioState = audioStateFor(props.room);
@@ -133,6 +157,7 @@ export default function RoomShell(props: ShellProps) {
 
   return (
     <>
+      {exit}
       <AudioManager state={audioState} />
       {playing ? (
         <Dashboard {...props} />

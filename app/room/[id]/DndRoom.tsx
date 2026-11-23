@@ -469,7 +469,7 @@ function DndStepper({ phase, en }: { phase: string; en: boolean }) {
     : [{ k: 'lobby', t: '等待加入' }, { k: 'select', t: '选择冒险' }, { k: 'creation', t: '创建英雄' }, { k: 'play', t: '正式跑团' }, { k: 'ended', t: '结局' }];
   const cur = phase === 'ended' ? 4 : (phase === 'explore' || phase === 'combat') ? 3 : phase === 'creation' ? 2 : phase === 'select' ? 1 : 0;
   return (
-    <div className="w-full border-b border-eldritch/20 bg-fog/40">
+    <div className="mn-stepbar w-full border-b border-eldritch/20 bg-fog/40">
       <div className="lg:hidden px-4 py-2 flex items-center gap-2 text-xs"><span className="px-2 py-0.5 rounded-full bg-blood/30 border border-blood text-parchment">{cur + 1}/{steps.length}</span><span className="text-parchment/90">{steps[cur]?.t}</span></div>
       <div className="hidden lg:block overflow-x-auto"><div className="flex items-center gap-1 px-4 py-2.5 min-w-max">
         {steps.map((sp, i) => { const done = i < cur, active = i === cur; return <div key={sp.k} className="flex items-center gap-1"><div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs whitespace-nowrap border ${active ? 'bg-blood/30 border-blood text-parchment' : done ? 'bg-eldritch/20 border-eldritch/40 text-parchment/70' : 'bg-transparent border-parchment/15 text-parchment/35'}`}><span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${active ? 'bg-blood text-parchment' : done ? 'bg-eldritch/60 text-parchment' : 'bg-parchment/10'}`}>{done ? '✓' : i + 1}</span>{sp.t}</div>{i < steps.length - 1 && <span className="text-parchment/20">—</span>}</div>; })}

@@ -1,7 +1,7 @@
 // 管理员专用统计：仅 ADMIN_EMAIL（默认 yxhzdm@gmail.com）可读。
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
-import { closeStaleRooms } from '@/lib/rooms/sweep';
+import { closeStaleRooms, ROOM_IDLE_MIN } from '@/lib/rooms/sweep';
 
 export async function GET() {
   const supabase = createServerClient();
@@ -29,7 +29,7 @@ export async function GET() {
   }
 
   const admin = createAdminClient();
-  await closeStaleRooms(admin, 5);
+  await closeStaleRooms(admin, ROOM_IDLE_MIN);
   const since10 = new Date(Date.now() - 10 * 60000).toISOString();
   const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
   const todayISO = todayStart.toISOString();

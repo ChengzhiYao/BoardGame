@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
-import { closeStaleRooms } from '@/lib/rooms/sweep';
+import { closeStaleRooms, ROOM_IDLE_MIN } from '@/lib/rooms/sweep';
 import { getEntitlement } from '@/lib/billing/entitlement';
 import { FREE_MODES, weekStart } from '@/lib/pricing';
 
@@ -33,6 +33,6 @@ export async function POST(req: Request) {
     }
   } catch {}
   // 任何玩家活跃时顺带清扫其它闲置房间（不依赖 Vercel 套餐的 cron 频率）
-  const swept = await closeStaleRooms(admin, 5);
+  const swept = await closeStaleRooms(admin, ROOM_IDLE_MIN);
   return NextResponse.json({ ok: true, swept: swept.closed });
 }

@@ -18,7 +18,7 @@ export default function Stepper({ current, lang = 'zh' }: { current: string; lan
   const lbl = (s: { zh: string; en: string }) => (lang === 'en' ? s.en : s.zh);
 
   return (
-    <div className="w-full border-b border-eldritch/20 bg-fog/40">
+    <div className="mn-stepbar w-full border-b border-eldritch/20 bg-fog/40">
       <div className="lg:hidden px-4 py-2 flex items-center gap-2 text-xs">
         <span className="px-2 py-0.5 rounded-full bg-blood/30 border border-blood text-parchment">
           {idx + 1}/{STEPS.length}

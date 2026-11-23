@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     const full = { ...(byName[c.name] || {}), name: c.name, age: c.age, occupation: c.occupation, public_info: c.public_info };
     const buf = await generateImage(buildJbsPortraitPrompt(full, meta));
     const path = `avatars/jbs/${c.id}.png`;
-    const up = await admin.storage.from('scene-images').upload(path, buf, { contentType: 'image/png', upsert: true });
+    const up = await admin.storage.from('scene-images').upload(path, buf, { contentType: 'image/jpeg', upsert: true });
     if (up.error) throw new Error(up.error.message);
     const { data: pub } = admin.storage.from('scene-images').getPublicUrl(path);
     await admin.from('jbs_characters').update({ avatar_url: pub.publicUrl }).eq('id', c.id);

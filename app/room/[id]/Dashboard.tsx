@@ -78,6 +78,7 @@ export default function Dashboard(props: ShellProps) {
     return charOfSeat(seat)?.name || nameOfUser(p?.user_id);
   };
 
+  const sfxSeen = useRef<Set<string>>(new Set());
   useEffect(() => {
     let tm: any;
     const ch = supabase
@@ -87,7 +88,7 @@ export default function Dashboard(props: ShellProps) {
           const m = payload.new;
           setMessages((prev) => prev.some((x) => x.id === m.id) ? prev : [...prev, m]);
           const sfx = m.payload?.sfx;
-          if (Array.isArray(sfx)) sfx.forEach((k: string) => playSfx(k));
+          if (Array.isArray(sfx) && !sfxSeen.current.has(m.id)) { sfxSeen.current.add(m.id); sfx.forEach((k: string) => playSfx(k)); }
           if (tm) clearTimeout(tm);
           tm = setTimeout(() => router.refresh(), 500);
         })
@@ -268,10 +269,6 @@ export default function Dashboard(props: ShellProps) {
     submitAction(text, action);
     setAction('free');
   }
-  function pick(opt: string) {
-    setText(opt); setAction('investigate'); setMode('act');
-    setTimeout(() => { inputRef.current?.focus(); }, 30);
-  }
   // 输入框自动长高（最多 4 行）
   useEffect(() => {
     const el = inputRef.current; if (!el) return;
@@ -381,14 +378,9 @@ export default function Dashboard(props: ShellProps) {
                 </button>
               )}
               {myOptions.length > 0 && (
-                <div className="-mx-3 px-3 flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  {myOptions.map((o, i) => (
-                    <button key={i} onClick={() => pick(o)} disabled={!canAct}
-                      className={`shrink-0 h-9 px-3.5 rounded-full border text-[13px] whitespace-nowrap transition disabled:opacity-40 ${text === o ? 'border-[#c9a96e]/70 bg-[#c9a96e]/15 text-[#efe6d2]' : 'border-white/12 bg-white/[0.04] text-[#d8c7a8]/85 hover:border-[#c9a96e]/40'}`}>
-                      {o}
-                    </button>
-                  ))}
-                </div>
+                <p className="px-1 text-[12px] leading-relaxed text-parchment/35 italic line-clamp-2">
+                  {en ? 'Perhaps: ' : '也许可以：'}{myOptions.join(en ? ' / ' : '、')}{en ? ' — or anything you can think of.' : '……或者任何你想到的事。'}
+                </p>
               )}
               <div className="flex items-end gap-2">
                 {!solo && (
@@ -434,12 +426,10 @@ export default function Dashboard(props: ShellProps) {
             {Array.isArray(goal.investigables) && goal.investigables.length > 0 && (
               <div>
                 <div className="text-[11px] tracking-[.2em] text-[#c9a96e]/80 mb-2">{en ? 'WORTH A LOOK' : '身边值得查的'}</div>
-                <div className="flex flex-wrap gap-2">{goal.investigables.map((x: string, i: number) => (
-                  <button key={i} onClick={() => { pick((en ? 'Examine ' : '仔细查看') + x); setSheet(null); }} className="px-3 py-1.5 rounded-full border border-white/12 bg-white/[0.04] text-[13px] text-[#d8c7a8]">{x}</button>
-                ))}</div>
+                <p className="text-[14px] text-[#efe6d2]/80 leading-relaxed">{goal.investigables.join(en ? ' · ' : '、')}</p>
               </div>
             )}
-            <p className="text-[12.5px] text-parchment/40 leading-relaxed">{en ? 'Suggestions are only a nudge — type anything you want to do.' : '建议只是提示——你想做什么都可以直接打字或说出来。'}</p>
+            <p className="text-[12.5px] text-parchment/40 leading-relaxed">{en ? 'Nothing here is a list of choices — do whatever you think of.' : '这些不是选项——你想做什么，直接打字或说出来就行。'}</p>
           </div>
         )}
       </Sheet>

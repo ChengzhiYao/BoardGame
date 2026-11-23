@@ -48,6 +48,7 @@ export default function AudioManager({ state }: { state: string }) {
   useEffect(() => { try { localStorage.setItem('mn_music', muted ? 'off' : 'on'); localStorage.setItem('mn_vol', String(vol)); } catch {} }, [muted, vol]);
 
   const bedRef = useRef<HTMLAudioElement | null>(null);
+  const liveRef = useRef<Set<HTMLAudioElement>>(new Set()); // 所有还在响的背景曲
   const fadeRef = useRef<any>(null);
   const lastLoopCat = useRef<AudioCategory | null>(null);
   const lastTrack = useRef<Record<string, string>>({});
@@ -92,12 +93,14 @@ export default function AudioManager({ state }: { state: string }) {
   }
 
   function crossfadeTo(url: string, target: number) {
-    const old = bedRef.current;
-    const oldStart = old ? old.volume : 0;
+    // 把所有还在响的旧曲一起淡出并停掉（之前连续换曲时，被打断的那首会一直在后台循环）
+    const olds = Array.from(liveRef.current).filter(() => true);
+    const starts = olds.map((a) => a.volume);
     const next = new Audio(url);
     next.loop = true;
     next.volume = 0;
     bedRef.current = next;
+    liveRef.current.add(next);
     bedStart.current = Date.now();
     next.play().catch(() => {});
     if (fadeRef.current) clearInterval(fadeRef.current);
@@ -107,10 +110,10 @@ export default function AudioManager({ state }: { state: string }) {
       i++;
       const p = i / steps;
       next.volume = mutedRef.current ? 0 : target * p;
-      if (old) old.volume = mutedRef.current ? 0 : oldStart * (1 - p);
+      olds.forEach((a, k) => { a.volume = mutedRef.current ? 0 : starts[k] * (1 - p); });
       if (i >= steps) {
         clearInterval(fadeRef.current);
-        if (old) old.pause();
+        olds.forEach((a) => { try { a.pause(); a.removeAttribute('src'); a.load(); } catch {} liveRef.current.delete(a); });
       }
     }, dt);
   }
@@ -212,7 +215,7 @@ export default function AudioManager({ state }: { state: string }) {
     };
   }, [enabled]);
 
-  useEffect(() => () => { if (bedRef.current) bedRef.current.pause(); }, []);
+  useEffect(() => () => { liveRef.current.forEach((a) => { try { a.pause(); } catch {} }); liveRef.current.clear(); if (fadeRef.current) clearInterval(fadeRef.current); }, []);
 
   const voiceOn = !!voice && voice.mode !== 'off';
   const musicOn = !muted;

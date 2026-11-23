@@ -52,7 +52,7 @@ export async function POST(req: Request) {
   try {
     const buf = await generateImage(buildImagePrompt(img.image_type || 'scene_image', img.prompt || '一处不安的场景', era, theme));
     const path = `${roomId}/${imageId}.png`;
-    const up = await admin.storage.from('scene-images').upload(path, buf, { contentType: 'image/png', upsert: true });
+    const up = await admin.storage.from('scene-images').upload(path, buf, { contentType: 'image/jpeg', upsert: true });
     if (up.error) throw new Error('上传失败：' + up.error.message);
     const { data: pub } = admin.storage.from('scene-images').getPublicUrl(path);
 

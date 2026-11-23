@@ -35,7 +35,7 @@ export async function POST(req: Request) {
   try {
     const buf = await generateImage(buildAvatarPrompt(ch, era, theme));
     const path = `avatars/${ch.id}.png`;
-    const up = await admin.storage.from('scene-images').upload(path, buf, { contentType: 'image/png', upsert: true });
+    const up = await admin.storage.from('scene-images').upload(path, buf, { contentType: 'image/jpeg', upsert: true });
     if (up.error) throw new Error('上传失败：' + up.error.message);
     const { data: pub } = admin.storage.from('scene-images').getPublicUrl(path);
 

@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     const subject = `${c.name}，${RACES[c.race]?.cn || ''}${CLASSES[c.cls]?.cn || ''}（${BACKGROUNDS[c.background]?.cn || ''}出身，擅长${top}）`;
     const buf = await generateImage(buildDndPortraitPrompt(subject, state?.theme));
     const path = `avatars/dnd/${roomId}-${me.seat}.png`;
-    const up = await admin.storage.from('scene-images').upload(path, buf, { contentType: 'image/png', upsert: true });
+    const up = await admin.storage.from('scene-images').upload(path, buf, { contentType: 'image/jpeg', upsert: true });
     if (up.error) throw new Error(up.error.message);
     const { data: pub } = admin.storage.from('scene-images').getPublicUrl(path);
     await mutateState(admin, roomId, (s) => { if (s.chars[me.seat]) s.chars[me.seat].avatar = `${pub.publicUrl}?t=${Date.now()}`; return { ok: true }; });

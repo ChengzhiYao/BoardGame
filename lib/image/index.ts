@@ -14,10 +14,13 @@ function client() {
 // 多模型兜底：首选 IMAGE_MODEL，失败则退到 gpt-image-1 / dall-e-3，避免某个模型名无效就全军覆没。
 export type ImageOpts = { quality?: 'low' | 'medium' | 'high'; jpeg?: number }; // jpeg = 压缩质量 0-100(越小压缩越狠)
 export async function generateImage(prompt: string, opts: ImageOpts = {}): Promise<Buffer> {
+  // 省钱默认：低画质 + JPEG 压缩（手机上看不出差别）；调用方要更高画质必须显式指定
+  opts = { quality: 'low', jpeg: 62, ...opts };
   if (!(process.env.IMAGE_API_KEY || process.env.OPENAI_API_KEY)) {
     throw new Error('未配置 OPENAI_API_KEY（或 IMAGE_API_KEY），无法生成图片');
   }
-  const models = Array.from(new Set([process.env.IMAGE_MODEL || 'gpt-image-1-mini', 'gpt-image-1', 'dall-e-3']));
+  // 只用最便宜的 mini；失败就不画，不再自动退到贵 2~8 倍的 gpt-image-1 / dall-e-3
+  const models = [process.env.IMAGE_MODEL || 'gpt-image-1-mini'];
   let lastErr: any = null;
   for (const model of models) {
     try {

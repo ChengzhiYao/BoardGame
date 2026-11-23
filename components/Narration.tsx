@@ -12,7 +12,13 @@ export default function Narration({ text, lang, fresh = false, tone = 'kp', labe
   const shown = cut ? beats.slice(0, 3) : beats;
   const en = lang === 'en';
   // 新旁白出现 → 通知音乐层（按内容换情绪、配拟声、喊叫时来一下惊吓）
-  useEffect(() => { if (fresh && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('mn-narr', { detail: { text, tone } })); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!fresh || typeof window === 'undefined') return;
+    // 同一段旁白只触发一次音效/换曲（重新渲染、刷新页面都不再重复响）
+    const k = 'mn_narr_' + text.length + '_' + text.slice(0, 40);
+    try { if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, '1'); } catch {}
+    window.dispatchEvent(new CustomEvent('mn-narr', { detail: { text, tone } }));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className={`nf nf-${tone} mx-auto w-full max-w-2xl text-left`}>
       {label && <div className="nf-label">{label}</div>}

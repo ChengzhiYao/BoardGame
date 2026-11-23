@@ -381,7 +381,19 @@ export default function Dashboard(props: ShellProps) {
       <footer className="shrink-0 px-3 pt-2 bg-gradient-to-t from-[#0b0c0f] via-[#0b0c0f]/95 to-[#0b0c0f]/0" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
         <div className="mx-auto max-w-2xl space-y-2">
           {ended ? (
-            <EndedBanner roomId={props.room.id} lang={lang} isHost={props.userId === props.room.host_user_id} />
+            <>
+              {myChar && (
+                <a href="/me" className="flex items-center gap-3 rounded-xl border border-[#e6c76e]/25 bg-[#17140c]/80 px-3.5 py-2.5">
+                  <Avatar char={myChar} size={34} />
+                  <span className="flex-1 min-w-0 text-[12.5px] leading-snug">
+                    <span className="block text-[#efe6d2] font-serif truncate">{myOut ? (en ? `${myChar.name} did not come back.` : `${myChar.name} 没能回来。`) : (en ? `${myChar.name} made it out.` : `${myChar.name} 活着出来了。`)}</span>
+                    <span className="block text-parchment/50 truncate">{myOut ? (en ? 'Their story is kept in your collection.' : 'TA 的故事收进了你的收藏。') : (en ? 'Bring them into your next story — scars and all.' : '下次跑团可以带 TA 回来，伤疤也一起带着。')}</span>
+                  </span>
+                  <span className="shrink-0 text-[12px] text-[#e6c76e]">{en ? 'Collection →' : '收藏 →'}</span>
+                </a>
+              )}
+              <EndedBanner roomId={props.room.id} lang={lang} isHost={props.userId === props.room.host_user_id} />
+            </>
           ) : myOut ? (
             <div className="rounded-2xl border border-[#a83232]/40 bg-[#2a0e0e]/60 px-4 py-3.5 text-center text-[13.5px] text-[#e8b4b4]">{t('out_notice')}</div>
           ) : myReady ? (

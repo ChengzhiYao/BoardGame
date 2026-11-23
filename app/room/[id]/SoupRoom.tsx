@@ -10,6 +10,7 @@ import type { ShellProps } from './RoomShell';
 import { LightPaywall, LightLine, useLightStatus } from '@/components/LightPay';
 import { useTTS } from './useTTS';
 import { playAnswerSfx } from '@/lib/audio/answerSfx';
+import { DailyResult } from '@/components/Daily';
 
 const fresh = (m: any) => !!m?.created_at && Date.now() - new Date(m.created_at).getTime() < 90000;
 export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
@@ -78,6 +79,7 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
   // Linger 伴侣一起玩:自动开一道题;你问完之后 TA 也会时不时插一句/提问/猜
   const comp = props.room.companion && props.room.companion.name ? props.room.companion : null;
   const isHost = props.room.host_user_id === props.userId;
+  const daily = !!(props.room as any).daily_day;
   const compBusy = useRef(false);
   const autoStarted = useRef(false);
   useEffect(() => {
@@ -238,7 +240,7 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
 
       <header className="mn-header px-4 py-3 border-b flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <div className="font-serif text-[17px] leading-tight text-[#efe6d2]">海龟汤</div>
+          <div className="font-serif text-[17px] leading-tight text-[#efe6d2]">{daily ? (en ? 'Daily Soup' : '每日一汤') : '海龟汤'}</div>
           <div className="text-[11px] text-parchment/40 truncate">{props.room.name}</div>
         </div>
         <div className="shrink-0 text-right">
@@ -277,6 +279,7 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
           </div>
         )}
         {messages.filter((m) => m.payload?.type !== 'soup_surface').map((m) => <SoupMsg key={m.id} m={m} mine={m.sender_player_id === props.myPlayerId} who={nameOf(m.sender_player_id)} />)}
+        {ended && daily && isHost && <DailyResult en={en} />}
         {busy && <div className="flex justify-center py-2"><span className="inline-flex gap-1.5">{[0, 1, 2].map((d) => <span key={d} className="w-1.5 h-1.5 rounded-full bg-[#c9a96e]/70 animate-bounce" style={{ animationDelay: `${d * 140}ms` }} />)}</span></div>}
         <div ref={bottomRef} />
       </div>
@@ -320,7 +323,7 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
       ) : (
         <div className="mn-composer border-t px-4 py-4 max-w-3xl w-full mx-auto flex gap-2.5" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
           <button onClick={async () => { const { startRoom } = await import('@/lib/startRoom'); let n = '玩家'; try { n = localStorage.getItem('name') || n; } catch {} const r = await startRoom('soup', n, en ? 'en' : 'zh', { quick: true }); if (r.url) window.location.href = r.url; else if (r.login || r.upgrade) window.location.href = '/play'; }}
-            className="flex-1 py-3 rounded-xl bg-[#7d1d1d] border border-[#a83232]/60 text-[#f2ead9] font-serif tracking-[.15em]">再来一碗</button>
+            className="flex-1 py-3 rounded-xl bg-[#7d1d1d] border border-[#a83232]/60 text-[#f2ead9] font-serif tracking-[.15em]">{daily ? (en ? 'Play a regular one' : '再来一碗普通的') : '再来一碗'}</button>
           <a href="/play" className="px-5 py-3 rounded-xl border border-[#d8c7a8]/15 text-parchment/70 text-[14px]">回到大厅</a>
         </div>
       )}

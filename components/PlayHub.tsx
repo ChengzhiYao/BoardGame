@@ -1,6 +1,7 @@
 'use client';
 // 「我的大厅」：老玩家每次打开谜夜看到的地方——进行中的局、再开一局、玩过的局、我的额度。
 import PartyPass from '@/components/PartyPass';
+import { DailyCard } from '@/components/Daily';
 import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getClientLang, setClientLang, type Lang } from '@/lib/i18n';
@@ -77,6 +78,8 @@ export default function PlayHub() {
         onLogout={async () => { await signOut(); window.location.href = en ? '/en' : '/zh'; }}
         menu={[
           ...(acct?.loggedIn ? [{ label: en ? 'My account' : '我的账号', href: '/account', icon: 'account' as const, group: 1 }] : []),
+          ...(acct?.loggedIn ? [{ label: en ? 'My collection' : '我的收藏', href: '/me', icon: 'trophy' as const, group: 1 }] : []),
+          { label: en ? 'Daily Soup' : '每日一汤', href: '/daily', icon: 'play' as const, group: 1 },
           { label: en ? 'Prices & my games' : '价格与局数', href: '/upgrade', icon: 'price' as const, group: 1 },
           { label: en ? 'About MystNight' : '关于谜夜', href: en ? '/en?landing=1' : '/zh?landing=1', icon: 'about' as const, group: 2 },
           { label: en ? 'Music' : '音乐', href: '/music', icon: 'music' as const, group: 3 },
@@ -107,6 +110,7 @@ export default function PlayHub() {
 
         <section>
           <SectionLabel>{en ? 'Start a game' : '开一局'}</SectionLabel>
+          <div className="mb-3"><DailyCard en={en} /></div>
           {!acct?.whitelisted && <div className="mb-3"><PartyPass en={en} until={acct?.partyUntil} /></div>}
           <GameGrid lang={lang} onPick={(g) => (g === 'market' ? router.push('/market') : setPicked(g))} />
           {err && <p className="mt-2 text-sm text-[#e06060]">{err}</p>}

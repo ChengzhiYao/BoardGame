@@ -55,6 +55,7 @@ const MI = {
   mail: 'M4 5h16v14H4zM4 6l8 7 8-7',
   heart: 'M20.8 5.6a5.5 5.5 0 0 0-7.8 0L12 6.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 22l8.8-8.6a5.5 5.5 0 0 0 0-7.8z',
   about: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01',
+  trophy: 'M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3',
   out: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
 };
 function MIcon({ k }: { k?: keyof typeof MI }) {
@@ -237,11 +238,11 @@ export function PricingStrip({ lang }: { lang: Lang }) {
   const en = lang === 'en';
   const m = MEMBERSHIP.monthly.price / 100, y = MEMBERSHIP.yearly.price / 100;
   const rows: { tag: string; color: string; text: string }[] = [
-    { tag: en ? 'Free' : '免费', color: '#9fbf9f', text: en ? 'Soup 2 a day · Cat Curse 1 a day · Truth or Dare and the Market always free' : '海龟汤每天 2 碗 · 猫诅咒每天 1 局 · 真心话、身价场永久免费' },
+    { tag: en ? 'Free' : '免费', color: '#9fbf9f', text: en ? 'Daily Soup always free · Soup 2 a day · Cat Curse 1 a day · Truth or Dare and the Market always free' : '每日一汤永久免费 · 海龟汤每天 2 碗 · 猫诅咒每天 1 局 · 真心话、身价场永久免费' },
     { tag: en ? 'More' : '加玩', color: '#d9a441', text: en ? '$1 per extra game, or $10 for 2 hours of unlimited light games' : '多玩一局 $1，或 $10 买 2 小时轻玩法随便玩' },
     { tag: en ? 'Party' : '派对', color: '#f2a65a', text: en ? '$6.99 · 3 hours of every game, friends free' : '$6.99 · 3 小时所有玩法，朋友免费' },
     { tag: en ? 'New' : '新人', color: '#c9a96e', text: en ? `${FREE_PLAYS_ON_SIGNUP} free ✦ premium games when you sign up` : `注册送 ${FREE_PLAYS_ON_SIGNUP} 局 ✦ 豪华大作` },
-    { tag: en ? 'Member' : '会员', color: '#ece3cf', text: en ? `$${m}/mo · premium voice + 2 hrs/week light games + ${MEMBER_PREMIUM_PLAYS} premium/mo ($${y}/yr)` : `$${m}/月 · 真人级配音 + 轻玩法每周多 2 小时 + 每月 ${MEMBER_PREMIUM_PLAYS} 局豪华（年付 $${y}）` },
+    { tag: en ? 'Member' : '会员', color: '#ece3cf', text: en ? `$${m}/mo · premium voice + streak protection + 2 hrs/week light games + ${MEMBER_PREMIUM_PLAYS} premium/mo ($${y}/yr)` : `$${m}/月 · 真人级配音 + 断签保护 + 轻玩法每周多 2 小时 + 每月 ${MEMBER_PREMIUM_PLAYS} 局豪华（年付 $${y}）` },
   ];
   return (
     <a href="/upgrade" className="block w-full rounded-xl bg-[#0b0c0f]/60 backdrop-blur-md border border-[#d8c7a8]/[0.13] px-4 py-3 sm:px-6 sm:py-4 text-left hover:border-[#c9a96e]/40 transition-colors">

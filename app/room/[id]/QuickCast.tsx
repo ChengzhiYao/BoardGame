@@ -13,6 +13,21 @@ export default function QuickCast(props: ShellProps & { onAdvanced?: () => void 
   const mine = (props.initialCharacters || []).find((c: any) => c.player_id === props.myPlayerId);
   const takenBy = (name: string) => (props.initialCharacters || []).find((c: any) => c.name === name && c.player_id !== props.myPlayerId);
   const picked = !!(mine && mine.confirmed);
+  const withComp = !!(props.room as any).companion?.player_id;
+  const [vets, setVets] = useState<any[]>([]);
+  const [vBusy, setVBusy] = useState('');
+  useEffect(() => {
+    if (picked || withComp) return;
+    fetch('/api/coc/veteran', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) }).then((r) => r.json()).then((d) => setVets(d.list || [])).catch(() => {});
+  }, [picked, withComp, props.room.id]);
+  async function bringBack(id: string) {
+    setVBusy(id); setErr('');
+    try {
+      const r = await fetch('/api/coc/veteran', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id, charId: id }) });
+      const d = await r.json(); if (!r.ok) throw new Error(d.error || 'error');
+      setTimeout(() => window.location.reload(), 400);
+    } catch (e: any) { setErr(e.message); setVBusy(''); }
+  }
 
   async function load() {
     setErr('');
@@ -69,6 +84,26 @@ export default function QuickCast(props: ShellProps & { onAdvanced?: () => void 
         <h1 className="mt-2 font-serif font-semibold text-[25px] sm:text-[30px] text-[#efe6d2]">{en ? 'Choose someone to become' : '选一个人，走进去'}</h1>
         <p className="mt-1.5 text-[12.5px] text-parchment/45">{en ? 'Stats and skills are set for you. Just pick.' : '属性和技能都配好了，点一个就开场'}</p>
       </div>
+
+      {vets.length > 0 && (
+        <div className="w-full max-w-2xl mx-auto px-4">
+          <div className="text-[10.5px] tracking-[.3em] text-[#e6c76e]/80 mb-2">{en ? 'OR BRING SOMEONE BACK' : '或者，带一个老调查员回来'}</div>
+          <div className="flex gap-2.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {vets.map((v) => (
+              <button key={v.id} onClick={() => bringBack(v.id)} disabled={!!vBusy || busy !== null || !!takenBy(v.name)}
+                className="shrink-0 w-[230px] text-left rounded-xl border border-[#e6c76e]/30 bg-[linear-gradient(135deg,rgba(230,199,110,.12),rgba(11,12,15,.9))] px-3 py-2.5 flex items-center gap-3 disabled:opacity-50">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {v.avatar ? <img src={v.avatar} alt="" className="w-11 h-11 rounded-full object-cover border border-[#e6c76e]/40" /> : <span className="w-11 h-11 rounded-full bg-white/[0.06] flex items-center justify-center font-serif text-parchment/70">{String(v.name).slice(0, 1)}</span>}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-serif text-[15px] text-[#efe6d2]">{v.name}</span>
+                  <span className="block truncate text-[11px] text-parchment/45">{en ? `from “${v.story}”` : `走出过《${v.story}》`}</span>
+                  <span className="block text-[11px] text-[#a78bfa]/85">{vBusy === v.id ? (en ? 'Coming back…' : '正在归队…') : (en ? `SAN ${v.san}/${v.sanMax}` : `理智 ${v.san}/${v.sanMax}${v.san < v.sanMax ? ' · 带着伤疤' : ''}`)}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {!cast && !err && (
         <div className="w-full flex gap-3.5 overflow-hidden px-[9vw] sm:justify-center">

@@ -9,6 +9,7 @@ import { type GM } from '@/components/GameShowcase';
 import GameFeedback from '@/components/GameFeedback';
 import EmailLogin from '@/components/EmailLogin';
 import { HomeTopBar, GameSheet } from '@/components/HomeHub';
+import { DailyCard } from '@/components/Daily';
 import { LandingHero, LandingDemo, LandingWhy, LandingGames, LandingProof, LandingFaq, LandingFinal } from '@/components/Landing';
 
 export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
@@ -204,6 +205,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
           { label: lang === 'en' ? 'Invite friends' : '邀请好友', onClick: () => { setShowInvite(true); setCopied(false); }, icon: 'invite' as const, group: 1 },
           { label: lang === 'en' ? 'Join with a code' : '输入邀请码加入', onClick: () => setMode('join'), icon: 'code' as const, group: 1 },
           ...(account?.loggedIn ? [{ label: lang === 'en' ? 'My account' : '我的账号', href: '/account', icon: 'account' as const, group: 2 }] : []),
+          ...(account?.loggedIn ? [{ label: lang === 'en' ? 'My collection' : '我的收藏', href: '/me', icon: 'trophy' as const, group: 2 }] : []),
           { label: lang === 'en' ? 'Prices & my games' : '价格与局数', href: '/upgrade', icon: 'price' as const, group: 2 },
           { label: lang === 'en' ? 'Trailer' : '宣传片', onClick: openPromo, icon: 'play' as const, group: 3 },
           { label: lang === 'en' ? 'Music' : '音乐', href: '/music', icon: 'music' as const, group: 3 },
@@ -217,6 +219,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
         onPlay={() => { quickRef.current = true; createRoom('soup'); }}
         onMore={() => document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth' })} />
       {err && <p className="-mt-16 mb-10 text-[#e06060] text-sm">{err}</p>}
+      <div className="w-full max-w-md px-5 -mt-6 mb-12"><DailyCard en={lang === 'en'} /></div>
       <LandingDemo lang={lang} busy={busy && gameMode === 'soup'} onPlay={() => { quickRef.current = true; createRoom('soup'); }} />
       <LandingWhy lang={lang} />
       <LandingGames lang={lang} onPick={(g) => (g === 'market' ? router.push('/market') : setPicked(g))} />

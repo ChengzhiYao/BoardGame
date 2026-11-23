@@ -1,0 +1,13 @@
+// 落地页 / 游戏介绍的固定配音稿（只有这些文字能被合成，防滥用）。{cue} 不用，排版标记 !!…!! ((…)) 会被转成 Fish 语气。
+export const INTRO: Record<string, { zh: string; en: string }> = {
+  soup: { zh: '一个诡异的故事，一个藏起来的真相。你们只能问是非题——主持人只会回答：是，不是，无关。猜到了，就揭晓汤底。', en: 'A strange story, and a hidden truth. You can only ask yes-or-no questions — and the host will only answer yes, no, or irrelevant. When you think you know, reveal the truth.' },
+  jbs: { zh: '五个嫌疑人，一具尸体。没坐满的位置，AI 会替你补上——它们会撒谎，会甩锅，甚至会栽赃你。搜证，对质，最后，指认凶手。', en: 'Five suspects. One body. The AI fills every empty seat — and it lies, deflects, and may even frame you. Search for evidence, confront them, and name the killer.' },
+  coc: { zh: '你是一名调查员。每一次行动，都会掷骰检定；看见了不该看的东西，理智就会流失。线索要你自己拼起来——AI 守密人，绝不喂答案。', en: 'You are an investigator. Every action is a real dice check, and seeing what you should not costs you sanity. Piece the clues together yourself — the AI Keeper never hands you the answer.' },
+  botc: { zh: '天黑，请闭眼。AI 说书人给每个人发一个隐藏身份。白天讨论，提名，投票处决……((恶魔，就坐在你们中间。))', en: 'Night falls. Close your eyes. The AI storyteller deals everyone a hidden role. By day you argue, nominate, and vote to execute… ((and the demon is sitting among you.))' },
+  dnd: { zh: '选一个职业，组好你的队伍。AI 地下城主讲故事，骰子和伤害由引擎真实计算。打怪，升级，捡装备——小心，别掷出一。', en: 'Pick a class and gather your party. The AI Dungeon Master tells the story, while a real engine rolls the dice. Fight, level up, loot — and try not to roll a one.' },
+  story: { zh: '选一个题材，一种心情。AI 会写好一个只属于今晚的故事，然后，用这样的声音，慢慢读给你听。', en: 'Choose a genre and a mood. The AI writes a story that exists only tonight — and then reads it to you, slowly, in a voice like this.' },
+  td: { zh: '告诉 AI 你们在哪，能玩多大，哪些话题不能碰。它会现场出题，贴合在场的每一个人，绝不重样。', en: 'Tell the AI where you are, how far you’ll go, and what’s off-limits. It writes prompts on the spot, made for everyone in the room — and never repeats.' },
+  mcc: { zh: '轮流抽牌。抽到诅咒猫，你就出局——除非你手里，还有护符。最后活着的那只猫，赢。', en: 'Take turns drawing cards. Draw the cursed cat and you’re out — unless you still hold a charm. The last cat standing wins.' },
+  demo_surface: { zh: '他每天晚上九点，都会给隔壁打一个电话。响三声，就挂。十二年，从没断过。直到那天晚上——电话，被接起来了。他听了两秒，挂掉。然后，报了警。', en: 'Every night at nine, he called the house next door. Three rings, then he hung up. Twelve years, never missed. Until one night — someone picked up. He listened for two seconds, hung up… and called the police.' },
+  demo_truth: { zh: '隔壁住着一位独居的老太太。他们约好：每晚九点他打过去，响三声就挂——意思是，我在，你也好好的。十二年，她从来不接。那天，电话被接起来了。((听筒里，是一个陌生男人，在喘气。))', en: 'Next door lived an old woman, alone. Their deal: every night at nine, three rings, then hang up — meaning, I’m here, and you’re all right. For twelve years she never answered. That night, someone did. ((On the line, a strange man was breathing.))' },
+};

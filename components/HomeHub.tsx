@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { type Lang } from '@/lib/i18n';
 import { GAMES, type GM } from '@/components/GameShowcase';
 import { FREE_MODES, FREE_PLAYS_ON_SIGNUP, MEMBERSHIP, MEMBER_PREMIUM_PLAYS } from '@/lib/pricing';
+import { useIntroVoice } from '@/lib/useIntroVoice';
 
 type Bi = { zh: string; en: string };
 const L = (lang: Lang, b: Bi) => (lang === 'en' ? b.en : b.zh);
@@ -282,20 +283,32 @@ export function SectionLabel({ children, right }: { children: React.ReactNode; r
 // 游戏详情里的玩法演示：先是真实界面的静帧，点 ▶ 播放一段对局回放
 function Preview({ game, en }: { game: GM; en: boolean }) {
   const [play, setPlay] = useState(false);
-  useEffect(() => setPlay(false), [game]);
+  const v = useIntroVoice();
+  useEffect(() => { setPlay(false); v.stop(); }, [game]); // eslint-disable-line react-hooks/exhaustive-deps
   if (game === 'market') return null;
+  const start = () => { setPlay(true); v.play(game, en ? 'en' : 'zh'); };
+  const end = () => { setPlay(false); v.stop(); };
   return (
     <div className="mt-4 relative w-full rounded-xl overflow-hidden border border-[#d8c7a8]/[0.12] bg-[#0b0c0f]" style={{ aspectRatio: '1180 / 720' }}>
       <iframe key={`${game}-${play}`} src={`/screens.html${play ? '?play=1' : ''}#${game}`} title="" loading="lazy" scrolling="no" className="absolute inset-0 w-full h-full border-0 pointer-events-none" />
       {!play && (
-        <button onClick={() => setPlay(true)} className="absolute inset-0 flex items-center justify-center bg-black/35 hover:bg-black/25 transition-colors group">
+        <button onClick={start} className="absolute inset-0 flex items-center justify-center bg-black/35 hover:bg-black/25 transition-colors group">
           <span className="flex items-center gap-2.5 pl-3 pr-4 py-2 rounded-full bg-[#0b0c0f]/80 backdrop-blur border border-[#c9a96e]/45 text-[13px] text-[#efe6d2] group-hover:border-[#c9a96e]/80">
             <span className="w-7 h-7 rounded-full bg-[#c9a96e] flex items-center justify-center"><svg width="11" height="11" viewBox="0 0 24 24" fill="#0b0c0f"><path d="M7 4l14 8-14 8z" /></svg></span>
-            {en ? 'Watch how it plays' : '看看怎么玩'}
+            {en ? 'Watch & listen' : '看看怎么玩 · 有讲解'}
           </span>
         </button>
       )}
-      {play && <button onClick={() => setPlay(false)} className="absolute top-2 right-2 px-2.5 py-1 rounded-full bg-black/60 text-[11px] text-parchment/70">{en ? 'Stop' : '停止'}</button>}
+      {play && (
+        <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 px-2.5 py-2 bg-gradient-to-t from-black/80 to-transparent">
+          <span className="flex items-center gap-2 text-[11px] text-parchment/75">
+            {v.state === 'loading' ? <span className="w-3 h-3 rounded-full border-2 border-parchment/25 border-t-parchment/80 animate-spin" />
+              : v.state === 'playing' ? <span className="flex items-end gap-[2px] h-3">{[0, 1, 2].map((k) => <span key={k} className="w-[2px] rounded-full bg-[#c9a96e] mn-eq" style={{ animationDelay: `${k * 0.15}s`, animationDuration: '.6s' }} />)}</span> : null}
+            {v.state === 'loading' ? (en ? 'Loading narration…' : '讲解加载中…') : v.state === 'playing' ? (en ? 'Narrating' : '讲解中') : ''}
+          </span>
+          <button onClick={end} className="px-2.5 py-1 rounded-full bg-black/60 text-[11px] text-parchment/75">{en ? 'Stop' : '停止'}</button>
+        </div>
+      )}
     </div>
   );
 }

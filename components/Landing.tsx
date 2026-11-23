@@ -6,6 +6,7 @@ import Narration from '@/components/Narration';
 import { TILE, ORDER, PricingStrip } from '@/components/HomeHub';
 import { type GM } from '@/components/GameShowcase';
 import { FREE_MODES } from '@/lib/pricing';
+import { useIntroVoice } from '@/lib/useIntroVoice';
 
 type Bi = { zh: string; en: string };
 const L = (lang: Lang, b: Bi) => (lang === 'en' ? b.en : b.zh);
@@ -85,6 +86,17 @@ export function LandingDemo({ lang, onPlay, busy }: { lang: Lang; onPlay: () => 
   const [typing, setTyping] = useState<number | null>(null);
   const [revealed, setRevealed] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
+  const v = useIntroVoice();
+  const [which, setWhich] = useState<'demo_surface' | 'demo_truth' | null>(null);
+  const listen = (k: 'demo_surface' | 'demo_truth') => { if (which === k && v.state !== 'idle') { v.stop(); setWhich(null); return; } setWhich(k); v.play(k, en ? 'en' : 'zh'); };
+  const ListenBtn = ({ k }: { k: 'demo_surface' | 'demo_truth' }) => (
+    <button onClick={() => listen(k)} className="ml-4 mt-2 inline-flex items-center gap-2 text-[12px] text-[#c9a96e] hover:text-[#e0c48c]">
+      {which === k && v.state === 'loading' ? <span className="w-3 h-3 rounded-full border-2 border-[#c9a96e]/30 border-t-[#c9a96e] animate-spin" />
+        : which === k && v.state === 'playing' ? <span className="flex items-end gap-[2px] h-3">{[0, 1, 2].map((x) => <span key={x} className="w-[2px] rounded-full bg-[#c9a96e] mn-eq" style={{ animationDelay: `${x * 0.15}s`, animationDuration: '.6s' }} />)}</span>
+        : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 5L6 9H3v6h3l5 4z" /><path d="M15.5 9.5a3.5 3.5 0 0 1 0 5" /></svg>}
+      {which === k && v.state === 'playing' ? (en ? 'Stop' : '停止') : (en ? 'Hear the host read it' : '听主持人读')}
+    </button>
+  );
   useEffect(() => { const b = boxRef.current; if (b) b.scrollTo({ top: b.scrollHeight, behavior: 'smooth' }); }, [asked, typing, revealed]);
   function ask(i: number) {
     if (typing !== null || asked.includes(i)) return;
@@ -105,7 +117,7 @@ export function LandingDemo({ lang, onPlay, busy }: { lang: Lang; onPlay: () => 
             <span className="w-1.5 h-1.5 rounded-full bg-[#c9a96e] animate-pulse" />{en ? 'LIVE · LATERAL SOUP' : '海龟汤 · 进行中'}
           </div>
           <div ref={boxRef} className="max-h-[62vh] overflow-y-auto px-4 sm:px-6 py-5 space-y-4">
-            <Narration text={L(lang, DEMO.surface)} lang={lang} fresh collapse={false} label={en ? 'The surface' : '汤面'} />
+            <div><Narration text={L(lang, DEMO.surface)} lang={lang} fresh collapse={false} label={en ? 'The surface' : '汤面'} /><ListenBtn k="demo_surface" /></div>
             {asked.map((i) => (
               <div key={i} className="space-y-2">
                 <div className="flex justify-end"><span className="max-w-[80%] px-3.5 py-2 rounded-2xl rounded-br-md bg-[#7d1d1d]/40 border border-[#a83232]/30 text-[14px] text-parchment/90">{L(lang, DEMO.qs[i].q)}</span></div>
@@ -116,7 +128,7 @@ export function LandingDemo({ lang, onPlay, busy }: { lang: Lang; onPlay: () => 
                 </div>
               </div>
             ))}
-            {revealed && <Narration text={L(lang, DEMO.truth)} lang={lang} fresh collapse={false} tone="reveal" label={en ? 'The truth' : '汤底'} />}
+            {revealed && <div><Narration text={L(lang, DEMO.truth)} lang={lang} fresh collapse={false} tone="reveal" label={en ? 'The truth' : '汤底'} /><ListenBtn k="demo_truth" /></div>}
           </div>
           <div className="border-t border-[#d8c7a8]/[0.08] px-4 py-3.5">
             {!revealed ? (<>
@@ -127,7 +139,7 @@ export function LandingDemo({ lang, onPlay, busy }: { lang: Lang; onPlay: () => 
                 ))}
               </div>
               {asked.length >= 2 && (
-                <button onClick={() => setRevealed(true)} className="mt-3 text-[13px] text-[#c9a96e] border-b border-[#c9a96e]/40">{en ? 'I think I know — reveal the truth' : '我想到了，揭晓汤底'}</button>
+                <button onClick={() => { setRevealed(true); if (which === 'demo_surface' && v.state !== 'idle') { setWhich('demo_truth'); v.play('demo_truth', en ? 'en' : 'zh'); } }} className="mt-3 text-[13px] text-[#c9a96e] border-b border-[#c9a96e]/40">{en ? 'I think I know — reveal the truth' : '我想到了，揭晓汤底'}</button>
               )}
             </>) : (
               <div className="text-center py-1">

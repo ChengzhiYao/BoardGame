@@ -42,26 +42,59 @@ function Icon({ k }: { k: Key }) {
   }
 }
 
-export default function MccCard({ card, en, w = 120 }: { card: string; en?: boolean; w?: number }) {
-  const k = card as Key; const m = INFO[k];
+// 每类牌一种颜色：攻击（红）/ 防御（青）/ 情报（金）/ 诅咒（血红发光）
+const FAMILY: Record<Key, { c: string; tag_zh: string; tag_en: string }> = {
+  curse: { c: '#ff4d4d', tag_zh: '诅咒', tag_en: 'CURSE' },
+  ward: { c: '#5fd1c1', tag_zh: '护身', tag_en: 'DEFEND' }, hiss: { c: '#5fd1c1', tag_zh: '响应', tag_en: 'REACT' }, mirror: { c: '#5fd1c1', tag_zh: '响应', tag_en: 'REACT' }, nap: { c: '#5fd1c1', tag_zh: '躲避', tag_en: 'DODGE' },
+  swap: { c: '#f06a5a', tag_zh: '出手', tag_en: 'ATTACK' }, hex: { c: '#f06a5a', tag_zh: '出手', tag_en: 'ATTACK' }, thief: { c: '#f06a5a', tag_zh: '出手', tag_en: 'ATTACK' },
+  peek: { c: '#e7b85a', tag_zh: '情报', tag_en: 'INTEL' }, shuffle: { c: '#e7b85a', tag_zh: '扰乱', tag_en: 'CHAOS' }, noise: { c: '#e7b85a', tag_zh: '扰乱', tag_en: 'CHAOS' }, lives: { c: '#e7b85a', tag_zh: '回收', tag_en: 'RECOVER' },
+};
+export const cardColor = (k: string) => FAMILY[k as Key]?.c || '#ece9e2';
+export const cardName = (k: string, en?: boolean) => { const m = INFO[k as Key]; return m ? (en ? m.en : m.zh) : k; };
+export const cardDesc = (k: string, en?: boolean) => { const m = INFO[k as Key]; return m ? (en ? m.d_en : m.d_zh) : ''; };
+
+export default function MccCard({ card, en, w = 120, glow }: { card: string; en?: boolean; w?: number; glow?: boolean }) {
+  const k = card as Key; const m = INFO[k]; const f = FAMILY[k];
   if (!m) return null;
+  const s = w / 120; // 等比缩放
+  const curse = k === 'curse';
   return (
-    <div style={{ width: w }} className="select-none rounded-xl border border-white/25 bg-[#070708] overflow-hidden flex flex-col" >
-      <div className="px-2 pt-2">
-        <div className="rounded-lg border border-white/10 bg-black relative">
-          <svg viewBox="0 0 64 60" style={{ width: '100%', height: 'auto', display: 'block' }}>
-            {/* 神秘暗纹：淡淡的圆环符印 */}
-            <circle cx="32" cy="28" r="24" fill="none" stroke={W} strokeOpacity="0.07" />
-            <circle cx="32" cy="28" r="27" fill="none" stroke={W} strokeOpacity="0.04" />
-            {/* 四角刻痕 */}
-            <g stroke={W} strokeOpacity="0.25" strokeWidth="1"><path d="M6 6 h5 M6 6 v5 M58 6 h-5 M58 6 v5 M6 54 h5 M6 54 v-5 M58 54 h-5 M58 54 v-5" /></g>
+    <div style={{ width: w, height: w * 1.45, borderRadius: 14 * s, padding: 5 * s, background: `linear-gradient(160deg, ${f.c}55, #1a1a20 35%, #0b0b0e 70%, ${f.c}33)`, boxShadow: `0 ${6 * s}px ${18 * s}px rgba(0,0,0,.55)${glow || curse ? `, 0 0 ${22 * s}px ${f.c}66` : ''}` }} className="select-none">
+      <div className="relative w-full h-full flex flex-col overflow-hidden" style={{ borderRadius: 10 * s, background: curse ? 'radial-gradient(120% 80% at 50% 30%, #3a0b0e, #0a0708 70%)' : 'radial-gradient(120% 80% at 50% 25%, #1b1c24, #08080b 75%)', border: `1px solid ${f.c}55` }}>
+        {/* 左上角：类别 */}
+        <div className="absolute flex items-center" style={{ left: 7 * s, top: 6 * s, gap: 3 * s }}>
+          <span style={{ width: 5 * s, height: 5 * s, borderRadius: 9, background: f.c, boxShadow: `0 0 ${6 * s}px ${f.c}` }} />
+          <span style={{ fontSize: Math.max(7, 8.5 * s), letterSpacing: '.18em', color: f.c, fontWeight: 600 }}>{en ? f.tag_en : f.tag_zh}</span>
+        </div>
+        {/* 主图：月亮圆框 */}
+        <div className="relative mx-auto" style={{ marginTop: 20 * s, width: 84 * s, height: 84 * s }}>
+          <div className="absolute inset-0 rounded-full" style={{ background: `radial-gradient(circle at 50% 40%, ${f.c}2e, transparent 68%)`, border: `1px solid ${f.c}40` }} />
+          <svg viewBox="0 0 64 60" className="absolute" style={{ inset: 8 * s, width: 68 * s, height: 64 * s }}>
             <Icon k={k} />
           </svg>
         </div>
+        <div className="text-center font-serif" style={{ marginTop: 6 * s, fontSize: Math.max(9, 14 * s), letterSpacing: en ? '.08em' : '.22em', color: '#f3efe6', fontWeight: 600 }}>{en ? m.en : m.zh}</div>
+        <div className="mx-auto" style={{ width: 28 * s, height: 1, margin: `${5 * s}px auto`, background: `${f.c}88` }} />
+        {w >= 84 && <div className="text-center leading-snug px-2" style={{ fontSize: Math.max(8.5, 10.5 * s), color: 'rgba(236,233,226,.7)' }}>{en ? m.d_en : m.d_zh}</div>}
       </div>
-      <div className="px-1.5 pt-2 text-center text-[10.5px] font-serif" style={{ color: W, letterSpacing: en ? '0.12em' : '0.22em' }}>{en ? m.en : m.zh}</div>
-      <div className="mx-2 my-1 border-t border-white/12" />
-      <div className="px-2 pb-2 text-center leading-snug" style={{ color: 'rgba(236,233,226,0.62)', fontSize: w >= 110 ? 10 : 9 }}>{en ? m.d_en : m.d_zh}</div>
+    </div>
+  );
+}
+
+// 牌背：月下猫眼
+export function CardBack({ w = 90, count, glow }: { w?: number; count?: number; glow?: boolean }) {
+  const s = w / 90;
+  return (
+    <div style={{ width: w, height: w * 1.45, borderRadius: 12 * s, padding: 4 * s, background: 'linear-gradient(160deg,#4a3a7a,#15121f 45%,#2a1d3d)', boxShadow: `0 ${8 * s}px ${22 * s}px rgba(0,0,0,.6)${glow ? `, 0 0 ${26 * s}px rgba(167,139,250,.55)` : ''}` }}>
+      <div className="relative w-full h-full flex items-center justify-center overflow-hidden" style={{ borderRadius: 9 * s, background: 'repeating-linear-gradient(45deg, rgba(167,139,250,.07) 0 2px, transparent 2px 9px), radial-gradient(circle at 50% 45%, #241b3a, #0c0a14 70%)', border: '1px solid rgba(167,139,250,.35)' }}>
+        <svg viewBox="0 0 60 60" style={{ width: 46 * s, height: 46 * s }}>
+          <circle cx="30" cy="30" r="22" fill="none" stroke="rgba(236,233,226,.5)" strokeWidth="1" />
+          <path d="M30 14 a16 16 0 1 0 0.01 0" fill="none" stroke="rgba(236,233,226,.18)" />
+          <path d="M18 30 q12 -12 24 0 q-12 12 -24 0 Z" fill="rgba(236,233,226,.85)" />
+          <path d="M30 22 q3 8 0 16 q-3 -8 0 -16 Z" fill="#0c0a14" />
+        </svg>
+        {typeof count === 'number' && <span className="absolute font-serif" style={{ bottom: 6 * s, fontSize: 13 * s, color: '#ece9e2' }}>{count}</span>}
+      </div>
     </div>
   );
 }

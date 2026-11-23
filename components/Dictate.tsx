@@ -31,7 +31,7 @@ export default function Dictate({ en, lang, compact, onStart, onLive, onError, p
       r.current.lv = setInterval(() => { an.getFloatTimeDomainData(buf); let s2 = 0; for (let i = 0; i < buf.length; i++) s2 += buf[i] * buf[i]; const db = 20 * Math.log10(Math.sqrt(s2 / buf.length) + 1e-9); const v = Math.max(0.05, Math.min(1, (db + 60) / 45)); setLevels((x) => [...x.slice(-47), v]); }, 70);
     } catch {
       // 拿不到音量(有的手机浏览器识别时不让再开麦克风):用轻微起伏的假波形,至少看得出在听
-      r.current.lv = setInterval(() => setLevels((x) => [...x.slice(-47), 0.15 + Math.random() * 0.35]), 90);
+      r.current.lv = setInterval(() => { const b = Math.max(0, (r.current.boost || 0)); r.current.boost = b * 0.85; setLevels((x) => [...x.slice(-47), 0.08 + Math.random() * (0.12 + b * 0.6)]); }, 90);
     }
   }
   function unmeter() { clearInterval(r.current.lv); try { r.current.ctx?.close(); } catch {} try { r.current.meterStream?.getTracks().forEach((t: MediaStreamTrack) => t.stop()); } catch {} setLevels([]); }
@@ -56,17 +56,24 @@ export default function Dictate({ en, lang, compact, onStart, onLive, onError, p
       try {
         const rec = new SR();
         rec.lang = (lang || (en ? 'en' : 'zh')) === 'en' ? 'en-US' : 'zh-CN';
-        rec.continuous = true; rec.interimResults = true;
+        rec.continuous = !/Android/i.test(navigator.userAgent); rec.interimResults = true; // 安卓连续模式会重复出字：改成一句一句听，自动接着听
         let finalText = '';
         rec.onresult = (e: any) => {
           let interim = '';
           for (let i = e.resultIndex; i < e.results.length; i++) { const t = e.results[i][0].transcript; if (e.results[i].isFinal) finalText += t; else interim += t; }
-          onLive(finalText + interim, false);
+          r.current.boost = 1.2; onLive(finalText + interim, false);
         };
-        rec.onerror = (e: any) => { if (e?.error === 'not-allowed') onError(L('没拿到麦克风权限', 'No microphone access')); };
-        rec.onend = () => { clearInterval(r.current.t); unmeter(); if (!r.current.cancel) onLive(finalText, true); setSt('idle'); };
+        rec.onerror = (e: any) => { if (e?.error === 'not-allowed' || e?.error === 'service-not-allowed') { r.current.userStop = true; onError(L('没拿到麦克风权限', 'No microphone access')); } else if (e?.error === 'network') { r.current.userStop = true; onError(L('语音识别连不上网络，请重试', 'Speech service unreachable')); } };
+        rec.onend = () => {
+          // 安卓的连续识别说完一句会自己停：用户没点完成就接着听
+          if (!r.current.cancel && !r.current.userStop && Date.now() - r.current.t0 < 60000) { try { rec.start(); return; } catch {} }
+          clearInterval(r.current.t); unmeter(); if (!r.current.cancel) onLive(finalText, true); setSt('idle');
+        };
         rec.start(); r.current.sr = rec; setSt('rec');
-        if (panel) navigator.mediaDevices?.getUserMedia({ audio: true }).then((ms) => { r.current.meterStream = ms; meter(ms); }).catch(() => meter(null));
+        // 不再另开麦克风画波形：安卓上会把麦克风抢走，识别就收不到声音。波形跟着识别出字的节奏跳。
+        if (panel) { r.current.boost = 0; meter(null); }
+        rec.onsoundstart = () => { r.current.boost = 1; };
+        rec.onspeechend = () => { r.current.boost = 0; };
         return;
       } catch {}
     }
@@ -92,7 +99,7 @@ export default function Dictate({ en, lang, compact, onStart, onLive, onError, p
   function cancel() { r.current.cancel = true; stop(); onCancel?.(); setSt('idle'); }
   function stop() {
     clearInterval(r.current.t); clearInterval(r.current.live); unmeter();
-    if (r.current.sr) { try { r.current.sr.stop(); } catch {} return; }
+    if (r.current.sr) { r.current.userStop = true; try { r.current.sr.stop(); } catch {} return; }
     try { r.current.mr?.stop(); } catch { setSt('idle'); }
     r.current.stream?.getTracks().forEach((t: MediaStreamTrack) => t.stop());
   }

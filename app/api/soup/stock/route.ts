@@ -27,23 +27,23 @@ export async function POST(req: Request) {
 
   // 1) 补配音（最多 3 道）
   if (!voiceDead) {
-    const { data: rows } = await admin.from('soup_library').select('id, lang, surface, bottom, surface_audio, bottom_audio').or('surface_audio.is.null,bottom_audio.is.null').order('solved', { ascending: false }).limit(3);
+    const { data: rows } = await admin.from('soup_library').select('id, lang, surface, bottom, surface_audio, bottom_audio').or('surface_audio.is.null,bottom_audio.is.null').order('solved', { ascending: false }).limit(6);
     for (const r of rows || []) {
-      if (Date.now() - t0 > 25000) break;
+      if (Date.now() - t0 > 90000) break;
       try { await voicePuzzle(admin, r as any); out.voiced++; } catch (e: any) { if (e?.message === 'quota') { voiceDead = true; await admin.from('app_kv').upsert({ key: 'soup_voice_quota', value: { until: Date.now() + 3600000 } }); break; } }
     }
   }
 
   // 2) 新出题：挑题库里最少的组合，2 道并行
   const { count } = await admin.from('soup_library').select('id', { count: 'exact', head: true });
-  if ((count || 0) < MAX_LIBRARY && Date.now() - t0 < 30000) {
+  if ((count || 0) < MAX_LIBRARY && Date.now() - t0 < 120000) {
     const { data: all } = await admin.from('soup_library').select('lang, difficulty, supernatural, tone').limit(5000);
     const tally: Record<string, number> = {};
     (all || []).forEach((r: any) => { const k = `${r.lang}|${r.difficulty}|${r.supernatural || 'any'}|${r.tone || 'any'}`; tally[k] = (tally[k] || 0) + 1; });
     const combos: any[] = [];
     for (const lang of ['zh', 'zh', 'zh', 'zh', 'en']) for (const d of DIFF) for (const sp of SUPER) for (const tn of TONE) combos.push({ lang, d, sp, tn, n: tally[`${lang}|${d}|${sp}|${tn}`] || 0, r: Math.random() });
     combos.sort((a, b) => a.n - b.n || a.r - b.r);
-    const picks = combos.slice(0, 2);
+    const picks = combos.slice(0, 3);
     await Promise.all(picks.map(async (c) => {
       const gore = LV[Math.floor(Math.random() * LV.length)], horror = c.tn === '惊悚' ? 75 : LV[Math.floor(Math.random() * LV.length)], edge = [25, 50, 50, 75][Math.floor(Math.random() * 4)];
       try {

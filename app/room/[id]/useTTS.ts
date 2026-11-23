@@ -3,7 +3,7 @@ import { stripMarks } from '@/lib/narrate';
 import { useEffect, useRef, useState } from 'react';
 import { setVoiceControl } from './voiceControl';
 
-type Spoken = { kind: 'narrator' | 'character'; name?: string; gender?: 'male' | 'female'; text: string; audio?: string } | null;
+type Spoken = { kind: 'narrator' | 'character'; name?: string; gender?: 'male' | 'female'; text: string; audio?: string; urgent?: boolean } | null;
 export type VoiceMode = 'off' | 'on';
 
 const keep = (t: string) => String(t || '').replace(/[🔍🔒🗳️▶👍🔧⏱⚖🎨↻🎲💀🩸✔✘🔊🔈🎙️]/g, '').replace(/[ \t]+/g, ' ').trim();
@@ -84,6 +84,8 @@ export function useTTS(opts: { lang?: string; messages: any[]; classify: (m: any
       const h = hashName(String(c.name || ''));
 
       {
+        // 揭晓真相这类：打断正在念的和排队的，马上念
+        if (c.urgent) { queue.current = []; if (curAudio.current) { try { curAudio.current.pause(); curAudio.current.onended?.(new Event('ended')); } catch {} } }
         queue.current.push({ text: said.slice(0, 900), gender: c.gender || '', narrator: c.kind === 'narrator', seed: h, lang: zh ? 'zh' : 'en', audio: c.audio });
         worker();
       }

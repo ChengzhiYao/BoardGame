@@ -13,7 +13,7 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
   const router = useRouter();
   const supabase = useRef(createClient()).current;
   const [messages, setMessages] = useState<any[]>(props.initialMessages);
-  useTTS({ lang: props.room.language, messages, roomId: props.room.id, classify: (m: any) => { const t = m.payload?.type; if (t === 'soup_surface' || t === 'soup_reveal' || m.sender_type === 'kp') return { kind: 'narrator' as const, text: m.content, audio: m.payload?.audio }; return null; } });
+  useTTS({ lang: props.room.language, messages, roomId: props.room.id, classify: (m: any) => { const t = m.payload?.type; if (t === 'soup_surface' || t === 'soup_reveal' || m.sender_type === 'kp') return { kind: 'narrator' as const, text: m.content, audio: m.payload?.audio, urgent: t === 'soup_reveal' }; return null; } });
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [guessing, setGuessing] = useState(false);
@@ -112,6 +112,13 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
   const qCount = messages.filter((m) => m.sender_type === 'player').length;
   const heatWord = heat >= 85 ? '就差一步' : heat >= 65 ? '滚烫' : heat >= 35 ? '变暖了' : heat > 0 ? '还很冷' : '未开始';
   useEffect(() => { try { window.dispatchEvent(new CustomEvent('mn-tension', { detail: heat })); } catch {} }, [heat]);
+  // 开局就把汤底配音在服务器上备好，揭晓时立刻开口
+  const prepared = useRef(false);
+  useEffect(() => {
+    if (prepared.current || !playing) return; prepared.current = true;
+    fetch('/api/soup/prepare-voice', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playing]);
   // 首页「马上开玩」进来的：房主自动用默认设置出题，不用再点
   const quick = useRef(false);
   useEffect(() => {

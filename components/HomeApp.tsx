@@ -8,6 +8,7 @@ import { tr, getClientLang, setClientLang, type Lang } from '@/lib/i18n';
 import GameShowcase, { type GM } from '@/components/GameShowcase';
 import GameFeedback from '@/components/GameFeedback';
 import EmailLogin from '@/components/EmailLogin';
+import NightBackground from '@/components/NightBackground';
 import { HomeTopBar, SellingPoints, GameGrid, PricingStrip, GameSheet } from '@/components/HomeHub';
 
 export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
@@ -150,14 +151,8 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
 
   return (
     <main className="min-h-screen flex flex-col items-center text-center gap-6 pb-16">
-      <iframe
-        src="/coc3d-demo.html?embed=1&full=1&auto=1"
-        title=""
-        aria-hidden
-        tabIndex={-1}
-        className="fixed inset-0 w-full h-full border-0 pointer-events-none -z-20"
-      />
-      <div className="fixed inset-0 pointer-events-none -z-10" style={{ background: 'radial-gradient(130% 70% at 50% 0%, rgba(12,13,16,.25), rgba(12,13,16,.72) 55%, rgba(12,13,16,.95))' }} />
+      <NightBackground />
+      <div className="fixed inset-0 pointer-events-none -z-10" style={{ background: 'radial-gradient(120% 60% at 50% 38%, rgba(8,10,22,.35), rgba(8,10,22,0) 70%)' }} />
       <HomeTopBar lang={lang} onLang={switchLang} account={account}
         onLogin={() => setLoginGate(true)}
         onLogout={async () => { await signOut(); try { const r = await fetch('/api/billing/status'); setAccount(await r.json()); } catch { setAccount({ loggedIn: false }); } }}

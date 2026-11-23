@@ -2,6 +2,7 @@
 // 「我的大厅」：老玩家每次打开谜夜看到的地方——进行中的局、再开一局、玩过的局、我的额度。
 import PartyPass from '@/components/PartyPass';
 import { DailyCard } from '@/components/Daily';
+import OpenRooms from '@/components/OpenRooms';
 import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getClientLang, setClientLang, type Lang } from '@/lib/i18n';
@@ -107,6 +108,8 @@ export default function PlayHub() {
         </section>
 
         <ResumeRooms lang={lang} heading={en ? 'In progress' : '进行中'} />
+
+        <OpenRooms en={en} onLogin={() => setLoginGate(true)} />
 
         <section>
           <SectionLabel>{en ? 'Start a game' : '开一局'}</SectionLabel>

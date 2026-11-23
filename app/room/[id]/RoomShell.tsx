@@ -8,6 +8,7 @@ import CharacterFlow from './CharacterFlow';
 import Dashboard from './Dashboard';
 import SoupRoom from './SoupRoom';
 import BadgeCheck from '@/components/BadgeCheck';
+import JoinRequests from '@/components/JoinRequests';
 import TDRoom from './TDRoom';
 import JbsRoom from './JbsRoom';
 import BotcRoom from './BotcRoom';
@@ -143,7 +144,7 @@ export default function RoomShell(props: ShellProps) {
     return () => { kill(); (window as any).Audio = Orig; window.removeEventListener('pagehide', kill); };
   }, []);
 
-  const exit = <><RoomExit en={props.room.language === 'en'} />{props.room.game_state === 'ended' && <BadgeCheck en={props.room.language === 'en'} />}</>;
+  const exit = <><RoomExit en={props.room.language === 'en'} />{props.room.game_state === 'ended' && <BadgeCheck en={props.room.language === 'en'} />}{props.room.game_state !== 'ended' && props.room.host_user_id === props.userId && ['jbs', 'botc', 'mcc', 'coc'].includes(props.room.mode) && !(props.room as any).companion?.name && <JoinRequests roomId={props.room.id} en={props.room.language === 'en'} />}</>;
   if (props.room.mode === 'soup') return (<>{exit}<AudioManager state={soupAudioState(props.room)} /><SoupRoom {...props} /></>);
   if (props.room.mode === 'td') return (<>{exit}<TDRoom {...props} /></>);
   if (props.room.mode === 'jbs') return (<>{exit}<AudioManager state={jbsAudioState(props.room)} /><JbsRoom {...props} /></>);

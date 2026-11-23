@@ -4,6 +4,9 @@ import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { createHash } from 'crypto';
 import OpenAI from 'openai';
 import { LINGER_URL } from '@/lib/linger/companion';
+import { getEntitlement } from '@/lib/billing/entitlement';
+// Fish 免费期到 11/30；之后新生成的真人级配音是会员（或畅玩卡 / 派对夜卡 / Linger 伴侣局）专属，本库里已录好的照旧人人免费
+const FREE_VOICE_UNTIL = Date.parse(process.env.FISH_FREE_UNTIL || '2026-12-01T00:00:00Z');
 
 export const maxDuration = 30;
 
@@ -41,6 +44,16 @@ export async function POST(req: Request) {
     const fpath = `tts/${fhash}.mp3`;
     const { data: hit } = await admin.storage.from('scene-images').list('tts', { search: `${fhash}.mp3`, limit: 1 });
     if (hit && hit.length) return NextResponse.json({ url: admin.storage.from('scene-images').getPublicUrl(fpath).data.publicUrl, cached: true });
+    if (Date.now() >= FREE_VOICE_UNTIL) {
+      let ok = false;
+      if (roomId) { const { data: rm } = await admin.from('rooms').select('companion').eq('id', roomId).maybeSingle(); ok = !!(rm as any)?.companion?.agentId; }
+      if (!ok) {
+        const ent = await getEntitlement(admin, user);
+        const { data: pf } = await admin.from('profiles').select('pass_until').eq('user_id', user.id).maybeSingle();
+        ok = ent.whitelisted || ent.member || !!ent.partyUntil || !!(pf?.pass_until && new Date(pf.pass_until) > new Date());
+      }
+      if (!ok) return NextResponse.json({ error: 'member_voice' }, { status: 402 });
+    }
     // 防滥用：每人每天新生成的配音有上限（复用存好的不算）。没登录的 20 段，登录的 80 段。
     const day = new Date().toISOString().slice(0, 10);
     const cap = (user as any).is_anonymous ? 20 : 80;

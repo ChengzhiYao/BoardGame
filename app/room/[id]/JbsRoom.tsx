@@ -33,6 +33,16 @@ export default function JbsRoom(props: ShellProps) {
   const [now, setNow] = useState(Date.now());
   const [showCustom, setShowCustom] = useState(false);
   const [custom, setCustom] = useState<Record<string, string>>({});
+  const [friends, setFriends] = useState('');
+  const [occasion, setOccasion] = useState('');
+  const [needCustomPay, setNeedCustomPay] = useState(false);
+  // 付完定制券回来：把刚才填的朋友名单恢复，并打开面板
+  useEffect(() => {
+    try {
+      const dr = JSON.parse(localStorage.getItem('mn_custom_draft') || 'null');
+      if (dr && typeof window !== 'undefined' && /[?&]paid=1/.test(window.location.search)) { setFriends(dr.friends || ''); setOccasion(dr.occasion || ''); setCustom(dr.custom || {}); setShowCustom(true); localStorage.removeItem('mn_custom_draft'); }
+    } catch {}
+  }, []);
   const [sheet, setSheet] = useState<null | 'role' | 'clues' | 'cast' | 'map'>(null);
   const [talkTo, setTalkTo] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -188,9 +198,27 @@ export default function JbsRoom(props: ShellProps) {
     }
   }, [isHost, props.room.jbs_phase, (props.room.jbs_options || []).length, props.room.modules_generating]);
 
-  async function genScripts(dir?: Record<string, string> | null) {
-    const r = await call('/api/jbs/scripts', { roomId: props.room.id, headcount, customDirection: dir || null });
-    if (r) setShowCustom(false);
+  async function genScripts(dir?: Record<string, any> | null) {
+    let d: any = dir || null;
+    if (d && friends.trim()) {
+      const people = friends.split('\n').map((l) => l.trim()).filter(Boolean).slice(0, 8).map((l) => { const m = l.split(/[:：—\-–]/); return { name: m[0].trim().slice(0, 20), note: m.slice(1).join(' ').trim().slice(0, 120) }; });
+      d = { ...d, people, occasion: occasion.trim() };
+    }
+    setBusy(true);
+    try {
+      const res = await fetch('/api/jbs/scripts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id, headcount, customDirection: d }) });
+      const j = await res.json().catch(() => ({}));
+      if (res.status === 402 && j?.reason === 'custom_pay') { setNeedCustomPay(true); return; }
+      if (!res.ok) { toast(j.error || (en ? 'Error' : '出错了')); return; }
+      setShowCustom(false); setNeedCustomPay(false);
+    } catch (e: any) { toast((en ? 'Failed: ' : '失败：') + e.message); }
+    finally { setBusy(false); }
+  }
+  async function buyCustom() {
+    try {
+      const r = await fetch('/api/billing/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan: 'custom1', returnTo: window.location.pathname }) });
+      const d = await r.json(); if (d.url) { try { localStorage.setItem('mn_custom_draft', JSON.stringify({ friends, occasion, custom })); } catch {} window.location.href = d.url; } else toast(d.error || (en ? 'Could not open checkout' : '没能打开支付'));
+    } catch { toast(en ? 'Network error' : '网络错误'); }
   }
 
   const TYPE_OPTS = en
@@ -200,6 +228,15 @@ export default function JbsRoom(props: ShellProps) {
   const field = 'w-full px-3.5 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-[#efe6d2] text-[14px] placeholder:text-parchment/30 outline-none focus:border-[#c9a96e]/50';
   const customPanel = (
     <div className="space-y-4 text-left">
+      <div className="rounded-2xl border border-[#f2a65a]/35 bg-[#f2a65a]/[0.06] p-4 space-y-2.5">
+        <div className="flex items-center justify-between"><span className="font-serif text-[15.5px] text-[#fbe7cf]">{en ? 'Write your friends into it' : '把朋友写进剧本'}</span><span className="text-[11px] px-2 py-0.5 rounded-full border border-[#f2a65a]/45 text-[#f6c48c]">{en ? 'Custom · $9.9' : '定制 · $9.9'}</span></div>
+        <p className="text-[12px] text-[#fbe7cf]/60 leading-relaxed">{en ? 'Birthdays, bachelor nights, team events — every character is one of you, with your nicknames and inside jokes.' : '生日、婚前派对、团建——每个角色都是你们自己，带上外号和只有你们懂的梗。'}</p>
+        <textarea value={friends} onChange={(e) => setFriends(e.target.value)} rows={4} placeholder={en ? 'One per line: name — a trait or inside joke\nAmy — always late, swears she isn’t\nLeo — the group’s fake detective' : '一行一个：名字 —— 特点或梗\n小美 —— 永远迟到但死不承认\n阿杰 —— 群里的"名侦探"'} className={field} />
+        <input value={occasion} onChange={(e) => setOccasion(e.target.value)} placeholder={en ? 'Occasion (optional): Amy’s 30th birthday' : '场合（可选）：小美 30 岁生日'} className={field} />
+        {needCustomPay && (
+          <button onClick={buyCustom} className="w-full h-11 rounded-xl bg-[#f2a65a] text-[#1e1308] text-[14.5px] font-medium">{en ? 'Get a custom script · $9.9' : '买一张定制券 · $9.9'}</button>
+        )}
+      </div>
       <p className="text-[12.5px] text-parchment/45 leading-relaxed">{en ? 'Only shapes theme, era and mood — never the truth, the killer or hidden roles.' : '只影响题材、时代和氛围，不会让你提前知道真相、凶手或隐藏身份。'}</p>
       <div>
         <SheetLabel>{en ? 'TYPE' : '本型'}</SheetLabel>
@@ -214,7 +251,7 @@ export default function JbsRoom(props: ShellProps) {
       <textarea value={custom.theme || ''} onChange={(e) => setCustom({ ...custom, theme: e.target.value })} rows={3} placeholder={en ? 'The story you want — people, setup, twist…' : '你想要的故事——人物、设定、反转……'} className={field} />
       <input value={custom.forbidden || ''} onChange={(e) => setCustom({ ...custom, forbidden: e.target.value })} placeholder={en ? 'Avoid, e.g. nothing too gory' : '不想要的，比如别太血腥'} className={field} />
       <button onClick={() => genScripts(custom)} disabled={busy || generating} className="w-full h-12 rounded-xl bg-[#7d1d1d] border border-[#a83232]/60 text-[#f2ead9] font-serif tracking-[.12em] disabled:opacity-50">
-        {busy || generating ? (en ? 'Writing…' : '正在写…') : (en ? 'Write it this way' : '按这个方向写')}
+        {busy || generating ? (en ? 'Writing…' : '正在写…') : friends.trim() ? (en ? 'Write our custom script' : '写我们的定制本') : (en ? 'Write it this way' : '按这个方向写')}
       </button>
     </div>
   );
@@ -281,6 +318,11 @@ export default function JbsRoom(props: ShellProps) {
             <span className="w-px h-3 bg-parchment/15" />
             <button onClick={() => setShowCustom(true)} className="text-parchment/50 hover:text-parchment">{en ? 'Write to my taste' : '按我的口味写'}</button>
           </div>
+          <button onClick={() => setShowCustom(true)} className="mt-4 w-full rounded-xl border border-[#f2a65a]/35 bg-[#f2a65a]/[0.06] px-4 py-3 flex items-center gap-3 text-left">
+            <span className="text-[20px]">🎂</span>
+            <span className="flex-1 min-w-0"><span className="block text-[14px] text-[#fbe7cf]">{en ? 'A script starring your friends' : '定制一个主角是你们的剧本'}</span><span className="block text-[11.5px] text-[#fbe7cf]/55">{en ? 'Birthdays · parties · team events' : '生日 · 聚会 · 团建'}</span></span>
+            <span className="text-[13px] text-[#f6c48c]">$9.9 ›</span>
+          </button>
           {showSettings && (
             <div className="mt-4 w-full space-y-3 text-left nf-in">
               <div><div className="text-[11px] tracking-[.2em] text-parchment/40 mb-1.5">{en ? 'LENGTH' : '长度'}</div><Seg opts={[[1, en ? 'Short · ~25 min' : '短本 · 约 25 分钟'], [0, en ? 'Full · ~1 hr' : '完整本 · 约 1 小时']]} val={short ? 1 : 0} set={(v) => { setShort(v === 1); setPace(v === 1 ? 6 : 9); }} /></div>

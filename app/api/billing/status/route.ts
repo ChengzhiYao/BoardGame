@@ -37,5 +37,5 @@ export async function GET(req: Request) {
     if (!displayName && gname) { up.display_name = String(gname).slice(0, 40); displayName = up.display_name; }
     if (Object.keys(up).length) admin.from('users').update(up).eq('id', user.id).then(() => {}, () => {});
   } catch {}
-  return NextResponse.json({ loggedIn: true, userId: user.id, email: ent.email, whitelisted: ent.whitelisted, member: ent.member, credits: ent.credits, freeSecondsUsed: ent.freeSecondsUsed, freeSecondsLimit: ent.freeSecondsLimit, memberPremiumUsed: ent.memberPremiumUsed, memberPremiumLimit: ent.memberPremiumLimit, displayName, bio: prof?.bio || null, avatarUrl });
+  return NextResponse.json({ loggedIn: true, userId: user.id, email: ent.email, whitelisted: ent.whitelisted, member: ent.member, credits: ent.credits, freeSecondsUsed: ent.freeSecondsUsed, freeSecondsLimit: ent.freeSecondsLimit, memberPremiumUsed: ent.memberPremiumUsed, memberPremiumLimit: ent.memberPremiumLimit, partyUntil: ent.partyUntil, customCredits: (await admin.from('profiles').select('custom_credits').eq('user_id', user.id).maybeSingle()).data?.custom_credits || 0, displayName, bio: prof?.bio || null, avatarUrl });
 }

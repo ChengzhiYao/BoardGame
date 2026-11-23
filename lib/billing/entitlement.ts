@@ -2,6 +2,7 @@
 import { weekStart, monthStart, FREE_WEEKLY_SECONDS, MEMBER_PREMIUM_PLAYS, FREE_PLAYS_ON_SIGNUP, FREE_GRANTS_PER_IP, FREE_GRANT_WINDOW_DAYS } from '@/lib/pricing';
 export interface Entitlement {
   canHost: boolean;
+  partyUntil: string | null;   // 派对夜卡：到期前所有玩法随便开
   reason: 'ok' | 'login' | 'no_credits';
   whitelisted: boolean;
   member: boolean;
@@ -16,13 +17,13 @@ export interface Entitlement {
 export async function getEntitlement(admin: any, user: any, ip?: string): Promise<Entitlement> {
   // 匿名或无邮箱（没用 Google 登录）→ 不能开房
   if (!user || user.is_anonymous || !user.email) {
-    return { canHost: false, reason: 'login', whitelisted: false, member: false, credits: 0, email: user?.email || null, freeSecondsUsed: 0, freeSecondsLimit: FREE_WEEKLY_SECONDS, memberPremiumUsed: 0, memberPremiumLimit: MEMBER_PREMIUM_PLAYS };
+    return { canHost: false, partyUntil: null, reason: 'login', whitelisted: false, member: false, credits: 0, email: user?.email || null, freeSecondsUsed: 0, freeSecondsLimit: FREE_WEEKLY_SECONDS, memberPremiumUsed: 0, memberPremiumLimit: MEMBER_PREMIUM_PLAYS };
   }
   // 确保有 profile 行
   const { data: had } = await admin.from('profiles').select('user_id').eq('user_id', user.id).maybeSingle();
   if (!had) await admin.from('profiles').insert({ user_id: user.id, email: user.email });
   const { data: wl } = await admin.from('whitelist_emails').select('email').eq('email', user.email).maybeSingle();
-  const { data: p } = await admin.from('profiles').select('credits, is_whitelisted, free_granted, member_until').eq('user_id', user.id).maybeSingle();
+  const { data: p } = await admin.from('profiles').select('credits, is_whitelisted, free_granted, member_until, party_until').eq('user_id', user.id).maybeSingle();
   const member = !!(p?.member_until && new Date(p.member_until) > new Date());
   let freeSecondsUsed = 0;
   try {
@@ -55,9 +56,10 @@ export async function getEntitlement(admin: any, user: any, ip?: string): Promis
     } catch { /* 相关表/列未迁移时跳过 */ }
   }
   // 会员：免费模式无限 + 豪华大作每月 N 次；用完豪华次数后可用购买的局数
-  const canHost = whitelisted || (member && memberPremiumUsed < MEMBER_PREMIUM_PLAYS) || credits > 0;
+  const partyUntil = p?.party_until && new Date(p.party_until) > new Date() ? p.party_until : null;
+  const canHost = whitelisted || !!partyUntil || (member && memberPremiumUsed < MEMBER_PREMIUM_PLAYS) || credits > 0;
   return {
-    canHost, reason: canHost ? 'ok' : 'no_credits',
+    canHost, partyUntil, reason: canHost ? 'ok' : 'no_credits',
     whitelisted, member, credits, email: user.email,
     freeSecondsUsed, freeSecondsLimit: FREE_WEEKLY_SECONDS,
     memberPremiumUsed, memberPremiumLimit: MEMBER_PREMIUM_PLAYS,

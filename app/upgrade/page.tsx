@@ -1,4 +1,5 @@
 'use client';
+import PartyPass from '@/components/PartyPass';
 import { useEffect, useState } from 'react';
 import { PACKS, CURRENCY_SYMBOL } from '@/lib/billing/plans';
 import { MEMBERSHIP, yearlySavingsPct } from '@/lib/pricing';
@@ -141,7 +142,8 @@ export default function Upgrade() {
             </button>
           </div>
         </div>
-        <div className="mt-5 grid grid-cols-2 gap-3">
+        <div className="mt-5"><PartyPass en={lang === 'en'} /></div>
+        <div className="mt-3 grid grid-cols-2 gap-3">
           <button onClick={() => (status?.loggedIn ? buySub('light1') : signInWithGoogle('/upgrade').catch((e) => setErr(e.message)))} disabled={busy === 'sub-light1'}
             className="rounded-xl border border-white/10 bg-[#121318] p-4 text-left disabled:opacity-50">
             <div className="text-parchment text-sm">{lang === 'en' ? 'One more light game' : '轻玩法多一局'}</div>

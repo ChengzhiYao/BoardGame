@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { companionNote, sendRecap } from '@/lib/linger/companion';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { callLLMJson } from '@/lib/llm';
-import { buildJbsCasePrompt } from '@/lib/jbs/prompt';
+import { buildJbsCasePrompt, peopleBlock } from '@/lib/jbs/prompt';
 import { ensureStage, publicStage, condenseActs } from '@/lib/jbs/stage';
 import { dmBeat } from '@/lib/jbs/turn';
 import { buildModuleReviewSystem, normalizeModuleQuality } from '@/lib/review/quality';
@@ -55,7 +55,7 @@ export async function POST(req: Request) {
       await admin.from('jbs_case_library').update({ plays: (libCase.plays || 0) + 1 }).eq('id', libCase.id);
     } else {
       const g = await callLLMJson<any>({
-        system: buildJbsCasePrompt(chosen, headcount, realSeats) + langDirective(room.language),
+        system: buildJbsCasePrompt(chosen, headcount, realSeats) + peopleBlock(room.jbs_custom?.people, room.jbs_custom?.occasion) + langDirective(room.language),
         messages: [{ role: 'user', content: '请生成隐藏案件与全部角色。' }],
         tier: 'main', temperature: 0.8, maxTokens: 8000,
       });

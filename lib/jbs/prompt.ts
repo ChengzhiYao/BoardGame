@@ -24,7 +24,14 @@ const TYPE_FOCUS: Record<JbsType, string> = {
 };
 
 // 生成 3 个原创剧本选项（玩家可见层，绝不含真相）。覆盖不同本型。custom 为玩家自定义方向（可选）。
-export function buildJbsScriptGenPrompt(headcount: number, custom?: Record<string, string> | null) {
+// 定制：把真实朋友写进剧本（名字 / 外号 / 梗），用于生日、团建、聚会
+export function peopleBlock(people?: { name: string; note?: string }[] | null, occasion?: string) {
+  const ps = (people || []).filter((p) => p && String(p.name || '').trim()).slice(0, 8);
+  if (!ps.length) return '';
+  return `\n\n【定制本·把这些真实的朋友写进去】这是为一群真实朋友定制的本${occasion ? `（场合：${occasion}）` : ''}。角色名字必须直接用下面这些人的名字或外号（一人一个角色，人数不够再加 AI 角色），并把他们的特点和梗自然地写进人物设定、台词和线索里，让熟人一看就会心一笑；拿朋友开玩笑要善意，不能羞辱、不涉及隐私和敏感话题。\n${ps.map((p) => `- ${String(p.name).slice(0, 20)}${p.note ? `：${String(p.note).slice(0, 120)}` : ''}`).join('\n')}`;
+}
+
+export function buildJbsScriptGenPrompt(headcount: number, custom?: Record<string, any> | null) {
   const c = custom || {};
   const wants: string[] = [];
   if (c.type) wants.push(`本型偏好：${c.type}（至少 1 个剧本必须是这个本型）`);
@@ -32,9 +39,9 @@ export function buildJbsScriptGenPrompt(headcount: number, custom?: Record<strin
   if (c.place) wants.push(`主要场景：${c.place}`);
   if (c.theme) wants.push(`玩家的点子/主题（务必让其中一个剧本紧扣它）：${c.theme}`);
   if (c.forbidden) wants.push(`避免出现：${c.forbidden}`);
-  const customBlock = wants.length
+  const customBlock = (wants.length
     ? `\n\n【玩家自定义方向】请在尊重原创的前提下贴合下列要求（只影响题材/风格/设定，绝不让玩家决定真相与隐藏身份）：\n- ${wants.join('\n- ')}`
-    : '';
+    : '') + peopleBlock(c.people, c.occasion);
   return `你是资深剧本杀（实景推理）编剧。请生成 3 个**原创**剧本选项供玩家挑选，覆盖**不同本型**，给玩家真正的多元选择。
 本局真人 + AI 补位后的总人数约为 ${headcount} 人，请让每个剧本的推荐人数与之接近（${headcount} 或 ${headcount}±1）。
 

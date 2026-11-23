@@ -42,6 +42,13 @@ export async function POST(req: Request) {
         { user_id: userId, member_until: until.toISOString(), member_interval: interval, stripe_customer_id: customer, stripe_subscription_id: typeof s.subscription === 'string' ? s.subscription : null },
         { onConflict: 'user_id' }
       );
+    } else if (userId && s.metadata?.kind === 'custom1') {
+      const { data: p } = await admin.from('profiles').select('custom_credits').eq('user_id', userId).maybeSingle();
+      await admin.from('profiles').upsert({ user_id: userId, custom_credits: (p?.custom_credits || 0) + 1, ...(customer ? { stripe_customer_id: customer } : {}) }, { onConflict: 'user_id' });
+    } else if (userId && s.metadata?.kind === 'party3h') {
+      const { data: p } = await admin.from('profiles').select('party_until').eq('user_id', userId).maybeSingle();
+      const base = p?.party_until && new Date(p.party_until) > new Date() ? new Date(p.party_until) : new Date();
+      await admin.from('profiles').upsert({ user_id: userId, party_until: new Date(base.getTime() + 3 * 3600 * 1000).toISOString(), ...(customer ? { stripe_customer_id: customer } : {}) }, { onConflict: 'user_id' });
     } else if (userId && (s.metadata?.kind === 'light1' || s.metadata?.kind === 'pass2h')) {
       const { data: p } = await admin.from('profiles').select('light_credits, pass_until').eq('user_id', userId).maybeSingle();
       if (s.metadata.kind === 'light1') {

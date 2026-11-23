@@ -9,6 +9,8 @@ export const FOREVER_FREE = ['market', 'td'];
 export const LIGHT_PRICE = 100;   // 美分：$1 一局
 export const PASS_PRICE = 1000;   // 美分：$10 两小时
 export const PASS_HOURS = 2;
+export const PARTY_PRICE = 699;  // 美分：派对夜卡 $6.99 / 3 小时，所有玩法
+export const PARTY_HOURS = 3;
 
 export const today = () => new Date().toISOString().slice(0, 10);
 
@@ -16,10 +18,11 @@ export type Via = 'whitelist' | 'pass' | 'daily' | 'member_week' | 'credit';
 
 export async function lightStatus(admin: any, user: any, mode: string) {
   const ent = await getEntitlement(admin, user);
-  const { data: p } = await admin.from('profiles').select('light_credits, pass_until').eq('user_id', user.id).maybeSingle();
+  const { data: p } = await admin.from('profiles').select('light_credits, pass_until, party_until').eq('user_id', user.id).maybeSingle();
   const { data: d } = await admin.from('daily_free').select('plays').eq('user_id', user.id).eq('day', today()).eq('mode', mode).maybeSingle();
   const total = DAILY_FREE[mode] || 0;
-  const passUntil = p?.pass_until && new Date(p.pass_until) > new Date() ? p.pass_until : null;
+  const until = [p?.pass_until, p?.party_until].filter(Boolean).map((x: string) => new Date(x)).filter((d: Date) => d > new Date()).sort((a: Date, b: Date) => b.getTime() - a.getTime())[0];
+  const passUntil = until ? until.toISOString() : null;
   return {
     login: !!ent.email,
     whitelisted: ent.whitelisted,

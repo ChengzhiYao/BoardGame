@@ -71,6 +71,7 @@ export function LightPaywall({ open, onClose, mode, en }: { open: boolean; onClo
         <div className="mt-5 space-y-2.5">
           <Opt plan="light1" price="$1" title={en ? `One more ${unit}` : `再来一${unit}`} sub={en ? 'Just this one' : '只买这一次'} />
           <Opt plan="pass2h" price="$10" strong title={en ? '2 hours, unlimited' : '2 小时随便玩'} sub={en ? 'Soup and Cat Curse — no counting' : '海龟汤、猫诅咒都不限局数'} />
+          <Opt plan="party3h" price="$6.99" title={en ? 'Party night · 3 hours' : '派对夜卡 · 3 小时'} sub={en ? 'Every game incl. Murder Mystery & Cthulhu, friends free' : '所有玩法含剧本杀、克苏鲁，朋友免费'} />
           <a href="/upgrade" className="block w-full rounded-2xl px-4 py-3 text-center text-[13px] text-parchment/60 border border-white/[0.07]">{en ? 'Or become a member →' : '或者开通会员 →'}</a>
         </div>
         <button onClick={onClose} className="mt-3 w-full h-10 text-[13px] text-parchment/40">{en ? 'Not now' : '先不了'}</button>

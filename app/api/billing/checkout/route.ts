@@ -4,7 +4,7 @@ import { createServerClient } from '@/lib/supabase/server';
 import { getStripe } from '@/lib/billing/stripe';
 import { packById, CURRENCY } from '@/lib/billing/plans';
 import { MEMBERSHIP } from '@/lib/pricing';
-import { LIGHT_PRICE, PASS_PRICE } from '@/lib/billing/light';
+import { LIGHT_PRICE, PASS_PRICE, PARTY_PRICE } from '@/lib/billing/light';
 
 export const runtime = 'nodejs';
 
@@ -39,6 +39,30 @@ export async function POST(req: Request) {
     }
   }
 
+  if (body.plan === 'custom1') {
+    try {
+      const stripe = getStripe();
+      const session = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        line_items: [{ quantity: 1, price_data: { currency: CURRENCY, unit_amount: 990, product_data: { name: 'MystNight · Custom murder mystery', description: 'A murder mystery written around your friends — their names, nicknames and inside jokes' } } }],
+        success_url: `${site}${rt}${sep}paid=1`, cancel_url: `${site}${rt}`,
+        client_reference_id: user.id, customer_email: user.email, metadata: { user_id: user.id, kind: 'custom1' },
+      });
+      return NextResponse.json({ url: session.url });
+    } catch (e: any) { return NextResponse.json({ error: '创建支付会话失败：' + e.message }, { status: 500 }); }
+  }
+  if (body.plan === 'party3h') {
+    try {
+      const stripe = getStripe();
+      const session = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        line_items: [{ quantity: 1, price_data: { currency: CURRENCY, unit_amount: PARTY_PRICE, product_data: { name: 'MystNight · Party Night Pass', description: '3 hours: every game including Murder Mystery and Call of Cthulhu — your friends play free' } } }],
+        success_url: `${site}${rt}${sep}paid=1`, cancel_url: `${site}${rt}`,
+        client_reference_id: user.id, customer_email: user.email, metadata: { user_id: user.id, kind: 'party3h' },
+      });
+      return NextResponse.json({ url: session.url });
+    } catch (e: any) { return NextResponse.json({ error: '创建支付会话失败：' + e.message }, { status: 500 }); }
+  }
   if (body.plan === 'light1' || body.plan === 'pass2h') {
     const one = body.plan === 'light1';
     try {

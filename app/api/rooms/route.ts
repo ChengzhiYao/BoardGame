@@ -72,7 +72,7 @@ export async function POST(req: Request) {
   }
 
   // 非白名单：开房成功扣 1 局
-  if (!ent.whitelisted && !isFree) {
+  if (!ent.whitelisted && !isFree && !ent.partyUntil) {
     if (ent.member && ent.memberPremiumUsed < ent.memberPremiumLimit) {
       const ms = monthStart();
       const { data: pu } = await admin.from('premium_usage').select('plays').eq('user_id', user.id).eq('month_start', ms).maybeSingle();

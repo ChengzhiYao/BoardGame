@@ -1,5 +1,6 @@
 'use client';
 // 「我的大厅」：老玩家每次打开谜夜看到的地方——进行中的局、再开一局、玩过的局、我的额度。
+import PartyPass from '@/components/PartyPass';
 import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getClientLang, setClientLang, type Lang } from '@/lib/i18n';
@@ -106,6 +107,7 @@ export default function PlayHub() {
 
         <section>
           <SectionLabel>{en ? 'Start a game' : '开一局'}</SectionLabel>
+          {!acct?.whitelisted && <div className="mb-3"><PartyPass en={en} until={acct?.partyUntil} /></div>}
           <GameGrid lang={lang} onPick={(g) => (g === 'market' ? router.push('/market') : setPicked(g))} />
           {err && <p className="mt-2 text-sm text-[#e06060]">{err}</p>}
         </section>

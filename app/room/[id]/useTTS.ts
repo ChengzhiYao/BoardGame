@@ -16,6 +16,7 @@ export function useTTS(opts: { lang?: string; messages: any[]; classify: (m: any
   const [mode, setMode] = useState<VoiceMode>('off');
   const modeRef = useRef<VoiceMode>('off'); modeRef.current = mode;
   const [quota, setQuota] = useState(false);
+  const memberHint = useRef(false);
   const inited = useRef(false);
   useEffect(() => { let off = false; try { off = localStorage.getItem('mn_voice') === 'off'; } catch {} if (!off) setMode('on'); }, []);
   const spoken = useRef<Set<string>>(new Set());
@@ -49,6 +50,10 @@ export function useTTS(opts: { lang?: string; messages: any[]; classify: (m: any
         if (!url) {
           const res = await fetch('/api/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId, ...task }) });
           if (res.status === 429) { queue.current = []; setQuota(true); setMode('off'); break; }
+          if (res.status === 402) { // 真人级配音是会员专属：这句跳过，提示一次
+            if (!memberHint.current) { memberHint.current = true; try { window.dispatchEvent(new CustomEvent('mn-toast', { detail: { msg: lang === 'en' ? 'Fresh voiced narration is a member perk — saved story voices still play.' : '新的真人级配音旁白是会员专属——已经录好的故事配音照常播放。', kind: 'info' } })); } catch {} }
+            continue;
+          }
           if (!res.ok) continue;
           url = (await res.json())?.url || '';
         }

@@ -28,6 +28,7 @@ export async function GET() {
     const en = r.language === 'en';
     const stage = r.game_state !== 'playing' ? (en ? 'Waiting to start' : '等人开局')
       : r.mode === 'jbs' ? (en ? `Act ${r.jbs_act || 1}/${r.jbs_total_acts || '?'}` : `第 ${r.jbs_act || 1}/${r.jbs_total_acts || '?'} 幕`)
+      : r.mode === 'soup' ? (en ? 'Guessing' : '正在猜')
       : r.mode === 'botc' ? (en ? `Day ${r.botc_day || 1}` : `第 ${r.botc_day || 1} 天`) : (en ? 'In play' : '正在打');
     out.push({ id: r.id, name: r.name, mode: r.mode, lang: r.language, host: { name: h?.display_name || (en ? 'Player' : '玩家'), avatar: h?.avatar_url || null }, humans: players.length, stage, playing: r.game_state === 'playing', slots: slots.slice(0, 8), pending: (pend || []).find((x: any) => x.room_id === r.id)?.id || null });
     if (out.length >= 8) break;

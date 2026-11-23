@@ -1,9 +1,9 @@
 // 公开的局：别人能看到正在开的房间，申请加入；房主同意后，新玩家坐进空位，或者顶替一个 AI 补位的角色继续玩。
 import { mutateState } from '@/lib/mcc/db';
 
-export const OPEN_MODES = ['jbs', 'botc', 'mcc', 'coc'];
+export const OPEN_MODES = ['soup', 'jbs', 'botc', 'mcc', 'coc'];
 const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-const CAP: Record<string, number> = { jbs: 8, botc: 8, mcc: 6, coc: 6 };
+const CAP: Record<string, number> = { soup: 4, jbs: 8, botc: 8, mcc: 6, coc: 6 };
 export type Slot = { key: string; label: string; sub?: string };
 
 const lobbyish = (r: any) => r.game_state !== 'playing' && r.game_state !== 'ended';
@@ -16,6 +16,10 @@ export async function openSlots(admin: any, room: any, players?: any[]): Promise
   if (lobbyish(room)) {
     // 还没开始：有空座就能进（克苏鲁也只在开场前进）
     return ps.length < cap ? [{ key: 'seat', label: en ? 'Open seat' : '空位' }] : [];
+  }
+  if (room.mode === 'soup') {
+    // 海龟汤没有 AI：正在喝的汤也能直接坐进来一起问
+    return ps.length < cap ? [{ key: 'seat', label: en ? 'Join the table' : '一起问' }] : [];
   }
   if (room.mode === 'jbs') {
     const { data: cs } = await admin.from('jbs_characters').select('name, occupation, is_ai, status').eq('room_id', room.id);

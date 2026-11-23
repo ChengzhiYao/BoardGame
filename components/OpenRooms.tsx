@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { toast } from '@/components/Toast';
 
 const MODE: Record<string, [string, string, string]> = {
+  soup: ['海龟汤', 'Lateral Soup', '#3f9d88'],
   jbs: ['剧本杀', 'Murder Mystery', '#c9a96e'], botc: ['血染钟楼', 'Bloodbound', '#b8503f'], mcc: ['午夜猫诅咒', 'Cat Curse', '#a78bfa'], coc: ['克苏鲁跑团', 'Call of Cthulhu', '#b8503f'],
 };
 
@@ -62,7 +63,7 @@ export default function OpenRooms({ en, onLogin }: { en: boolean; onLogin?: () =
                 </span>
               </div>
               <div className="mt-2.5 text-[12px] text-parchment/55 leading-snug min-h-[34px]">
-                {ai ? (en ? `${r.humans} ${r.humans > 1 ? 'people' : 'person'} + ${ai} AI. Take over an AI and play with them.` : `${r.humans} 个真人 + ${ai} 个 AI。顶替一个 AI，和 TA 们一起玩。`)
+                {r.mode === 'soup' ? (en ? `${r.humans} ${r.humans > 1 ? 'people are' : 'person is'} guessing. Jump in and ask together.` : `${r.humans} 个人正在猜，进去一起问。`) : ai ? (en ? `${r.humans} ${r.humans > 1 ? 'people' : 'person'} + ${ai} AI. Take over an AI and play with them.` : `${r.humans} 个真人 + ${ai} 个 AI。顶替一个 AI，和 TA 们一起玩。`)
                   : (en ? `${r.humans} waiting for more players.` : `${r.humans} 个人在等人开局。`)}
               </div>
               {waiting?.roomId === r.id ? (

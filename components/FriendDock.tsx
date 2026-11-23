@@ -360,9 +360,11 @@ export default function FriendDock() {
   async function createLfg() { if (!lfgGame.trim() && !lfgNote.trim()) return; await fetch('/api/lfg', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game: lfgGame, times: lfgTimes, note: lfgNote }) }).catch(() => {}); setLfgGame(''); setLfgTimes(''); setLfgNote(''); setLfgForm(false); loadLfg(); }
   async function closeLfg(id: string) { await fetch('/api/lfg?id=' + id, { method: 'DELETE' }).catch(() => {}); loadLfg(); }
   async function applyLfg(id: string) { await fetch('/api/lfg/apply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ postId: id, message: applyMsg }) }).catch(() => {}); setApplyFor(null); setApplyMsg(''); loadLfg(); }
+  // 别的页面（排行榜、每日一汤榜、大厅）点玩家名字 → 打开这张资料卡（加好友 / 私聊）
+  useEffect(() => { const f = (e: any) => { const id = e?.detail?.id; if (id) openProfile(id); }; window.addEventListener('mn-profile', f); return () => window.removeEventListener('mn-profile', f); });
   function openProfile(id: string) {
     setProfile({ loading: true });
-    fetch('/api/player?id=' + encodeURIComponent(id)).then((r) => r.json()).then((d) => setProfile(d && d.ok ? d : { error: true })).catch(() => setProfile({ error: true }));
+    fetch('/api/player?id=' + encodeURIComponent(id)).then(async (r) => { const d = await r.json().catch(() => ({})); setProfile(d && d.ok ? d : { error: true, why: r.status === 401 ? 'login' : d?.reason === 'notfound' ? 'guest' : '' }); }).catch(() => setProfile({ error: true }));
   }
   async function loadDir() { try { const r = await fetch('/api/players'); const d = await r.json(); setDir(d.players || []); const inv: Record<string, 'ok'> = {}; (d.invitedIds || []).forEach((id: string) => { inv[id] = 'ok'; }); setInvited((p) => ({ ...inv, ...p })); } catch { setDir([]); } }
   async function invite(id: string) {
@@ -693,7 +695,7 @@ export default function FriendDock() {
               <button onClick={() => setProfile(null)} className="text-parchment/50 hover:text-parchment text-base leading-none px-1">✕</button>
             </div>
             {profile.loading ? <div className="py-10 text-center text-parchment/40 text-sm">{L('加载中…', 'Loading…')}</div>
-            : profile.error ? <div className="py-10 text-center text-parchment/40 text-sm">{L('加载失败', 'Failed to load')}</div>
+            : profile.error ? <div className="py-10 px-6 text-center text-parchment/50 text-sm">{profile.why === 'login' ? L('登录后才能看玩家资料、加好友', 'Sign in to see players and add friends') : profile.why === 'guest' ? L('这位是没登录的游客，暂时加不了好友', 'This is a guest without an account — they can’t be added yet') : L('加载失败', 'Failed to load')}</div>
             : (<div className="px-4 py-4">
                 <div className="flex items-center gap-3 mb-3">
                   {profile.avatar

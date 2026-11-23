@@ -54,14 +54,14 @@ export default function OpenRooms({ en, onLogin }: { en: boolean; onLogin?: () =
           const ai = r.slots.filter((s: any) => s.key !== 'seat').length;
           return (
             <div key={r.id} className="snap-start shrink-0 w-[255px] rounded-2xl border bg-[#0b0c0f]/75 backdrop-blur-md p-3.5 flex flex-col" style={{ borderColor: m[2] + '40' }}>
-              <div className="flex items-center gap-2.5">
+              <button onClick={() => { try { window.dispatchEvent(new CustomEvent('mn-profile', { detail: { id: r.host.id } })); } catch {} }} className="flex items-center gap-2.5 text-left">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 {r.host.avatar ? <img src={r.host.avatar} alt="" className="w-9 h-9 rounded-full object-cover border border-white/10" /> : <span className="w-9 h-9 rounded-full bg-white/[0.06] flex items-center justify-center font-serif text-parchment/70">{String(r.host.name).slice(0, 1)}</span>}
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[13.5px] text-[#ece3cf]">{r.host.name}</span>
                   <span className="block text-[11px]" style={{ color: m[2] }}>{en ? m[1] : m[0]} <span className="text-parchment/40">· {r.stage}</span></span>
                 </span>
-              </div>
+              </button>
               <div className="mt-2.5 text-[12px] text-parchment/55 leading-snug min-h-[34px]">
                 {r.mode === 'soup' ? (en ? `${r.humans} ${r.humans > 1 ? 'people are' : 'person is'} guessing. Jump in and ask together.` : `${r.humans} 个人正在猜，进去一起问。`) : ai ? (en ? `${r.humans} ${r.humans > 1 ? 'people' : 'person'} + ${ai} AI. Take over an AI and play with them.` : `${r.humans} 个真人 + ${ai} 个 AI。顶替一个 AI，和 TA 们一起玩。`)
                   : (en ? `${r.humans} waiting for more players.` : `${r.humans} 个人在等人开局。`)}

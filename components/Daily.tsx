@@ -70,13 +70,13 @@ export function Board({ board, en, max = 10 }: { board: any[]; en: boolean; max?
   return (
     <div className="divide-y divide-white/[0.05]">
       {board.slice(0, max).map((r) => (
-        <div key={r.rank} className={`flex items-center gap-3 py-2 px-1 ${r.me ? 'bg-[#8fd3b8]/[0.06] rounded-lg' : ''}`}>
+        <button key={r.rank} onClick={() => { if (!r.me && r.id) try { window.dispatchEvent(new CustomEvent('mn-profile', { detail: { id: r.id } })); } catch {} }} className={`w-full text-left flex items-center gap-3 py-2 px-1 ${r.me ? 'bg-[#8fd3b8]/[0.06] rounded-lg' : ''}`}>
           <span className={`w-6 text-center font-serif text-[14px] ${r.rank <= 3 ? 'text-[#e6c76e]' : 'text-parchment/40'}`}>{r.rank}</span>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           {r.avatar ? <img src={r.avatar} alt="" className="w-7 h-7 rounded-full object-cover" /> : <span className="w-7 h-7 rounded-full bg-white/[0.06] flex items-center justify-center text-[12px] text-parchment/60">{String(r.name).slice(0, 1)}</span>}
           <span className="flex-1 min-w-0 truncate text-[13.5px] text-parchment/85">{r.name}{r.me ? (en ? ' (you)' : '（你）') : ''}</span>
           <span className="shrink-0 text-[12px] text-parchment/55">{r.solved ? (en ? `${r.questions} Q` : `${r.questions} 问`) : (en ? 'gave up' : '没猜出')}{r.hints ? (en ? ` · ${r.hints} hint` : ` · ${r.hints} 提示`) : ''}</span>
-        </div>
+        </button>
       ))}
     </div>
   );

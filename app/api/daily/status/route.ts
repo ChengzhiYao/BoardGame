@@ -25,7 +25,7 @@ export async function GET(req: Request) {
   const { data: us } = ids.length ? await admin.from('users').select('id, display_name, avatar_url').in('id', ids) : { data: [] as any[] };
   const board = top.map((r: any, i: number) => {
     const u = (us || []).find((x: any) => x.id === r.user_id);
-    return { rank: i + 1, name: u?.display_name || (lang === 'en' ? 'Player' : '玩家'), avatar: u?.avatar_url || null, questions: r.questions, hints: r.hints, seconds: r.seconds, solved: r.solved, me: r.user_id === user?.id };
+    return { rank: i + 1, id: r.user_id, name: u?.display_name || (lang === 'en' ? 'Player' : '玩家'), avatar: u?.avatar_url || null, questions: r.questions, hints: r.hints, seconds: r.seconds, solved: r.solved, me: r.user_id === user?.id };
   });
 
   let me: any = null, streak = 0, savedDays = 0, isProtected = false, playing: string | null = null;

@@ -5,6 +5,7 @@ import { getClientLang } from '@/lib/i18n';
 import { CATS, CAT_LABEL, RATE_MIN, type Cat } from '@/lib/ranks';
 
 const MEDAL = ['#e6c76e', '#cfd6df', '#d39a6a'];
+const openProfile = (id: string) => { try { window.dispatchEvent(new CustomEvent('mn-profile', { detail: { id } })); } catch {} };
 
 export default function RanksClient() {
   const [en, setEn] = useState(false);
@@ -68,7 +69,7 @@ export default function RanksClient() {
         {c?.top?.length > 0 && (
           <div className="mt-6 grid grid-cols-3 gap-2 items-end">
             {[1, 0, 2].map((i) => { const r = c.top[i]; if (!r) return <div key={i} />; const p = who(r.id); const me = r.id === d.me; return (
-              <div key={i} className={`flex flex-col items-center text-center ${i === 0 ? '' : 'pt-5'}`}>
+              <button key={i} onClick={() => !me && openProfile(r.id)} className={`flex flex-col items-center text-center ${i === 0 ? '' : 'pt-5'}`}>
                 <span className="relative">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   {p.avatar ? <img src={p.avatar} alt="" className={`${i === 0 ? 'w-16 h-16' : 'w-12 h-12'} rounded-full object-cover border-2`} style={{ borderColor: MEDAL[i] }} /> : <span className={`${i === 0 ? 'w-16 h-16 text-[22px]' : 'w-12 h-12 text-[17px]'} rounded-full border-2 bg-white/[0.05] flex items-center justify-center font-serif text-parchment/80`} style={{ borderColor: MEDAL[i] }}>{String(p.name).slice(0, 1)}</span>}
@@ -77,7 +78,7 @@ export default function RanksClient() {
                 <span className={`mt-2.5 w-full truncate text-[12.5px] ${me ? 'text-[#e6c76e]' : 'text-[#ece3cf]'}`}>{p.name}</span>
                 <span className="text-[12px] text-parchment/55">{unit(r.v)}</span>
                 <span className="mt-1.5 w-full rounded-t-lg" style={{ height: i === 0 ? 46 : i === 1 ? 32 : 24, background: `linear-gradient(180deg, ${MEDAL[i]}40, transparent)` }} />
-              </div>
+              </button>
             ); })}
           </div>
         )}
@@ -87,15 +88,16 @@ export default function RanksClient() {
           {!d && [0, 1, 2, 3].map((i) => <div key={i} className="h-12 animate-pulse" />)}
           {d && !c?.top?.length && <div className="py-8 text-center text-[13px] text-parchment/40">{L('这个榜还空着，你来当第一个', 'Nobody here yet — be the first')}</div>}
           {c?.top?.slice(3).map((r: any, i: number) => { const p = who(r.id); const me = r.id === d.me; return (
-            <div key={r.id} className={`flex items-center gap-3 px-3.5 py-2.5 ${me ? 'bg-[#e6c76e]/[0.08]' : ''}`}>
+            <button key={r.id} onClick={() => !me && openProfile(r.id)} className={`w-full text-left flex items-center gap-3 px-3.5 py-2.5 ${me ? 'bg-[#e6c76e]/[0.08]' : 'hover:bg-white/[0.03]'}`}>
               <span className="w-6 text-center font-serif text-[13px] text-parchment/45">{i + 4}</span>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               {p.avatar ? <img src={p.avatar} alt="" className="w-8 h-8 rounded-full object-cover" /> : <span className="w-8 h-8 rounded-full bg-white/[0.06] flex items-center justify-center text-[12px] text-parchment/60">{String(p.name).slice(0, 1)}</span>}
               <span className={`flex-1 min-w-0 truncate text-[14px] ${me ? 'text-[#e6c76e]' : 'text-parchment/85'}`}>{p.name}{me ? L('（你）', ' (you)') : ''}</span>
               <span className="text-[13px] text-parchment/65">{unit(r.v)}{cat === 'rate' && r.sub ? <span className="text-parchment/35 text-[11px]"> / {r.sub}{L('碗', '')}</span> : null}</span>
-            </div>
+            </button>
           ); })}
         </div>
+        <p className="mt-2 text-[11.5px] text-parchment/35 text-center">{L('点玩家可以看资料、加好友、私聊约局', 'Tap a player to see their profile, add them or message them')}</p>
         {cat === 'rate' && <p className="mt-2 text-[11.5px] text-parchment/35 text-center">{L(`喝完至少 ${RATE_MIN} 碗才上猜中率榜；看汤底不算猜中`, `At least ${RATE_MIN} finished soups; peeking doesn't count`)}</p>}
         <div className="mt-8 flex justify-center gap-5 text-[13px]">
           <a href="/daily" className="text-[#8fd3b8] border-b border-[#8fd3b8]/40">{L('今天的每日一汤 →', 'Today’s Daily Soup →')}</a>

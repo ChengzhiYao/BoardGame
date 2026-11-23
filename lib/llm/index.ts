@@ -224,5 +224,32 @@ function safeParseJson<T>(text: string): T {
   if (start !== -1 && end !== -1 && end > start) {
     try { return JSON.parse(s.slice(start, end + 1)) as T; } catch {}
   }
+  // 再救一次:模型常见的坏 JSON——字符串里直接换行、结尾多逗号、中文引号、输出被截断少了收尾括号
+  const body = start !== -1 ? s.slice(start) : s;
+  const repaired = repairJson(body);
+  if (repaired) { try { return JSON.parse(repaired) as T; } catch {} }
   throw new Error('LLM 未返回合法 JSON：' + s.slice(0, 200));
+}
+
+function repairJson(src: string): string | null {
+  let out = ''; let inStr = false; let esc = false; const stack: string[] = [];
+  for (const ch of src) {
+    if (inStr) {
+      if (esc) { out += ch; esc = false; continue; }
+      if (ch === '\\') { out += ch; esc = true; continue; }
+      if (ch === '"') { inStr = false; out += ch; continue; }
+      if (ch === '\n') { out += '\\n'; continue; }
+      if (ch === '\r') continue;
+      if (ch === '\t') { out += '\\t'; continue; }
+      out += ch; continue;
+    }
+    if (ch === '"') { inStr = true; out += ch; continue; }
+    if (ch === '{' || ch === '[') stack.push(ch === '{' ? '}' : ']');
+    else if (ch === '}' || ch === ']') stack.pop();
+    out += ch;
+  }
+  if (inStr) out += '"';
+  out = out.replace(/,\s*([}\]])/g, '$1').replace(/,\s*$/, '');
+  while (stack.length) out += stack.pop();
+  return out;
 }

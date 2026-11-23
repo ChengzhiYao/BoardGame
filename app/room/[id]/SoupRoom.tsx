@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { ShellProps } from './RoomShell';
 import { useTTS } from './useTTS';
+import { playAnswerSfx } from '@/lib/audio/answerSfx';
 
 const fresh = (m: any) => !!m?.created_at && Date.now() - new Date(m.created_at).getTime() < 90000;
 export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
@@ -112,6 +113,18 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
   const qCount = messages.filter((m) => m.sender_type === 'player').length;
   const heatWord = heat >= 85 ? '就差一步' : heat >= 65 ? '滚烫' : heat >= 35 ? '变暖了' : heat > 0 ? '还很冷' : '未开始';
   useEffect(() => { try { window.dispatchEvent(new CustomEvent('mn-tension', { detail: heat })); } catch {} }, [heat]);
+  // 新回答到来时配一声提示音（进房时已有的不响）
+  const heard = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    if (!heard.current) { heard.current = new Set(messages.map((m) => m.id)); return; }
+    for (const m of messages) {
+      if (heard.current.has(m.id)) continue; heard.current.add(m.id);
+      if (m.sender_type !== 'kp' || m.payload?.type !== 'soup_answer') continue;
+      const raw = String(m.content || '');
+      const k = /^✅/.test(raw) ? 'right' : /^❌/.test(raw) ? 'wrong' : (m.payload?.verdict || ['是也不是', '不是', '无关', '是'].find((x) => raw.startsWith(x)));
+      if (k) setTimeout(() => playAnswerSfx(k as any), 120);
+    }
+  }, [messages]);
   // 开局就把汤底配音在服务器上备好，揭晓时立刻开口
   const prepared = useRef(false);
   useEffect(() => {

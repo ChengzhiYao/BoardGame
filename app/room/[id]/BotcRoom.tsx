@@ -9,6 +9,8 @@ import { playSfx } from '@/lib/audio/sfx';
 import { playBotcCue } from '@/lib/audio/botcCue';
 import type { ShellProps } from './RoomShell';
 import { useTTS } from './useTTS';
+import { Sheet, SheetLabel } from './ui';
+const TEAM_C: Record<string, string> = { demon: '#e0473f', minion: '#e8904a', outsider: '#6fb6e8', townsfolk: '#5fcf95' };
 
 const teamCls: Record<string, string> = { demon: 'text-red-400', minion: 'text-orange-400', outsider: 'text-sky-400', townsfolk: 'text-emerald-400' };
 function teamName(t: string, en: boolean) { return t === 'demon' ? (en ? 'Demon' : '恶魔') : t === 'minion' ? (en ? 'Minion' : '爪牙') : t === 'outsider' ? (en ? 'Outsider' : '外来者') : (en ? 'Townsfolk' : '镇民'); }
@@ -29,6 +31,8 @@ export default function BotcRoom(props: ShellProps) {
   const [roleOpen, setRoleOpen] = useState(true);
   const [showRoles, setShowRoles] = useState(false);
   const [showPlayers, setShowPlayers] = useState(false);
+  const [sheet, setSheet] = useState<null | 'role' | 'roles' | 'claim'>(null);
+  const [showTheme, setShowTheme] = useState(false);
   const [myVote, setMyVote] = useState('');
   const [myNightTarget, setMyNightTarget] = useState('');
   const [claimSel, setClaimSel] = useState('');
@@ -173,39 +177,34 @@ export default function BotcRoom(props: ShellProps) {
   }
   // ===== 大厅 =====
   if (!phase || phase === 'lobby') {
+    const count = props.initialPlayers.length;
     return (
-      <main className="min-h-[100svh] flex flex-col items-center justify-center gap-6 px-6 text-center">
-        <h1 className="text-2xl font-serif text-parchment">{en ? 'Bloodbound' : '血染'} · {props.room.name}</h1>
-        <p className="text-parchment/60 max-w-md">{en ? 'Social deduction (like Werewolf / Clocktower). Good (Townsfolk/Outsiders) vs Evil (Minions/Demon). An AI Storyteller hosts and fills empty seats — anyone can be evil, including you. 1–8 real players.' : '社交推理（类狼人杀/血染钟楼）。好人（镇民/外来者）对邪恶（爪牙/恶魔）。AI 说书人主持并补满空位——任何人都可能是邪恶方，包括你。真人 1～8 人。'}</p>
-        <div className="flex flex-col items-center gap-1.5">
-          <span className="text-sm text-parchment/50">{en ? `${props.initialPlayers.length} real player(s) joined · AI fills the rest` : `已加入 ${props.initialPlayers.length} 名真人 · 其余由 AI 补位`}</span>
-          <div className="flex gap-2 flex-wrap justify-center">
-            {props.initialPlayers.map((p: any) => {
-              const nm = props.initialUsers.find((u: any) => u.id === p.user_id)?.display_name || (en ? 'Player' : '玩家');
-              const mine = p.user_id === props.userId;
-              return <span key={p.id} className={`text-xs px-2.5 py-1 rounded-full border ${mine ? 'bg-blood/25 border-blood/50 text-parchment' : 'bg-fog border-eldritch/30 text-parchment/80'}`}>● {nm} [{p.seat}]{mine ? (en ? ' · you' : ' · 你') : ''}</span>;
-            })}
+      <main className="min-h-[100svh] flex flex-col items-center justify-center px-5 pb-10 text-center" style={{ paddingTop: 'calc(max(10px, env(safe-area-inset-top)) + 56px)' }}>
+        <div className="relative w-24 h-24 mb-2">
+          <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(224,71,63,.35),transparent_65%)] animate-pulse" />
+          <svg viewBox="0 0 64 64" className="absolute inset-3"><g fill="none" stroke="#efe6d2" strokeWidth="1.4" strokeLinecap="round"><path d="M32 6v6M32 12l-10 8v30h20V20z" /><path d="M22 50h20M26 30h12M28 38h8" /><circle cx="32" cy="24" r="3" fill="#e0473f" stroke="none" /></g></svg>
+        </div>
+        <div className="text-[10.5px] tracking-[.45em] pl-[.45em] text-[#e0473f]/85">{en ? 'SOCIAL DEDUCTION' : '社 交 推 理'}</div>
+        <h1 className="mt-3 font-serif font-semibold text-[28px] text-[#efe6d2]">{en ? 'Someone at this table is evil' : '这张桌上，有人是恶魔'}</h1>
+        <p className="mt-3 max-w-xs font-serif text-[14.5px] leading-[1.85] text-parchment/70">{en ? 'Get a secret role. By day, talk and vote someone out. By night, the evil ones strike. The AI Storyteller runs it and fills the seats.' : '每人拿到一个秘密身份。白天发言、投票处决；夜里，邪恶方动手。AI 说书人主持，空位由 AI 补上。'}</p>
+        <div className="mt-5 flex items-center gap-2.5 text-[12px] tracking-wider text-parchment/50">
+          <span>{en ? '~30 min' : '约 30 分钟'}</span><span className="w-[3px] h-[3px] rotate-45 bg-[#c9a96e]/60" /><span>{en ? `${count} real · AI fills the rest` : `真人 ${count} 位 · 其余 AI`}</span>
+        </div>
+        <div className="mt-6 w-full max-w-sm space-y-3">
+          <div className="flex p-1 rounded-xl bg-white/[0.04] border border-white/[0.08]">
+            {[4, 6, 8].map((n) => <button key={n} onClick={() => setSize(n)} className={`flex-1 h-9 rounded-lg text-[14px] transition ${size === n ? 'bg-[#e0473f]/20 text-[#efe6d2]' : 'text-parchment/55'}`}>{n}{en ? ' seats' : ' 人局'}</button>)}
           </div>
+          <button onClick={start} disabled={busy || generating} className="w-full py-3.5 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] border border-[#a83232]/60 text-[#f2ead9] font-serif font-semibold tracking-[.2em] text-[17px] shadow-[0_10px_40px_-10px_rgba(125,29,29,.7)] disabled:opacity-60">
+            {busy || generating ? (en ? 'Dealing roles…' : '正在发身份……') : (en ? 'Begin' : '开 始')}
+          </button>
+          <button onClick={() => setShowTheme((v) => !v)} className="text-[13px] text-parchment/50">{en ? 'Pick a theme' : '换个题材'} {showTheme ? '▴' : '▾'}</button>
+          {showTheme && <input value={theme} onChange={(e) => setTheme(e.target.value)} placeholder={en ? 'cyberpunk cult, haunted school…' : '比如：赛博邪教、闹鬼校园……'} className="w-full px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-[#efe6d2] text-[14px] placeholder:text-parchment/30 outline-none focus:border-[#c9a96e]/50 nf-in" />}
         </div>
-        <div className="flex flex-col items-center gap-3 w-full max-w-md">
-          <span className="text-sm text-parchment/50">{en ? 'Invite players:' : '把链接发给玩家：'}</span>
-          <code className="text-xs px-3 py-2 rounded bg-fog border border-eldritch/30 text-eldritch break-all w-full">{inviteUrl}</code>
-          <button onClick={() => { navigator.clipboard.writeText(inviteUrl); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
-            className="px-4 py-1.5 rounded bg-eldritch/40 hover:bg-eldritch text-parchment text-sm">{copied ? (en ? 'Copied' : '已复制') : (en ? 'Copy invite link' : '复制邀请链接')}</button>
+        <div className="mt-4 w-full max-w-sm flex items-center gap-2 rounded-xl border border-[#d8c7a8]/[0.13] bg-[#0b0c0f]/60 px-4 py-2.5 text-left">
+          <span className="flex-1 text-[13px] text-parchment/70">{en ? 'Bring friends' : '叫朋友一起'} <span className="text-parchment/35">· {en ? 'more humans, more lies' : '真人越多越好玩'}</span></span>
+          <button onClick={() => { navigator.clipboard.writeText(inviteUrl); setCopied(true); setTimeout(() => setCopied(false), 1500); }} className="shrink-0 text-[13px] text-[#c9a96e] border-b border-[#c9a96e]/40">{copied ? (en ? 'Copied' : '已复制') : (en ? 'Copy link' : '复制链接')}</button>
+          <button onClick={() => { try { (navigator as any).share ? (navigator as any).share({ title: 'MystNight', url: inviteUrl }) : navigator.clipboard.writeText(inviteUrl); } catch {} }} className="shrink-0 ml-2 text-[13px] text-parchment/60">{en ? 'Share' : '分享'}</button>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-parchment/60">{en ? 'Players in game:' : '本局人数：'}</span>
-          {[4, 6, 8].map((n) => (
-            <button key={n} onClick={() => setSize(n)}
-              className={`px-3 py-1.5 rounded border text-sm ${size === n ? 'bg-eldritch/60 border-eldritch text-parchment' : 'bg-fog border-eldritch/30 text-parchment/60'}`}>{n}{en ? '' : '人'}</button>
-          ))}
-        </div>
-        <input value={theme} onChange={(e) => setTheme(e.target.value)} placeholder={en ? 'Theme (optional): cyberpunk cult, haunted school…' : '题材（可选）：赛博邪教、闹鬼校园…'}
-          className="w-72 px-3 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 text-sm outline-none focus:border-eldritch" />
-        <button onClick={start} disabled={busy || generating}
-          className="px-6 py-3 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-50">
-          {busy || generating ? (en ? 'Dealing roles…' : '正在发身份…') : (en ? `Start (${size}-player game) →` : `开始（${size} 人局）→`)}
-        </button>
       </main>
     );
   }
@@ -213,162 +212,157 @@ export default function BotcRoom(props: ShellProps) {
   const ended = phase === 'reveal';
   const night = phase === 'night';
   const voting = phase === 'vote';
-  const aliveTargets = bps.filter((p) => p.alive && p.seat && p.seat !== props.mySeat);
   const hasNightPower = ['kill', 'poison', 'protect', 'inspect'].includes(myNightAction);
   const nightLabel = myNightAction === 'kill' ? (en ? 'Kill' : '杀害') : myNightAction === 'poison' ? (en ? 'Poison' : '投毒') : myNightAction === 'protect' ? (en ? 'Protect' : '保护') : myNightAction === 'inspect' ? (en ? 'Inspect' : '查验') : '';
   const canVote = iAmAlive || !usedGhost;
   const trueRoleOf = (seat: string) => revealAssign.find((a) => a.seat === seat);
-  const chatInput = (
-    <div className="flex gap-2">
-      <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && sendChat()}
-        placeholder={iAmAlive ? (en ? 'Speak to the table…' : '公开发言…') : (en ? 'Speak from the grave…' : '亡者发言…')} disabled={!props.myPlayerId}
-        className="flex-1 min-w-0 px-4 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch disabled:opacity-50" /> <MicButton value={text} onChange={setText} en={en} compact={false} />
-      <button onClick={sendChat} disabled={!props.myPlayerId} className="px-4 py-2 rounded bg-eldritch/60 hover:bg-eldritch text-parchment text-sm shrink-0">{en ? 'Say' : '发言'}</button>
-    </div>
-  );
-  const claimRow = iAmAlive && manifest.length > 0 ? (
-    <div className="flex gap-2 items-center flex-wrap">
-      <span className="text-xs text-parchment/50 shrink-0">{en ? 'Claim:' : '宣称：'}</span>
-      <select value={claimSel} onChange={(e) => e.target.value && claim(e.target.value)} className="px-2 py-1.5 rounded bg-fog border border-eldritch/30 text-parchment text-sm">
-        <option value="">{en ? '— claim a role —' : '— 宣称身份 —'}</option>
-        {manifest.map((m, i) => <option key={i} value={m.role}>{m.role}</option>)}
-      </select>
-    </div>
-  ) : null;
+  const pickMode: null | 'night' | 'vote' = ended ? null : night && iAmAlive && hasNightPower ? 'night' : voting && canVote ? 'vote' : null;
+  const picked = pickMode === 'night' ? myNightTarget : pickMode === 'vote' ? myVote : '';
+  const alive = bps.filter((p) => p.alive).length;
+  const myTeam = (manifest.find((m: any) => roleCard.includes(m.role)) || {}).team as string | undefined;
+  const phaseText = ended ? (en ? 'The end' : '终局') : night ? (en ? `Night ${day}` : `第 ${day} 夜`) : voting ? (en ? `Day ${day} · Vote` : `第 ${day} 天 · 投票`) : (en ? `Day ${day}` : `第 ${day} 天`);
+  function tapSeat(p: any) {
+    if (!pickMode || !p.alive || p.seat === props.mySeat || busy) return;
+    try { (navigator as any).vibrate?.(12); } catch {}
+    if (pickMode === 'night') nightAct(p.seat); else vote(p.seat);
+  }
 
   return (
-    <main className={`h-[100svh] flex flex-col overflow-hidden ${night ? 'bg-[#06060c]' : ''}`}>
-      <header className="mn-header px-4 py-3 border-b border-eldritch/20 flex items-center justify-between gap-2">
-        <span className="font-serif text-parchment text-sm truncate">{en ? 'Bloodbound' : '血染'} · {props.room.name}</span>
-        <div className="flex items-center gap-2 shrink-0">
-          {manifest.length > 0 && <button onClick={() => { setShowRoles((v) => !v); setShowPlayers(false); }} className="text-xs px-2 py-1 rounded bg-eldritch/30 text-parchment">{en ? 'Roles' : '身份'}</button>}
-          <button onClick={() => { setShowPlayers((v) => !v); setShowRoles(false); }} className="text-xs px-2 py-1 rounded bg-eldritch/30 text-parchment">{en ? `Players ${bps.length}` : `玩家 ${bps.length}`}</button>
-          <span className="text-xs text-parchment/50">{ended ? (en ? 'Over' : '结束') : night ? (en ? `🌙 N${day}` : `🌙 第${day}夜`) : voting ? (en ? `🗳 D${day} vote` : `🗳 第${day}天·投票`) : (en ? `☀ D${day}` : `☀ 第${day}天`)}</span>
+    <main className="relative h-[100svh] flex flex-col overflow-hidden">
+      <div aria-hidden className="fixed inset-0 -z-[5] pointer-events-none transition-colors duration-1000" style={{ background: night ? 'radial-gradient(110% 70% at 50% 0%, rgba(40,50,110,.45), rgba(5,6,14,.97) 70%)' : voting ? 'radial-gradient(110% 70% at 50% 0%, rgba(120,24,24,.4), rgba(12,8,8,.96) 70%)' : 'radial-gradient(110% 70% at 50% 0%, rgba(150,100,50,.28), rgba(12,11,10,.95) 70%)' }} />
+      {night && <div aria-hidden className="fixed inset-0 -z-[4] pointer-events-none opacity-60" style={{ backgroundImage: 'radial-gradient(1px 1px at 20% 30%, #fff8, transparent), radial-gradient(1px 1px at 70% 20%, #fff6, transparent), radial-gradient(1.5px 1.5px at 40% 12%, #fff7, transparent), radial-gradient(1px 1px at 85% 40%, #fff5, transparent), radial-gradient(1px 1px at 10% 8%, #fff6, transparent)' }} />}
+
+      {/* 顶部：阶段 + 我的身份 + 身份表 */}
+      <header className="shrink-0 px-3" style={{ paddingTop: 'calc(max(10px, env(safe-area-inset-top)) + 50px)' }}>
+        <div className="mx-auto max-w-2xl flex items-center gap-2 h-14 px-2.5 rounded-2xl bg-[#0e0f13]/70 backdrop-blur-md border border-white/[0.07]">
+          <span className="w-10 h-10 rounded-xl flex items-center justify-center text-[18px]" style={{ background: night ? 'rgba(90,110,220,.18)' : voting ? 'rgba(224,71,63,.18)' : 'rgba(230,170,90,.16)' }}>{ended ? '⚑' : night ? '☾' : voting ? '⚖' : '☀'}</span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-serif text-[15px] text-[#efe6d2] leading-tight">{phaseText}</span>
+            <span className="block text-[11.5px] text-parchment/45">{en ? `${alive} alive of ${bps.length}` : `存活 ${alive} / ${bps.length}`}</span>
+          </span>
+          {roleCard && (
+            <button onClick={() => setSheet('role')} className="h-10 px-3 rounded-xl border flex items-center gap-1.5 text-[12.5px]" style={{ borderColor: (TEAM_C[myTeam || ''] || '#c9a96e') + '66', color: TEAM_C[myTeam || ''] || '#e8d7b0', background: (TEAM_C[myTeam || ''] || '#c9a96e') + '14' }}>
+              <span className="w-2 h-2 rounded-full" style={{ background: TEAM_C[myTeam || ''] || '#c9a96e' }} />{en ? 'My role' : '我的身份'}
+            </button>
+          )}
+          {manifest.length > 0 && <button onClick={() => setSheet('roles')} className="h-10 px-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-[12.5px] text-[#d8c7a8]">{en ? 'Roles' : '身份表'}</button>}
         </div>
       </header>
 
-      {showRoles && manifest.length > 0 && (
-        <div className="px-4 py-3 bg-ink/70 border-b border-eldritch/20 max-w-3xl w-full mx-auto">
-          <div className="text-xs text-parchment/50 mb-2">{en ? 'Roles that exist in this game (you don’t know who has which)' : '本局会出现的身份（不知道谁是谁）'}</div>
-          <div className="space-y-1.5">
-            {manifest.map((m, i) => (
-              <div key={i} className="text-sm leading-snug"><span className="text-parchment/90">{m.role}</span> <span className={`text-[11px] ${teamCls[m.team] || 'text-parchment/50'}`}>· {teamName(m.team, en)}</span><div className="text-parchment/55 text-xs">{m.ability}</div></div>
-            ))}
-          </div>
+      {/* 座位：白天看谁在发言，投票 / 夜里直接点人 */}
+      <div className="shrink-0 px-2 pt-3">
+        {pickMode && <div className="text-center text-[12.5px] mb-2" style={{ color: pickMode === 'night' ? '#a9b8ff' : '#ff9a8a' }}>{pickMode === 'night' ? (en ? `Tap someone to ${nightLabel.toLowerCase()}` : `点一个人 · ${nightLabel}`) : iAmAlive ? (en ? 'Tap who should be executed' : '点你要处决的人') : (en ? 'Ghost vote: tap someone (once per game)' : '鬼票：点一个人（整局只有一次）')}</div>}
+        <div className="flex gap-2.5 overflow-x-auto px-2 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden justify-start sm:justify-center">
+          {bps.map((p, i) => {
+            const isMe = p.seat === props.mySeat;
+            const talking = p.seat === speaking && !night && !voting && !ended;
+            const tr = ended ? trueRoleOf(p.seat) : null;
+            const sel = picked === p.seat;
+            const tappable = !!pickMode && p.alive && !isMe;
+            const ring = sel ? (pickMode === 'night' ? '#a9b8ff' : '#ff6a5a') : talking ? '#e8c27a' : tr ? (TEAM_C[tr.team] || '#888') : isMe ? '#c9a96e' : 'rgba(255,255,255,.14)';
+            return (
+              <button key={i} onClick={() => tapSeat(p)} disabled={!tappable}
+                className={`shrink-0 w-[64px] flex flex-col items-center transition ${p.alive ? '' : 'opacity-45'} ${tappable ? 'active:scale-95' : ''}`}>
+                <span className={`relative w-12 h-12 rounded-full flex items-center justify-center font-serif text-[18px] ${talking ? 'animate-pulse' : ''}`}
+                  style={{ boxShadow: `0 0 0 2px ${ring}${sel || talking ? `, 0 0 18px ${ring}` : ''}`, background: p.alive ? 'radial-gradient(circle at 50% 35%, #2a2620, #121114)' : '#0d0d10', color: p.alive ? '#efe6d2' : 'rgba(239,230,210,.5)' }}>
+                  {p.alive ? String(p.display_name || '?').slice(0, 1) : '☠'}
+                  {p.is_ai && p.seat !== props.room.companion?.seat && <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-1 rounded bg-[#15131c] border border-white/15 text-[8.5px] text-parchment/60 leading-[13px]">AI</span>}
+                  {talking && <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#e8c27a] text-[9px] text-black flex items-center justify-center">🎙</span>}
+                </span>
+                <span className={`mt-1.5 text-[11.5px] max-w-full truncate ${isMe ? 'text-[#e8d7b0]' : 'text-[#efe6d2]/80'}`}>{isMe ? (en ? 'You' : '你') : p.display_name}</span>
+                {tr ? <span className="text-[10px] truncate max-w-full" style={{ color: TEAM_C[tr.team] }}>{tr.role}</span>
+                  : claims[p.seat] ? <span className="text-[10px] text-[#e8c27a]/75 truncate max-w-full">「{claims[p.seat]}」</span> : <span className="h-[14px]" />}
+              </button>
+            );
+          })}
         </div>
-      )}
-
-      {showPlayers && (
-        <div className="px-4 py-3 bg-ink/70 border-b border-eldritch/20 max-w-3xl w-full mx-auto">
-          <div className="text-xs text-parchment/50 mb-2">{en ? `Players (${bps.filter((p) => p.alive).length} alive / ${bps.length})` : `玩家（存活 ${bps.filter((p) => p.alive).length} / 共 ${bps.length}）`}</div>
-          <div className="grid grid-cols-2 gap-1.5">
-            {bps.map((p, i) => {
-              const tr = trueRoleOf(p.seat);
-              return (
-                <div key={i} className={`text-sm rounded px-2 py-1 border ${p.alive ? 'bg-fog border-eldritch/30' : 'bg-ink border-parchment/15 text-parchment/40'}`}>
-                  <span className={p.alive ? 'text-parchment/85' : 'line-through'}>{p.seat}·{p.display_name}</span>{p.is_ai && p.seat !== props.room.companion?.seat ? ' 🤖' : ''}{!p.alive ? ' ☠' : ''}
-                  {ended && tr ? <span className={`text-[11px] ${teamCls[tr.team] || ''}`}> ·「{tr.role}」</span>
-                    : claims[p.seat] ? <span className="text-[11px] text-amber-300/80"> （{en ? 'claims' : '自称'}：{claims[p.seat]}）</span> : null}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      <div className="px-4 py-2 border-b border-eldritch/15 flex gap-1.5 flex-wrap">
-        {bps.map((p, i) => (
-          <span key={i} className={`text-xs px-2 py-1 rounded-full border ${p.seat === speaking && !night && !voting && !ended ? 'bg-eldritch/40 border-eldritch text-parchment' : p.alive ? 'bg-fog border-eldritch/30 text-parchment/80' : 'bg-ink border-parchment/15 text-parchment/30 line-through'}`}>
-            {p.seat === speaking && !night && !voting && !ended ? '🎙 ' : ''}{p.seat}·{p.display_name}{p.is_ai && p.seat !== props.room.companion?.seat ? ' 🤖' : ''}{!p.alive ? ' ☠' : ''}
-            {claims[p.seat] && !ended ? <span className="text-amber-300/80">（{en ? 'c' : '自称'}:{claims[p.seat]}）</span> : null}
-          </span>
-        ))}
       </div>
 
-      {roleCard && (
-        <div className="border-b border-blood/25 bg-blood/10">
-          <button onClick={() => setRoleOpen((v) => !v)} className="w-full flex items-center justify-between px-4 py-2 text-left">
-            <span className="text-xs font-medium tracking-wide text-blood">🎭 {en ? 'YOUR ROLE (secret)' : '你的身份 · 仅你可见'}</span>
-            <span className="text-xs text-parchment/50">{roleOpen ? (en ? 'hide ▲' : '收起 ▲') : (en ? 'show ▼' : '展开 ▼')}</span>
-          </button>
-          {roleOpen && <div className="px-4 pb-3 -mt-1 text-parchment/90 leading-relaxed whitespace-pre-line text-sm">{roleCard}</div>}
+      {/* 故事 */}
+      <section className="flex-1 min-h-0 overflow-y-auto mn-fade-top">
+        <div className="mx-auto max-w-2xl px-4 pt-3 pb-6 space-y-3.5">
+          {messages.filter((m) => !['botc_role', 'botc_role_action', 'botc_manifest'].includes(m.payload?.type)).map((m) => <BotcMsg key={m.id} m={m} mine={m.sender_player_id === props.myPlayerId} en={en} />)}
+          {busy && <div className="flex items-center justify-center gap-2.5 py-2 text-[12.5px] tracking-[.18em] text-[#c9a96e]/75"><span className="flex gap-1">{[0, 1, 2].map((i) => <span key={i} className="w-1.5 h-1.5 rounded-full bg-[#c9a96e]/80 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</span>{en ? 'The Storyteller speaks' : '说书人正在讲述'}</div>}
+          <div ref={bottomRef} className="h-1" />
         </div>
-      )}
+      </section>
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-3 max-w-3xl w-full mx-auto">
-        {messages.filter((m) => !['botc_role', 'botc_role_action', 'botc_manifest'].includes(m.payload?.type)).map((m) => <BotcMsg key={m.id} m={m} mine={m.sender_player_id === props.myPlayerId} en={en} />)}
-        {busy && <div className="text-center text-parchment/40 italic text-sm">{en ? 'The Storyteller is resolving…' : '说书人结算中……'}</div>}
-        <div ref={bottomRef} />
-      </div>
-
-      {ended ? (
-        <div className="border-t border-blood/40 px-4 py-3 text-center max-w-3xl w-full mx-auto flex flex-col items-center gap-2" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
-          <span className="text-parchment/70 text-sm">{en ? 'The game is over.' : '本局结束。'}</span>
-          {isHost && (
-            <button onClick={replay} disabled={resetting} className="px-5 py-2 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood text-sm disabled:opacity-50">
-              {resetting ? (en ? 'Resetting…' : '重置中…') : (en ? '↻ Play again (new setup)' : '↻ 再来一局（重新发身份）')}
-            </button>
-          )}
-        </div>
-      ) : night ? (
-        <div className="mn-composer border-t border-eldritch/20 px-4 py-3 space-y-2 max-w-3xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
-          {iAmAlive && hasNightPower ? (
-            <div className="flex gap-2 items-center flex-wrap">
-              <span className="text-xs text-eldritch shrink-0">🌙 {en ? 'Your night power:' : '你的夜间能力：'} {nightLabel}</span>
-              <select value={myNightTarget} onChange={(e) => e.target.value && nightAct(e.target.value)} disabled={busy} className="px-2 py-1.5 rounded bg-fog border border-eldritch/30 text-parchment text-sm">
-                <option value="">{en ? '— choose target —' : '— 选择目标 —'}</option>
-                {aliveTargets.map((p) => <option key={p.seat} value={p.seat}>{p.seat}·{p.display_name}</option>)}
-              </select>
-              {myNightTarget && <span className="text-xs text-eldritch">{en ? 'chosen: ' : '已选：'}{myNightTarget}</span>}
+      {/* 底部 */}
+      <footer className="shrink-0 px-3 pt-2 bg-gradient-to-t from-[#0b0c0f] via-[#0b0c0f]/95 to-[#0b0c0f]/0" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
+        <div className="mx-auto max-w-2xl space-y-2">
+          {ended ? (
+            <div className="rounded-2xl border border-white/10 bg-[#111216]/90 px-4 py-4 text-center">
+              <div className="font-serif text-[16px] text-[#efe6d2]">{en ? 'The masks are off.' : '面具都摘下来了。'}</div>
+              <div className="mt-3 flex gap-2.5">
+                <a href="/play" className="flex-1 h-11 rounded-xl border border-white/12 text-[14px] text-parchment/75 flex items-center justify-center">{en ? 'Back to hall' : '回到大厅'}</a>
+                {isHost && <button onClick={replay} disabled={resetting} className="flex-1 h-11 rounded-xl bg-[#7d1d1d] border border-[#a83232]/60 text-[#f2ead9] text-[14px] disabled:opacity-50">{resetting ? '…' : (en ? 'New roles' : '再来一局')}</button>}
+              </div>
             </div>
           ) : (
-            <div className="text-center text-sm text-parchment/50">{en ? 'Night falls — close your eyes and wait for dawn…' : '夜深了，闭眼等待天亮……'}</div>
-          )}
-          {isHost && (
-            <button onClick={resolveNight} disabled={busy} className="w-full px-4 py-2 rounded bg-eldritch/60 hover:bg-eldritch text-parchment text-sm disabled:opacity-50">
-              {busy ? (en ? 'Resolving…' : '结算中…') : (en ? 'Dawn ▶ resolve the night' : '天亮 ▶ 结算今夜')}
-            </button>
-          )}
-          {!isHost && <div className="text-center text-[11px] text-parchment/35">{en ? 'The host calls dawn once night actions are in.' : '夜间行动提交后，由房主呼叫天亮。'}</div>}
-        </div>
-      ) : voting ? (
-        <div className="mn-composer border-t border-eldritch/20 px-4 py-3 space-y-2 max-w-3xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
-          <div className="text-center text-xs text-blood">🗳 {en ? 'Voting — everyone speaks no more; cast your execution vote.' : '投票阶段 —— 大家都发言完了，请投出处决票。'}</div>
-          {chatInput}
-          <div className="flex gap-2 items-center flex-wrap">
-            <span className="text-xs text-parchment/50 shrink-0">{iAmAlive ? (en ? 'Execute:' : '指认处决：') : (en ? '👻 Ghost vote:' : '👻 鬼票：')}</span>
-            {canVote ? (
-              <select value={myVote} onChange={(e) => e.target.value && vote(e.target.value)} disabled={busy} className="px-2 py-1.5 rounded bg-fog border border-eldritch/30 text-parchment text-sm">
-                <option value="">{en ? '— pick —' : '— 选择 —'}</option>
-                {aliveTargets.map((p) => <option key={p.seat} value={p.seat}>{p.seat}·{p.display_name}</option>)}
-                <option value="skip">{en ? 'Skip / no vote' : '弃票'}</option>
-              </select>
-            ) : <span className="text-xs text-parchment/40">{en ? 'ghost vote spent' : '鬼票已用'}</span>}
-            {myVote && <span className="text-xs text-eldritch">{en ? 'voted: ' : '已投：'}{myVote}</span>}
-          </div>
-          {isHost && (
-            <button onClick={resolveDay} disabled={busy} className="w-full px-4 py-2 rounded bg-blood/70 hover:bg-blood text-parchment text-sm disabled:opacity-50">
-              {busy ? (en ? 'Resolving…' : '结算中…') : (en ? 'Tally votes → execute ▶' : '结算处决（出今日票）▶')}
-            </button>
-          )}
-          {!isHost && <div className="text-center text-[11px] text-parchment/35">{en ? 'The host tallies the vote.' : '由房主统计今日处决。'}</div>}
-        </div>
-      ) : (
-        <div className="mn-composer border-t border-eldritch/20 px-4 py-3 space-y-2 max-w-3xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
-          <div className="text-center text-xs text-parchment/55">
-            {myTurn ? <span className="text-eldritch">🎙 {en ? 'Your turn to speak — say your piece, then press “Done”.' : '轮到你发言 —— 说完后点"发言完毕"。'}</span>
-              : speakerBp ? (en ? `🎙 Now speaking: ${speakerBp.seat}·${speakerBp.display_name}${speakerBp.is_ai && speakerBp.seat !== props.room.companion?.seat ? ' 🤖' : ''}` : `🎙 当前发言：${speakerBp.seat}·${speakerBp.display_name}${speakerBp.is_ai && speakerBp.seat !== props.room.companion?.seat ? ' 🤖' : ''}`)
-              : (en ? 'Discussion…' : '讨论中……')}
-          </div>
-          {chatInput}
-          {claimRow}
-          {myTurn && (
-            <button onClick={passTurn} disabled={busy} className="w-full px-4 py-2 rounded bg-eldritch/60 hover:bg-eldritch text-parchment text-sm disabled:opacity-50">
-              {busy ? (en ? 'Passing…' : '处理中…') : (en ? 'Done speaking ▶' : '发言完毕 ▶')}
-            </button>
+            <>
+              <div className="text-center text-[12.5px] min-h-[18px]">
+                {night ? (pickMode ? (picked ? <span className="text-[#a9b8ff]">{en ? 'Chosen — you can still change' : '已选好 · 天亮前还能换'}</span> : null) : <span className="text-parchment/45">{en ? 'Night. Close your eyes…' : '夜深了，闭上眼睛……'}</span>)
+                  : voting ? (picked ? <span className="text-[#ff9a8a]">{en ? `Voted: ${picked === 'skip' ? 'skip' : bps.find((p) => p.seat === picked)?.display_name}` : `已投：${picked === 'skip' ? '弃票' : bps.find((p) => p.seat === picked)?.display_name}`}</span> : !canVote ? <span className="text-parchment/40">{en ? 'Ghost vote spent' : '鬼票已用过'}</span> : null)
+                  : myTurn ? <span className="text-[#e8c27a]">{en ? 'Your turn to speak' : '轮到你发言了'}</span>
+                  : speakerBp ? <span className="text-parchment/50">{en ? `${speakerBp.display_name} is speaking` : `${speakerBp.display_name} 正在发言`}</span> : null}
+              </div>
+              {!night && (
+                <div className="flex items-end gap-2">
+                  <div className="flex-1 min-w-0 flex items-end rounded-2xl border border-white/[0.12] focus-within:border-[#c9a96e]/50 bg-[#0f1014]/90 backdrop-blur pl-4 pr-1.5 py-1.5">
+                    <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !(e.nativeEvent as any).isComposing) sendChat(); }}
+                      placeholder={iAmAlive ? (en ? 'Say something to the table…' : '对大家说……') : (en ? 'Speak from the grave…' : '亡者发言……')} disabled={!props.myPlayerId}
+                      className="flex-1 min-w-0 bg-transparent py-[9px] text-[15px] text-[#efe6d2] placeholder:text-parchment/35 outline-none disabled:opacity-50" />
+                    <MicButton value={text} onChange={setText} en={en} compact />
+                  </div>
+                  <button onClick={sendChat} disabled={!text.trim() || !props.myPlayerId} aria-label={en ? 'Send' : '发送'} className="shrink-0 h-12 w-12 rounded-2xl bg-[#7d1d1d] border border-[#a83232]/60 text-[#f2ead9] flex items-center justify-center disabled:opacity-35">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5.5 11.5L12 5l6.5 6.5" /></svg>
+                  </button>
+                </div>
+              )}
+              <div className="flex gap-2">
+                {!night && !voting && iAmAlive && manifest.length > 0 && <button onClick={() => setSheet('claim')} className="h-10 px-3.5 rounded-xl border border-[#e8c27a]/35 text-[13px] text-[#e8c27a]">{claimSel ? (en ? `Claimed ${claimSel}` : `自称「${claimSel}」`) : (en ? 'Claim a role' : '亮身份')}</button>}
+                {myTurn && !night && !voting && <button onClick={passTurn} disabled={busy} className="flex-1 h-10 rounded-xl bg-[#e8c27a] text-[#1a140a] text-[14px] font-medium disabled:opacity-50">{en ? 'Done speaking' : '我说完了'}</button>}
+                {voting && canVote && <button onClick={() => vote('skip')} disabled={busy} className={`h-10 px-4 rounded-xl border text-[13px] ${myVote === 'skip' ? 'border-[#ff9a8a] text-[#ff9a8a]' : 'border-white/12 text-parchment/60'}`}>{en ? 'Skip vote' : '弃票'}</button>}
+                {isHost && night && <button onClick={resolveNight} disabled={busy} className="flex-1 h-10 rounded-xl bg-[#3a4790] border border-[#a9b8ff]/40 text-[#eef0ff] text-[14px] disabled:opacity-50">{busy ? '…' : (en ? 'Call the dawn ☀' : '天亮了 ☀')}</button>}
+                {isHost && voting && <button onClick={resolveDay} disabled={busy} className="flex-1 h-10 rounded-xl bg-[#7d1d1d] border border-[#a83232]/60 text-[#f2ead9] text-[14px] disabled:opacity-50">{busy ? '…' : (en ? 'Count the votes' : '计票处决')}</button>}
+              </div>
+              {!isHost && (night || voting) && <div className="text-center text-[11px] text-parchment/35">{night ? (en ? 'The host calls the dawn' : '房主会叫天亮') : (en ? 'The host counts the votes' : '房主会计票')}</div>}
+            </>
           )}
         </div>
-      )}
+      </footer>
+
+      <Sheet open={sheet === 'role'} onClose={() => setSheet(null)} title={en ? 'Your secret role' : '你的秘密身份'}>
+        <div className="rounded-2xl p-4 border" style={{ borderColor: (TEAM_C[myTeam || ''] || '#c9a96e') + '55', background: `radial-gradient(120% 80% at 50% 0%, ${(TEAM_C[myTeam || ''] || '#c9a96e')}22, transparent 70%)` }}>
+          {myTeam && <div className="text-[11px] tracking-[.3em] mb-2" style={{ color: TEAM_C[myTeam] }}>{teamName(myTeam, en)}{myTeam === 'demon' || myTeam === 'minion' ? (en ? ' · EVIL' : ' · 邪恶方') : (en ? ' · GOOD' : ' · 好人方')}</div>}
+          <div className="font-serif text-[15px] leading-[1.9] text-[#efe6d2]/90 whitespace-pre-line">{roleCard}</div>
+        </div>
+        {hasNightPower && <p className="mt-3 text-[12.5px] text-parchment/45">{en ? `At night, tap a seat to ${nightLabel.toLowerCase()}.` : `夜里，直接点座位上的人来「${nightLabel}」。`}</p>}
+      </Sheet>
+      <Sheet open={sheet === 'roles'} onClose={() => setSheet(null)} title={en ? 'Roles in this game' : '本局会出现的身份'}>
+        <p className="text-[12.5px] text-parchment/45 mb-3">{en ? 'You don’t know who has which.' : '你不知道谁是谁。'}</p>
+        {['townsfolk', 'outsider', 'minion', 'demon'].map((tm) => {
+          const list = manifest.filter((m: any) => m.team === tm);
+          if (!list.length) return null;
+          return (
+            <div key={tm} className="mb-4">
+              <SheetLabel><span style={{ color: TEAM_C[tm] }}>{teamName(tm, en)}</span></SheetLabel>
+              <div className="space-y-2">{list.map((m: any, i: number) => (
+                <div key={i} className="rounded-xl border border-white/[0.07] bg-white/[0.025] px-3.5 py-2.5"><div className="text-[14px] text-[#efe6d2]">{m.role}</div><div className="text-[12.5px] text-parchment/55 leading-relaxed">{m.ability}</div></div>
+              ))}</div>
+            </div>
+          );
+        })}
+      </Sheet>
+      <Sheet open={sheet === 'claim'} onClose={() => setSheet(null)} title={en ? 'Claim a role (you may lie)' : '对大家亮身份（可以说谎）'}>
+        <div className="grid grid-cols-2 gap-2">
+          {manifest.map((m: any, i: number) => (
+            <button key={i} onClick={() => { claim(m.role); setSheet(null); }} className={`rounded-xl border px-3 py-2.5 text-left ${claimSel === m.role ? 'border-[#e8c27a]/70 bg-[#e8c27a]/10' : 'border-white/10 bg-white/[0.03]'}`}>
+              <div className="text-[14px] text-[#efe6d2]">{m.role}</div><div className="text-[11px]" style={{ color: TEAM_C[m.team] }}>{teamName(m.team, en)}</div>
+            </button>
+          ))}
+        </div>
+      </Sheet>
     </main>
   );
 }
@@ -377,20 +371,20 @@ function BotcMsg({ m, mine, en }: { m: any; mine: boolean; en: boolean }) {
   const type = m.payload?.type;
   if (type === 'botc_reveal') return <Narration text={m.content} lang={en ? 'en' : 'zh'} fresh={fresh(m)} tone="reveal" label={en ? 'Revealed' : '揭晓'} collapse={false} />;
   if (type === 'botc_st') return <Narration text={m.content} lang={en ? 'en' : 'zh'} fresh={fresh(m)} tone={(m.payload?.sfx || []).some((x: string) => /death|execution/.test(x)) ? 'danger' : 'kp'} label={en ? 'Storyteller' : '说书人'} />;
-  if (type === 'botc_private') return <div className="mx-auto max-w-2xl rounded-lg bg-amber-900/15 border border-amber-700/40 px-4 py-2 text-amber-200/90 leading-relaxed whitespace-pre-line text-sm">🔒 {en ? 'Only you:' : '仅你可见：'} {m.content}</div>;
-  if (type === 'botc_vote') return <div className="text-center text-xs text-parchment/50">{m.content}</div>;
-  if (type === 'botc_claim') return <div className="text-center text-xs text-amber-300/70">📣 {m.content}</div>;
+  if (type === 'botc_private') return <div className="rounded-2xl bg-[#2a2210]/60 border border-[#e8c27a]/35 px-4 py-3 text-[14px] text-[#f3e6c4] leading-relaxed whitespace-pre-line"><div className="text-[10.5px] tracking-[.22em] text-[#e8c27a] mb-1">{en ? 'ONLY YOU' : '只有你知道'}</div>{m.content}</div>;
+  if (type === 'botc_vote') return <div className="flex justify-center"><span className="px-3 py-1 rounded-full border border-[#e0473f]/25 text-[12px] text-[#ffb3a8]/80">{m.content}</span></div>;
+  if (type === 'botc_claim') return <div className="flex justify-center"><span className="px-3 py-1 rounded-full border border-[#e8c27a]/30 bg-[#e8c27a]/[0.06] text-[12.5px] text-[#e8c27a]">{m.content}</span></div>;
   if (type === 'botc_ai' || type === 'companion') return (
     <div className="flex flex-col items-start">
-      <span className="text-xs text-parchment/40 mb-1">{m.payload?.name}{m.payload?.companion || type === 'companion' ? '' : ' 🤖'}</span>
-      <div className="max-w-[80%] px-4 py-2 rounded-lg bg-fog border border-eldritch/30 text-parchment/90">{m.content}</div>
+      <span className="text-[11.5px] text-parchment/45 mb-1 px-1">{m.payload?.name}</span>
+      <div className="max-w-[86%] px-4 py-2.5 rounded-2xl rounded-tl-md border border-white/10 bg-white/[0.045] text-[14.5px] leading-relaxed text-[#efe6d2]/92">{m.content}</div>
     </div>
   );
-  if (m.sender_type === 'system') return <div className="text-center text-sm text-parchment/50">{m.content}</div>;
+  if (m.sender_type === 'system') return <div className="flex justify-center"><span className="px-3.5 py-1.5 rounded-full border border-white/[0.07] text-[12.5px] text-parchment/50 text-center">{m.content}</span></div>;
   return (
     <div className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
-      <span className="text-xs text-parchment/40 mb-1">{mine ? (en ? 'You' : '你') : (en ? 'Player' : '玩家')}</span>
-      <div className={`max-w-[80%] px-4 py-2 rounded-lg ${mine ? 'bg-blood/25 border border-blood/40' : 'bg-fog border border-eldritch/30'} text-parchment/90`}>{m.content}</div>
+      <span className="text-[11.5px] text-parchment/40 mb-1 px-1">{mine ? (en ? 'You' : '你') : (m.payload?.name || (en ? 'Player' : '玩家'))}</span>
+      <div className={`max-w-[86%] px-4 py-2.5 text-[14.5px] leading-relaxed ${mine ? 'rounded-2xl rounded-br-md border border-[#c9a96e]/30 bg-[#c9a96e]/[0.09] text-[#efe6d2]' : 'rounded-2xl rounded-tl-md border border-[#5aa39a]/25 bg-[#5aa39a]/[0.07] text-[#efe6d2]/92'}`}>{m.content}</div>
     </div>
   );
 }

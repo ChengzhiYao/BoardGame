@@ -23,9 +23,14 @@ module.exports = {
         border: { DEFAULT: primitives.eldritch },
         state: { success: primitives.green, warning: primitives.amber, danger: primitives.rust, info: primitives.sky },
       },
-      borderRadius: { sm: '6px', md: '10px', lg: '14px', xl: '18px' },
+      borderRadius: { DEFAULT: '10px', sm: '6px', md: '10px', lg: '14px', xl: '18px', '2xl': '20px' },
       spacing: { 1: '4px', 2: '8px', 3: '12px', 4: '16px', 5: '20px', 6: '24px', 8: '32px' },
-      fontFamily: { serif: ['Noto Serif SC', 'Georgia', 'serif'] },
+      fontFamily: {
+        sans: ['-apple-system', 'BlinkMacSystemFont', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', 'Segoe UI', 'Helvetica Neue', 'Arial', 'sans-serif'],
+        serif: ['Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'STSong', 'Georgia', 'serif'],
+      },
+      // 小字整体放大一点，手机上更好读
+      fontSize: { xs: ['0.8125rem', { lineHeight: '1.15rem' }], sm: ['0.9375rem', { lineHeight: '1.4rem' }], base: ['1rem', { lineHeight: '1.65rem' }] },
     },
   },
 };

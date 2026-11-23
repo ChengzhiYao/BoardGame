@@ -105,6 +105,14 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
     finally { setBusy(false); }
   }
 
+  // 首页「马上开玩」进来的：房主自动用默认设置出题，不用再点
+  const quick = useRef(false);
+  useEffect(() => {
+    if (quick.current || !isHost || state !== 'lobby' || props.room.companion?.name) return;
+    try { if (new URLSearchParams(window.location.search).get('quick') !== '1') return; } catch { return; }
+    quick.current = true; start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHost, state]);
   async function start() { await call('/api/soup/generate', { roomId: props.room.id, difficulty, supernatural, tone, gore, horror, edge }); }
   async function ask() { const q = text.trim(); if (!q) return; setText(''); await call('/api/soup/ask', { roomId: props.room.id, question: q }); if (comp) fetch('/api/linger/react', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) }).catch(() => {}); }
   async function submitGuess() { const g = guess.trim(); if (!g) return; setGuess(''); setGuessing(false); await call('/api/soup/guess', { roomId: props.room.id, guess: g }); }
@@ -145,7 +153,7 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
 
   return (
     <main className="h-[100svh] flex flex-col overflow-hidden">
-      <header className="px-4 py-3 border-b border-eldritch/20 flex items-center justify-between">
+      <header className="mn-header px-4 py-3 border-b border-eldritch/20 flex items-center justify-between">
         <span className="font-serif text-parchment">海龟汤 · {props.room.name}</span>
         <span className="text-xs text-parchment/50">{ended ? '已结束' : '提是非题 → 我答 是/不是/无关/是也不是'}</span>
       </header>
@@ -172,7 +180,7 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
       </div>
 
       {!ended ? (
-        <div className="border-t border-eldritch/20 px-4 py-3 space-y-2 max-w-3xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+        <div className="mn-composer border-t border-eldritch/20 px-4 py-3 space-y-2 max-w-3xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
           {guessing ? (
             <div className="space-y-2">
               <textarea value={guess} onChange={(e) => setGuess(e.target.value)} placeholder="说出你认为的完整真相（汤底）…"

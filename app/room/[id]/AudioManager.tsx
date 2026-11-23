@@ -207,7 +207,7 @@ export default function AudioManager({ state }: { state: string }) {
 
   return (
     <div ref={barRef} style={pos ? { left: pos.x, top: pos.y, right: 'auto', bottom: 'auto' } : undefined}
-      className="fixed right-2 top-2 lg:top-auto lg:bottom-3 lg:right-3 z-50 flex flex-nowrap items-center gap-2 whitespace-nowrap bg-fog/90 border border-eldritch/30 rounded-full px-3 py-1.5 backdrop-blur">
+      className="fixed right-2 top-[58px] lg:top-auto lg:bottom-3 lg:right-3 z-50 flex flex-nowrap items-center gap-2 whitespace-nowrap bg-fog/90 border border-eldritch/30 rounded-full px-3 py-1.5 backdrop-blur">
       <span onPointerDown={onGripDown} onPointerMove={onGripMove} onPointerUp={onGripUp} style={{ touchAction: 'none' }}
         className="cursor-move select-none text-parchment/40 leading-none px-0.5" title="拖动">⠿</span>
       {voice && (

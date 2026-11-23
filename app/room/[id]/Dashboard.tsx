@@ -289,7 +289,7 @@ export default function Dashboard(props: ShellProps) {
             <div ref={bottomRef} />
           </div>
 
-          <div className="border-t border-eldritch/20 px-4 py-3 space-y-2 shrink-0" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+          <div className="mn-composer border-t border-eldritch/20 px-4 py-3 space-y-2 shrink-0" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
             <RoundStatus room={room} players={players} nameOfSeat={charNameOrUser} lang={lang} />
 
             {myOut && !ended ? (

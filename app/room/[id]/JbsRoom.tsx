@@ -352,7 +352,7 @@ export default function JbsRoom(props: ShellProps) {
 
   return (
     <main className="h-[100svh] flex flex-col overflow-hidden">
-      <header className="px-4 py-2.5 border-b border-eldritch/20 flex items-center justify-between gap-2">
+      <header className="mn-header px-4 py-2.5 border-b border-eldritch/20 flex items-center justify-between gap-2">
         <span className="font-serif text-parchment text-sm truncate">{en ? 'Murder Mystery' : '剧本杀'} · {props.room.name}</span>
         <div className="flex items-center gap-2 shrink-0">
           {!ended && <span className="text-xs text-eldritch/80">{en ? `Act ${act}/${totalActs}${actName ? ' · ' + actName : ''}` : `第${act}/${totalActs}幕${actName ? ' · ' + actName : ''}`}</span>}
@@ -453,7 +453,7 @@ export default function JbsRoom(props: ShellProps) {
           )}
         </div>
       ) : voting ? (
-        <div className="border-t border-eldritch/20 px-4 py-3 max-w-3xl w-full mx-auto space-y-2" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+        <div className="mn-composer border-t border-eldritch/20 px-4 py-3 max-w-3xl w-full mx-auto space-y-2" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
           <p className="text-center text-parchment/70 text-sm">{jbsType === '阵营' ? (en ? 'Final vote — cast your ballot' : '最终票决 —— 投出你的一票') : (en ? 'Final accusation — who is the culprit?' : '最终指认 —— 谁是真凶？')}</p>
           <div className="flex flex-wrap justify-center gap-2">
             {candidates.map((c: any) => (
@@ -465,7 +465,7 @@ export default function JbsRoom(props: ShellProps) {
           </div>
         </div>
       ) : (
-        <div className="border-t border-eldritch/20 px-4 py-3 flex flex-col gap-2 max-w-3xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+        <div className="mn-composer border-t border-eldritch/20 px-4 py-3 flex flex-col gap-2 max-w-3xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
           <div className="flex gap-2">
             <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && act_(text)}
               placeholder={en ? 'Investigate, question, accuse, speak…' : '搜证、询问、对质、发言…'} disabled={busy}

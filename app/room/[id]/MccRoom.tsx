@@ -282,7 +282,7 @@ export default function MccRoom(props: ShellProps) {
         </div>
       )}
       {(spectator || meDead) && <div className="px-4 py-1.5 text-center text-xs bg-ink/70 text-parchment/55 border-b border-eldritch/15">{spectator ? (en ? '👁 Spectating (no seat this game)' : '👁 观战中（你不在本局座位）') : (en ? '💀 You are out — spectating' : '💀 你已出局 · 观战中')}</div>}
-      <header className="px-4 py-3 border-b border-eldritch/20 flex items-center justify-between gap-2">
+      <header className="mn-header px-4 py-3 border-b border-eldritch/20 flex items-center justify-between gap-2">
         <span className="font-serif text-parchment text-sm truncate"><span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse mr-1.5 align-middle" />{en ? 'Midnight Cat Curse' : '午夜猫诅咒'}</span>
         <div className="flex items-center gap-2 shrink-0">
           <button onClick={() => setShowDiscard((v) => !v)} className="text-xs px-2 py-1 rounded bg-eldritch/30 text-parchment">{en ? `Discard ${pub.discardCount}` : `弃牌 ${pub.discardCount}`}</button>
@@ -392,7 +392,7 @@ export default function MccRoom(props: ShellProps) {
 
       {/* 我的手牌 + 操作 */}
       {!ended ? (
-        <div className="border-t border-eldritch/20 px-4 py-3 space-y-2 max-w-5xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+        <div className="mn-composer border-t border-eldritch/20 px-4 py-3 space-y-2 max-w-5xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
           {(spectator || meDead) ? (
               <div className="text-center text-sm text-parchment/55 py-3">{en ? 'Watching the chaos…' : '围观这场混乱……'}</div>
             ) : false ? (

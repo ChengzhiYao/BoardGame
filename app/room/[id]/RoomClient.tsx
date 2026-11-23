@@ -156,7 +156,7 @@ export default function RoomClient(props: {
   return (
     <main className="min-h-screen flex flex-col">
       {/* 顶栏 */}
-      <header className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 border-b border-eldritch/20">
+      <header className="mn-header flex flex-wrap items-center justify-between gap-3 px-5 py-3 border-b border-eldritch/20">
         <div className="flex items-center gap-3">
           <span className="font-serif text-lg text-parchment">{props.room.name}</span>
           <span className="text-xs px-2 py-0.5 rounded bg-eldritch/20 text-parchment/60">
@@ -223,7 +223,7 @@ export default function RoomClient(props: {
       </section>
 
       {/* 底栏：行动类型 + 输入 */}
-      <footer className="px-5 py-3 border-t border-eldritch/20 flex items-center gap-2">
+      <footer className="mn-composer px-5 py-3 border-t border-eldritch/20 flex items-center gap-2">
         <select
           value={action}
           onChange={(e) => setAction(e.target.value)}

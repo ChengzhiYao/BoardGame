@@ -147,7 +147,7 @@ export default function StoryRoom(props: ShellProps) {
     </div>
   );
   const Header = (
-    <header className="px-4 py-3 border-b border-eldritch/20 flex items-center justify-between gap-3">
+    <header className="mn-header px-4 py-3 border-b border-eldritch/20 flex items-center justify-between gap-3">
       <span className="font-serif text-parchment shrink-0">📖 {en ? 'Storyteller' : '讲故事'} · {props.room.name}</span>
       <div className="flex items-center gap-3 min-w-0">
         {Roster}

@@ -237,7 +237,7 @@ export default function BotcRoom(props: ShellProps) {
 
   return (
     <main className={`h-[100svh] flex flex-col overflow-hidden ${night ? 'bg-[#06060c]' : ''}`}>
-      <header className="px-4 py-3 border-b border-eldritch/20 flex items-center justify-between gap-2">
+      <header className="mn-header px-4 py-3 border-b border-eldritch/20 flex items-center justify-between gap-2">
         <span className="font-serif text-parchment text-sm truncate">{en ? 'Bloodbound' : '血染'} · {props.room.name}</span>
         <div className="flex items-center gap-2 shrink-0">
           {manifest.length > 0 && <button onClick={() => { setShowRoles((v) => !v); setShowPlayers(false); }} className="text-xs px-2 py-1 rounded bg-eldritch/30 text-parchment">{en ? 'Roles' : '身份'}</button>}
@@ -310,7 +310,7 @@ export default function BotcRoom(props: ShellProps) {
           )}
         </div>
       ) : night ? (
-        <div className="border-t border-eldritch/20 px-4 py-3 space-y-2 max-w-3xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+        <div className="mn-composer border-t border-eldritch/20 px-4 py-3 space-y-2 max-w-3xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
           {iAmAlive && hasNightPower ? (
             <div className="flex gap-2 items-center flex-wrap">
               <span className="text-xs text-eldritch shrink-0">🌙 {en ? 'Your night power:' : '你的夜间能力：'} {nightLabel}</span>
@@ -331,7 +331,7 @@ export default function BotcRoom(props: ShellProps) {
           {!isHost && <div className="text-center text-[11px] text-parchment/35">{en ? 'The host calls dawn once night actions are in.' : '夜间行动提交后，由房主呼叫天亮。'}</div>}
         </div>
       ) : voting ? (
-        <div className="border-t border-eldritch/20 px-4 py-3 space-y-2 max-w-3xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+        <div className="mn-composer border-t border-eldritch/20 px-4 py-3 space-y-2 max-w-3xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
           <div className="text-center text-xs text-blood">🗳 {en ? 'Voting — everyone speaks no more; cast your execution vote.' : '投票阶段 —— 大家都发言完了，请投出处决票。'}</div>
           {chatInput}
           <div className="flex gap-2 items-center flex-wrap">
@@ -353,7 +353,7 @@ export default function BotcRoom(props: ShellProps) {
           {!isHost && <div className="text-center text-[11px] text-parchment/35">{en ? 'The host tallies the vote.' : '由房主统计今日处决。'}</div>}
         </div>
       ) : (
-        <div className="border-t border-eldritch/20 px-4 py-3 space-y-2 max-w-3xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+        <div className="mn-composer border-t border-eldritch/20 px-4 py-3 space-y-2 max-w-3xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
           <div className="text-center text-xs text-parchment/55">
             {myTurn ? <span className="text-eldritch">🎙 {en ? 'Your turn to speak — say your piece, then press “Done”.' : '轮到你发言 —— 说完后点"发言完毕"。'}</span>
               : speakerBp ? (en ? `🎙 Now speaking: ${speakerBp.seat}·${speakerBp.display_name}${speakerBp.is_ai && speakerBp.seat !== props.room.companion?.seat ? ' 🤖' : ''}` : `🎙 当前发言：${speakerBp.seat}·${speakerBp.display_name}${speakerBp.is_ai && speakerBp.seat !== props.room.companion?.seat ? ' 🤖' : ''}`)

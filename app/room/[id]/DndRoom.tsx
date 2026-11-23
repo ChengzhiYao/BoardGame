@@ -206,7 +206,7 @@ export default function DndRoom(props: ShellProps) {
   ) : null;
 
   const bottomBar = (
-    <div className="border-t border-eldritch/20 px-3 sm:px-4 py-3 space-y-2 shrink-0" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+    <div className="mn-composer border-t border-eldritch/20 px-3 sm:px-4 py-3 space-y-2 shrink-0" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
       {phase === 'creation' && (!myChar
         ? <CharBuilder en={en} onSubmit={createChar} busy={busy} />
         : <div className="text-center space-y-2"><div className="text-sm text-parchment/60">{en ? 'Your hero is ready. Waiting for the party…' : '你的英雄已就绪，等待队伍集结……'}</div>{isHost && <button onClick={() => call('/api/dnd/begin', { roomId: props.room.id })} disabled={busy} className="w-full py-2.5 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-50">{en ? 'Begin the adventure →' : '开始冒险 →'}</button>}</div>)}

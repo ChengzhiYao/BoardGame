@@ -120,7 +120,7 @@ export default function TDRoom(props: ShellProps) {
 
   return (
     <main className="h-[100svh] flex flex-col overflow-hidden">
-      <header className="px-4 py-3 border-b border-eldritch/20 flex items-center justify-between">
+      <header className="mn-header px-4 py-3 border-b border-eldritch/20 flex items-center justify-between">
         <span className="font-serif text-parchment">{en ? 'Truth or Dare' : '真心话大冒险'} · {props.room.name}</span>
         <span className="text-xs text-parchment/50">{en ? 'Intensity' : '尺度'} {settings.intensity}{settings.environment ? ` · ${settings.environment}` : ''}</span>
       </header>
@@ -136,7 +136,7 @@ export default function TDRoom(props: ShellProps) {
         <div ref={bottomRef} />
       </div>
 
-      <div className="border-t border-eldritch/20 px-4 py-3 space-y-2 max-w-2xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+      <div className="mn-composer border-t border-eldritch/20 px-4 py-3 space-y-2 max-w-2xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
         <label className="flex items-center justify-center gap-2 text-xs text-parchment/60">
           <input type="checkbox" checked={aiMode} onChange={(e) => setAiMode(e.target.checked)} />
           {en ? '✨ Let AI write a fresh one for this game’s settings (saved to the pool, free to reuse)' : '✨ 让 AI 按本局设置现编一题（会存进题库，下次免费复用）'}

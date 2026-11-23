@@ -56,6 +56,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
     copyInvite();
   }
   const promoAudio = useRef<HTMLAudioElement | null>(null);
+  const quickRef = useRef(false);
   const heroRef = useRef<HTMLElement | null>(null);
   const nameRef = useRef<HTMLInputElement | null>(null);
   function openPromo() { setShowPromo(true); try { const a = new Audio('/audio/veil-of-night/loop1.ogg'); a.loop = true; a.volume = 0.5; a.play().catch(() => {}); promoAudio.current = a; } catch {} }
@@ -93,7 +94,9 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
   }
 
   async function createRoom(m: GM = gameMode, nameOverride?: string) {
-    const nm = (nameOverride ?? name).trim();
+    let nm = (nameOverride ?? name).trim();
+    // 马上开玩：没填名字就先用默认名，之后在账号里能改
+    if (!nm && m === 'soup' && quickRef.current) { nm = lang === 'en' ? 'Player' : '玩家'; setName(nm); }
     if (!nm) {
       setErr(t('err_name'));
       heroRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -118,7 +121,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
         return;
       }
       if (!res.ok) throw new Error(data.error || '创建失败');
-      router.push(`/room/${data.roomId}`);
+      router.push(`/room/${data.roomId}${quickRef.current && m === 'soup' ? '?quick=1' : ''}`);
     } catch (e: any) {
       setErr(e.message);
       setBusy(false);
@@ -145,7 +148,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center px-6 pt-24 pb-16 gap-6 text-center">
+    <main className="min-h-screen flex flex-col items-center px-5 pt-20 sm:pt-28 pb-16 gap-6 text-center">
       <iframe
         src="/coc3d-demo.html?embed=1&full=1&auto=1"
         title=""
@@ -158,16 +161,8 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
       <AccountBadge t={t} lang={lang} />
 
       <header ref={heroRef} className="w-full max-w-2xl flex flex-col items-center gap-5">
-        <h1 className="text-4xl md:text-6xl font-serif tracking-wide text-parchment">{t('home_title')}</h1>
-        <p className="max-w-xl text-parchment/70 leading-relaxed">{t('home_tagline')}</p>
-        <div className="flex items-center gap-3 flex-wrap justify-center">
-          <button onClick={openPromo} className="text-sm px-4 py-1.5 rounded-full border border-eldritch/40 text-parchment/80 hover:bg-eldritch/20 transition">▶ {lang === 'en' ? 'Watch the trailer' : '观看宣传片'}</button>
-          <a href={lang === 'en' ? '/en/blog' : '/zh/blog'} className="inline-flex items-center gap-1.5 text-sm px-4 py-1.5 rounded-full border border-eldritch/40 text-parchment/80 hover:bg-eldritch/20 transition"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 1 6.5 18H20" /></svg>{lang === 'en' ? 'Blog' : '博客'}</a>
-          <button onClick={() => setShowFeedback(true)} className="inline-flex items-center gap-1.5 text-sm px-4 py-1.5 rounded-full border border-blood/50 text-parchment/90 bg-blood/15 hover:bg-blood/30 transition"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>{lang === 'en' ? 'Guestbook' : '留言板'}</button>
-          <button onClick={() => { setShowContact(true); setContactState('idle'); }} className="inline-flex items-center gap-1.5 text-sm px-4 py-1.5 rounded-full border border-eldritch/40 text-parchment/80 hover:bg-eldritch/20 transition"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16v12H5.2L4 17.2z"/></svg>{lang === 'en' ? 'Contact' : '联系客服'}</button>
-          <button onClick={() => { setShowInvite(true); setCopied(false); }} className="inline-flex items-center gap-1.5 text-sm px-4 py-1.5 rounded-full border border-blood/50 text-parchment/90 bg-blood/15 hover:bg-blood/30 transition"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>{lang === 'en' ? 'Invite friends' : '邀请好友'}</button>
-          {isOwner && <a href="/companion" className="inline-flex items-center gap-1.5 text-sm px-4 py-1.5 rounded-full border border-eldritch/40 text-parchment/80 hover:bg-eldritch/20 transition"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>{lang === 'en' ? 'AI Companion' : 'AI 陪伴'}</a>}
-        </div>
+        <h1 className="text-[2.6rem] leading-tight md:text-7xl font-serif font-bold tracking-wide text-[#f2ead9] drop-shadow-[0_4px_24px_rgba(0,0,0,.6)]">{t('home_title')}</h1>
+        <p className="max-w-md text-[15px] sm:text-base text-parchment/80 leading-relaxed">{t('home_tagline')}</p>
 
         {acctName ? (
           <div className="text-sm text-parchment/50">{lang === 'en' ? 'Playing as ' : '以 '}<b className="text-parchment">{name}</b>{lang === 'en' ? '' : ' 开玩'} · <a href="/account" className="underline hover:text-parchment">{lang === 'en' ? 'change name' : '改名'}</a></div>
@@ -177,20 +172,21 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
             value={name}
             onChange={(e) => { setName(e.target.value); try { localStorage.setItem('name', e.target.value); } catch {} }}
             placeholder={t('home_name_ph')}
-            className="w-72 px-4 py-3 rounded bg-fog border border-eldritch/40 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch"
+            className="w-full max-w-sm px-4 py-3 rounded-xl bg-fog/85 backdrop-blur border border-eldritch/40 text-parchment text-center placeholder:text-parchment/35 outline-none focus:border-eldritch"
           />
         )}
 
         {mode === 'idle' ? (
-          <div className="flex gap-3 flex-wrap justify-center">
-            <button onClick={browseGames}
-              className="px-6 py-3 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood transition">
-              {lang === 'en' ? 'Browse the games ↓' : '挑一个游戏 ↓'}
+          <div className="w-full max-w-sm flex flex-col items-stretch gap-2.5">
+            <button onClick={() => { quickRef.current = true; createRoom('soup'); }} disabled={busy}
+              className="group relative px-6 py-3.5 rounded-xl bg-blood hover:bg-[#a83232] text-white border border-[#a83232] shadow-[0_8px_30px_rgba(125,29,29,.45)] disabled:opacity-60">
+              <span className="block text-base font-semibold tracking-wide">{busy && gameMode === 'soup' ? (lang === 'en' ? 'Setting the table…' : '正在出题…') : (lang === 'en' ? '⚡ Play now — a lateral puzzle' : '⚡ 马上开玩 · 来一碗海龟汤')}</span>
+              <span className="block text-xs text-white/70 mt-0.5">{lang === 'en' ? '30 seconds to start · solo or with friends' : '30 秒开局 · 一个人或拉朋友都行'}</span>
             </button>
-            <button onClick={() => setMode('join')}
-              className="px-6 py-3 rounded bg-fog hover:bg-eldritch/40 text-parchment border border-eldritch/50">
-              {t('join_btn')}
-            </button>
+            <div className="grid grid-cols-2 gap-2.5">
+              <button onClick={browseGames} className="px-4 py-3 rounded-xl bg-fog/80 hover:bg-eldritch/30 text-parchment border border-eldritch/40 backdrop-blur text-sm">{lang === 'en' ? 'All games ↓' : '全部玩法 ↓'}</button>
+              <button onClick={() => setMode('join')} className="px-4 py-3 rounded-xl bg-fog/80 hover:bg-eldritch/30 text-parchment border border-eldritch/40 backdrop-blur text-sm">{t('join_btn')}</button>
+            </div>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-3">
@@ -208,7 +204,16 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
           </div>
         )}
 
-        {err && <p className="text-blood text-sm">{err}</p>}
+        {err && <p className="text-[#e06060] text-sm">{err}</p>}
+
+        <nav className="flex items-center justify-center flex-wrap gap-x-5 gap-y-2 text-sm text-parchment/55">
+          <button onClick={() => { setShowInvite(true); setCopied(false); }} className="text-parchment/85 hover:text-white">{lang === 'en' ? '＋ Invite friends' : '＋ 邀请好友'}</button>
+          <button onClick={openPromo} className="hover:text-parchment">▶ {lang === 'en' ? 'Trailer' : '宣传片'}</button>
+          <a href={lang === 'en' ? '/en/blog' : '/zh/blog'} className="hover:text-parchment">{lang === 'en' ? 'Blog' : '博客'}</a>
+          <button onClick={() => setShowFeedback(true)} className="hover:text-parchment">{lang === 'en' ? 'Guestbook' : '留言板'}</button>
+          <button onClick={() => { setShowContact(true); setContactState('idle'); }} className="hover:text-parchment">{lang === 'en' ? 'Contact' : '联系我们'}</button>
+          {isOwner && <a href="/companion" className="hover:text-parchment">{lang === 'en' ? 'AI Companion' : 'AI 陪伴'}</a>}
+        </nav>
       </header>
 
       <div className="mt-10 flex flex-col items-center gap-2">
@@ -222,7 +227,6 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
       <LingerToast lang={lang} />
 
       <a href="/upgrade" className="text-parchment/40 hover:text-parchment text-sm underline">{t('home_upgrade_link')}</a>
-      <a href={lang === 'en' ? '/en/blog' : '/zh/blog'} className="text-parchment/40 hover:text-parchment text-sm underline">{lang === 'en' ? 'Blog' : '博客'}</a>
       <AdminPanel lang={lang} />
       {showFeedback && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start sm:items-center justify-center p-4 overflow-y-auto" onClick={() => setShowFeedback(false)}>

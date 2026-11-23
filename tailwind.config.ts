@@ -16,9 +16,6 @@ const config: Config = {
         eldritch: '#2f5d54',   // 神秘绿
         fog: '#1a1c22',        // 面板
       },
-      fontFamily: {
-        serif: ['Georgia', 'Noto Serif SC', 'serif'],
-      },
     },
   },
   plugins: [],

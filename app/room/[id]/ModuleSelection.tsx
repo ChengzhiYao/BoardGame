@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { ShellProps } from './RoomShell';
 
 const EN = (l?: string) => l === 'en';
@@ -66,18 +66,32 @@ export default function ModuleSelection(props: ShellProps) {
     } catch (e: any) { setErr(e.message); setBusy(false); }
   }
 
+  const [playing, setPlaying] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => () => { try { audioRef.current?.pause(); } catch {} }, []);
+  async function listen(m: any) {
+    try { audioRef.current?.pause(); } catch {}
+    if (playing === m.id) { setPlaying(null); return; }
+    setPlaying(m.id);
+    let url = m.hook_audio as string | undefined;
+    if (!url) {
+      try { const r = await fetch('/api/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id, text: `${m.title}。${m.hook}`, narrator: true, lang }) }); url = (await r.json())?.url; } catch {}
+    }
+    if (!url) { setPlaying(null); return; }
+    const a = new Audio(url); audioRef.current = a; a.onended = () => setPlaying(null); a.onerror = () => setPlaying(null); a.play().catch(() => setPlaying(null));
+  }
+
+  const Over = ({ children }: { children: ReactNode }) => <div className="text-[10.5px] tracking-[.4em] pl-[.4em] uppercase text-[#c9a96e]/75">{children}</div>;
+
   if (generating || (modules.length === 0 && busy)) {
     return (
-      <div className="flex flex-col items-center justify-center gap-4 text-center">
-        <div className="w-8 h-8 border-2 border-eldritch/30 border-t-eldritch rounded-full animate-spin" />
-        <p className="text-parchment/60">{en ? 'The Keeper is dreaming up 3 original modules…' : '守秘人正在构思 3 个原创模组……'}</p>
-        {props.mySeat === 'A' && (
-          <button onClick={() => generate()} disabled={busy}
-            className="text-xs text-parchment/40 hover:text-parchment underline">
-            {en ? 'Stuck for a while? Retry' : '卡很久了？点此重试'}
-          </button>
-        )}
-        {err && <p className="text-blood text-sm">{err}</p>}
+      <div className="w-full flex flex-col items-center gap-6 pt-4">
+        <div className="text-center"><Over>{en ? 'The Keeper is writing' : '守秘人正在构思'}</Over><h1 className="mt-2 font-serif text-[24px] text-[#efe6d2]">{en ? 'Three stories for tonight' : '今晚的三个故事'}</h1></div>
+        <div className="w-full flex gap-3.5 overflow-hidden px-1">
+          {[0, 1, 2].map((k) => <div key={k} className="shrink-0 w-[78vw] max-w-[300px] h-[380px] rounded-2xl border border-[#d8c7a8]/[0.1] bg-gradient-to-b from-white/[0.04] to-transparent animate-pulse" style={{ animationDelay: `${k * 200}ms` }} />)}
+        </div>
+        {props.mySeat === 'A' && <button onClick={() => generate()} disabled={busy} className="text-[12px] text-parchment/40 hover:text-parchment/70">{en ? 'Taking too long? Retry' : '太久了？重试一下'}</button>}
+        {err && <p className="text-[#e06060] text-sm">{err}</p>}
       </div>
     );
   }
@@ -85,94 +99,74 @@ export default function ModuleSelection(props: ShellProps) {
   if (modules.length === 0) {
     const isHost = props.mySeat === 'A';
     return (
-      <div className="flex flex-col items-center justify-center gap-4 text-center">
-        <p className="text-parchment/60">{isHost ? (en ? 'Module generation didn’t finish.' : '模组生成没有完成。') : (en ? 'Waiting for the host to generate modules…' : '等待房主生成模组选项……')}</p>
-        {isHost && (
-          <button onClick={() => generate()} disabled={busy}
-            className="px-5 py-2 rounded bg-blood/80 hover:bg-blood text-parchment text-sm disabled:opacity-50">
-            {busy ? (en ? 'Generating…' : '生成中…') : (en ? 'Generate modules' : '生成模组')}
-          </button>
-        )}
-        {err && <p className="text-blood text-sm">{err}</p>}
+      <div className="flex flex-col items-center justify-center gap-4 text-center pt-10">
+        <p className="font-serif text-parchment/65">{isHost ? (en ? 'The stories didn’t finish.' : '故事没写完。') : (en ? 'Waiting for the host…' : '等房主开始……')}</p>
+        {isHost && <button onClick={() => generate()} disabled={busy} className="px-6 py-3 rounded-xl bg-[#7d1d1d] border border-[#a83232]/60 text-[#f2ead9] font-serif tracking-[.12em] disabled:opacity-50">{busy ? (en ? 'Writing…' : '正在写…') : (en ? 'Write three stories' : '写三个故事')}</button>}
+        {err && <p className="text-[#e06060] text-sm">{err}</p>}
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-5xl flex flex-col gap-5">
-      <h1 className="text-xl font-serif text-parchment text-center">{en ? 'Choose an investigation module' : '选择一个调查模组'}</h1>
-      <p className="text-center text-parchment/50 text-sm">
-        {en ? 'Discuss together, then either player picks. The truth is generated and locked once chosen.' : '两名玩家协商后，由任意一人点击选择。真相会在选定后于后台生成并锁定。'}
-      </p>
+    <div className="w-full flex flex-col gap-5 pt-2">
+      <div className="text-center px-4">
+        <Over>{en ? 'Step 1 · Pick a story' : '第一步 · 选一个故事'}</Over>
+        <h1 className="mt-2 font-serif font-semibold text-[25px] sm:text-[30px] text-[#efe6d2]">{en ? 'Which one tonight?' : '今晚，走进哪一个？'}</h1>
+        <p className="mt-1.5 text-[12.5px] text-parchment/45">{en ? 'Swipe · tap 🔊 to hear the Keeper' : '左右滑动 · 点「听」让守秘人读给你'}</p>
+      </div>
 
-      <div className="grid md:grid-cols-3 gap-4">
-        {modules.map((m) => (
-          <div key={m.id} className="flex flex-col gap-3 p-4 rounded-lg bg-fog border border-eldritch/30 hover:border-eldritch transition">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="font-serif text-lg text-parchment">{m.title}</h2>
-              {m.genre && <span className="text-[10px] px-1.5 py-0.5 rounded bg-eldritch/20 border border-eldritch/40 text-eldritch">{m.genre}</span>}
-              {m.from_library && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-900/30 border border-green-700/40 text-green-400">
-                  {en ? '✓ Verified' : '✓ 已验证'}{m.quality_score ? ` · ${m.quality_score}${en ? '' : '分'}` : ''}
-                </span>
-              )}
+      <div className="flex gap-3.5 overflow-x-auto snap-x snap-mandatory px-[9vw] sm:px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:justify-center sm:flex-wrap sm:overflow-visible">
+        {modules.map((m, k) => (
+          <div key={m.id} className="snap-center shrink-0 w-[82vw] max-w-[320px] sm:w-[300px] rounded-2xl border border-[#d8c7a8]/[0.14] bg-gradient-to-b from-[#17181d]/95 via-[#101115]/95 to-[#0b0c0f]/95 backdrop-blur-md p-5 flex flex-col text-left shadow-[0_30px_60px_-30px_rgba(0,0,0,.9)]">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10.5px] tracking-[.25em] text-[#c9a96e]/80 truncate">{[m.genre, m.era].filter(Boolean).join(' · ') || (en ? 'MYSTERY' : '悬疑')}</span>
+              {m.from_library && <span className="shrink-0 text-[10.5px] text-[#9fbf9f]/85">{en ? 'Ready · instant' : '现成 · 秒开'}</span>}
             </div>
-            <p className="text-eldritch text-sm italic">{m.tagline}</p>
-            <p className="text-parchment/70 text-sm leading-relaxed flex-1">{m.hook}</p>
-            <div className="text-xs text-parchment/40 space-y-0.5">
-              <div>{en ? 'Era' : '时代'}：{m.era} ｜ {en ? 'Place' : '地点'}：{m.place}</div>
-              <div>{en ? 'Difficulty' : '难度'}：{m.difficulty} ｜ {en ? 'Length' : '时长'}：{m.duration}</div>
+            <div className="mt-5 font-serif text-[10px] text-parchment/25">{String(k + 1).padStart(2, '0')} / {String(modules.length).padStart(2, '0')}</div>
+            <h2 className="mt-1 font-serif font-semibold text-[26px] leading-tight text-[#efe6d2]">{m.title}</h2>
+            {m.tagline && <p className="mt-2 font-serif italic text-[14px] text-[#c9a96e]/85">{m.tagline}</p>}
+            <p className="mt-4 text-[14px] leading-[1.85] text-parchment/70 line-clamp-6">{m.hook}</p>
+            <div className="mt-4 flex flex-wrap gap-x-3 gap-y-1 text-[11.5px] text-parchment/40">
+              {m.place && <span>{m.place}</span>}{m.difficulty && <span>· {m.difficulty}</span>}{m.duration && <span>· {m.duration}</span>}
             </div>
-            <button onClick={() => select(m.id)} disabled={busy}
-              className="mt-1 px-4 py-2 rounded bg-blood/80 hover:bg-blood text-parchment text-sm disabled:opacity-50">
-              {en ? 'Pick this one' : '选择这个'}
-            </button>
+            <div className="mt-5 flex items-center gap-2.5 pt-4 border-t border-[#d8c7a8]/[0.08]">
+              <button onClick={() => listen(m)} className="shrink-0 h-11 px-4 rounded-xl border border-[#c9a96e]/35 text-[13px] text-[#c9a96e] flex items-center gap-2">
+                {playing === m.id ? <span className="flex items-end gap-[2px] h-3">{[0, 1, 2].map((x) => <span key={x} className="w-[2px] rounded-full bg-[#c9a96e] mn-eq" style={{ animationDelay: `${x * 0.15}s`, animationDuration: '.6s' }} />)}</span> : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 5L6 9H3v6h3l5 4z" /><path d="M15.5 9.5a3.5 3.5 0 0 1 0 5" /></svg>}
+                {playing === m.id ? (en ? 'Stop' : '停') : (en ? 'Listen' : '听')}
+              </button>
+              <button onClick={() => select(m.id)} disabled={busy} className="flex-1 h-11 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] border border-[#a83232]/60 text-[#f2ead9] font-serif tracking-[.12em] disabled:opacity-50">{busy ? '…' : (en ? 'This one' : '就这个')}</button>
+            </div>
           </div>
         ))}
       </div>
 
-      <div className="flex flex-wrap items-center justify-center gap-3">
-        <button onClick={() => generate()} disabled={busy}
-          className="px-4 py-2 rounded bg-fog border border-eldritch/40 text-parchment text-sm hover:bg-eldritch/20 disabled:opacity-50">
-          {en ? 'Regenerate 3' : '重新生成 3 个'}
-        </button>
-        <button onClick={() => setShowCustom((v) => !v)} disabled={busy}
-          className="px-4 py-2 rounded bg-fog border border-parchment/30 text-parchment text-sm hover:bg-parchment/10 disabled:opacity-50">
-          {en ? 'Custom direction' : '自定义模组方向'}
-        </button>
+      <div className="flex items-center justify-center gap-5 text-[13px]">
+        <button onClick={() => generate()} disabled={busy} className="text-parchment/55 hover:text-parchment disabled:opacity-50">{en ? '↻ Three more' : '↻ 换三个'}</button>
+        <span className="w-px h-3 bg-parchment/15" />
+        <button onClick={() => setShowCustom(true)} disabled={busy} className="text-parchment/55 hover:text-parchment disabled:opacity-50">{en ? 'Set a direction' : '按我的口味写'}</button>
       </div>
+      {err && <p className="text-[#e06060] text-sm text-center">{err}</p>}
 
       {showCustom && (
-        <div className="p-4 rounded-lg bg-ink border border-eldritch/30 flex flex-col gap-4">
-          <p className="text-xs text-parchment/50">
-            {en ? 'Customization only affects style and mood — it never lets you decide the truth, killer, monster or ending.' : '自定义只影响风格与氛围，不会让你决定真相、凶手、怪物或结局。'}
-          </p>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center" onClick={() => setShowCustom(false)}>
+          <div className="w-full sm:max-w-md max-h-[88svh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-[#0f1013] border border-[#d8c7a8]/15 px-5 pt-5 space-y-4 text-left" style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }} onClick={(e) => e.stopPropagation()}>
+            <div><div className="font-serif text-lg text-[#efe6d2]">{en ? 'Your kind of story' : '按你的口味写'}</div><p className="mt-1 text-[12px] text-parchment/45">{en ? 'Only sets the mood — never the truth or the ending.' : '只决定风格和氛围，不会让你提前知道真相或结局。'}</p></div>
             {FIELDS.map((f) => (
-              <label key={f.key} className="flex flex-col gap-1 text-sm text-parchment/70">
-                {f.label}
-                <select value={custom[f.key] || ''} onChange={(e) => setCustom({ ...custom, [f.key]: e.target.value })}
-                  className="px-2 py-1.5 rounded bg-fog border border-eldritch/30 text-parchment">
-                  <option value="">{en ? 'Any' : '不限'}</option>
-                  {f.options.map((o) => <option key={o} value={o}>{o}</option>)}
-                </select>
-              </label>
+              <div key={f.key}>
+                <div className="text-[12px] tracking-wider text-parchment/45 mb-1.5">{f.label}</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {[en ? 'Any' : '不限', ...f.options].map((o, oi) => {
+                    const v = oi === 0 ? '' : o; const on = (custom[f.key] || '') === v;
+                    return <button key={o} onClick={() => setCustom({ ...custom, [f.key]: v })} className={`px-3 py-1.5 rounded-lg text-[13px] border ${on ? 'bg-[#c9a96e]/[0.16] border-[#c9a96e]/50 text-[#efe6d2]' : 'border-[#d8c7a8]/[0.12] text-parchment/55'}`}>{o}</button>;
+                  })}
+                </div>
+              </div>
             ))}
+            <input value={custom.forbidden || ''} onChange={(e) => setCustom({ ...custom, forbidden: e.target.value })} placeholder={en ? 'Anything to avoid? (optional)' : '不想出现的内容？（可不填）'} className="w-full px-4 py-3 rounded-xl bg-ink border border-[#d8c7a8]/15 text-parchment placeholder:text-parchment/35 outline-none focus:border-[#c9a96e]/50" />
+            <button onClick={() => generate(custom)} disabled={busy} className="w-full py-3.5 rounded-xl bg-[#7d1d1d] border border-[#a83232]/60 text-[#f2ead9] font-serif tracking-[.15em] disabled:opacity-50">{en ? 'Write these' : '按这个写'}</button>
           </div>
-          <label className="flex flex-col gap-1 text-sm text-parchment/70">
-            {en ? 'Forbidden content (things to avoid)' : '禁止内容（不想出现的元素）'}
-            <input value={custom.forbidden || ''} onChange={(e) => setCustom({ ...custom, forbidden: e.target.value })}
-              placeholder={en ? 'e.g. not too gory, nothing involving children' : '例如：不要太血腥、不要儿童相关'}
-              className="px-3 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30" />
-          </label>
-          <button onClick={() => generate(custom)} disabled={busy}
-            className="self-start px-5 py-2 rounded bg-eldritch/60 hover:bg-eldritch text-parchment text-sm disabled:opacity-50">
-            {en ? 'Generate in this direction' : '按这个方向生成'}
-          </button>
         </div>
       )}
-
-      {err && <p className="text-blood text-sm text-center">{err}</p>}
     </div>
   );
 }

@@ -14,6 +14,7 @@ import MccRoom from './MccRoom';
 import DndRoom from './DndRoom';
 import StoryRoom from './StoryRoom';
 import AudioManager from './AudioManager';
+import QuickCast from './QuickCast';
 
 const EN = (l?: string) => l === 'en';
 
@@ -164,7 +165,7 @@ export default function RoomShell(props: ShellProps) {
       ) : (
         <main className="min-h-screen flex flex-col">
           <Stepper current={state} lang={lang} />
-          <div className="flex-1 flex items-stretch justify-center px-4 py-6">
+          <div className="flex-1 flex items-stretch justify-center py-6 sm:px-4">
             <FlowView state={state} props={props} lang={lang} />
           </div>
         </main>
@@ -180,30 +181,42 @@ function FlowView({ state, props, lang }: { state: string; props: ShellProps; la
     case 'module_selection':
       return <ModuleSelection {...props} />;
     case 'case_locking':
-      return (
-        <Centered
-          title={EN(lang) ? 'Weaving the truth…' : '正在编织真相……'}
-          desc={EN(lang)
-            ? 'The Keeper is building the complete hidden case file — the truth, the mastermind, the timeline and the red herrings. It will be locked away and never shown to you.'
-            : '守秘人正在后台构建这桩案件的完整隐藏档案：真相、幕后黑手、时间线与误导线索。这一切将被锁定，永不向你展示。'}
-          spinner
-        />
-      );
+      return <Locking {...props} />;
     case 'character_creation':
-      return (
-        <div className="w-full max-w-2xl flex flex-col gap-4">
-          {props.caseQuality && <QualityCard q={props.caseQuality} lang={lang} />}
-          <CharacterFlow {...props} />
-        </div>
-      );
     case 'attribute_allocation':
     case 'skill_allocation':
     case 'character_confirmation':
     case 'rule_briefing':
-      return <CharacterFlow {...props} />;
+      return <CastOrBuild {...props} state={state} />;
     default:
       return <Centered title={EN(lang) ? 'Unknown state' : '未知状态'} desc={state} />;
   }
+}
+
+// 第二步：默认选现成人物；老玩家可切到完整建卡（已经在完整建卡流程里的人继续走完）
+function CastOrBuild(props: ShellProps & { state: string }) {
+  const mine = (props.initialCharacters || []).find((c: any) => c.player_id === props.myPlayerId);
+  const inBuild = !!mine && !mine.confirmed && (mine.creation_stage || 0) > 0;
+  const [advanced, setAdvanced] = useState(inBuild);
+  if (advanced) return <div className="w-full max-w-2xl mx-auto"><CharacterFlow {...props} /></div>;
+  return <QuickCast {...props} onAdvanced={() => setAdvanced(true)} />;
+}
+
+function Locking(props: ShellProps) {
+  const en = EN(props.room.language || 'zh');
+  const chosen = (props.room.module_options || []).find((m: any) => m.id === props.room.chosen_module_id) || null;
+  const lines = en ? ['The Keeper is hiding the truth…', 'Laying the false trails…', 'Setting the clock ticking…'] : ['守秘人正在藏起真相……', '布下误导的线索……', '让时钟开始走……'];
+  const [i, setI] = useState(0);
+  useEffect(() => { const t = setInterval(() => setI((x) => (x + 1) % lines.length), 2600); return () => clearInterval(t); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <div className="w-full max-w-md mx-auto flex flex-col items-center text-center gap-5 pt-12">
+      <div className="text-[10.5px] tracking-[.4em] pl-[.4em] uppercase text-[#c9a96e]/75">{en ? 'The story is being written' : '故事正在写成'}</div>
+      {chosen?.title && <h1 className="font-serif font-semibold text-[28px] text-[#efe6d2]">{chosen.title}</h1>}
+      {chosen?.tagline && <p className="font-serif italic text-[14px] text-[#c9a96e]/80">{chosen.tagline}</p>}
+      <div className="mt-6 w-10 h-10 rounded-full border-2 border-[#c9a96e]/20 border-t-[#c9a96e] animate-spin" />
+      <p key={i} className="font-serif text-[14px] text-parchment/60 nf-in">{lines[i]}</p>
+    </div>
+  );
 }
 
 function inviteUrlOf(props: ShellProps) {
@@ -213,59 +226,42 @@ function inviteUrlOf(props: ShellProps) {
 
 function Lobby(props: ShellProps) {
   const lang = props.room.language || 'zh';
+  const en = EN(lang);
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const url = inviteUrlOf(props);
   const count = props.initialPlayers.length;
-  const CAP = 6; // CoC 现支持 1~6 人
-  const full = count >= CAP;
+  const CAP = 6;
 
   async function start() {
-    setBusy(true);
-    setErr('');
+    setBusy(true); setErr('');
     try {
-      const res = await fetch('/api/rooms/start', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roomId: props.room.id }),
-      });
+      const res = await fetch('/api/rooms/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || (EN(lang) ? 'Failed' : '推进失败'));
+      if (!res.ok) throw new Error(data.error || (en ? 'Failed' : '开始失败'));
     } catch (e: any) { setErr(e.message); setBusy(false); }
   }
 
   return (
-    <div className="flex flex-col items-center justify-center gap-6 text-center max-w-md">
-      <h1 className="text-2xl font-serif text-parchment">{props.room.name}</h1>
-      <p className="text-parchment/60">
-        {EN(lang) ? 'Play solo, or invite up to 6 investigators in total.' : '一个人也能开局，最多可邀请共 6 名调查员。'}（{count}/{CAP}）
-      </p>
-
-      <div className="flex flex-col items-center gap-4 w-full">
-        <button onClick={start} disabled={busy}
-          className="px-6 py-3 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-50">
-          {busy ? (EN(lang) ? 'Starting…' : '正在开始…') : (count <= 1 ? (EN(lang) ? 'Play solo →' : '单人开始 →') : (EN(lang) ? `Start (${count} players) →` : `开始（${count} 人）→`))}
-        </button>
-        {!full && (
-          <>
-            <div className="flex items-center gap-3 w-full">
-              <span className="h-px flex-1 bg-eldritch/20" />
-              <span className="text-xs text-parchment/40">{EN(lang) ? 'or invite more (up to 6)' : '或再叫人（最多 6）'}</span>
-              <span className="h-px flex-1 bg-eldritch/20" />
-            </div>
-            <div className="flex flex-col items-center gap-3 w-full">
-              <code className="text-xs px-3 py-2 rounded bg-fog border border-eldritch/30 text-eldritch break-all w-full">{url}</code>
-              <button
-                onClick={() => { navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
-                className="px-5 py-2 rounded bg-eldritch/50 hover:bg-eldritch text-parchment text-sm">
-                {copied ? (EN(lang) ? 'Copied' : '已复制') : (EN(lang) ? 'Copy invite link' : '复制邀请链接')}
-              </button>
-            </div>
-          </>
-        )}
+    <div className="w-full max-w-sm mx-auto flex flex-col items-center text-center px-5 pt-8">
+      <div className="text-[10.5px] tracking-[.45em] pl-[.45em] uppercase text-[#c9a96e]/75">{en ? 'Call of Cthulhu' : '克苏鲁跑团'}</div>
+      <h1 className="mt-3 font-serif font-semibold text-[30px] text-[#efe6d2]">{en ? 'A horror investigation' : '一场恐怖调查'}</h1>
+      <p className="mt-4 font-serif text-[15px] leading-[1.9] text-parchment/75">{en ? <>The AI Keeper writes the case.<br />You pick a story, become someone, and walk in.</> : <>AI 守秘人写好案子，<br />你选一个故事，成为一个人，走进去。</>}</p>
+      <div className="mt-5 flex items-center gap-2.5 text-[12px] tracking-wider text-parchment/50">
+        <span>{en ? 'About 1 min to begin' : '1 分钟入戏'}</span><span className="w-[3px] h-[3px] rotate-45 bg-[#c9a96e]/60" /><span>{en ? `${count}/${CAP} seated` : `已入座 ${count}/${CAP}`}</span>
       </div>
-
-      {err && <p className="text-blood text-sm">{err}</p>}
+      <button onClick={start} disabled={busy} className="mt-8 w-full py-3.5 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] border border-[#a83232]/60 text-[#f2ead9] font-serif font-semibold tracking-[.2em] text-[17px] shadow-[0_10px_40px_-10px_rgba(125,29,29,.7)] disabled:opacity-50">
+        {busy ? (en ? 'Opening…' : '正在开始…') : count <= 1 ? (en ? 'Begin' : '开始') : (en ? `Begin with ${count}` : `${count} 人开始`)}
+      </button>
+      {count < CAP && (
+        <div className="mt-4 w-full flex items-center gap-2 rounded-xl border border-[#d8c7a8]/[0.13] bg-[#0b0c0f]/60 px-4 py-2.5 text-left">
+          <span className="flex-1 text-[13px] text-parchment/70">{en ? 'Bring friends' : '叫朋友一起'} <span className="text-parchment/35">· {en ? 'up to 6' : '最多 6 人'}</span></span>
+          <button onClick={() => { navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1500); }} className="shrink-0 text-[13px] text-[#c9a96e] border-b border-[#c9a96e]/40">{copied ? (en ? 'Copied' : '已复制') : (en ? 'Copy link' : '复制链接')}</button>
+          <button onClick={() => { try { (navigator as any).share ? (navigator as any).share({ title: 'MystNight', url }) : navigator.clipboard.writeText(url); } catch {} }} className="shrink-0 ml-2 text-[13px] text-parchment/60">{en ? 'Share' : '分享'}</button>
+        </div>
+      )}
+      {err && <p className="mt-3 text-[#e06060] text-sm">{err}</p>}
     </div>
   );
 }

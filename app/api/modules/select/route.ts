@@ -42,13 +42,14 @@ export async function POST(req: Request) {
   const theme = chosen.genre || room.custom_direction?.horror_type || '克苏鲁';
 
   // 进入锁定中
-  await admin.from('rooms').update({ game_state: 'case_locking' }).eq('id', roomId);
+  await admin.from('rooms').update({ game_state: 'case_locking', chosen_module_id: String(moduleId || '') }).eq('id', roomId);
 
   try {
     let caseData: any = null;
     let quality: any = null;
 
     let openingAudio: string | null = null;
+    let libId: string | null = chosen.from_library || null;
     // A. 复用模组库里的现成案件（跳过生成+审查，省 token）
     if (chosen.from_library) {
       const { data: lib } = await admin.from('module_library').select('*').eq('id', chosen.from_library).maybeSingle();
@@ -89,11 +90,13 @@ export async function POST(req: Request) {
 
       // 归档进模组库：所有锁定的案子都记录（含不合格的，供后台分析）；
       // 只有达标的标记 passed=true，将来才会被当作可复用模板提供给玩家。
-      await admin.from('module_library').insert({
+      const { data: libRow } = await admin.from('module_library').insert({
         title: chosen.title, hook: chosen.hook, tagline: chosen.tagline, genre: theme,
         era: chosen.era, place: chosen.place, difficulty: chosen.difficulty, duration: chosen.duration,
         case_file: caseData, quality, passed: !!(quality && quality.complexity >= QUALITY_PASS),
-      });
+        lang: room.language === 'en' ? 'en' : 'zh',
+      }).select('id').single();
+      libId = libRow?.id || null;
     }
 
     // 建 campaign（玩家可见层）；开场场景 + 质量评分存档
@@ -112,6 +115,7 @@ export async function POST(req: Request) {
           theme,
           opening_scene: caseData.opening_scene || '',
           opening_audio: openingAudio || undefined,
+          lib_id: libId || undefined,
           opening_guidance: caseData.opening_guidance || null,
           quality,
         },

@@ -1,4 +1,6 @@
 'use client';
+import Narration from '@/components/Narration';
+import MicButton from '@/components/MicButton';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -218,7 +220,7 @@ export default function DndRoom(props: ShellProps) {
         : <div className="space-y-2">
             <div className="flex items-center gap-2">
               <span className="text-xs px-2 py-1 rounded bg-eldritch/30 text-parchment shrink-0">{en ? 'You' : '你'} · {mySeat}</span>
-              <input value={action} onChange={(e) => setAction(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submitExplore('act')} placeholder={en ? 'Describe an action / speak…' : '描述行动 / 说话……'} className="flex-1 min-w-0 px-4 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch text-sm" />
+              <input value={action} onChange={(e) => setAction(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submitExplore('act')} placeholder={en ? 'Describe an action / speak…' : '描述行动 / 说话……'} className="flex-1 min-w-0 px-4 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch text-sm" /> <MicButton value={action} onChange=setAction en={en} compact={false} />
             </div>
             <div className="flex gap-2">
               <button onClick={() => submitExplore('talk')} disabled={busy || !action.trim()} className="flex-1 px-3 py-2 rounded bg-fog border border-eldritch/40 text-parchment text-sm hover:bg-eldritch/20 disabled:opacity-50">{en ? 'Speak' : '对话'}</button>
@@ -452,10 +454,7 @@ function LogLine({ l, myName, en }: { l: any; myName?: string; en?: boolean }) {
   }
   if (k === 'dm') {
     return (
-      <div className="mx-auto max-w-2xl text-center">
-        <div className="text-[11px] uppercase tracking-widest text-eldritch/70 mb-1">{en ? 'Dungeon Master' : '地下城主'}</div>
-        <div className="px-4 py-3 rounded-lg bg-eldritch/10 border border-eldritch/30 text-parchment/90 leading-relaxed italic">{msg}</div>
-      </div>
+      <Narration text={msg} lang={en ? 'en' : 'zh'} label={en ? 'Dungeon Master' : '地下城主'} />
     );
   }
   if (['kill', 'win', 'level', 'up'].includes(k)) return <div className="text-center"><span className="inline-block px-3 py-0.5 rounded-full bg-green-900/30 border border-green-700/40 text-green-300 text-xs">{msg}</span></div>;

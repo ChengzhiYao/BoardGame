@@ -1,8 +1,9 @@
-// 高音质语音。支持 OpenAI / Azure（按 TTS_PROVIDER 切换）。按性别+种子选嗓音；相同文本+嗓音命中缓存不重复生成。
+// 语音。默认走 Linger 桥接的 Fish 免费模型（不花钱；免费额度用完回 quota，前端自动关语音）。TTS_PROVIDER=openai/azure 时走付费。按性别+种子选嗓音；相同文本+嗓音命中缓存不重复生成。
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { createHash } from 'crypto';
 import OpenAI from 'openai';
+import { LINGER_URL } from '@/lib/linger/companion';
 
 export const maxDuration = 30;
 
@@ -33,7 +34,27 @@ export async function POST(req: Request) {
     if (!me) return NextResponse.json({ error: '你不在这个房间' }, { status: 403 });
   }
 
-  const provider = (process.env.TTS_PROVIDER || 'openai').toLowerCase();
+  const provider = (process.env.TTS_PROVIDER || 'fish').toLowerCase();
+  if (provider === 'fish') {
+    const fseed = narrator ? 0 : Math.abs(seed) % 3;
+    const fhash = createHash('sha1').update(`fish|${narrator ? 'n' : gender}|${zh ? 'zh' : 'en'}|${fseed}|${text}`).digest('hex');
+    const fpath = `tts/${fhash}.mp3`;
+    const { data: hit } = await admin.storage.from('scene-images').list('tts', { search: `${fhash}.mp3`, limit: 1 });
+    if (hit && hit.length) return NextResponse.json({ url: admin.storage.from('scene-images').getPublicUrl(fpath).data.publicUrl, cached: true });
+    try {
+      const r = await fetch(`${LINGER_URL}/api/mystnight/tts`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-linger-key': process.env.LINGER_BRIDGE_KEY || '' },
+        body: JSON.stringify({ text, narrator, gender, seed: fseed, lang: zh ? 'zh' : 'en' }),
+      });
+      if (r.status === 429) return NextResponse.json({ error: 'quota' }, { status: 429 });
+      if (!r.ok) return NextResponse.json({ error: 'voice_unavailable' }, { status: 502 });
+      const fbuf = Buffer.from(await r.arrayBuffer());
+      const up = await admin.storage.from('scene-images').upload(fpath, fbuf, { contentType: 'audio/mpeg', upsert: true });
+      if (up.error) return NextResponse.json({ error: up.error.message }, { status: 500 });
+      if (roomId) await admin.from('api_usage').insert({ room_id: roomId, kind: 'tts', model: 'fish:s2.1-pro-free', prompt_tokens: text.length, cost: 0 });
+      return NextResponse.json({ url: admin.storage.from('scene-images').getPublicUrl(fpath).data.publicUrl });
+    } catch { return NextResponse.json({ error: 'voice_unavailable' }, { status: 502 }); }
+  }
   const azureKey = process.env.AZURE_SPEECH_KEY;
   const azureRegion = process.env.AZURE_SPEECH_REGION || 'eastus';
   const useAzure = provider === 'azure' && !!azureKey;

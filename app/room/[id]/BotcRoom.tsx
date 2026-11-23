@@ -1,19 +1,24 @@
 'use client';
+import Narration from '@/components/Narration';
+import MicButton from '@/components/MicButton';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { playSfx } from '@/lib/audio/sfx';
 import { playBotcCue } from '@/lib/audio/botcCue';
 import type { ShellProps } from './RoomShell';
+import { useTTS } from './useTTS';
 
 const teamCls: Record<string, string> = { demon: 'text-red-400', minion: 'text-orange-400', outsider: 'text-sky-400', townsfolk: 'text-emerald-400' };
 function teamName(t: string, en: boolean) { return t === 'demon' ? (en ? 'Demon' : '恶魔') : t === 'minion' ? (en ? 'Minion' : '爪牙') : t === 'outsider' ? (en ? 'Outsider' : '外来者') : (en ? 'Townsfolk' : '镇民'); }
 
+const fresh = (m: any) => !!m?.created_at && Date.now() - new Date(m.created_at).getTime() < 90000;
 export default function BotcRoom(props: ShellProps) {
   const router = useRouter();
   const supabase = useRef(createClient()).current;
   const en = props.room.language === 'en';
   const [messages, setMessages] = useState<any[]>(props.initialMessages);
+  useTTS({ lang: props.room.language, messages, roomId: props.room.id, classify: (m: any) => { const t = m.payload?.type; if (t === 'botc_st' || t === 'botc_reveal') return { kind: 'narrator' as const, text: m.content }; return null; } });
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -216,7 +221,7 @@ export default function BotcRoom(props: ShellProps) {
     <div className="flex gap-2">
       <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && sendChat()}
         placeholder={iAmAlive ? (en ? 'Speak to the table…' : '公开发言…') : (en ? 'Speak from the grave…' : '亡者发言…')} disabled={!props.myPlayerId}
-        className="flex-1 min-w-0 px-4 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch disabled:opacity-50" />
+        className="flex-1 min-w-0 px-4 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch disabled:opacity-50" /> <MicButton value={text} onChange=setText en={en} compact={false} />
       <button onClick={sendChat} disabled={!props.myPlayerId} className="px-4 py-2 rounded bg-eldritch/60 hover:bg-eldritch text-parchment text-sm shrink-0">{en ? 'Say' : '发言'}</button>
     </div>
   );
@@ -369,8 +374,8 @@ export default function BotcRoom(props: ShellProps) {
 
 function BotcMsg({ m, mine, en }: { m: any; mine: boolean; en: boolean }) {
   const type = m.payload?.type;
-  if (type === 'botc_reveal') return <div className="mx-auto max-w-2xl rounded-lg bg-blood/20 border border-blood/50 px-4 py-3 text-parchment leading-relaxed whitespace-pre-line">{m.content}</div>;
-  if (type === 'botc_st') return <div className="mx-auto max-w-2xl rounded-lg bg-eldritch/10 border border-eldritch/40 px-4 py-3 text-parchment/90 leading-relaxed whitespace-pre-line text-sm">📖 {m.content}</div>;
+  if (type === 'botc_reveal') return <Narration text={m.content} lang={en ? 'en' : 'zh'} fresh={fresh(m)} tone="reveal" label={en ? 'Revealed' : '揭晓'} collapse={false} />;
+  if (type === 'botc_st') return <Narration text={m.content} lang={en ? 'en' : 'zh'} fresh={fresh(m)} tone={(m.payload?.sfx || []).some((x: string) => /death|execution/.test(x)) ? 'danger' : 'kp'} label={en ? 'Storyteller' : '说书人'} />;
   if (type === 'botc_private') return <div className="mx-auto max-w-2xl rounded-lg bg-amber-900/15 border border-amber-700/40 px-4 py-2 text-amber-200/90 leading-relaxed whitespace-pre-line text-sm">🔒 {en ? 'Only you:' : '仅你可见：'} {m.content}</div>;
   if (type === 'botc_vote') return <div className="text-center text-xs text-parchment/50">{m.content}</div>;
   if (type === 'botc_claim') return <div className="text-center text-xs text-amber-300/70">📣 {m.content}</div>;

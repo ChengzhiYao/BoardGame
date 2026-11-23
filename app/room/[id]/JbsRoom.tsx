@@ -1,4 +1,6 @@
 'use client';
+import Narration from '@/components/Narration';
+import MicButton from '@/components/MicButton';
 import CompanionWaiting from '@/components/CompanionWaiting';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -10,6 +12,7 @@ const EN = (l?: string) => l === 'en';
 const ACTS_ZH = ['', '案件开场', '搜证', '人物关系', '关键证据', '推理讨论', '最终指认', '真相揭晓'];
 const ACTS_EN = ['', 'Opening', 'Investigate', 'Relationships', 'Key Evidence', 'Discussion', 'Accusation', 'Reveal'];
 
+const fresh = (m: any) => !!m?.created_at && Date.now() - new Date(m.created_at).getTime() < 90000;
 export default function JbsRoom(props: ShellProps) {
   const router = useRouter();
   const supabase = useRef(createClient()).current;
@@ -466,7 +469,7 @@ export default function JbsRoom(props: ShellProps) {
           <div className="flex gap-2">
             <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && act_(text)}
               placeholder={en ? 'Investigate, question, accuse, speak…' : '搜证、询问、对质、发言…'} disabled={busy}
-              className="flex-1 min-w-0 px-4 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch disabled:opacity-50" />
+              className="flex-1 min-w-0 px-4 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch disabled:opacity-50" /> <MicButton value={text} onChange=setText en={en} compact={false} />
             <button onClick={() => act_(text)} disabled={busy} className="px-5 py-2 rounded bg-eldritch/60 hover:bg-eldritch text-parchment disabled:opacity-50 shrink-0">{en ? 'Act' : '行动'}</button>
           </div>
           {isHost && (
@@ -490,7 +493,7 @@ function JbsMsg({ m, en, mine, who }: { m: any; en: boolean; mine: boolean; who?
     return <div className="mx-auto max-w-2xl rounded-lg bg-eldritch/10 border border-eldritch/40 px-4 py-3 text-parchment/85 leading-relaxed whitespace-pre-line text-sm">{m.content}</div>;
   }
   if (type === 'jbs_reveal') {
-    return <div className="mx-auto max-w-2xl rounded-lg bg-blood/20 border border-blood/50 px-4 py-3 text-parchment leading-relaxed whitespace-pre-line">{m.content}</div>;
+    return <Narration text={m.content} lang={en ? 'en' : 'zh'} fresh={fresh(m)} tone="reveal" label={en ? 'The truth' : '真相'} collapse={false} />;
   }
   if (type === 'jbs_score') {
     const scores = m.payload?.scores || [];
@@ -522,7 +525,7 @@ function JbsMsg({ m, en, mine, who }: { m: any; en: boolean; mine: boolean; who?
     );
   }
   if (type === 'jbs_dm') {
-    return <div className="mx-auto max-w-2xl text-parchment/90 leading-relaxed whitespace-pre-line border-l-2 border-eldritch/50 pl-3">{m.content}</div>;
+    return <Narration text={m.content} lang={en ? 'en' : 'zh'} fresh={fresh(m)} label={en ? 'Game Master' : '主持人'} />;
   }
   if (type === 'jbs_ai') {
     return (

@@ -1,4 +1,6 @@
 'use client';
+import Narration from '@/components/Narration';
+import MicButton from '@/components/MicButton';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -35,6 +37,7 @@ const SCENE3D: Record<string, string> = {
 };
 const scene3dFor = (s?: string) => SCENE3D[(s || '').toUpperCase()] || 'explore';
 
+const fresh = (m: any) => !!m?.created_at && Date.now() - new Date(m.created_at).getTime() < 90000;
 export default function Dashboard(props: ShellProps) {
   const supabase = useRef(createClient()).current;
   const router = useRouter();
@@ -310,7 +313,7 @@ export default function Dashboard(props: ShellProps) {
                   </select>
                   <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submitFromInput()}
                     placeholder={ended ? t('ended_input_ph') : t('input_ph')} disabled={!props.myPlayerId || ended}
-                    className="flex-1 min-w-0 px-4 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch disabled:opacity-50" />
+                    className="flex-1 min-w-0 px-4 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch disabled:opacity-50" /> <MicButton value={text} onChange=setText en={EN(lang)} compact={false} />
                 </div>
                 <div className="flex gap-2">
                   <button onClick={sendChat} disabled={!props.myPlayerId || ended}
@@ -371,7 +374,7 @@ function MessageRow({ m, mine, seat, who, lang }: { m: any; mine: boolean; seat?
   if (m.sender_type === 'system' && type === 'ending') {
     return (
       <div className="mx-auto max-w-2xl text-center my-2">
-        <div className="px-5 py-4 rounded-lg bg-blood/20 border border-blood/50 text-parchment leading-relaxed">{m.content}</div>
+        <Narration text={m.content} lang={lang} fresh={fresh(m)} tone="reveal" label={EN(lang) ? 'Ending' : '结局'} collapse={false} />
       </div>
     );
   }
@@ -393,12 +396,9 @@ function MessageRow({ m, mine, seat, who, lang }: { m: any; mine: boolean; seat?
     return <div className={`text-center text-sm ${color}`}>{m.content}</div>;
   }
   if (m.sender_type === 'kp') {
-    return (
-      <div className="mx-auto max-w-2xl text-center">
-        <div className="text-[11px] uppercase tracking-widest text-eldritch/70 mb-1">{t('kp')}</div>
-        <div className="px-4 py-3 rounded-lg bg-eldritch/10 border border-eldritch/30 text-parchment/90 leading-relaxed italic">{m.content}</div>
-      </div>
-    );
+    const st = String(m.payload?.scene_state || '');
+    const tone = /MONSTER|CHASE|COMBAT|FINAL|PARANORMAL|COSMIC|BAD/.test(st) ? 'danger' : /BREAKTHROUGH|TRUTH|CLUE|GOOD/.test(st) ? 'reveal' : 'kp';
+    return <Narration text={m.content} lang={lang} fresh={fresh(m)} tone={tone as any} label={t('kp')} />;
   }
   const isA = seat === 'A';
   const act = m.action_type && m.action_type !== 'free' ? ACT(lang, m.action_type) : '';

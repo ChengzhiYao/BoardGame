@@ -40,7 +40,7 @@ export function buildBotcSetupPrompt(size: number, theme: string, seats: string[
   "evil_seats": ["邪恶方的座位字母或 AI 身份名列表"],
   "demon_ref": "恶魔的座位字母或其身份名",
   "bluffs": ["3 个未入局的好人身份名（供恶魔伪装）"],
-  "opening": "面向全体的公开开场白：营造氛围、宣布天黑请闭眼，绝不泄露任何身份"
+  "opening": "面向全体的公开开场白：3 个短节拍、不超过 120 字，用空行隔开；营造氛围、宣布天黑请闭眼，绝不泄露任何身份；可用 **动作** !!喊叫!! ((低语)) [[拟声]] 标记，对白用「」"
 }
 真人座位（${seats.join('、') || '无'}）必须出现在某些 roles 的 seat 字段；AI 角色 seat 为 null。`;
 }
@@ -65,7 +65,7 @@ ${core(setup)}
 4) 最后处理"信息"（learn / inspect）：为每个存活的信息角色生成它本夜所得；**inspect（查验）类**按该玩家本夜选择的目标，给出"关于该目标"的查验结果（善恶、是否杀过人/投过毒等）；**若该角色被投毒，则给假信息**。
 - 真人座位（${realSeats.join('、') || '无'}）的信息放进 player_private（to 必须是这些座位之一）。
 - AI 角色的信息放进 ai_private（who=AI身份名），供其白天推理。
-- public_morning 只做天亮播报（宣布谁死了/平安夜），绝不泄露身份。
+- public_morning 只做天亮播报（宣布谁死了/平安夜），绝不泄露身份；2~3 个短节拍、不超过 80 字，空行隔开，可用 [[拟声]] / **动作** 标记。
 - wake_sequence 按处理次序列出本夜每个被叫醒的角色（仅记录，用于节奏与音效）。
 
 近期讨论（参考氛围）：${transcript || '（无）'}

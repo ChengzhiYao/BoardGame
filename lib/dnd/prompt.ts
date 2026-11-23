@@ -1,3 +1,4 @@
+import { narrateRules } from '@/lib/narrate';
 // 龙与地下城 · AI 地下城主（DM）prompts。机制全部由引擎确定性处理，DM 只负责剧情与生成怪物数值。
 import { CLASSES, RACES } from './engine';
 
@@ -13,7 +14,7 @@ ${theme ? `题材/基调：${theme}。` : '题材自定，经典剑与魔法奇�
 {
   "scene": "一句话当前地点（如：腐朽的边境哨站 · 黄昏）",
   "quest": "一句话任务目标",
-  "opening": "开场叙事（${en ? 'English' : '中文'}，第二人称，3~5 句）",
+  "opening": "开场叙事（${en ? 'English' : '中文'}，第二人称，3 个短节拍、空行隔开，可用 **动作** [[拟声]] 等标记）",
   "options": ["3~4 个此刻可做的具体行动（每个一句、可直接执行，如'搜查船尾的箱子'/'盘问船工'/'戒备南方逼近的黑帆'）"]
 }`;
 }
@@ -41,7 +42,9 @@ export function buildDndActPrompt(scene: string, quest: string, party: string, r
 - 行动触发战斗 → kind="combat"，写 narration（敌人登场），并给 monsters 数组（每个：name 名称, ac 10~17, hp 5~40, attackBonus 2~7, damage 如 "1d6+2", special 可选="poison|stun|fear" 或留空表示特殊攻击）。1~4 个敌人，强度匹配 ${partySafe(party)} 人小队。若是高潮 Boss 战，设 boss=true 并给 1 个更强的单体（hp 40~90, ac 14~18, special 可填）。可给 env 一句战场环境/掩体描述。
 - 玩家想休息 → kind="rest"，rest 取 "short" 或 "long"，写 narration。
 - 任务目标已明确达成、或队伍彻底失败/放弃 → kind="end"，victory 取 true/false，epilogue 写 2~4 句收束尾声。仅在剧情确实该结束时才用。
-叙事用${en ? 'English' : '中文'}、第二人称、2~4 句，不替玩家做决定。另外**每次都给 options：2~4 个此刻可做的具体后续行动**（每个一句、可直接点选执行；战斗触发时可留空）。若剧情推进到新地点或新目标，可填 scene_update / quest_update（一句话；否则留空）。
+叙事用${en ? 'English' : '中文'}、第二人称，不替玩家做决定。
+${narrateRules(lang)}
+另外**每次都给 options：2~4 个此刻可做的具体后续行动**（每个一句、可直接点选执行；战斗触发时可留空）。若剧情推进到新地点或新目标，可填 scene_update / quest_update（一句话；否则留空）。
 另外**每次都要判断当前所在地点是否安全**填 safe：仅当队伍身处城镇/村庄/营地/旅馆/神殿/集市等**明确安全、可安心休整与交易**的地方时 safe=true；身处地牢/野外/废墟/沉船/被追杀/有敌意威胁等危险环境时 safe=false。
 {
   "kind": "check|social|combat|rest",

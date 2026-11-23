@@ -1,14 +1,19 @@
 'use client';
+import Narration from '@/components/Narration';
+import MicButton from '@/components/MicButton';
 import CompanionWaiting from '@/components/CompanionWaiting';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { ShellProps } from './RoomShell';
+import { useTTS } from './useTTS';
 
+const fresh = (m: any) => !!m?.created_at && Date.now() - new Date(m.created_at).getTime() < 90000;
 export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
   const router = useRouter();
   const supabase = useRef(createClient()).current;
   const [messages, setMessages] = useState<any[]>(props.initialMessages);
+  useTTS({ lang: props.room.language, messages, roomId: props.room.id, classify: (m: any) => { const t = m.payload?.type; if (t === 'soup_surface' || t === 'soup_reveal' || m.sender_type === 'kp') return { kind: 'narrator' as const, text: m.content }; return null; } });
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [guessing, setGuessing] = useState(false);
@@ -172,7 +177,7 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
             <div className="space-y-2">
               <textarea value={guess} onChange={(e) => setGuess(e.target.value)} placeholder="说出你认为的完整真相（汤底）…"
                 className="w-full px-3 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch" rows={3} />
-              <div className="flex gap-2">
+              <div className="flex gap-2"><MicButton value={guess} onChange=setGuess en={en} compact={false} />
                 <button onClick={submitGuess} disabled={busy} className="flex-1 px-4 py-2 rounded bg-blood/80 hover:bg-blood text-parchment disabled:opacity-50">提交答案</button>
                 <button onClick={() => setGuessing(false)} className="px-4 py-2 rounded bg-fog border border-parchment/30 text-parchment/70">返回提问</button>
               </div>
@@ -182,7 +187,7 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
               <div className="flex gap-2">
                 <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && ask()}
                   placeholder="提一个是非题…" disabled={busy}
-                  className="flex-1 min-w-0 px-4 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch disabled:opacity-50" />
+                  className="flex-1 min-w-0 px-4 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch disabled:opacity-50" /> <MicButton value={text} onChange=setText en={en} compact={false} />
                 <button onClick={ask} disabled={busy} className="px-5 py-2 rounded bg-eldritch/60 hover:bg-eldritch text-parchment disabled:opacity-50 shrink-0">提问</button>
               </div>
               <div className="flex gap-2">
@@ -215,10 +220,10 @@ function SoupMsg({ m, mine, who }: { m: any; mine: boolean; who: string }) {
     );
   }
   if (type === 'soup_surface') {
-    return <div className="mx-auto max-w-2xl rounded-lg bg-eldritch/10 border border-eldritch/40 px-4 py-3 text-parchment/90 leading-relaxed whitespace-pre-line">{m.content}</div>;
+    return <Narration text={m.content} fresh={fresh(m)} label="汤面" collapse={false} />;
   }
   if (type === 'soup_reveal') {
-    return <div className="mx-auto max-w-2xl rounded-lg bg-blood/20 border border-blood/50 px-4 py-3 text-parchment leading-relaxed whitespace-pre-line">{m.content}</div>;
+    return <Narration text={m.content} fresh={fresh(m)} tone="reveal" label="汤底" collapse={false} />;
   }
   if (m.sender_type === 'kp') {
     return <div className="text-center"><span className="inline-block px-3 py-1.5 rounded-full bg-fog border border-eldritch/40 text-parchment/90 text-sm">主持人：{m.content}</span></div>;

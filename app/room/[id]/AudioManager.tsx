@@ -149,9 +149,9 @@ export default function AudioManager({ state }: { state: string }) {
         className="cursor-move select-none text-parchment/40 leading-none px-0.5" title="拖动">⠿</span>
       {voice && (
         <button onClick={voice.cycle}
-          title={voice.mode === 'off' ? '角色语音：关' : voice.mode === 'browser' ? '角色语音：免费' : '角色语音：高音质'}
+          title={voice.quota ? '今天的免费语音用完了' : voice.mode === 'off' ? '旁白语音：关' : '旁白语音：开'}
           className={`text-sm ${voice.mode === 'off' ? 'opacity-40' : ''}`}>
-          {voice.mode === 'openai' ? '🎙️' : '🗣️'}
+          {voice.mode === 'off' ? '🔈' : '🎙️'}
         </button>
       )}
       <span className="w-px h-4 bg-eldritch/30" />

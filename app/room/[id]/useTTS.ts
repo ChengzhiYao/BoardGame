@@ -1,37 +1,29 @@
 'use client';
+import { stripMarks } from '@/lib/narrate';
 import { useEffect, useRef, useState } from 'react';
 import { setVoiceControl } from './voiceControl';
 
 type Spoken = { kind: 'narrator' | 'character'; name?: string; gender?: 'male' | 'female'; text: string } | null;
-export type VoiceMode = 'off' | 'browser' | 'openai';
+export type VoiceMode = 'off' | 'on';
 
-const clean = (t: string) => String(t || '').replace(/[🔍🔒🗳️▶👍🔧⏱⚖🎨↻🎲💀🩸✔✘🔊🔈🎙️]/g, '').replace(/\s+/g, ' ').trim();
+const keep = (t: string) => String(t || '').replace(/[🔍🔒🗳️▶👍🔧⏱⚖🎨↻🎲💀🩸✔✘🔊🔈🎙️]/g, '').replace(/[ \t]+/g, ' ').trim();
+const clean = (t: string) => stripMarks(String(t || '')).replace(/[🔍🔒🗳️▶👍🔧⏱⚖🎨↻🎲💀🩸✔✘🔊🔈🎙️]/g, '').replace(/\s+/g, ' ').trim();
 function hashName(name: string) { let h = 0; for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0; return h; }
-function browserPitch(gender: string | undefined, h: number) {
-  const base = gender === 'female' ? 1.15 : gender === 'male' ? 0.8 : 0.95;
-  return Math.min(1.6, base + (h % 18) / 100);
-}
 
 export function useTTS(opts: { lang?: string; messages: any[]; classify: (m: any) => Spoken; roomId?: string }) {
   const { lang, messages, classify, roomId } = opts;
+  // 默认开（免费 Fish 语音）；玩家手动关过就记住；免费额度用完自动关
   const [mode, setMode] = useState<VoiceMode>('off');
   const modeRef = useRef<VoiceMode>('off'); modeRef.current = mode;
-  const voicesRef = useRef<SpeechSynthesisVoice[]>([]);
+  const [quota, setQuota] = useState(false);
+  const inited = useRef(false);
+  useEffect(() => { let off = false; try { off = localStorage.getItem('mn_voice') === 'off'; } catch {} if (!off) setMode('on'); }, []);
   const spoken = useRef<Set<string>>(new Set());
   const queue = useRef<{ text: string; gender: string; narrator: boolean; seed: number; lang: string }[]>([]);
   const running = useRef(false);
   const curAudio = useRef<HTMLAudioElement | null>(null);
 
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) return;
-    const load = () => { voicesRef.current = window.speechSynthesis.getVoices(); };
-    load();
-    window.speechSynthesis.onvoiceschanged = load;
-    return () => { try { window.speechSynthesis.cancel(); } catch {} };
-  }, []);
-
   function stopAll() {
-    try { window.speechSynthesis?.cancel(); } catch {}
     queue.current = [];
     running.current = false;
     if (curAudio.current) { try { curAudio.current.pause(); } catch {} curAudio.current = null; }
@@ -39,9 +31,10 @@ export function useTTS(opts: { lang?: string; messages: any[]; classify: (m: any
 
   function cycle() {
     setMode((m) => {
-      const next: VoiceMode = m === 'off' ? 'browser' : m === 'browser' ? 'openai' : 'off';
+      const next: VoiceMode = m === 'off' ? 'on' : 'off';
+      try { localStorage.setItem('mn_voice', next); } catch {}
       stopAll();
-      if (next !== 'off') messages.forEach((x) => x?.id && spoken.current.add(x.id));
+      if (next !== 'off') { setQuota(false); messages.forEach((x) => x?.id && spoken.current.add(x.id)); }
       return next;
     });
   }
@@ -49,10 +42,11 @@ export function useTTS(opts: { lang?: string; messages: any[]; classify: (m: any
   async function worker() {
     if (running.current) return;
     running.current = true;
-    while (queue.current.length && modeRef.current === 'openai') {
+    while (queue.current.length && modeRef.current === 'on') {
       const task = queue.current.shift()!;
       try {
         const res = await fetch('/api/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId, ...task }) });
+        if (res.status === 429) { queue.current = []; setQuota(true); setMode('off'); break; }
         if (!res.ok) continue;
         const { url } = await res.json();
         if (!url) continue;
@@ -69,7 +63,10 @@ export function useTTS(opts: { lang?: string; messages: any[]; classify: (m: any
   }
 
   useEffect(() => {
-    if (mode === 'off' || typeof window === 'undefined') return;
+    if (typeof window === 'undefined') return;
+    // 进房时已有的历史不念，只念之后新来的
+    if (!inited.current) { inited.current = true; messages.forEach((x) => x?.id && spoken.current.add(x.id)); return; }
+    if (mode === 'off') { messages.forEach((x) => x?.id && spoken.current.add(x.id)); return; }
     const zh = lang !== 'en';
     for (const m of messages) {
       if (!m?.id || spoken.current.has(m.id)) continue;
@@ -78,20 +75,11 @@ export function useTTS(opts: { lang?: string; messages: any[]; classify: (m: any
       if (!c) continue;
       const text = clean(c.text);
       if (!text) continue;
+      const said = keep(c.text);
       const h = hashName(String(c.name || ''));
 
-      if (mode === 'browser') {
-        if (!window.speechSynthesis) continue;
-        const all = voicesRef.current || [];
-        const pool = all.filter((v) => v.lang.toLowerCase().startsWith(zh ? 'zh' : 'en'));
-        const list = pool.length ? pool : all;
-        const u = new SpeechSynthesisUtterance(text.slice(0, 600));
-        u.lang = zh ? 'zh-CN' : 'en-US';
-        if (c.kind === 'narrator') { u.voice = list[0] || null; u.pitch = 0.9; u.rate = 0.98; }
-        else { u.voice = list.length ? list[h % list.length] : null; u.pitch = browserPitch(c.gender, h); u.rate = 0.95 + ((h >> 3) % 16) / 100; }
-        window.speechSynthesis.speak(u);
-      } else {
-        queue.current.push({ text: text.slice(0, 900), gender: c.gender || '', narrator: c.kind === 'narrator', seed: h, lang: zh ? 'zh' : 'en' });
+      {
+        queue.current.push({ text: said.slice(0, 900), gender: c.gender || '', narrator: c.kind === 'narrator', seed: h, lang: zh ? 'zh' : 'en' });
         worker();
       }
     }
@@ -103,9 +91,9 @@ export function useTTS(opts: { lang?: string; messages: any[]; classify: (m: any
   // 把控制权注册给悬浮音频条（AudioManager 渲染语音开关）
   const cycleRef = useRef(cycle); cycleRef.current = cycle;
   useEffect(() => {
-    setVoiceControl({ mode, cycle: () => cycleRef.current() });
+    setVoiceControl({ mode, quota, cycle: () => cycleRef.current() });
     return () => setVoiceControl(null);
-  }, [mode]);
+  }, [mode, quota]);
 
   return { mode, cycle };
 }

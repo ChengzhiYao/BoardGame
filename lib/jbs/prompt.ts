@@ -1,3 +1,4 @@
+import { NARRATE_RULES_ZH } from '@/lib/narrate';
 // 剧本杀（多人本格）prompt 构建。支持多种本型，每种 type 驱动不同的 DM 重心与结算面板。
 export type JbsType = '推理' | '情感' | '欢乐' | '阵营' | '恐怖' | '还原' | '机制';
 
@@ -145,6 +146,9 @@ ${JSON.stringify(caseFile).slice(0, 9000)}
 ${type === '机制' ? '【机制本·账房】你要维护每个角色的资源/分数。每回合在 resources 里给出**全部角色的当前快照**（每人若干项资源，如金钱/筹码/情报/影响力/物资等，用数值或简短描述）；私下的增减原因写进 private_notes 给当事人。resources 必须每回合都返回完整最新快照。' : '本型无需 resources，留空数组。'}
 ${objBlock}
 
+${NARRATE_RULES_ZH}
+ai_lines 里的发言也要短：每人 1~2 句。
+
 只输出 JSON：
 {
   "narration": "DM 对这次行动/场景的客观叙述（事实，不推理、不剧透）",
@@ -198,6 +202,7 @@ ${JSON.stringify(caseFile).slice(0, 8000)}
 ${discussion || '（无）'}
 
 ${guide}
+结局叙述可以用同样的排版标记（**动作** !!喊叫!! ((低语)) [[拟声]]、对白用「」），分成短节拍、空行隔开。
 这是结案，可以全部公开。只输出 JSON：
 {
   "reveal": "完整结局正文（可长：逐角色揭秘 + 总体真相/结算 + 各自结局/排名）",

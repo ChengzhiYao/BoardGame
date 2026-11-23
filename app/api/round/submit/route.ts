@@ -242,7 +242,7 @@ ${sectionHint}
   // KP 旁白
   const validSfx = Array.isArray(out.sfx) ? out.sfx.filter((k: string) => SFX_KEYS.includes(k)) : [];
   if (out.narration) {
-    await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', content: out.narration, turn_no: round, payload: { image_suggestion: out.image_suggestion?.should ? out.image_suggestion : undefined, sfx: validSfx.length ? validSfx : undefined, guidance: out.guidance && (out.guidance.location || out.guidance.options?.length || out.guidance.a || out.guidance.b) ? out.guidance : undefined } });
+    await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', content: out.narration, turn_no: round, payload: { scene_state: out.scene_state || undefined, image_suggestion: out.image_suggestion?.should ? out.image_suggestion : undefined, sfx: validSfx.length ? validSfx : undefined, guidance: out.guidance && (out.guidance.location || out.guidance.options?.length || out.guidance.a || out.guidance.b) ? out.guidance : undefined } });
   }
 
   // 疯狂私有幻觉：以"KP 叙述"的样式只发给该玩家，与真实叙述难以分辨

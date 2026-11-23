@@ -28,12 +28,16 @@ export default function AudioManager({ state }: { state: string }) {
   const base = (isCategory((state || '').toUpperCase()) ? state.toUpperCase() : 'MENU') as AudioCategory;
   const [over, setOver] = useState<{ c: AudioCategory; until: number } | null>(null);
   const [tick, setTick] = useState(0);
-  const cat: AudioCategory = over && Date.now() < over.until && !/ENDING|TRUTH_REVEAL|MENU|CHARACTER/.test(base) ? over.c : base;
+  const [tension, setTension] = useState<AudioCategory | null>(null);
+  const calm = /ENDING|TRUTH_REVEAL|MENU|CHARACTER/.test(base);
+  const cat: AudioCategory = calm ? base : (over && Date.now() < over.until ? over.c : (tension || base));
   const [enabled, setEnabled] = useState(false);
   const [muted, setMuted] = useState(false);
   const [vol, setVol] = useState(0.6);
   const [voice, setVoice] = useState<VCtrl>(getVoiceControl());
   useEffect(() => subscribeVoiceControl(setVoice), []);
+  const voiceRef = useRef<VCtrl>(null);
+  voiceRef.current = voice;
 
   const [open, setOpen] = useState(false);
   const [speaking, setSpeaking] = useState(false);
@@ -47,6 +51,7 @@ export default function AudioManager({ state }: { state: string }) {
   const lastTrack = useRef<Record<string, string>>({});
   const volRef = useRef(vol);
   const duckRef = useRef(false);
+  const holdRef = useRef<{ url: string; cat: AudioCategory } | null>(null);
   const bedStart = useRef(0);
   const enabledRef = useRef(false);
   const mutedRef = useRef(muted);
@@ -67,7 +72,7 @@ export default function AudioManager({ state }: { state: string }) {
 
   function bedVolume(c: AudioCategory) {
     const boost = SCARE.includes(c) ? SCARE_BOOST : 1;
-    const duck = duckRef.current ? 0.35 : 1; // 旁白说话时把音乐压低
+    const duck = duckRef.current ? 0.12 : 1; // 旁白说话时把音乐压到几乎听不见
     return mutedRef.current ? 0 : Math.min(1, volRef.current * boost * duck);
   }
 
@@ -120,12 +125,26 @@ export default function AudioManager({ state }: { state: string }) {
       for (const w of sfx.slice(0, 2)) { const hit = SFX_WORDS.find(([re]) => re.test(w)); if (hit) { const k = hit[1]; setTimeout(() => playSfx(k), delay); delay += 900; } }
       if (/!!.+?!!/s.test(text) && enabledRef.current) setTimeout(() => playStinger(0.8), 250);
     };
-    const onSpeak = (e: any) => { duckRef.current = !!e?.detail; setSpeaking(!!e?.detail); if (bedRef.current && lastLoopCat.current) fadeVol(bedRef.current, bedVolume(lastLoopCat.current)); };
+    const onSpeak = (e: any) => { duckRef.current = !!e?.detail; setSpeaking(!!e?.detail); if (!e?.detail && holdRef.current) { const h = holdRef.current; holdRef.current = null; setTimeout(() => crossfadeTo(h.url, bedVolume(h.cat)), 700); } if (bedRef.current && lastLoopCat.current) fadeVol(bedRef.current, bedVolume(lastLoopCat.current)); };
+    // 海龟汤等：离真相越近越紧张（音乐换档 + 跨过关口时一记应景音效）
+    let lastLv = 0;
+    const onTension = (e: any) => {
+      const h = Number(e?.detail) || 0;
+      const lv = h >= 85 ? 3 : h >= 65 ? 2 : h >= 35 ? 1 : 0;
+      setTension((['EXPLORATION_SAFE', 'EXPLORATION_DANGEROUS', 'PARANORMAL_EVENT', 'FINAL_CONFRONTATION'] as AudioCategory[])[lv]);
+      if (lv > lastLv && enabledRef.current) {
+        const sfx = ['', 'ambient_wind', 'creaking_door', 'monster_growl'][lv];
+        if (sfx) setTimeout(() => playSfx(sfx), 300);
+        if (lv >= 2) setTimeout(() => playStinger(lv === 3 ? 1.2 : 0.7), 900);
+      }
+      lastLv = lv;
+    };
+    window.addEventListener('mn-tension', onTension);
     window.addEventListener('mn-narr', onNarr);
     window.addEventListener('mn-speaking', onSpeak);
     // 情绪覆盖到期 → 回落；同一首放久了换一首同情绪的
     const iv = setInterval(() => setTick((x) => x + 1), 15000);
-    return () => { window.removeEventListener('mn-narr', onNarr); window.removeEventListener('mn-speaking', onSpeak); clearInterval(iv); };
+    return () => { window.removeEventListener('mn-tension', onTension); window.removeEventListener('mn-narr', onNarr); window.removeEventListener('mn-speaking', onSpeak); clearInterval(iv); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => {
@@ -161,8 +180,12 @@ export default function AudioManager({ state }: { state: string }) {
     }
     const url = pick(AUDIO_MAP[cat], cat);
     if (url) {
-      crossfadeTo(url, bedVolume(cat));
       lastLoopCat.current = cat;
+      // 第一次起音乐时如果旁白正要念/正在念，等它念完再慢慢淡入，别盖住旁白
+      if (!bedRef.current && voiceRef.current && voiceRef.current.mode !== 'off') {
+        holdRef.current = { url, cat };
+        setTimeout(() => { if (holdRef.current && !duckRef.current) { const h = holdRef.current; holdRef.current = null; crossfadeTo(h.url, bedVolume(h.cat)); } }, 3000);
+      } else crossfadeTo(url, bedVolume(cat));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cat, enabled]);

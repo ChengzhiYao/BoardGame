@@ -41,7 +41,7 @@ export async function POST(req: Request) {
   if (kind === 'ask') {
     const { data } = await callLLMJson<any>({ system: buildSoupAnswerPrompt(puzzle.surface, bot?.bottom || ''), messages: [{ role: 'user', content: '玩家的是非题:' + text }], tier: 'aux', temperature: 0.1, maxTokens: 220 }).catch(() => ({ data: {} } as any));
     const verdict = ['是', '不是', '无关', '是也不是'].includes(data?.verdict) ? data.verdict : '无关';
-    await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', turn_no: 0, content: verdict + (data?.note ? ` — ${data.note}` : ''), payload: { type: 'soup_answer' } });
+    await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', turn_no: 0, content: verdict + (data?.note ? ` — ${data.note}` : ''), payload: { type: 'soup_answer', verdict, heat: Math.max(0, Math.min(100, Math.round(Number((data as any)?.heat) || 0))) } });
     return NextResponse.json({ ok: true, kind });
   }
   const { data: j } = await callLLMJson<any>({ system: buildSoupJudgePrompt(puzzle.surface, bot?.bottom || '') + langDirective(lang), messages: [{ role: 'user', content: '玩家的猜测:' + text }], tier: 'main', temperature: 0.2, maxTokens: 300 }).catch(() => ({ data: {} } as any));
@@ -49,8 +49,14 @@ export async function POST(req: Request) {
   if (j?.solved) {
     await admin.from('soup_puzzles').update({ status: 'solved' }).eq('id', puzzle.id);
     await admin.from('rooms').update({ game_state: 'ended' }).eq('id', roomId);
-    await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: 0, content: (lang === 'en' ? '[Answer] ' : '【汤底揭晓】') + (bot?.bottom || ''), payload: { type: 'soup_reveal' } });
+    await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: 0, content: bot?.bottom || '', payload: { type: 'soup_reveal', audio: await libAudio(admin, (puzzle as any)?.lib_id) } });
     await sendRecap(admin, roomId, `你(${c.name})猜中了汤底:` + String(bot?.bottom || '').slice(0, 200));
   }
   return NextResponse.json({ ok: true, kind, solved: !!j?.solved });
+}
+
+async function libAudio(admin: any, libId?: string | null): Promise<string | undefined> {
+  if (!libId) return undefined;
+  const { data } = await admin.from('soup_library').select('bottom_audio').eq('id', libId).maybeSingle();
+  return data?.bottom_audio || undefined;
 }

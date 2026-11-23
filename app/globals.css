@@ -124,3 +124,17 @@ body:has(.mn-exit) .mn-stepbar { padding-left: 88px; }
 .mn-range::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #f2ead9; box-shadow: 0 1px 6px rgba(0,0,0,.6); cursor: pointer; }
 .mn-range::-moz-range-thumb { width: 16px; height: 16px; border: 0; border-radius: 50%; background: #f2ead9; box-shadow: 0 1px 6px rgba(0,0,0,.6); }
 @media (prefers-reduced-motion: reduce) { .mn-eq { animation: none; } }
+
+/* ===== 海龟汤：印章式回答 + 氛围 ===== */
+.mn-stamp { display: inline-block; font-family: var(--f-serif); font-weight: 700; font-size: 26px; letter-spacing: .25em; padding: .18em .3em .18em .55em; border: 2px solid currentColor; border-radius: 6px; transform: rotate(-4deg); text-shadow: 0 0 18px currentColor; box-shadow: inset 0 0 0 1px rgba(0,0,0,.35), 0 0 24px -8px currentColor; }
+.mn-stamp-yes { color: #d9b46a; }
+.mn-stamp-no { color: #c0453f; }
+.mn-stamp-mid { color: #c98a5a; }
+.mn-stamp-void { color: rgba(216,199,168,.45); font-size: 20px; text-shadow: none; box-shadow: none; }
+@keyframes mnStampIn { 0% { opacity: 0; transform: rotate(-4deg) scale(2.2); filter: blur(4px); } 60% { opacity: 1; transform: rotate(-4deg) scale(.92); filter: none; } 100% { transform: rotate(-4deg) scale(1); } }
+.mn-stamp-in { animation: mnStampIn .45s cubic-bezier(.2,.9,.3,1.2) both; }
+@keyframes mnBreathe { 0%,100% { opacity: 1; } 50% { opacity: .72; } }
+.mn-breathe { animation: mnBreathe 3.2s ease-in-out infinite; }
+.mn-fog { background: radial-gradient(60% 40% at 20% 80%, rgba(120,140,135,.07), transparent 70%), radial-gradient(50% 35% at 85% 70%, rgba(120,140,135,.06), transparent 70%); animation: mnFog 24s ease-in-out infinite alternate; }
+@keyframes mnFog { from { transform: translateX(-3%); } to { transform: translateX(3%); } }
+@media (prefers-reduced-motion: reduce) { .mn-stamp-in, .mn-breathe, .mn-fog { animation: none; } }

@@ -13,7 +13,7 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
   const router = useRouter();
   const supabase = useRef(createClient()).current;
   const [messages, setMessages] = useState<any[]>(props.initialMessages);
-  useTTS({ lang: props.room.language, messages, roomId: props.room.id, classify: (m: any) => { const t = m.payload?.type; if (t === 'soup_surface' || t === 'soup_reveal' || m.sender_type === 'kp') return { kind: 'narrator' as const, text: m.content }; return null; } });
+  useTTS({ lang: props.room.language, messages, roomId: props.room.id, classify: (m: any) => { const t = m.payload?.type; if (t === 'soup_surface' || t === 'soup_reveal' || m.sender_type === 'kp') return { kind: 'narrator' as const, text: m.content, audio: m.payload?.audio }; return null; } });
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [guessing, setGuessing] = useState(false);
@@ -105,6 +105,13 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
     finally { setBusy(false); }
   }
 
+  const answers = messages.filter((m) => m.sender_type === 'kp' && m.payload?.type === 'soup_answer');
+  const heats = answers.map((m) => Number(m.payload?.heat)).filter((n) => !isNaN(n) && n > 0);
+  const recent = heats.slice(-3);
+  const heat = ended ? 100 : recent.length ? Math.round(Math.max(...recent) * 0.6 + recent[recent.length - 1] * 0.4) : 0;
+  const qCount = messages.filter((m) => m.sender_type === 'player').length;
+  const heatWord = heat >= 85 ? '就差一步' : heat >= 65 ? '滚烫' : heat >= 35 ? '变暖了' : heat > 0 ? '还很冷' : '未开始';
+  useEffect(() => { try { window.dispatchEvent(new CustomEvent('mn-tension', { detail: heat })); } catch {} }, [heat]);
   // 首页「马上开玩」进来的：房主自动用默认设置出题，不用再点
   const quick = useRef(false);
   useEffect(() => {
@@ -168,63 +175,96 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
     );
   }
 
+  const cleanSurface = String(surface).replace(/^【汤面】/, '').replace(/\n\n你们可以提是非题[\s\S]*$/, '').trim();
+
   return (
-    <main className="h-[100svh] flex flex-col overflow-hidden">
-      <header className="mn-header px-4 py-3 border-b border-eldritch/20 flex items-center justify-between">
-        <span className="font-serif text-parchment">海龟汤 · {props.room.name}</span>
-        <span className="text-xs text-parchment/50">{ended ? '已结束' : '提是非题 → 我答 是/不是/无关/是也不是'}</span>
+    <main className="h-[100svh] flex flex-col overflow-hidden relative">
+      {/* 氛围：离真相越近，四周越暗、越红，最后会慢慢“呼吸” */}
+      <div aria-hidden className={`pointer-events-none fixed inset-0 -z-10 transition-[background] duration-[2500ms] ${heat >= 85 && !ended ? 'mn-breathe' : ''}`}
+        style={{ background: `radial-gradient(120% 90% at 50% 35%, rgba(12,13,16,0) 30%, rgba(${Math.round(12 + heat * 0.9)},${Math.round(13 - heat * 0.05)},16,${0.55 + heat / 400}) 100%), #0c0d10` }} />
+      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 mn-fog opacity-60" />
+
+      <header className="mn-header px-4 py-3 border-b flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="font-serif text-[17px] leading-tight text-[#efe6d2]">海龟汤</div>
+          <div className="text-[11px] text-parchment/40 truncate">{props.room.name}</div>
+        </div>
+        <div className="shrink-0 text-right mr-11">
+          <div className="text-[10.5px] tracking-[.25em] text-parchment/40">{ended ? '已结束' : `第 ${qCount} 问`}</div>
+        </div>
       </header>
 
-      {surface && (
-        <div className="border-b border-eldritch/30 bg-eldritch/10 max-w-3xl w-full mx-auto">
-          <button onClick={() => setSurfaceOpen((v) => !v)}
-            className="w-full flex items-center justify-between px-4 py-2 text-left">
-            <span className="text-xs font-medium tracking-wide text-eldritch">📌 {en ? 'THE CASE (soup surface)' : '汤面 · 谜题'}</span>
-            <span className="text-xs text-parchment/50">{surfaceOpen ? (en ? 'hide ▲' : '收起 ▲') : (en ? 'show ▼' : '展开 ▼')}</span>
-          </button>
-          {surfaceOpen && (
-            <div className="px-4 pb-3 -mt-1 max-h-[34vh] overflow-y-auto text-parchment/90 leading-relaxed whitespace-pre-line text-sm">
-              {surface}
+      {cleanSurface && (
+        <div className="max-w-3xl w-full mx-auto px-4 pt-3">
+          <div className="rounded-xl border border-[#d8c7a8]/[0.12] bg-[#0b0c0f]/70 backdrop-blur-md">
+            <button onClick={() => setSurfaceOpen((v) => !v)} className="w-full flex items-center gap-3 px-4 py-2.5 text-left">
+              <span className="text-[10.5px] tracking-[.35em] text-[#c9a96e]/80 shrink-0">汤面</span>
+              {!surfaceOpen && <span className="flex-1 min-w-0 truncate font-serif text-[13.5px] text-parchment/60">{cleanSurface}</span>}
+              {surfaceOpen && <span className="flex-1" />}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`shrink-0 text-parchment/40 transition-transform ${surfaceOpen ? 'rotate-180' : ''}`}><path d="M6 9l6 6 6-6" /></svg>
+            </button>
+            {surfaceOpen && <div className="px-4 pb-4 max-h-[32vh] overflow-y-auto"><Narration text={cleanSurface} collapse={false} /></div>}
+          </div>
+          {/* 真相温度 */}
+          <div className="mt-2.5 flex items-center gap-3 px-1">
+            <span className="text-[10.5px] tracking-[.3em] text-parchment/40 shrink-0">真相</span>
+            <div className="relative flex-1 h-[3px] rounded-full bg-white/[0.07] overflow-hidden">
+              <div className="absolute inset-y-0 left-0 rounded-full transition-all duration-[1500ms] ease-out"
+                style={{ width: `${Math.max(3, heat)}%`, background: 'linear-gradient(90deg,#3f7d70,#c9a96e 55%,#c0453f)', boxShadow: heat >= 65 ? '0 0 12px rgba(192,69,63,.8)' : 'none' }} />
             </div>
-          )}
+            <span className={`text-[11.5px] font-serif shrink-0 w-14 text-right transition-colors ${heat >= 85 ? 'text-[#e06060] animate-pulse' : heat >= 65 ? 'text-[#e08a5a]' : heat >= 35 ? 'text-[#c9a96e]' : 'text-parchment/45'}`}>{heatWord}</span>
+          </div>
         </div>
       )}
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-3 max-w-3xl w-full mx-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-5 space-y-4 max-w-3xl w-full mx-auto">
+        {qCount === 0 && !ended && (
+          <div className="text-center pt-6 space-y-2">
+            <div className="font-serif text-[15px] text-parchment/60">问一个只能回答「是」或「不是」的问题</div>
+            <div className="text-[12px] text-parchment/35">比如：「他是故意的吗？」「这件事发生在晚上？」</div>
+          </div>
+        )}
         {messages.filter((m) => m.payload?.type !== 'soup_surface').map((m) => <SoupMsg key={m.id} m={m} mine={m.sender_player_id === props.myPlayerId} who={nameOf(m.sender_player_id)} />)}
-        {busy && <div className="text-center text-parchment/40 italic text-sm">主持人思考中……</div>}
+        {busy && <div className="flex justify-center py-2"><span className="inline-flex gap-1.5">{[0, 1, 2].map((d) => <span key={d} className="w-1.5 h-1.5 rounded-full bg-[#c9a96e]/70 animate-bounce" style={{ animationDelay: `${d * 140}ms` }} />)}</span></div>}
         <div ref={bottomRef} />
       </div>
 
       {!ended ? (
-        <div className="mn-composer border-t border-eldritch/20 px-4 py-3 space-y-2 max-w-3xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+        <div className="mn-composer border-t px-4 pt-3 space-y-2.5 max-w-3xl w-full mx-auto" style={{ paddingBottom: 'max(0.85rem, env(safe-area-inset-bottom))' }}>
           {guessing ? (
-            <div className="space-y-2">
-              <textarea value={guess} onChange={(e) => setGuess(e.target.value)} placeholder="说出你认为的完整真相（汤底）…"
-                className="w-full px-3 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch" rows={3} />
-              <div className="flex gap-2"><MicButton value={guess} onChange={setGuess} en={en} compact={false} />
-                <button onClick={submitGuess} disabled={busy} className="flex-1 px-4 py-2 rounded bg-blood/80 hover:bg-blood text-parchment disabled:opacity-50">提交答案</button>
-                <button onClick={() => setGuessing(false)} className="px-4 py-2 rounded bg-fog border border-parchment/30 text-parchment/70">返回提问</button>
+            <div className="space-y-2.5">
+              <div className="text-[11px] tracking-[.3em] text-[#c9a96e]/80">说出你认为的真相</div>
+              <textarea value={guess} onChange={(e) => setGuess(e.target.value)} placeholder="把整件事完整讲出来，不用怕错…"
+                className="w-full px-4 py-3 rounded-xl bg-[#121318] border border-[#d8c7a8]/15 text-parchment font-serif placeholder:text-parchment/30 outline-none focus:border-[#c9a96e]/50" rows={3} />
+              <div className="flex gap-2 items-center">
+                <MicButton value={guess} onChange={setGuess} en={en} compact={false} />
+                <button onClick={submitGuess} disabled={busy || !guess.trim()} className="flex-1 py-3 rounded-xl bg-[#7d1d1d] border border-[#a83232]/60 text-[#f2ead9] font-serif tracking-[.15em] disabled:opacity-50">揭晓</button>
+                <button onClick={() => setGuessing(false)} className="px-3 py-3 text-[13px] text-parchment/50">再问问</button>
               </div>
             </div>
           ) : (
             <>
-              <div className="flex gap-2">
-                <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && ask()}
-                  placeholder="提一个是非题…" disabled={busy}
-                  className="flex-1 min-w-0 px-4 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch disabled:opacity-50" /> <MicButton value={text} onChange={setText} en={en} compact={false} />
-                <button onClick={ask} disabled={busy} className="px-5 py-2 rounded bg-eldritch/60 hover:bg-eldritch text-parchment disabled:opacity-50 shrink-0">提问</button>
+              <div className="flex gap-2 items-center">
+                <div className="flex-1 min-w-0 flex items-center rounded-xl bg-[#121318] border border-[#d8c7a8]/15 focus-within:border-[#c9a96e]/50 pr-1">
+                  <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && ask()}
+                    placeholder="问一个是非题…" disabled={busy}
+                    className="flex-1 min-w-0 bg-transparent border-0 px-4 py-3 text-parchment placeholder:text-parchment/30 outline-none disabled:opacity-50" style={{ boxShadow: 'none' }} />
+                  <MicButton value={text} onChange={setText} en={en} />
+                </div>
+                <button onClick={ask} disabled={busy || !text.trim()} className="shrink-0 h-[46px] px-5 rounded-xl bg-[#c9a96e] text-[#0b0c0f] font-medium disabled:opacity-40">问</button>
               </div>
-              <div className="flex gap-2">
-                <button onClick={() => setGuessing(true)} className="flex-1 px-4 py-2 rounded bg-blood/70 hover:bg-blood text-parchment text-sm">揭晓答案</button>
-                <button onClick={reveal} className="px-4 py-2 rounded bg-fog border border-parchment/30 text-parchment/60 text-sm">看汤底（放弃）</button>
+              <div className="flex items-center justify-between px-1">
+                <button onClick={() => setGuessing(true)} className={`text-[13.5px] font-serif tracking-wide ${heat >= 65 ? 'text-[#e8b07a] animate-pulse' : 'text-[#c9a96e]'}`}>我知道了 · 说出真相 →</button>
+                <button onClick={reveal} className="text-[12px] text-parchment/35 hover:text-parchment/60">放弃，看汤底</button>
               </div>
             </>
           )}
         </div>
       ) : (
-        <div className="border-t border-blood/40 px-4 py-3 text-center max-w-3xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
-          <span className="text-parchment/70 text-sm">这局结束了。想再来一道？回首页创建新的海龟汤房间。</span>
+        <div className="mn-composer border-t px-4 py-4 max-w-3xl w-full mx-auto flex gap-2.5" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+          <button onClick={async () => { const { startRoom } = await import('@/lib/startRoom'); let n = '玩家'; try { n = localStorage.getItem('name') || n; } catch {} const r = await startRoom('soup', n, en ? 'en' : 'zh', { quick: true }); if (r.url) window.location.href = r.url; else if (r.login || r.upgrade) window.location.href = '/play'; }}
+            className="flex-1 py-3 rounded-xl bg-[#7d1d1d] border border-[#a83232]/60 text-[#f2ead9] font-serif tracking-[.15em]">再来一碗</button>
+          <a href="/play" className="px-5 py-3 rounded-xl border border-[#d8c7a8]/15 text-parchment/70 text-[14px]">回到大厅</a>
         </div>
       )}
     </main>
@@ -251,15 +291,28 @@ function SoupMsg({ m, mine, who }: { m: any; mine: boolean; who: string }) {
     return <Narration text={m.content} fresh={fresh(m)} tone="reveal" label="汤底" collapse={false} />;
   }
   if (m.sender_type === 'kp') {
-    return <div className="text-center"><span className="inline-block px-3 py-1.5 rounded-full bg-fog border border-eldritch/40 text-parchment/90 text-sm">主持人：{m.content}</span></div>;
+    const raw = String(m.content || '');
+    const v = (m.payload?.verdict as string) || (['是也不是', '不是', '无关', '是'].find((x) => raw.startsWith(x)) || '');
+    const note = v ? raw.slice(v.length).replace(/^\s*[—-]\s*/, '') : '';
+    const right = /^✅/.test(raw), wrong = /^❌/.test(raw);
+    const word = v || (right ? '答对了' : wrong ? '还差一点' : '');
+    if (!word) return <div className="text-center text-[13px] text-parchment/60 font-serif">{raw}</div>;
+    const tone = word === '是' || right ? 'mn-stamp-yes' : word === '不是' || wrong ? 'mn-stamp-no' : word === '是也不是' ? 'mn-stamp-mid' : 'mn-stamp-void';
+    const rest = right || wrong ? raw.replace(/^[✅❌]\s*(答对了！|还差一点。|Correct!|Not quite\.)?\s*/, '') : note;
+    return (
+      <div className="flex flex-col items-center gap-1.5 py-1">
+        <span className={`mn-stamp ${tone} ${fresh(m) ? 'mn-stamp-in' : ''}`}>{word}</span>
+        {rest && <span className="max-w-[85%] text-center text-[12.5px] font-serif text-parchment/55">{rest}</span>}
+      </div>
+    );
   }
   if (m.sender_type === 'system') {
     return <div className="text-center text-sm text-parchment/50">{m.content}</div>;
   }
   return (
-    <div className="flex flex-col items-end">
-      <span className="text-xs text-parchment/40 mb-1">{who}{mine ? '（你）' : ''}</span>
-      <div className="max-w-[80%] px-4 py-2 rounded-lg bg-blood/25 border border-blood/40 text-parchment/90">{m.content}</div>
+    <div className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
+      <span className="text-[11px] text-parchment/35 mb-1 px-1">{who}{mine ? '（你）' : ''}</span>
+      <div className={`max-w-[82%] px-4 py-2.5 rounded-2xl ${mine ? 'rounded-br-md bg-[#2a1416]/90 border border-[#7d1d1d]/50' : 'rounded-bl-md bg-white/[0.04] border border-[#d8c7a8]/10'} text-[15px] text-parchment/90`}>{m.content}</div>
     </div>
   );
 }

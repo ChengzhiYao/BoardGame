@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { callLLMJson } from '@/lib/llm';
 import { buildSoupGenPrompt } from '@/lib/soup/prompt';
+import { langDirective } from '@/lib/i18n';
 
 export const maxDuration = 60;
 
@@ -38,7 +39,7 @@ export async function POST(req: Request) {
       const rids = Array.from(new Set((theirRooms || []).map((r: any) => r.room_id)));
       const { data: seenP } = rids.length ? await admin.from('soup_puzzles').select('lib_id').in('room_id', rids).not('lib_id', 'is', null) : { data: [] as any[] };
       const seen = new Set((seenP || []).map((x: any) => x.lib_id));
-      const { data: lib } = await admin.from('soup_library').select('id, title, surface, bottom, difficulty, supernatural, tone, gore, horror, edge, plays, solved').eq('lang', lang).limit(500);
+      const { data: lib } = await admin.from('soup_library').select('id, title, surface, bottom, difficulty, supernatural, tone, gore, horror, edge, plays, solved, surface_audio, bottom_audio').eq('lang', lang).limit(500);
       const near = (a: any, b: number) => a == null || Math.abs(Number(a) - b) <= 25;
       const cands = (lib || []).filter((p: any) => !seen.has(p.id)
         && (!p.difficulty || p.difficulty === want.difficulty)
@@ -57,13 +58,13 @@ export async function POST(req: Request) {
 
     let data: any, usage: any = null, libId: string | null = null;
     if (pick) {
-      data = { title: pick.title, surface: pick.surface, bottom: pick.bottom, difficulty: pick.difficulty || want.difficulty };
+      data = { title: pick.title, surface: pick.surface, bottom: pick.bottom, difficulty: pick.difficulty || want.difficulty, surface_audio: pick.surface_audio, bottom_audio: pick.bottom_audio };
       libId = pick.id;
       await admin.from('soup_library').update({ plays: (pick.plays || 0) + 1 }).eq('id', pick.id);
     } else {
       const out = await callLLMJson<any>({
-        system: buildSoupGenPrompt({ difficulty, supernatural, tone, gore, horror, edge }),
-        messages: [{ role: 'user', content: '请出一道原创海龟汤。' }],
+        system: buildSoupGenPrompt({ difficulty, supernatural, tone, gore, horror, edge }) + (lang === 'en' ? '\n' + langDirective('en') : ''),
+        messages: [{ role: 'user', content: lang === 'en' ? 'Write one original lateral-thinking puzzle in English.' : '请出一道原创海龟汤。' }],
         tier: 'main', temperature: 0.8, maxTokens: 1200,
       });
       data = out.data; usage = out.usage;
@@ -81,8 +82,8 @@ export async function POST(req: Request) {
     await admin.from('rooms').update({ game_state: 'playing', modules_generating: false }).eq('id', roomId);
     await admin.from('messages').insert({
       room_id: roomId, sender_type: 'kp', turn_no: 0,
-      content: `【汤面】${data.surface}\n\n你们可以提是非题，我只回答：是 / 不是 / 无关 / 是也不是。想好真相后点「揭晓答案」。`,
-      payload: { type: 'soup_surface' },
+      content: data.surface,
+      payload: { type: 'soup_surface', audio: data.surface_audio || undefined, lib: libId || undefined },
     });
     if (usage) await admin.from('api_usage').insert({ room_id: roomId, kind: 'llm_main', model: usage.model, prompt_tokens: usage.promptTokens, completion_tokens: usage.completionTokens, latency_ms: usage.latencyMs });
 

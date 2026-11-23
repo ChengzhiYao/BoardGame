@@ -3,7 +3,7 @@ import { stripMarks } from '@/lib/narrate';
 import { useEffect, useRef, useState } from 'react';
 import { setVoiceControl } from './voiceControl';
 
-type Spoken = { kind: 'narrator' | 'character'; name?: string; gender?: 'male' | 'female'; text: string } | null;
+type Spoken = { kind: 'narrator' | 'character'; name?: string; gender?: 'male' | 'female'; text: string; audio?: string } | null;
 export type VoiceMode = 'off' | 'on';
 
 const keep = (t: string) => String(t || '').replace(/[🔍🔒🗳️▶👍🔧⏱⚖🎨↻🎲💀🩸✔✘🔊🔈🎙️]/g, '').replace(/[ \t]+/g, ' ').trim();
@@ -19,7 +19,7 @@ export function useTTS(opts: { lang?: string; messages: any[]; classify: (m: any
   const inited = useRef(false);
   useEffect(() => { let off = false; try { off = localStorage.getItem('mn_voice') === 'off'; } catch {} if (!off) setMode('on'); }, []);
   const spoken = useRef<Set<string>>(new Set());
-  const queue = useRef<{ text: string; gender: string; narrator: boolean; seed: number; lang: string }[]>([]);
+  const queue = useRef<{ text: string; gender: string; narrator: boolean; seed: number; lang: string; audio?: string }[]>([]);
   const running = useRef(false);
   const curAudio = useRef<HTMLAudioElement | null>(null);
 
@@ -45,10 +45,13 @@ export function useTTS(opts: { lang?: string; messages: any[]; classify: (m: any
     while (queue.current.length && modeRef.current === 'on') {
       const task = queue.current.shift()!;
       try {
-        const res = await fetch('/api/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId, ...task }) });
-        if (res.status === 429) { queue.current = []; setQuota(true); setMode('off'); break; }
-        if (!res.ok) continue;
-        const { url } = await res.json();
+        let url = task.audio || '';
+        if (!url) {
+          const res = await fetch('/api/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId, ...task }) });
+          if (res.status === 429) { queue.current = []; setQuota(true); setMode('off'); break; }
+          if (!res.ok) continue;
+          url = (await res.json())?.url || '';
+        }
         if (!url) continue;
         await new Promise<void>((resolve) => {
           const a = new Audio(url);
@@ -81,7 +84,7 @@ export function useTTS(opts: { lang?: string; messages: any[]; classify: (m: any
       const h = hashName(String(c.name || ''));
 
       {
-        queue.current.push({ text: said.slice(0, 900), gender: c.gender || '', narrator: c.kind === 'narrator', seed: h, lang: zh ? 'zh' : 'en' });
+        queue.current.push({ text: said.slice(0, 900), gender: c.gender || '', narrator: c.kind === 'narrator', seed: h, lang: zh ? 'zh' : 'en', audio: c.audio });
         worker();
       }
     }

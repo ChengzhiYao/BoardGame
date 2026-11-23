@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     });
     const verdict = ['是', '不是', '无关', '是也不是'].includes(data.verdict) ? data.verdict : '无关';
     const content = verdict + (data.note ? ` — ${data.note}` : '');
-    await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', turn_no: 0, content, payload: { type: 'soup_answer' } });
+    await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', turn_no: 0, content, payload: { type: 'soup_answer', verdict, heat: Math.max(0, Math.min(100, Math.round(Number((data as any)?.heat) || 0))) } });
     await admin.from('api_usage').insert({ room_id: roomId, kind: 'llm_aux', model: usage.model, prompt_tokens: usage.promptTokens, completion_tokens: usage.completionTokens, latency_ms: usage.latencyMs });
     return NextResponse.json({ ok: true });
   } catch (e: any) {

@@ -181,18 +181,41 @@ export function GameSheet({ lang, game, busy, needName, name, setName, onStart, 
 // 首页「回到房间」：离开后 3 小时内的未结束房间
 export function ResumeRooms({ lang }: { lang: Lang }) {
   const en = lang === 'en';
-  const [rooms, setRooms] = useState<{ id: string; name: string; mode: GM }[]>([]);
+  const [rooms, setRooms] = useState<{ id: string; name: string; mode: GM; at: string; state: string; host: boolean }[]>([]);
+  const [ask, setAsk] = useState<string | null>(null);
   useEffect(() => { fetch('/api/rooms/mine').then((r) => r.json()).then((d) => setRooms(Array.isArray(d?.rooms) ? d.rooms : [])).catch(() => {}); }, []);
   if (!rooms.length) return null;
+  const ago = (iso: string) => { const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000)); return m < 1 ? (en ? 'just now' : '刚刚') : m < 60 ? (en ? `${m} min ago` : `${m} 分钟前`) : (en ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 60)} 小时前`); };
+  const stLabel = (s: string) => (s === 'playing' ? (en ? 'In progress' : '进行中') : (en ? 'Not started' : '还没开始'));
+  async function leave(id: string) {
+    setRooms((rs) => rs.filter((r) => r.id !== id)); setAsk(null);
+    try { await fetch('/api/rooms/leave', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: id }) }); } catch {}
+  }
   return (
     <div className="w-full flex flex-col gap-1.5">
       {rooms.map((r) => (
-        <a key={r.id} href={`/room/${r.id}`} className="flex items-center gap-3 w-full rounded-xl px-4 py-2.5 text-left bg-[#c9a96e]/[0.08] border border-[#c9a96e]/35 hover:bg-[#c9a96e]/[0.14] backdrop-blur-md">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#c9a96e] animate-pulse shrink-0" />
-          <span className="text-[12px] tracking-[.1em] text-[#c9a96e] shrink-0">{en ? 'Back to your game' : '回到房间'}</span>
-          <span className="flex-1 min-w-0 truncate font-serif text-[14px] text-[#ece3cf]">{r.name || (TILE[r.mode] ? L(lang, TILE[r.mode].short) : '')}</span>
-          <span className="text-[#c9a96e] shrink-0">→</span>
-        </a>
+        <div key={r.id} className="flex items-stretch w-full rounded-xl bg-[#c9a96e]/[0.08] border border-[#c9a96e]/35 backdrop-blur-md overflow-hidden">
+          {ask === r.id ? (
+            <div className="flex-1 flex items-center gap-3 px-4 py-2.5 text-left">
+              <span className="flex-1 text-[13px] text-parchment/80">{r.host ? (en ? 'End this game for everyone?' : '结束这一局？其他人也会一起结束') : (en ? 'Leave this game?' : '退出这一局？其他人可以继续玩')}</span>
+              <button onClick={() => leave(r.id)} className="text-[13px] text-[#e08080] shrink-0">{r.host ? (en ? 'End' : '结束') : (en ? 'Leave' : '退出')}</button>
+              <button onClick={() => setAsk(null)} className="text-[13px] text-parchment/50 shrink-0">{en ? 'Cancel' : '取消'}</button>
+            </div>
+          ) : (<>
+            <a href={`/room/${r.id}`} className="flex-1 min-w-0 flex items-center gap-3 pl-4 pr-2 py-2.5 text-left hover:bg-[#c9a96e]/[0.06]">
+              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${r.state === 'playing' ? 'bg-[#c9a96e] animate-pulse' : 'bg-parchment/30'}`} />
+              <span className="flex-1 min-w-0">
+                <span className="block truncate font-serif text-[14px] text-[#ece3cf]">{r.name || (TILE[r.mode] ? L(lang, TILE[r.mode].short) : '')}</span>
+                <span className="block text-[11px] text-parchment/45 mt-0.5">{stLabel(r.state)} · {ago(r.at)}</span>
+              </span>
+              <span className="text-[12px] tracking-[.1em] text-[#c9a96e] shrink-0">{en ? 'Rejoin →' : '回到房间 →'}</span>
+            </a>
+            <button onClick={() => setAsk(r.id)} aria-label={en ? 'Remove' : '移除'} title={r.host ? (en ? 'End this game' : '结束这局') : (en ? 'Leave this game' : '退出这局')}
+              className="shrink-0 w-11 flex items-center justify-center border-l border-[#c9a96e]/20 text-parchment/45 hover:text-parchment">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+            </button>
+          </>)}
+        </div>
       ))}
     </div>
   );

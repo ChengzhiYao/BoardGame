@@ -19,6 +19,7 @@ export async function POST(req: Request) {
     .from('players').select('id').eq('room_id', roomId).eq('user_id', user.id).maybeSingle();
   if (member) {
     await admin.from('rooms').update({ last_active: new Date().toISOString() }).eq('id', roomId);
+    await admin.from('players').update({ left_at: null }).eq('id', member.id);
   }
   // 免费游戏：给房主累计本周免费游玩时长（非会员/白名单才计）
   try {

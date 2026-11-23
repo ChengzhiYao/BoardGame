@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import SiteFooter from '@/components/SiteFooter';
 import { seoGame, type Loc } from '@/lib/seo-content';
 import { useRouter } from 'next/navigation';
 import { getClientLang, setClientLang, type Lang } from '@/lib/i18n';
@@ -59,8 +60,14 @@ export default function GameLanding({ slug, forcedLang }: { slug: string; forced
           <Link href="/" className="px-6 py-3 rounded-xl bg-[#121318] border border-white/10 text-parchment/80 hover:bg-white/[0.06]">{en ? 'All games' : '看全部游戏'}</Link>
         </div>
 
+        {slug === 'lateral-thinking' && (
+          <Link href={`/${en ? 'en' : 'zh'}/soup`} className="block mb-10 rounded-2xl border border-[#c9a96e]/30 bg-[#121318] px-5 py-4 hover:border-[#c9a96e]/60">
+            <span className="font-serif text-[17px] text-[#efe6d2]">{en ? 'Browse 100+ lateral thinking puzzles →' : '看 100+ 道海龟汤题目（往期附答案）→'}</span>
+          </Link>
+        )}
         <GameFeedback slug={slug} en={en} />
       </article>
+      <SiteFooter lang={en ? 'en' : 'zh'} />
     </main>
   );
 }

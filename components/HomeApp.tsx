@@ -10,6 +10,7 @@ import GameFeedback from '@/components/GameFeedback';
 import EmailLogin from '@/components/EmailLogin';
 import { HomeTopBar, GameSheet } from '@/components/HomeHub';
 import { DailyCard } from '@/components/Daily';
+import SiteFooter from '@/components/SiteFooter';
 import { LandingHero, LandingDemo, LandingWhy, LandingGames, LandingProof, LandingFaq, LandingFinal } from '@/components/Landing';
 
 export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
@@ -227,6 +228,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
       <LandingProof lang={lang} />
       <LandingFaq lang={lang} />
       <LandingFinal lang={lang} busy={busy && gameMode === 'soup'} onPlay={() => { quickRef.current = true; createRoom('soup'); }} />
+      <SiteFooter lang={lang} />
 
       <GameSheet lang={lang} game={picked} busy={busy} needName={!acctName} name={name} setName={setName}
         onStart={(g) => { createRoom(g); }} onClose={() => setPicked(null)} />

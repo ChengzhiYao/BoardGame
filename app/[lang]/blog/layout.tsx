@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import LangSwitch from '@/components/LangSwitch';
+import SiteFooter from '@/components/SiteFooter';
 
 export default function BlogLayout({ children, params }: { children: ReactNode; params: { lang: string } }) {
   const lang = params.lang === 'en' ? 'en' : 'zh';
@@ -16,7 +17,7 @@ export default function BlogLayout({ children, params }: { children: ReactNode; 
         </nav>
       </header>
       {children}
-      <footer className="max-w-5xl mx-auto px-5 py-10 mt-10 border-t border-eldritch/15 text-xs text-parchment/40">© {new Date().getFullYear()} MystNight 谜夜 · <Link href="/" className="hover:text-parchment">{en ? 'Enter the app' : '进入游戏'}</Link></footer>
+      <SiteFooter lang={lang} />
     </div>
   );
 }

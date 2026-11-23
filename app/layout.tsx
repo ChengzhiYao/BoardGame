@@ -17,7 +17,6 @@ export const metadata: Metadata = {
   keywords: ['谜夜', 'MystNight', 'AI 剧本杀', '在线剧本杀', '双人剧本杀', '克苏鲁跑团', 'COC 跑团', '海龟汤', '真心话大冒险', 'AI 游戏主持', 'AI 主持人', '在线桌游', '两人桌游', 'AI murder mystery', 'online murder mystery', 'AI game master', 'AI tabletop', 'Cthulhu RPG', 'lateral thinking puzzle'],
   authors: [{ name: 'MystNight' }],
   category: 'games',
-  alternates: { canonical: '/' },
   robots: { index: true, follow: true, googleBot: { index: true, follow: true, 'max-image-preview': 'large', 'max-snippet': -1 } },
   appleWebApp: { capable: true, title: 'MystNight', statusBarStyle: 'black-translucent' },
   openGraph: { title: TITLE, description: DESC, siteName: '谜夜 MystNight', type: 'website', url: SITE, locale: 'zh_CN', alternateLocale: ['en_US'] },

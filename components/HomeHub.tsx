@@ -192,7 +192,7 @@ export function GameGrid({ lang, onPick }: { lang: Lang; onPick: (g: GM) => void
               className="group text-left rounded-xl px-3 py-3 sm:px-4 sm:py-3.5 flex items-center gap-3 bg-[#0b0c0f]/65 backdrop-blur-md border border-[#d8c7a8]/[0.12] hover:border-[#c9a96e]/40 transition-colors">
               <span className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center bg-white/[0.04] text-[#d8c7a8]/70 group-hover:text-[#c9a96e]"><Ico k={k} cls="w-5 h-5" /></span>
               <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-1.5"><span className="font-serif text-[15px] sm:text-[17px] font-semibold text-[#ece3cf] truncate">{L(lang, t.short)}</span></span>
+                <span className="flex items-center justify-between gap-1.5"><span className="font-serif text-[15px] sm:text-[17px] font-semibold text-[#ece3cf] truncate">{L(lang, t.short)}</span><span className="shrink-0"><Tag k={k} /></span></span>
                 <span className="block text-[11.5px] text-parchment/45 truncate">{L(lang, t.line)}</span>
               </span>
             </button>
@@ -208,6 +208,7 @@ export function GameGrid({ lang, onPick }: { lang: Lang; onPick: (g: GM) => void
             <button key={k} onClick={() => onPick(k)}
               className="h-9 pl-2.5 pr-3.5 rounded-full flex items-center gap-1.5 text-[13px] text-parchment/65 bg-white/[0.03] border border-white/[0.08] hover:text-[#ece3cf] hover:border-[#c9a96e]/35 transition-colors">
               <Ico k={k} cls="w-4 h-4 text-parchment/45" />{L(lang, TILE[k].short)}
+              <span className={`ml-0.5 text-[10px] ${FREE_MODES.includes(k) ? 'text-[#9fbf9f]/80' : 'text-[#c9a96e]/85'}`}>{FREE_MODES.includes(k) ? (en ? 'FREE' : '免费') : (en ? '✦ PREMIUM' : '✦ 豪华')}</span>
             </button>
           ))}
         </div>

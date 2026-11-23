@@ -7,6 +7,8 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { ShellProps } from './RoomShell';
 import { useTTS } from './useTTS';
+import { Sheet, SheetLabel } from './ui';
+import PosterCard from './PosterCard';
 
 const EN = (l?: string) => l === 'en';
 const ACTS_ZH = ['', '案件开场', '搜证', '人物关系', '关键证据', '推理讨论', '最终指认', '真相揭晓'];
@@ -26,13 +28,14 @@ export default function JbsRoom(props: ShellProps) {
   const [headcount, setHeadcount] = useState(6);
   const [pace, setPace] = useState(9);
   const [now, setNow] = useState(Date.now());
-  const [showRole, setShowRole] = useState(false);
   const [showCustom, setShowCustom] = useState(false);
   const [custom, setCustom] = useState<Record<string, string>>({});
-  const [showCards, setShowCards] = useState(false);
-  const [showClues, setShowClues] = useState(false);
-  const [showRes, setShowRes] = useState(false);
-  const [showObj, setShowObj] = useState(false);
+  const [sheet, setSheet] = useState<null | 'role' | 'clues' | 'cast'>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [playing, setPlaying] = useState<string | null>(null);
+  const [pickVote, setPickVote] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   useTTS({
     lang: props.room.language,
     messages,
@@ -92,7 +95,6 @@ export default function JbsRoom(props: ShellProps) {
   }, [props.room.id, supabase, router]);
 
   useEffect(() => { setMessages((prev) => { const ids = new Set(prev.map((m) => m.id)); const add = props.initialMessages.filter((m) => !ids.has(m.id)); return add.length ? [...prev, ...add] : prev; }); }, [props.initialMessages]);
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
   // 轮询兜底：被邀请的匿名玩家realtime可能被RLS过滤而收不到推送，这里每隔几秒主动拉一次消息与房间阶段，保证两边同步。
   useEffect(() => {
@@ -171,44 +173,31 @@ export default function JbsRoom(props: ShellProps) {
     ? [['', 'Any'], ['推理', 'Murder Mystery'], ['情感', 'Emotional'], ['欢乐', 'Comedy'], ['阵营', 'Faction'], ['恐怖', 'Horror'], ['还原', 'Reconstruction'], ['机制', 'Mechanism/Economy']]
     : [['', '不限'], ['推理', '推理凶案'], ['情感', '情感'], ['欢乐', '欢乐'], ['阵营', '阵营对抗'], ['恐怖', '恐怖'], ['还原', '还原'], ['机制', '机制/经济']];
 
+  const field = 'w-full px-3.5 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-[#efe6d2] text-[14px] placeholder:text-parchment/30 outline-none focus:border-[#c9a96e]/50';
   const customPanel = (
-    <div className="w-full max-w-xl p-4 rounded-lg bg-fog border border-eldritch/30 flex flex-col gap-3 text-left">
-      <p className="text-xs text-parchment/50">{en ? 'Customization only shapes theme, era and mood — it never lets you decide the truth, killer or hidden roles.' : '自定义只影响题材、时代与氛围，不会让你决定真相、凶手或隐藏身份。'}</p>
-      <label className="flex flex-col gap-1 text-sm text-parchment/70">{en ? 'Preferred type' : '本型偏好'}
-        <select value={custom.type || ''} onChange={(e) => setCustom({ ...custom, type: e.target.value })}
-          className="px-2 py-1.5 rounded bg-ink border border-eldritch/30 text-parchment">
-          {TYPE_OPTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </select>
-      </label>
-      <div className="grid grid-cols-2 gap-3">
-        <label className="flex flex-col gap-1 text-sm text-parchment/70">{en ? 'Era' : '时代背景'}
-          <input value={custom.era || ''} onChange={(e) => setCustom({ ...custom, era: e.target.value })}
-            placeholder={en ? 'e.g. Republic era' : '例如：民国'} className="px-3 py-2 rounded bg-ink border border-eldritch/30 text-parchment placeholder:text-parchment/30" />
-        </label>
-        <label className="flex flex-col gap-1 text-sm text-parchment/70">{en ? 'Place' : '场景'}
-          <input value={custom.place || ''} onChange={(e) => setCustom({ ...custom, place: e.target.value })}
-            placeholder={en ? 'e.g. a cruise ship' : '例如：豪华游轮'} className="px-3 py-2 rounded bg-ink border border-eldritch/30 text-parchment placeholder:text-parchment/30" />
-        </label>
+    <div className="space-y-4 text-left">
+      <p className="text-[12.5px] text-parchment/45 leading-relaxed">{en ? 'Only shapes theme, era and mood — never the truth, the killer or hidden roles.' : '只影响题材、时代和氛围，不会让你提前知道真相、凶手或隐藏身份。'}</p>
+      <div>
+        <SheetLabel>{en ? 'TYPE' : '本型'}</SheetLabel>
+        <div className="flex flex-wrap gap-2">{TYPE_OPTS.map(([v, l]) => (
+          <button key={v} onClick={() => setCustom({ ...custom, type: v })} className={`h-9 px-3.5 rounded-full border text-[13px] ${((custom.type || '') === v) ? 'border-[#c9a96e]/70 bg-[#c9a96e]/15 text-[#efe6d2]' : 'border-white/10 text-parchment/60'}`}>{l}</button>
+        ))}</div>
       </div>
-      <label className="flex flex-col gap-1 text-sm text-parchment/70">{en ? 'Your idea / theme' : '你的点子 / 主题'}
-        <textarea value={custom.theme || ''} onChange={(e) => setCustom({ ...custom, theme: e.target.value })} rows={2}
-          placeholder={en ? 'Describe the story you want — characters, setup, twist…' : '描述你想要的故事——人物、设定、反转……'}
-          className="px-3 py-2 rounded bg-ink border border-eldritch/30 text-parchment placeholder:text-parchment/30" />
-      </label>
-      <label className="flex flex-col gap-1 text-sm text-parchment/70">{en ? 'Avoid (forbidden content)' : '避免内容'}
-        <input value={custom.forbidden || ''} onChange={(e) => setCustom({ ...custom, forbidden: e.target.value })}
-          placeholder={en ? 'e.g. nothing too gory' : '例如：不要太血腥'} className="px-3 py-2 rounded bg-ink border border-eldritch/30 text-parchment placeholder:text-parchment/30" />
-      </label>
-      <button onClick={() => genScripts(custom)} disabled={busy || generating}
-        className="self-start px-5 py-2 rounded bg-eldritch/60 hover:bg-eldritch text-parchment text-sm disabled:opacity-50">
-        {busy || generating ? (en ? 'Writing…' : '生成中…') : (en ? 'Generate in this direction' : '按这个方向生成')}
+      <div className="grid grid-cols-2 gap-3">
+        <input value={custom.era || ''} onChange={(e) => setCustom({ ...custom, era: e.target.value })} placeholder={en ? 'Era, e.g. 1930s' : '时代，比如民国'} className={field} />
+        <input value={custom.place || ''} onChange={(e) => setCustom({ ...custom, place: e.target.value })} placeholder={en ? 'Place, e.g. a cruise ship' : '地点，比如豪华游轮'} className={field} />
+      </div>
+      <textarea value={custom.theme || ''} onChange={(e) => setCustom({ ...custom, theme: e.target.value })} rows={3} placeholder={en ? 'The story you want — people, setup, twist…' : '你想要的故事——人物、设定、反转……'} className={field} />
+      <input value={custom.forbidden || ''} onChange={(e) => setCustom({ ...custom, forbidden: e.target.value })} placeholder={en ? 'Avoid, e.g. nothing too gory' : '不想要的，比如别太血腥'} className={field} />
+      <button onClick={() => genScripts(custom)} disabled={busy || generating} className="w-full h-12 rounded-xl bg-[#7d1d1d] border border-[#a83232]/60 text-[#f2ead9] font-serif tracking-[.12em] disabled:opacity-50">
+        {busy || generating ? (en ? 'Writing…' : '正在写…') : (en ? 'Write it this way' : '按这个方向写')}
       </button>
     </div>
   );
   async function startScript(id: string) { await call('/api/jbs/start', { roomId: props.room.id, scriptId: id, actMinutes: pace }); }
   async function act_(content: string) { const c = content.trim(); if (!c) return; setText(''); await call('/api/jbs/act', { roomId: props.room.id, content: c }); if (props.room.companion?.name) fetch('/api/linger/react', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) }).catch(() => {}); }
   async function advance(toVote?: boolean, auto?: boolean) { const r = await call('/api/jbs/advance', { roomId: props.room.id, toVote: !!toVote, auto: !!auto }); if (r) router.refresh(); }
-  async function vote(target: string) { if (!confirm((en ? 'Accuse ' : '指认 ') + target + '?')) return; await call('/api/jbs/vote', { roomId: props.room.id, target }); }
+  async function vote(target: string) { const r = await call('/api/jbs/vote', { roomId: props.room.id, target }); if (r) setPickVote(null); }
   async function settle() { if (!confirm(en ? 'Reveal the ending / settle now?' : '现在揭晓结局 / 结算本局？')) return; await call('/api/jbs/settle', { roomId: props.room.id }); }
   async function genAvatars(force?: boolean, silent?: boolean) {
     const r = silent
@@ -231,109 +220,103 @@ export default function JbsRoom(props: ShellProps) {
   if (props.room.companion?.name && (!phase || phase === 'lobby' || phase === 'script' || phase === 'locking' || phase === 'revealing')) {
     return <CompanionWaiting comp={props.room.companion} en={en} title={en ? `${props.room.companion.name} is picking a script…` : `${props.room.companion.name} 正在挑剧本…`} sub={en ? 'You two will each get a role. Read it carefully — someone is lying.' : '你们每人会拿到一个角色。仔细读你的剧本——有人在说谎。'} />;
   }
-  // ===== 大厅 / 出本 =====
+
+  const customSheet = (
+    <Sheet open={showCustom} onClose={() => setShowCustom(false)} title={en ? 'Write to my taste' : '按我的口味写'}>{customPanel}</Sheet>
+  );
+
+  // ===== 大厅：一个大按钮直接开始，其余收起来 =====
   if (!phase || phase === 'lobby') {
+    const count = props.initialPlayers.length;
+    const Seg = ({ opts, val, set }: { opts: [number, string][]; val: number; set: (n: number) => void }) => (
+      <div className="flex p-1 rounded-xl bg-white/[0.04] border border-white/[0.08]">
+        {opts.map(([v, l]) => <button key={v} onClick={() => set(v)} className={`flex-1 h-8 rounded-lg text-[13px] transition ${val === v ? 'bg-[#c9a96e]/20 text-[#efe6d2]' : 'text-parchment/50'}`}>{l}</button>)}
+      </div>
+    );
     return (
-      <main className="min-h-[100svh] flex flex-col items-center justify-center gap-6 px-6 text-center">
-        <h1 className="text-2xl font-serif text-parchment">{en ? 'Murder Mystery' : '剧本杀'} · {props.room.name}</h1>
-        <p className="text-parchment/60 max-w-md">{en ? '1–2 real players + AI-played characters fill the cast — you can start solo right away. Everyone gets a secret role; investigate, discuss, and finally accuse the killer.' : '1～2 名真人 + AI 扮演其余角色补满人数，一个人也能直接开本。每人一个隐藏身份，搜证、讨论，最后指认真凶。'}</p>
-        <div className="flex flex-col items-center gap-1.5">
-          <span className="text-sm text-parchment/50">{en ? `${props.initialPlayers.length} real player${props.initialPlayers.length > 1 ? 's' : ''} joined · up to 8 (AI fills the rest)` : `已加入 ${props.initialPlayers.length} 名真人 · 最多 8 人（其余 AI 补位）`}{props.initialPlayers.length >= 8 ? (en ? ' · full' : ' · 已满') : (en ? ' · solo-ready' : ' · 单人即可开本')}</span>
-          <div className="flex gap-2 flex-wrap justify-center">
-            {props.initialPlayers.map((p: any) => {
-              const nm = props.initialUsers.find((u: any) => u.id === p.user_id)?.display_name || (en ? 'Player' : '玩家');
-              const mine = p.user_id === props.userId;
-              return <span key={p.id} className={`text-xs px-2.5 py-1 rounded-full border ${mine ? 'bg-blood/25 border-blood/50 text-parchment' : 'bg-fog border-eldritch/30 text-parchment/80'}`}>● {nm} [{p.seat}]{mine ? (en ? ' · you' : ' · 你') : ''}</span>;
-            })}
+      <main className="min-h-[100svh] flex flex-col items-center justify-center px-5 pb-10" style={{ paddingTop: 'calc(max(10px, env(safe-area-inset-top)) + 56px)' }}>
+        <div className="w-full max-w-sm flex flex-col items-center text-center">
+          <div className="text-[10.5px] tracking-[.45em] pl-[.45em] text-[#c0453f]/85">{en ? 'MURDER MYSTERY' : '剧本杀'}</div>
+          <h1 className="mt-3 font-serif font-semibold text-[29px] text-[#efe6d2]">{en ? 'One body. A room of suspects.' : '一具尸体，一屋子嫌疑人'}</h1>
+          <p className="mt-4 font-serif text-[15px] leading-[1.9] text-parchment/75">{en ? <>Everyone gets a secret role; AI plays the rest.<br />Search, question, and name the killer.</> : <>每人拿一份秘密剧本，AI 扮演其余角色。<br />搜证、对质，最后指认真凶。</>}</p>
+          <div className="mt-5 flex items-center gap-2.5 text-[12px] tracking-wider text-parchment/50">
+            <span>{en ? 'Solo is fine' : '一个人也能开本'}</span><span className="w-[3px] h-[3px] rotate-45 bg-[#c9a96e]/60" /><span>{en ? `${count}/8 seated` : `已入座 ${count}/8`}</span>
           </div>
-        </div>
-        <div className="flex flex-col items-center gap-3 w-full max-w-md">
-          <span className="text-sm text-parchment/50">{en ? 'Invite your partner:' : '把链接发给同伴：'}</span>
-          <code className="text-xs px-3 py-2 rounded bg-fog border border-eldritch/30 text-eldritch break-all w-full">{inviteUrl}</code>
-          <button onClick={() => { navigator.clipboard.writeText(inviteUrl); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
-            className="px-4 py-1.5 rounded bg-eldritch/40 hover:bg-eldritch text-parchment text-sm">{copied ? (en ? 'Copied' : '已复制') : (en ? 'Copy invite link' : '复制邀请链接')}</button>
-        </div>
-        {(
-          <div className="flex flex-col items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-parchment/60">{en ? 'Total cast:' : '总人数：'}</span>
-              {[4, 6, 8].map((n) => (
-                <button key={n} onClick={() => setHeadcount(n)}
-                  className={`px-3 py-1.5 rounded border text-sm ${headcount === n ? 'bg-eldritch/60 border-eldritch text-parchment' : 'bg-fog border-eldritch/30 text-parchment/60'}`}>{n}</button>
-              ))}
+          <button onClick={() => genScripts()} disabled={busy || generating} className="mt-8 w-full py-3.5 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] border border-[#a83232]/60 text-[#f2ead9] font-serif font-semibold tracking-[.2em] text-[17px] shadow-[0_10px_40px_-10px_rgba(125,29,29,.7)] disabled:opacity-60">
+            {busy || generating ? (en ? 'Picking scripts…' : '正在挑本……') : count <= 1 ? (en ? 'Begin' : '开始') : (en ? `Begin with ${count}` : `${count} 人开始`)}
+          </button>
+          {count < 8 && (
+            <div className="mt-4 w-full flex items-center gap-2 rounded-xl border border-[#d8c7a8]/[0.13] bg-[#0b0c0f]/60 px-4 py-2.5 text-left">
+              <span className="flex-1 text-[13px] text-parchment/70">{en ? 'Bring friends' : '叫朋友一起'} <span className="text-parchment/35">· {en ? 'AI fills the rest' : '其余 AI 补位'}</span></span>
+              <button onClick={() => { navigator.clipboard.writeText(inviteUrl); setCopied(true); setTimeout(() => setCopied(false), 1500); }} className="shrink-0 text-[13px] text-[#c9a96e] border-b border-[#c9a96e]/40">{copied ? (en ? 'Copied' : '已复制') : (en ? 'Copy link' : '复制链接')}</button>
+              <button onClick={() => { try { (navigator as any).share ? (navigator as any).share({ title: 'MystNight', url: inviteUrl }) : navigator.clipboard.writeText(inviteUrl); } catch {} }} className="shrink-0 ml-2 text-[13px] text-parchment/60">{en ? 'Share' : '分享'}</button>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-parchment/60">{en ? 'Pace / act:' : '每幕时长：'}</span>
-              {[[6, en ? 'Fast' : '快'], [9, en ? 'Normal' : '中'], [13, en ? 'Slow' : '慢']].map(([m, l]) => (
-                <button key={m as number} onClick={() => setPace(m as number)}
-                  className={`px-3 py-1.5 rounded border text-sm ${pace === m ? 'bg-eldritch/60 border-eldritch text-parchment' : 'bg-fog border-eldritch/30 text-parchment/60'}`}>{l}·{m}{en ? 'm' : '分'}</button>
-              ))}
-            </div>
-            <div className="flex items-center gap-3">
-              <button onClick={() => genScripts()} disabled={busy || generating}
-                className="px-6 py-3 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-50">
-                {busy || generating ? (en ? 'Writing scripts…' : '正在出本…') : (en ? 'Generate scripts' : '生成剧本')}
-              </button>
-              <button onClick={() => setShowCustom((v) => !v)} disabled={busy || generating}
-                className="px-4 py-3 rounded bg-fog border border-eldritch/40 text-parchment/80 text-sm hover:bg-eldritch/20 disabled:opacity-50">
-                {en ? 'Custom script' : '自定义剧本'}
-              </button>
-            </div>
-            {showCustom && customPanel}
+          )}
+          <div className="mt-5 flex items-center justify-center gap-5 text-[13px]">
+            <button onClick={() => setShowSettings((v) => !v)} className="text-parchment/50 hover:text-parchment">{en ? 'Cast size & pace' : '人数和节奏'} {showSettings ? '▴' : '▾'}</button>
+            <span className="w-px h-3 bg-parchment/15" />
+            <button onClick={() => setShowCustom(true)} className="text-parchment/50 hover:text-parchment">{en ? 'Write to my taste' : '按我的口味写'}</button>
           </div>
-        )}
+          {showSettings && (
+            <div className="mt-4 w-full space-y-3 text-left nf-in">
+              <div><div className="text-[11px] tracking-[.2em] text-parchment/40 mb-1.5">{en ? 'CAST (INCL. AI)' : '总人数（含 AI）'}</div><Seg opts={[[4, '4'], [6, '6'], [8, '8']]} val={headcount} set={setHeadcount} /></div>
+              <div><div className="text-[11px] tracking-[.2em] text-parchment/40 mb-1.5">{en ? 'EACH ACT' : '每一幕'}</div><Seg opts={[[6, en ? 'Fast · 6m' : '快 · 6 分'], [9, en ? 'Normal · 9m' : '中 · 9 分'], [13, en ? 'Slow · 13m' : '慢 · 13 分']]} val={pace} set={setPace} /></div>
+            </div>
+          )}
+        </div>
+        {customSheet}
       </main>
     );
   }
 
-  // ===== 剧本选择 =====
+  // ===== 选本：海报 =====
   if (phase === 'script') {
     const opts = props.room.jbs_options || [];
+    const listen = (s: any) => {
+      if (playing === s.id) { audioRef.current?.pause(); setPlaying(null); return; }
+      audioRef.current?.pause();
+      const a = new Audio(s.blurb_audio); audioRef.current = a; setPlaying(s.id);
+      a.onended = () => setPlaying(null); a.play().catch(() => setPlaying(null));
+    };
     return (
-      <main className="min-h-[100svh] flex flex-col items-center px-4 py-8 gap-6">
-        <h1 className="text-xl font-serif text-parchment">{en ? 'Choose a script' : '选择剧本'}</h1>
-        {generating && <p className="text-parchment/40 text-sm">{en ? 'Generating…' : '生成中…'}</p>}
-        <div className="grid gap-4 w-full max-w-4xl md:grid-cols-3">
-          {opts.map((s: any) => (
-            <div key={s.id} className="rounded-lg bg-fog border border-eldritch/30 p-4 flex flex-col gap-2">
-              <span className="text-xs px-2 py-0.5 rounded-full bg-eldritch/20 text-eldritch self-start">{s.type}</span>
-              <h2 className="font-serif text-parchment text-lg">{s.title}</h2>
-              <p className="text-parchment/50 text-xs">{s.era} · {s.place} · {s.headcount}{en ? 'P' : '人'} · {s.duration}</p>
-              <p className="text-eldritch/80 text-sm italic">{s.tagline}</p>
-              <p className="text-parchment/70 text-sm leading-relaxed flex-1">{s.hook}</p>
-              <p className="text-parchment/40 text-xs">{en ? 'Difficulty' : '难度'}: {s.difficulty} · {en ? 'Emotion' : '情感'}: {s.emotion}</p>
-              <button onClick={() => startScript(s.id)} disabled={busy}
-                className="mt-1 px-4 py-2 rounded bg-blood/80 hover:bg-blood text-parchment text-sm disabled:opacity-50">{busy ? (en ? 'Opening…' : '开本中…') : (en ? 'Play this' : '选这个')}</button>
-            </div>
+      <main className="min-h-[100svh] flex flex-col gap-5 pb-10" style={{ paddingTop: 'calc(max(10px, env(safe-area-inset-top)) + 60px)' }}>
+        <div className="text-center px-4">
+          <div className="text-[10.5px] tracking-[.4em] text-[#c0453f]/80">{en ? 'PICK A SCRIPT' : '选 一 个 本'}</div>
+          <h1 className="mt-2 font-serif font-semibold text-[25px] sm:text-[30px] text-[#efe6d2]">{en ? 'Which story tonight?' : '今晚，演哪一出？'}</h1>
+          <p className="mt-1.5 text-[12.5px] text-parchment/45">{generating ? (en ? 'Writing…' : '正在写……') : (en ? 'Swipe to compare' : '左右滑动看看')}</p>
+        </div>
+        <div className="flex gap-3.5 overflow-x-auto snap-x snap-mandatory px-[9vw] sm:px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:justify-center sm:flex-wrap sm:overflow-visible">
+          {opts.map((s: any, k: number) => (
+            <PosterCard key={s.id} index={k} total={opts.length} en={en}
+              m={{ ...s, genre: `${s.type || ''} ${s.genre || ''}`, duration: [s.headcount ? (en ? `${s.headcount} roles` : `${s.headcount} 人本`) : '', s.duration].filter(Boolean).join(' · '), from_library: s.from_library }}
+              footer={
+                <div className="flex items-center gap-2.5">
+                  {s.blurb_audio && (
+                    <button onClick={() => listen(s)} className="shrink-0 h-11 px-4 rounded-xl border border-white/20 bg-black/20 text-[13px] text-white/85">{playing === s.id ? (en ? 'Stop' : '停') : (en ? 'Listen' : '听')}</button>
+                  )}
+                  <button onClick={() => { audioRef.current?.pause(); startScript(s.id); }} disabled={busy} className="flex-1 h-11 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] border border-[#a83232]/60 text-[#f2ead9] font-serif tracking-[.12em] disabled:opacity-50">{busy ? '…' : (en ? 'This one' : '就这个')}</button>
+                </div>
+              } />
           ))}
         </div>
-        {(
-          <div className="flex flex-col items-center gap-3">
-            <div className="flex items-center gap-4">
-              <button onClick={() => genScripts()} disabled={busy || generating} className="text-parchment/40 text-sm underline">{en ? 'Reroll scripts' : '换一批'}</button>
-              <button onClick={() => setShowCustom((v) => !v)} disabled={busy || generating} className="text-eldritch/80 text-sm underline">{en ? 'Custom script' : '自定义剧本'}</button>
-            </div>
-            {showCustom && customPanel}
-          </div>
-        )}
+        <div className="flex items-center justify-center gap-5 text-[13px]">
+          <button onClick={() => genScripts()} disabled={busy || generating} className="text-parchment/55 hover:text-parchment disabled:opacity-50">{en ? '↻ Three more' : '↻ 换一批'}</button>
+          <span className="w-px h-3 bg-parchment/15" />
+          <button onClick={() => setShowCustom(true)} disabled={busy || generating} className="text-parchment/55 hover:text-parchment disabled:opacity-50">{en ? 'Write to my taste' : '按我的口味写'}</button>
+        </div>
+        {customSheet}
       </main>
     );
   }
 
-  // ===== 生成中 =====
+  // ===== 布置中 / 揭晓中 =====
   if (phase === 'locking' || phase === 'revealing') {
-    return (
-      <main className="min-h-[100svh] flex flex-col items-center justify-center gap-4 text-center px-6">
-        <div className="w-8 h-8 border-2 border-eldritch/30 border-t-eldritch rounded-full animate-spin" />
-        <p className="text-parchment/70">{phase === 'locking' ? (en ? 'Building the case & casting roles…' : '正在编排案件、分配角色……') : (en ? 'Tallying votes & revealing the truth…' : '正在统计投票、揭晓真相……')}</p>
-      </main>
-    );
+    return <Staging en={en} revealing={phase === 'revealing'} />;
   }
 
   // ===== 游戏中 / 投票 / 揭晓 =====
   const voting = phase === 'vote';
   const ended = phase === 'reveal' || props.room.game_state === 'ended';
-  // 候选人：优先用角色表；为空则从公开名册消息里兜底解析名字，避免投票界面没按钮卡死。
   const rosterMsg = messages.find((m) => m.payload?.type === 'jbs_roster');
   const rosterNames = rosterMsg
     ? String(rosterMsg.content).split('\n').filter((l) => /^[·•]/.test(l.trim())).map((l) => l.trim().replace(/^[·•]\s*/, '').split(/[（(]/)[0].trim()).filter(Boolean)
@@ -345,215 +328,397 @@ export default function JbsRoom(props: ShellProps) {
   })();
   const candList: any[] = chars.length ? chars : rosterNames.map((n) => ({ name: n, is_ai: false }));
   const candidates = candList.filter((c: any) => c.name && c.name !== myName);
-  const showAccuseBtn = act >= Math.ceil(totalActs / 2); // 过半幕后才允许提前进入最终指认/结算
+  const showAccuseBtn = act >= Math.ceil(totalActs / 2);
   const jbsType = (props.room.jbs_type as string) || '推理';
-  const accuse = ['推理', '恐怖', '阵营'].includes(jbsType); // 指认型本才有「最终指认」；其余本由房主点「结局揭晓/结算」
-  const endLabel = jbsType === '机制' ? (en ? 'Settle & rank ▶' : '结算排名 ▶') : jbsType === '欢乐' ? (en ? 'Reveal & score ▶' : '揭晓评分 ▶') : (en ? 'Reveal ending ▶' : '揭晓结局 ▶');
+  const accuse = ['推理', '恐怖', '阵营'].includes(jbsType);
+  const endLabel = jbsType === '机制' ? (en ? 'Settle & rank' : '结算排名') : jbsType === '欢乐' ? (en ? 'Reveal & score' : '揭晓评分') : (en ? 'Reveal the ending' : '揭晓结局');
+  const avatarOf = (name?: string) => chars.find((c: any) => c.name === name)?.avatar_url;
+  const tasksDone = objectives.filter((o: any) => o.status === 'done').length;
+  const actPct = actStart ? Math.max(0, Math.min(1, remainMs / (actMin * 60000))) : 0;
+  function send() { if (!text.trim() || busy) return; act_(text); }
 
   return (
-    <main className="h-[100svh] flex flex-col overflow-hidden">
-      <header className="mn-header px-4 py-2.5 border-b border-eldritch/20 flex items-center justify-between gap-2">
-        <span className="font-serif text-parchment text-sm truncate">{en ? 'Murder Mystery' : '剧本杀'} · {props.room.name}</span>
-        <div className="flex items-center gap-2 shrink-0">
-          {!ended && <span className="text-xs text-eldritch/80">{en ? `Act ${act}/${totalActs}${actName ? ' · ' + actName : ''}` : `第${act}/${totalActs}幕${actName ? ' · ' + actName : ''}`}</span>}
-          {!ended && phase === 'playing' && actStart > 0 && <span className={`text-xs tabular-nums ${remainMs < 60000 ? 'text-blood' : 'text-parchment/50'}`}>⏱ {mmss}</span>}
-          {chars.length > 0 && <button onClick={() => setShowCards((v) => !v)} className="text-xs px-2 py-1 rounded bg-eldritch/30 text-parchment">{en ? 'Cast' : '角色卡'}</button>}
-          {clueList.length > 0 && <button onClick={() => setShowClues((v) => !v)} className="text-xs px-2 py-1 rounded bg-amber-600/30 text-parchment">{en ? `Clues ${clueList.length}` : `线索 ${clueList.length}`}</button>}
-          {resources.length > 0 && <button onClick={() => setShowRes((v) => !v)} className="text-xs px-2 py-1 rounded bg-eldritch/30 text-parchment">{en ? 'Resources' : '资源'}</button>}
-          {objectives.length > 0 && <button onClick={() => setShowObj((v) => !v)} className="text-xs px-2 py-1 rounded bg-blood/30 text-parchment">🎯 {en ? `Tasks ${objectives.filter((o: any) => o.status === 'done').length}/${objectives.length}` : `任务 ${objectives.filter((o: any) => o.status === 'done').length}/${objectives.length}`}</button>}
-          {myChar && <button onClick={() => setShowRole((v) => !v)} className="text-xs px-2 py-1 rounded bg-eldritch/30 text-parchment">{en ? 'My role' : '我的角色'}</button>}
-        </div>
-      </header>
+    <JbsPlay
+      {...{ en, messages, busy, ended, voting, isHost, act, totalActs, actName, mmss, remainMs, actPct, showTimer: !ended && phase === 'playing' && actStart > 0,
+        myChar, myName, tasksDone, objectives, clueList, chars, resources, candidates, accuse, endLabel, showAccuseBtn, keyFound, jbsType, roleMsgs,
+        text, setText, send, sheet, setSheet, pickVote, setPickVote, vote, advance, settle, replay, resetting, genAvatars, avatarOf, speakerOf, inputRef,
+        myPlayerId: props.myPlayerId, bottomRef }} />
+  );
+}
 
-      {showClues && (
-        <div className="px-4 py-3 bg-amber-950/20 border-b border-amber-700/30 max-w-3xl w-full mx-auto space-y-1.5">
-          <div className="text-xs text-amber-300/70 mb-1">{en ? 'Clues you have found' : '你已掌握的线索'}</div>
-          {clueList.map((m) => (
-            <div key={m.id} className="text-sm text-parchment/85 leading-snug">{m.payload?.type === 'private' ? '🔒 ' : '🔍 '}{m.content.replace(/^🔍\s*/, '')}</div>
-          ))}
-        </div>
-      )}
-
-      {showObj && objectives.length > 0 && (
-        <div className="px-4 py-3 bg-blood/10 border-b border-blood/30 max-w-3xl w-full mx-auto space-y-1.5">
-          <div className="text-xs text-blood/80 mb-1">{en ? 'Your private tasks (only you see these · the DM judges them)' : '你的私人任务（仅你可见 · 由 DM 裁定，不认空口）'}</div>
-          {objectives.map((o: any, i: number) => {
-            const ic = o.status === 'done' ? '✅' : o.status === 'failed' ? '❌' : o.status === 'progress' ? '🟡' : '⬜';
-            const kc = o.kind === 'faction' ? (en ? 'Faction' : '阵营') : o.kind === 'goal' ? (en ? 'Goal' : '目标') : (en ? 'Task' : '任务');
-            return <div key={i} className="text-sm text-parchment/85 leading-snug">{ic} <span className="text-[10px] text-parchment/40">[{kc}]</span> {o.text}{o.note ? <span className="text-parchment/45 text-[11px]"> —— {o.note}</span> : ''}</div>;
-          })}
-          <div className="text-[11px] text-parchment/40 pt-1">{en ? 'Act it out in the story — sneak, seize, persuade… the DM rules success or failure based on the fiction and opposition.' : '在剧情里实际去做（潜入、夺取、说服…），DM 会按你的手段与现场阻力裁定成败，不是你说成功就成功。'}</div>
-        </div>
-      )}
-
-      {showRes && (
-        <div className="px-4 py-3 bg-ink/60 border-b border-eldritch/20 max-w-3xl w-full mx-auto">
-          <div className="text-xs text-parchment/50 mb-2">{en ? 'Resource standings (mechanism)' : '资源/分数（机制本）'}</div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {resources.map((r: any, i: number) => (
-              <div key={i} className="rounded bg-fog border border-eldritch/30 p-2">
-                <div className="text-parchment text-sm truncate">{r.name}</div>
-                <div className="text-parchment/60 text-[11px] space-y-0.5 mt-1">
-                  {(r.items || []).map((it: any, j: number) => <div key={j} className="flex justify-between gap-2"><span className="truncate">{it.label}</span><span className="text-eldritch shrink-0">{it.value}</span></div>)}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {showCards && (
-        <div className="px-4 py-3 bg-ink/60 border-b border-eldritch/20 max-w-3xl w-full mx-auto">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {chars.map((c: any) => {
-              const isMe = c.assigned_seat && c.assigned_seat === props.mySeat;
-              return (
-                <div key={c.name} className={`rounded-lg border p-2 flex gap-2 items-start ${isMe ? 'bg-blood/15 border-blood/50' : 'bg-fog border-eldritch/30'}`}>
-                  <div className="w-12 h-12 rounded overflow-hidden bg-ink border border-eldritch/30 shrink-0 flex items-center justify-center">
-                    {c.avatar_url ? <img src={c.avatar_url} alt={c.name} className="w-full h-full object-cover" /> : <span className="text-parchment/30 text-lg">{(c.name || '?').slice(0, 1)}</span>}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-parchment text-sm truncate">{c.name}{c.assigned_seat ? ` [${c.assigned_seat}]` : (en ? ' ·AI' : ' ·AI')}</div>
-                    <div className="text-parchment/50 text-[11px] truncate">{[c.age, c.occupation].filter(Boolean).join(' · ')}</div>
-                    <div className="text-parchment/60 text-[11px] leading-snug line-clamp-3">{c.public_info}</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          {isHost && (
-            <button onClick={() => genAvatars(!chars.some((c: any) => !c.avatar_url))} disabled={busy}
-              className="mt-3 px-4 py-1.5 rounded bg-eldritch/50 hover:bg-eldritch text-parchment text-xs disabled:opacity-50">
-              {busy ? (en ? 'Drawing portraits…' : '正在生成头像…') : chars.some((c: any) => !c.avatar_url) ? (en ? '🎨 Generate cast portraits' : '🎨 生成角色头像') : (en ? '↻ Redraw portraits' : '↻ 重新生成头像')}
-            </button>
-          )}
-        </div>
-      )}
-
-      {showRole && (
-        <div className="px-4 py-3 bg-blood/10 border-b border-blood/30 max-w-3xl w-full mx-auto text-sm text-parchment/85 whitespace-pre-line">
-          {roleMsgs.length ? roleMsgs.map((m) => <div key={m.id} className="mb-2">{m.content}</div>) : (en ? 'Your secret role is private to you.' : '你的隐藏身份只有你能看到。')}
-        </div>
-      )}
-
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-3 max-w-3xl w-full mx-auto">
-        {messages.map((m) => <JbsMsg key={m.id} m={m} en={en} mine={m.sender_player_id === props.myPlayerId} who={speakerOf(m)} />)}
-        {busy && <div className="text-center text-parchment/40 italic text-sm">{en ? 'The host is narrating…' : '主持人推进中……'}</div>}
-        <div ref={bottomRef} />
+// ───────── 布置案件时的等待画面 ─────────
+function Staging({ en, revealing }: { en: boolean; revealing: boolean }) {
+  const lines = revealing
+    ? (en ? ['Counting the votes…', 'Opening the sealed envelope…', 'The truth is coming…'] : ['正在清点每一票……', '正在拆开封好的真相……', '真相马上揭晓……'])
+    : (en ? ['Setting the scene of the crime…', 'Writing everyone’s secrets…', 'Hiding the clues…', 'Handing out the scripts…'] : ['正在布置案发现场……', '正在给每个人写秘密……', '正在把线索藏好……', '正在分发剧本……']);
+  const [i, setI] = useState(0);
+  useEffect(() => { const id = setInterval(() => setI((x) => (x + 1) % lines.length), 2600); return () => clearInterval(id); }, [lines.length]);
+  return (
+    <main className="min-h-[100svh] flex flex-col items-center justify-center gap-6 text-center px-6">
+      <div className="relative w-14 h-14">
+        <span className="absolute inset-0 rounded-full border border-[#c0453f]/25" />
+        <span className="absolute inset-0 rounded-full border-2 border-transparent border-t-[#c0453f] animate-spin" />
+        <span className="absolute inset-[22px] rounded-full bg-[#c0453f]/70 animate-pulse" />
       </div>
-
-      {ended ? (
-        <div className="border-t border-blood/40 px-4 py-3 flex flex-col items-center gap-2 max-w-3xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
-          <span className="text-parchment/70 text-sm">{en ? 'The case is closed.' : '本局结束。'}</span>
-          {isHost && (
-            <button onClick={replay} disabled={resetting}
-              className="px-5 py-2 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood text-sm disabled:opacity-50">
-              {resetting ? (en ? 'Resetting…' : '重置中…') : (en ? '↻ Play again (new script)' : '↻ 再来一局（换新本）')}
-            </button>
-          )}
-        </div>
-      ) : voting ? (
-        <div className="mn-composer border-t border-eldritch/20 px-4 py-3 max-w-3xl w-full mx-auto space-y-2" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
-          <p className="text-center text-parchment/70 text-sm">{jbsType === '阵营' ? (en ? 'Final vote — cast your ballot' : '最终票决 —— 投出你的一票') : (en ? 'Final accusation — who is the culprit?' : '最终指认 —— 谁是真凶？')}</p>
-          <div className="flex flex-wrap justify-center gap-2">
-            {candidates.map((c: any) => (
-              <button key={c.name} onClick={() => vote(c.name)} disabled={busy}
-                className="px-3 py-1.5 rounded bg-blood/30 hover:bg-blood/60 border border-blood/50 text-parchment text-sm disabled:opacity-50">
-                {c.name}{c.is_ai ? '' : ' ·' + (en ? 'player' : '真人')}
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div className="mn-composer border-t border-eldritch/20 px-4 py-3 flex flex-col gap-2 max-w-3xl w-full mx-auto" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
-          <div className="flex gap-2">
-            <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && act_(text)}
-              placeholder={en ? 'Investigate, question, accuse, speak…' : '搜证、询问、对质、发言…'} disabled={busy}
-              className="flex-1 min-w-0 px-4 py-2 rounded bg-fog border border-eldritch/30 text-parchment placeholder:text-parchment/30 outline-none focus:border-eldritch disabled:opacity-50" /> <MicButton value={text} onChange={setText} en={en} compact={false} />
-            <button onClick={() => act_(text)} disabled={busy} className="px-5 py-2 rounded bg-eldritch/60 hover:bg-eldritch text-parchment disabled:opacity-50 shrink-0">{en ? 'Act' : '行动'}</button>
-          </div>
-          {isHost && (
-            <div className="flex items-center justify-center gap-3 text-xs">
-              <button onClick={() => advance(false)} disabled={busy || !keyFound} title={!keyFound ? (en ? 'Find this act’s key clue first (or wait for the timer)' : '先找到本幕关键线索（或等倒计时）') : ''} className="px-3 py-1.5 rounded bg-fog border border-eldritch/40 text-parchment/80 hover:bg-eldritch/20 disabled:opacity-40">{keyFound ? (en ? 'Next act ▶' : '进入下一幕 ▶') : (en ? '🔒 Find key clue' : '🔒 需关键线索')}</button>
-              {showAccuseBtn && (accuse
-                ? <button onClick={() => advance(true)} disabled={busy} className="px-3 py-1.5 rounded bg-blood/40 border border-blood/50 text-parchment/90 hover:bg-blood/60 disabled:opacity-40">{en ? 'Go to accusation ⚖' : '进入最终指认 ⚖'}</button>
-                : <button onClick={settle} disabled={busy} className="px-3 py-1.5 rounded bg-eldritch/40 border border-eldritch/50 text-parchment/90 hover:bg-eldritch/60 disabled:opacity-40">{endLabel}</button>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+      <p key={i} className="font-serif text-[16px] text-[#efe6d2]/80 nf-in">{lines[i]}</p>
+      {!revealing && <p className="text-[12.5px] text-parchment/40 max-w-xs leading-relaxed">{en ? 'Tip: read your script carefully when it arrives — someone at this table is lying.' : '小提示：剧本到手后先仔细读——这张桌上，有人在说谎。'}</p>}
     </main>
   );
 }
 
-function JbsMsg({ m, en, mine, who }: { m: any; en: boolean; mine: boolean; who?: string }) {
-  const type = m.payload?.type;
-  if (type === 'jbs_roster') {
-    return <div className="mx-auto max-w-2xl rounded-lg bg-eldritch/10 border border-eldritch/40 px-4 py-3 text-parchment/85 leading-relaxed whitespace-pre-line text-sm">{m.content}</div>;
-  }
-  if (type === 'jbs_reveal') {
-    return <Narration text={m.content} lang={en ? 'en' : 'zh'} fresh={fresh(m)} tone="reveal" label={en ? 'The truth' : '真相'} collapse={false} />;
-  }
-  if (type === 'jbs_score') {
-    const scores = m.payload?.scores || [];
-    return (
-      <div className="mx-auto max-w-2xl rounded-lg bg-eldritch/10 border border-eldritch/40 px-4 py-3">
-        <div className="text-eldritch text-sm mb-2">{en ? 'Player scorecard' : '玩家评分'}</div>
-        <div className="space-y-3">
-          {scores.map((s: any, i: number) => (
-            <div key={i} className="rounded bg-fog/60 border border-eldritch/20 p-3">
-              <div className="flex items-center justify-between">
-                <span className="text-parchment text-sm">{s.name}{s.seat ? ` [${s.seat}]` : ''}</span>
-                <span className="text-eldritch font-serif">{s.total}<span className="text-parchment/40 text-xs">/100</span></span>
+// ───────── 游戏主界面 ─────────
+function JbsPlay(p: any) {
+  const { en, messages, busy, ended, voting, isHost, chars, sheet, setSheet } = p;
+  const scrollRef = useRef<HTMLElement>(null);
+  const nearBottom = useRef(true);
+  const lastId = useRef<string | null>(null);
+  const [newBelow, setNewBelow] = useState(false);
+  useEffect(() => {
+    const last = messages[messages.length - 1];
+    const first = lastId.current === null;
+    const isNew = !!last && last.id !== lastId.current;
+    lastId.current = last?.id || null;
+    if (first) { p.bottomRef.current?.scrollIntoView(); return; }
+    if (!isNew) return;
+    if (!nearBottom.current && last.sender_player_id !== p.myPlayerId) { setNewBelow(true); return; }
+    const t = last.payload?.type;
+    if (t === 'jbs_dm' || t === 'jbs_act' || t === 'jbs_reveal') document.getElementById('j-' + last.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    else p.bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, p.myPlayerId, p.bottomRef]);
+  useEffect(() => { const el = p.inputRef.current; if (!el) return; el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 112) + 'px'; }, [p.text, p.inputRef]);
+
+  const clueN = p.clueList.length;
+  const hasRole = p.roleMsgs.length > 0;
+
+  return (
+    <main className="relative h-[100svh] flex flex-col overflow-hidden">
+      <div aria-hidden className="fixed inset-0 -z-[5] pointer-events-none bg-[radial-gradient(120%_80%_at_50%_20%,rgba(60,14,14,.35),rgba(11,12,15,.92))]" />
+
+      {/* 顶部：我是谁 · 第几幕 · 剩多久 · 剧本 · 线索 */}
+      <header className="shrink-0 px-3" style={{ paddingTop: 'calc(max(10px, env(safe-area-inset-top)) + 50px)' }}>
+        <div className="mx-auto max-w-2xl flex items-center gap-2.5 h-14 px-2.5 rounded-2xl bg-[#0e0f13]/75 backdrop-blur-md border border-white/[0.07]">
+          <button onClick={() => setSheet('cast')} className="flex items-center gap-2.5 min-w-0 flex-1 text-left">
+            <Face src={p.myChar?.avatar_url} name={p.myName} size={38} ring={p.showTimer ? p.actPct : undefined} urgent={p.remainMs < 60000} />
+            <span className="min-w-0">
+              <span className="block text-[13.5px] text-[#efe6d2] font-serif truncate leading-tight">{p.myName || (en ? 'You' : '你')}</span>
+              <span className="flex mt-0.5 text-[11.5px] text-parchment/50 min-w-0"><span className="truncate">
+                {ended ? (en ? 'Case closed' : '本局结束') : voting ? (en ? 'Final accusation' : '最终指认') : (en ? `Act ${p.act}/${p.totalActs}` : `第 ${p.act}/${p.totalActs} 幕`) + (p.actName && !voting && !ended ? ` · ${p.actName}` : '')}
+                </span>{p.showTimer && <span className={`shrink-0 ml-1.5 tabular-nums ${p.remainMs < 60000 ? 'text-[#e06060]' : 'text-parchment/60'}`}>{p.mmss}</span>}
+              </span>
+            </span>
+          </button>
+          <button onClick={() => setSheet('role')} className="relative h-10 px-3 rounded-xl bg-[#7d1d1d]/25 border border-[#a83232]/35 flex items-center gap-1.5 text-[12.5px] text-[#f2d6d6]">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5zM4 20.5A2.5 2.5 0 0 1 6.5 18H20" /></svg>
+            {en ? 'Script' : '剧本'}
+            {p.objectives.length > 0 && <span className="text-[10.5px] text-[#f2d6d6]/60 tabular-nums">{p.tasksDone}/{p.objectives.length}</span>}
+          </button>
+          <button onClick={() => setSheet('clues')} className="relative h-10 px-3 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center gap-1.5 text-[12.5px] text-[#d8c7a8]">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="6.5" /><path d="M20 20l-4.2-4.2" /></svg>
+            <span className={`min-w-[18px] h-[18px] px-1 rounded-full text-[10.5px] flex items-center justify-center ${clueN ? 'bg-[#c9a96e] text-[#14110b]' : 'bg-white/10 text-parchment/50'}`}>{clueN}</span>
+          </button>
+        </div>
+      </header>
+
+      {/* 剧情 */}
+      <section ref={scrollRef as any} onScroll={(e) => { const el = e.currentTarget; nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 160; if (nearBottom.current && newBelow) setNewBelow(false); }} className="flex-1 min-h-0 overflow-y-auto mn-fade-top">
+        <div className="mx-auto max-w-2xl px-4 pt-5 pb-6 space-y-4">
+          {messages.map((m: any) => (
+            <div key={m.id} id={'j-' + m.id} className="scroll-mt-4">
+              <Msg m={m} en={en} mine={m.sender_player_id === p.myPlayerId} who={p.speakerOf(m)} avatarOf={p.avatarOf} chars={chars} onOpen={setSheet} />
+            </div>
+          ))}
+          {busy && !voting && (
+            <div className="flex items-center justify-center gap-2.5 py-3 text-[12.5px] tracking-[.18em] text-[#c9a96e]/75">
+              <span className="flex gap-1">{[0, 1, 2].map((i) => <span key={i} className="w-1.5 h-1.5 rounded-full bg-[#c9a96e]/80 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</span>
+              {en ? 'The host is responding' : '主持人正在回应'}
+            </div>
+          )}
+          <div ref={p.bottomRef} className="h-1" />
+        </div>
+      </section>
+
+      {newBelow && (
+        <button onClick={() => { setNewBelow(false); const last = messages[messages.length - 1]; (last && document.getElementById('j-' + last.id) || p.bottomRef.current)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
+          className="mn-fadein absolute left-1/2 -translate-x-1/2 z-[40] h-9 px-4 rounded-full bg-[#17140d]/95 border border-[#c9a96e]/40 text-[12.5px] text-[#efe6d2] shadow-[0_8px_30px_rgba(0,0,0,.6)]" style={{ bottom: 'calc(max(12px, env(safe-area-inset-bottom)) + 120px)' }}>
+          {en ? 'New ↓' : '有新进展 ↓'}
+        </button>
+      )}
+
+      {/* 底部 */}
+      <footer className="shrink-0 px-3 pt-2 bg-gradient-to-t from-[#0b0c0f] via-[#0b0c0f]/95 to-[#0b0c0f]/0" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
+        <div className="mx-auto max-w-2xl space-y-2">
+          {ended ? (
+            <div className="rounded-2xl border border-white/10 bg-[#111216]/90 px-4 py-4 text-center">
+              <div className="font-serif text-[16px] text-[#efe6d2]">{en ? 'The case is closed.' : '本案已结。'}</div>
+              <div className="mt-3 flex gap-2.5">
+                <a href="/play" className="flex-1 h-11 rounded-xl border border-white/12 text-[14px] text-parchment/75 flex items-center justify-center">{en ? 'Back to hall' : '回到大厅'}</a>
+                {isHost && <button onClick={p.replay} disabled={p.resetting} className="flex-1 h-11 rounded-xl bg-[#7d1d1d] border border-[#a83232]/60 text-[#f2ead9] text-[14px] disabled:opacity-50">{p.resetting ? '…' : (en ? 'New script' : '再来一本')}</button>}
               </div>
-              <div className="mt-2 space-y-1">
-                {(s.metrics || []).map((mt: any, j: number) => (
-                  <div key={j} className="flex items-center gap-2">
-                    <span className="text-parchment/60 text-[11px] w-20 shrink-0 truncate">{mt.label}</span>
-                    <div className="flex-1 h-1.5 rounded bg-ink overflow-hidden"><div className="h-full bg-eldritch/70" style={{ width: `${Math.max(0, Math.min(100, mt.score))}%` }} /></div>
-                    <span className="text-parchment/70 text-[11px] w-7 text-right">{mt.score}</span>
+            </div>
+          ) : voting ? (
+            <div className="rounded-2xl border border-[#a83232]/35 bg-[#160c0c]/90 backdrop-blur px-3.5 pt-3.5 pb-3">
+              <div className="text-center font-serif text-[16px] text-[#f2d6d6]">{p.jbsType === '阵营' ? (en ? 'Cast your vote' : '投出你的一票') : (en ? 'Who did it?' : '谁是真凶？')}</div>
+              <div className="mt-3 grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-[34svh] overflow-y-auto">
+                {p.candidates.map((c: any) => {
+                  const on = p.pickVote === c.name;
+                  return (
+                    <button key={c.name} onClick={() => p.setPickVote(on ? null : c.name)} className={`rounded-xl p-2 flex flex-col items-center gap-1.5 border transition ${on ? 'border-[#e05a4a] bg-[#e05a4a]/15' : 'border-white/10 bg-white/[0.03]'}`}>
+                      <Face src={c.avatar_url} name={c.name} size={48} />
+                      <span className="text-[12.5px] text-[#efe6d2]/90 truncate max-w-full">{c.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <button onClick={() => p.pickVote && p.vote(p.pickVote)} disabled={!p.pickVote || busy} className="mt-3 w-full h-12 rounded-xl bg-[#7d1d1d] border border-[#a83232]/60 text-[#f2ead9] font-serif tracking-[.12em] disabled:opacity-40">
+                {p.pickVote ? (en ? `Accuse ${p.pickVote}` : `指认 ${p.pickVote}`) : (en ? 'Tap a suspect' : '点一个人')}
+              </button>
+            </div>
+          ) : (
+            <>
+              {isHost && (
+                <div className="flex items-center gap-2 px-1 text-[12px]">
+                  <span className="text-parchment/35 shrink-0">{en ? 'Host' : '主持'}</span>
+                  <span className="flex-1 truncate text-parchment/35">{p.keyFound ? '' : (en ? '· next act unlocks with the key clue or the timer' : '· 找到本幕关键线索或时间到，就能进下一幕')}</span>
+                  <button onClick={() => p.advance(false)} disabled={busy || !p.keyFound} className="shrink-0 h-8 px-3 rounded-full border border-white/12 text-parchment/75 disabled:opacity-35">{en ? 'Next act ›' : '下一幕 ›'}</button>
+                  {p.showAccuseBtn && (p.accuse
+                    ? <button onClick={() => p.advance(true)} disabled={busy} className="shrink-0 h-8 px-3 rounded-full border border-[#a83232]/50 bg-[#7d1d1d]/30 text-[#f2d6d6] disabled:opacity-40">{en ? 'Accuse ›' : '去指认 ›'}</button>
+                    : <button onClick={p.settle} disabled={busy} className="shrink-0 h-8 px-3 rounded-full border border-[#c9a96e]/40 text-[#e8d7b0] disabled:opacity-40">{p.endLabel}</button>)}
+                </div>
+              )}
+              <div className="flex items-end gap-2">
+                <div className="flex-1 min-w-0 flex items-end rounded-2xl border border-white/[0.12] focus-within:border-[#c9a96e]/50 bg-[#0f1014]/90 backdrop-blur pl-4 pr-1.5 py-1.5">
+                  <textarea ref={p.inputRef} rows={1} value={p.text} onChange={(e) => p.setText(e.target.value)} style={{ resize: 'none' }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !(e.nativeEvent as any).isComposing) { e.preventDefault(); p.send(); } }}
+                    placeholder={en ? 'Search, ask, accuse…' : '搜证、问人、说推理……'} disabled={busy}
+                    className="flex-1 min-w-0 bg-transparent py-[7px] text-[15px] leading-[22px] text-[#efe6d2] placeholder:text-parchment/35 outline-none disabled:opacity-50" />
+                  <MicButton value={p.text} onChange={p.setText} en={en} compact />
+                </div>
+                <button onClick={p.send} disabled={!p.text.trim() || busy} aria-label={en ? 'Send' : '发送'} className="shrink-0 h-12 w-12 rounded-2xl bg-[#7d1d1d] border border-[#a83232]/60 text-[#f2ead9] flex items-center justify-center disabled:opacity-35">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5.5 11.5L12 5l6.5 6.5" /></svg>
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </footer>
+
+      {/* 我的剧本 */}
+      <Sheet open={sheet === 'role'} onClose={() => setSheet(null)} title={en ? 'My script' : '我的剧本'}>
+        <div className="space-y-6">
+          {p.myName && (
+            <div className="flex items-center gap-3">
+              <Face src={p.myChar?.avatar_url} name={p.myName} size={56} />
+              <div><div className="font-serif text-[18px] text-[#efe6d2]">{p.myName}</div><div className="text-[12.5px] text-parchment/45">{[p.myChar?.age, p.myChar?.occupation].filter(Boolean).join(' · ')}</div></div>
+            </div>
+          )}
+          <div>
+            <SheetLabel>{en ? 'ONLY YOU CAN READ THIS' : '只有你能看'}</SheetLabel>
+            {hasRole ? p.roleMsgs.map((m: any) => <div key={m.id} className="font-serif text-[15px] leading-[1.9] text-[#efe6d2]/88 whitespace-pre-line">{m.content}</div>) : <p className="text-[13px] text-parchment/40">{en ? 'Your script will appear here.' : '你的剧本会出现在这里。'}</p>}
+          </div>
+          {p.objectives.length > 0 && (
+            <div>
+              <SheetLabel>{en ? 'YOUR SECRET TASKS' : '你的秘密任务'}</SheetLabel>
+              <div className="space-y-2">
+                {p.objectives.map((o: any, i: number) => {
+                  const st = o.status;
+                  const c = st === 'done' ? '#6fcf8e' : st === 'failed' ? '#e06060' : st === 'progress' ? '#e3b66a' : 'rgba(216,199,168,.35)';
+                  return (
+                    <div key={i} className="flex gap-3 rounded-xl border border-white/[0.07] bg-white/[0.025] px-3.5 py-3">
+                      <span className="mt-1 w-2.5 h-2.5 rounded-full shrink-0" style={{ background: c }} />
+                      <div className="min-w-0">
+                        <div className={`text-[14px] leading-relaxed ${st === 'done' ? 'text-parchment/50 line-through' : 'text-[#efe6d2]/90'}`}>{o.text}</div>
+                        {o.note && <div className="text-[12px] text-parchment/45 mt-0.5">{o.note}</div>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="mt-2.5 text-[12px] text-parchment/35 leading-relaxed">{en ? 'Do it in the story — sneak, persuade, take. The host decides whether it works.' : '要在剧情里真的去做——潜入、说服、拿走……成不成由主持人判定，嘴上说不算。'}</p>
+            </div>
+          )}
+        </div>
+      </Sheet>
+
+      {/* 线索 */}
+      <Sheet open={sheet === 'clues'} onClose={() => setSheet(null)} title={en ? 'Clues' : '线索'}>
+        <div className="space-y-2.5">
+          {p.clueList.length === 0 && <p className="text-[13px] text-parchment/40">{en ? 'Nothing yet. Search somewhere, or ask someone.' : '还没有。去搜一个地方，或者问问谁。'}</p>}
+          {p.clueList.map((m: any) => {
+            const priv = m.payload?.type === 'private';
+            return (
+              <div key={m.id} className={`rounded-xl border px-3.5 py-3 ${priv ? 'border-[#a83232]/35 bg-[#2a0e0e]/40' : m.payload?.key ? 'border-[#c9a96e]/45 bg-[#c9a96e]/[0.07]' : 'border-white/[0.08] bg-white/[0.03]'}`}>
+                <div className="text-[10.5px] tracking-[.2em] mb-1" style={{ color: priv ? '#e08a8a' : m.payload?.key ? '#c9a96e' : 'rgba(216,199,168,.45)' }}>{priv ? (en ? 'ONLY YOU' : '只有你知道') : m.payload?.key ? (en ? 'KEY CLUE' : '关键线索') : (en ? `ACT ${m.turn_no || ''}` : `第 ${m.turn_no || ''} 幕`)}</div>
+                <div className="text-[14px] text-[#efe6d2]/88 leading-relaxed whitespace-pre-line">{String(m.content).replace(/^🔍\s*/, '')}</div>
+              </div>
+            );
+          })}
+          {p.resources.length > 0 && (
+            <div className="pt-4">
+              <SheetLabel>{en ? 'STANDINGS' : '资源 / 分数'}</SheetLabel>
+              <div className="grid grid-cols-2 gap-2">
+                {p.resources.map((r: any, i: number) => (
+                  <div key={i} className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-3">
+                    <div className="text-[13.5px] text-[#efe6d2] truncate">{r.name}</div>
+                    {(r.items || []).map((it: any, j: number) => <div key={j} className="flex justify-between gap-2 text-[12px] text-parchment/55 mt-1"><span className="truncate">{it.label}</span><span className="text-[#c9a96e] shrink-0">{it.value}</span></div>)}
                   </div>
                 ))}
               </div>
-              {s.highlight && <div className="text-green-400/80 text-[11px] mt-1.5">👍 {s.highlight}</div>}
-              {s.improve && <div className="text-amber-400/80 text-[11px]">🔧 {s.improve}</div>}
             </div>
+          )}
+        </div>
+      </Sheet>
+
+      {/* 登场人物 */}
+      <Sheet open={sheet === 'cast'} onClose={() => setSheet(null)} title={en ? 'The cast' : '登场人物'}>
+        <div className="space-y-2.5">
+          {chars.map((c: any) => {
+            const me = c.name === p.myName;
+            return (
+              <div key={c.name} className={`flex gap-3 rounded-2xl border p-3.5 ${me ? 'border-[#c9a96e]/35 bg-[#c9a96e]/[0.05]' : 'border-white/[0.08] bg-white/[0.025]'}`}>
+                <Face src={c.avatar_url} name={c.name} size={52} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-serif text-[15.5px] text-[#efe6d2] truncate">{c.name}</span>
+                    <span className="text-[10.5px] px-1.5 py-[1px] rounded border border-white/10 text-parchment/45">{me ? (en ? 'you' : '你') : c.assigned_seat ? (en ? 'player' : '真人') : 'AI'}</span>
+                  </div>
+                  <div className="text-[12px] text-parchment/45 truncate">{[c.age, c.occupation].filter(Boolean).join(' · ')}</div>
+                  {c.public_info && <p className="mt-1 text-[13px] text-parchment/70 leading-relaxed">{c.public_info}</p>}
+                </div>
+              </div>
+            );
+          })}
+          {isHost && chars.some((c: any) => !c.avatar_url) && (
+            <button onClick={() => p.genAvatars(false)} disabled={busy} className="w-full h-10 rounded-xl border border-white/10 text-[13px] text-parchment/60 disabled:opacity-50">{busy ? (en ? 'Drawing…' : '正在画……') : (en ? 'Draw the missing portraits' : '补画缺的头像')}</button>
+          )}
+        </div>
+      </Sheet>
+    </main>
+  );
+}
+
+function Face({ src, name, size, ring, urgent }: { src?: string; name?: string; size: number; ring?: number; urgent?: boolean }) {
+  const r = size / 2 + 2.5, C = 2 * Math.PI * r;
+  return (
+    <span className="relative shrink-0 inline-flex" style={{ width: size, height: size }}>
+      <span className="w-full h-full rounded-full overflow-hidden border border-[#c9a96e]/35 bg-gradient-to-b from-[#2a1d1a] to-[#141012] flex items-center justify-center">
+        {src
+          // eslint-disable-next-line @next/next/no-img-element
+          ? <img src={src} alt="" className="w-full h-full object-cover" />
+          : <span className="font-serif text-[#e8d7b0]/70" style={{ fontSize: size * 0.42 }}>{String(name || '?').slice(0, 1)}</span>}
+      </span>
+      {typeof ring === 'number' && (
+        <svg className="absolute pointer-events-none" style={{ left: -5, top: -5, width: size + 10, height: size + 10 }} viewBox={`0 0 ${size + 10} ${size + 10}`}>
+          <circle cx={size / 2 + 5} cy={size / 2 + 5} r={r} fill="none" stroke="rgba(255,255,255,.07)" strokeWidth="2" />
+          <circle cx={size / 2 + 5} cy={size / 2 + 5} r={r} fill="none" stroke={urgent ? '#e05a4a' : '#c9a96e'} strokeWidth="2" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C * (1 - ring)} transform={`rotate(-90 ${size / 2 + 5} ${size / 2 + 5})`} className={urgent ? 'animate-pulse' : ''} />
+        </svg>
+      )}
+    </span>
+  );
+}
+
+function Msg({ m, en, mine, who, avatarOf, chars, onOpen }: { m: any; en: boolean; mine: boolean; who?: string; avatarOf: (n?: string) => string | undefined; chars: any[]; onOpen: (s: any) => void }) {
+  const type = m.payload?.type;
+  const lang = en ? 'en' : 'zh';
+  if (type === 'jbs_act') {
+    return (
+      <div className="pt-4 pb-1 text-center nf-in">
+        <div className="flex items-center gap-3"><span className="flex-1 h-px bg-gradient-to-r from-transparent to-[#c0453f]/40" /><span className="text-[10.5px] tracking-[.4em] text-[#c0453f]/80">{en ? 'NEW ACT' : '新的一幕'}</span><span className="flex-1 h-px bg-gradient-to-l from-transparent to-[#c0453f]/40" /></div>
+        <div className="mt-2 font-serif text-[21px] text-[#efe6d2] tracking-[.08em]">{String(m.content).replace(/^[—\-\s]+|[—\-\s]+$/g, '')}</div>
+      </div>
+    );
+  }
+  if (type === 'jbs_dm') return <Narration text={m.content} lang={lang} fresh={fresh(m)} label={en ? 'Host' : '主持人'} />;
+  if (type === 'jbs_reveal') return <Narration text={m.content} lang={lang} fresh={fresh(m)} tone="reveal" label={en ? 'The truth' : '真相'} collapse={false} />;
+  if (type === 'jbs_role') {
+    return (
+      <button onClick={() => onOpen('role')} className="w-full text-left rounded-2xl border border-[#a83232]/40 bg-gradient-to-br from-[#2a0e0e]/70 to-[#130b0b]/70 px-4 py-4 flex items-center gap-3.5">
+        <span className="w-11 h-11 rounded-xl bg-[#7d1d1d]/40 border border-[#a83232]/40 flex items-center justify-center text-[#f2d6d6]"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5zM4 20.5A2.5 2.5 0 0 1 6.5 18H20" /></svg></span>
+        <span className="min-w-0 flex-1"><span className="block font-serif text-[15.5px] text-[#f2d6d6]">{en ? 'Your script has arrived' : '你的剧本到了'}</span><span className="block text-[12.5px] text-parchment/50">{en ? 'Only you can read it — tap to open' : '只有你能看 · 点开读一读'}</span></span>
+        <span className="text-[#f2d6d6]/60">›</span>
+      </button>
+    );
+  }
+  if (type === 'jbs_roster') {
+    return (
+      <button onClick={() => onOpen('cast')} className="w-full rounded-2xl border border-white/[0.08] bg-white/[0.025] px-4 py-3.5 text-left">
+        <div className="text-[10.5px] tracking-[.3em] text-parchment/40">{en ? 'THE CAST' : '登场人物'}</div>
+        <div className="mt-2.5 flex flex-wrap gap-3">
+          {(chars.length ? chars : []).map((c: any) => (
+            <span key={c.name} className="flex flex-col items-center gap-1 w-12"><Face src={c.avatar_url} name={c.name} size={40} /><span className="text-[11px] text-parchment/65 truncate max-w-full">{c.name}</span></span>
           ))}
+          {!chars.length && <span className="text-[13px] text-parchment/70 whitespace-pre-line">{m.content}</span>}
+        </div>
+      </button>
+    );
+  }
+  if (type === 'jbs_evidence') {
+    const key = !!m.payload?.key;
+    return (
+      <div className={`rounded-2xl border px-4 py-3 nf-in ${key ? 'border-[#c9a96e]/50 bg-[#c9a96e]/[0.08] shadow-[0_0_30px_-10px_rgba(201,169,110,.5)]' : 'border-[#c9a96e]/20 bg-[#c9a96e]/[0.04]'}`}>
+        <div className="text-[10.5px] tracking-[.25em] mb-1 text-[#c9a96e]">{key ? (en ? 'KEY CLUE' : '关键线索') : (en ? 'CLUE' : '线索')}</div>
+        <div className="text-[14px] text-[#efe6d2]/90 leading-relaxed whitespace-pre-line">{String(m.content).replace(/^🔍\s*/, '')}</div>
+      </div>
+    );
+  }
+  if (type === 'private') {
+    return (
+      <div className="rounded-2xl bg-[#2a0e0e]/55 border border-[#a83232]/35 px-4 py-3 text-[14px] text-[#efe6d2]/88 leading-relaxed whitespace-pre-line">
+        <div className="text-[10.5px] tracking-[.22em] text-[#e08a8a] mb-1">{en ? 'ONLY YOU' : '只有你知道'}</div>{m.content}
+      </div>
+    );
+  }
+  if (type === 'jbs_objupd') {
+    return <div className="flex justify-center"><button onClick={() => onOpen('role')} className="px-3.5 py-1.5 rounded-full border border-[#c9a96e]/30 bg-[#c9a96e]/[0.07] text-[12.5px] text-[#e8d7b0]">{String(m.content).replace(/^🎯\s*/, '')}</button></div>;
+  }
+  if (type === 'jbs_score') return <ScoreCard scores={m.payload?.scores || []} en={en} />;
+  if (type === 'jbs_ai') {
+    const nm = m.payload?.name;
+    return (
+      <div className="flex items-start gap-2.5">
+        <Face src={avatarOf(nm)} name={nm} size={34} />
+        <div className="min-w-0 max-w-[84%]">
+          <div className="text-[11.5px] text-parchment/45 mb-1">{nm}</div>
+          <div className="px-4 py-2.5 rounded-2xl rounded-tl-md border border-white/10 bg-white/[0.045] text-[14.5px] leading-relaxed text-[#efe6d2]/92">{m.content}</div>
         </div>
       </div>
     );
   }
-  if (type === 'jbs_dm') {
-    return <Narration text={m.content} lang={en ? 'en' : 'zh'} fresh={fresh(m)} label={en ? 'Game Master' : '主持人'} />;
-  }
-  if (type === 'jbs_ai') {
-    return (
-      <div className="flex flex-col items-start">
-        <span className="text-xs text-eldritch/80 mb-1">{m.payload?.name}{en ? ' (AI)' : '（AI）'}</span>
-        <div className="max-w-[80%] px-4 py-2 rounded-lg bg-fog border border-eldritch/30 text-parchment/90">{m.content}</div>
-      </div>
-    );
-  }
-  if (type === 'jbs_evidence') {
-    return <div className="mx-auto max-w-2xl rounded bg-amber-500/10 border border-amber-500/30 px-3 py-2 text-amber-200/90 text-sm whitespace-pre-line">{m.content}</div>;
-  }
-  if (type === 'private') {
-    return <div className="mx-auto max-w-2xl rounded bg-blood/10 border border-blood/30 px-3 py-2 text-parchment/70 text-sm italic whitespace-pre-line">🔒 {m.content}</div>;
-  }
-  if (type === 'jbs_vote') {
-    return <div className="text-center text-sm text-parchment/60 whitespace-pre-line">{m.content}</div>;
-  }
-  if (type === 'jbs_act') {
-    return <div className="flex items-center gap-3 my-1"><div className="flex-1 h-px bg-eldritch/30" /><span className="text-eldritch/80 text-xs tracking-widest">{m.content}</span><div className="flex-1 h-px bg-eldritch/30" /></div>;
-  }
   if (m.sender_type === 'system') {
-    return <div className="text-center text-sm text-parchment/50 whitespace-pre-line">{m.content}</div>;
+    return <div className="flex justify-center"><span className="max-w-full px-3.5 py-1.5 rounded-full border border-white/[0.07] text-[12.5px] text-parchment/50 text-center whitespace-pre-line">{m.content}</span></div>;
   }
   return (
-    <div className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
-      {who && <span className="text-xs text-parchment/45 mb-1">{who}{mine ? (en ? ' (you)' : '（你）') : (en ? ' (player)' : '（真人）')}</span>}
-      <div className={`max-w-[80%] px-4 py-2 rounded-lg ${mine ? 'bg-blood/25 border border-blood/40' : 'bg-fog border border-parchment/20'} text-parchment/90`}>{m.content}</div>
+    <div className={`flex ${mine ? 'justify-end' : 'items-start gap-2.5'}`}>
+      {!mine && <Face src={avatarOf(who)} name={who} size={34} />}
+      <div className={`flex flex-col ${mine ? 'items-end' : 'items-start'} max-w-[84%]`}>
+        <span className="text-[11.5px] text-parchment/40 mb-1">{mine ? (en ? 'You' : '你') : who}</span>
+        <div className={`px-4 py-2.5 text-[14.5px] leading-relaxed ${mine ? 'rounded-2xl rounded-br-md border border-[#c9a96e]/30 bg-[#c9a96e]/[0.09] text-[#efe6d2]' : 'rounded-2xl rounded-tl-md border border-[#5aa39a]/25 bg-[#5aa39a]/[0.07] text-[#efe6d2]/92'}`}>{m.content}</div>
+      </div>
+    </div>
+  );
+}
+
+function ScoreCard({ scores, en }: { scores: any[]; en: boolean }) {
+  return (
+    <div className="rounded-2xl border border-[#c9a96e]/25 bg-[#14120d]/80 px-4 py-4">
+      <div className="text-[10.5px] tracking-[.3em] text-[#c9a96e] mb-3">{en ? 'SCORECARD' : '本局评分'}</div>
+      <div className="space-y-3">
+        {scores.map((s: any, i: number) => (
+          <div key={i} className="rounded-xl bg-white/[0.03] border border-white/[0.07] p-3">
+            <div className="flex items-center justify-between"><span className="text-[14px] text-[#efe6d2]">{s.name}</span><span className="font-serif text-[20px] text-[#c9a96e]">{s.total}<span className="text-[11px] text-parchment/40">/100</span></span></div>
+            <div className="mt-2 space-y-1.5">
+              {(s.metrics || []).map((mt: any, j: number) => (
+                <div key={j} className="flex items-center gap-2">
+                  <span className="text-parchment/55 text-[11.5px] w-20 shrink-0 truncate">{mt.label}</span>
+                  <div className="flex-1 h-1.5 rounded-full bg-white/[0.07] overflow-hidden"><div className="h-full rounded-full bg-[#c9a96e]/80" style={{ width: `${Math.max(0, Math.min(100, mt.score))}%` }} /></div>
+                  <span className="text-parchment/65 text-[11.5px] w-7 text-right tabular-nums">{mt.score}</span>
+                </div>
+              ))}
+            </div>
+            {s.highlight && <div className="text-[#8fd3b8]/85 text-[12px] mt-2">{en ? 'Best: ' : '高光：'}{s.highlight}</div>}
+            {s.improve && <div className="text-[#e3b66a]/80 text-[12px]">{en ? 'Next time: ' : '下次可以：'}{s.improve}</div>}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

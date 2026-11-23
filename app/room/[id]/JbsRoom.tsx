@@ -9,6 +9,7 @@ import type { ShellProps } from './RoomShell';
 import { useTTS } from './useTTS';
 import { Sheet, SheetLabel } from './ui';
 import PosterCard from './PosterCard';
+import { pickLook, RoleCard, ScriptPaper, ActTitle } from './JbsLook';
 
 const EN = (l?: string) => l === 'en';
 const ACTS_ZH = ['', '案件开场', '搜证', '人物关系', '关键证据', '推理讨论', '最终指认', '真相揭晓'];
@@ -30,7 +31,8 @@ export default function JbsRoom(props: ShellProps) {
   const [now, setNow] = useState(Date.now());
   const [showCustom, setShowCustom] = useState(false);
   const [custom, setCustom] = useState<Record<string, string>>({});
-  const [sheet, setSheet] = useState<null | 'role' | 'clues' | 'cast'>(null);
+  const [sheet, setSheet] = useState<null | 'role' | 'clues' | 'cast' | 'map'>(null);
+  const [talkTo, setTalkTo] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [playing, setPlaying] = useState<string | null>(null);
   const [pickVote, setPickVote] = useState<string | null>(null);
@@ -43,6 +45,7 @@ export default function JbsRoom(props: ShellProps) {
     classify: (m: any) => {
       const t = m.payload?.type;
       if (t === 'jbs_dm') return { kind: 'narrator' as const, text: m.content, audio: m.payload?.audio };
+      if (t === 'jbs_whisper' && m.payload?.from === 'them') return { kind: 'character' as const, name: m.payload?.with, gender: m.payload?.gender === 'female' ? 'female' as const : 'male' as const, text: m.content };
       if (t === 'jbs_ai') {
         const nm = m.payload?.name;
         const g = (props.jbsCharacters || []).find((c: any) => c.name === nm)?.gender;
@@ -136,6 +139,25 @@ export default function JbsRoom(props: ShellProps) {
     genAvatars(false, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.room.jbs_phase, props.jbsCharacters]);
+
+  const stage = props.room.jbs_stage || null;
+  const sceneArt = useRef(false);
+  useEffect(() => {
+    if (!isHost || sceneArt.current || props.room.jbs_phase !== 'playing') return;
+    if (!stage?.scenes?.length || stage.scenes.every((x: any) => x.image)) return;
+    sceneArt.current = true;
+    fetch('/api/jbs/scenes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) }).then(() => router.refresh()).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHost, props.room.jbs_phase, stage?.scenes?.length]);
+  const evFired = useRef(0);
+  useEffect(() => {
+    if (!isHost || props.room.jbs_phase !== 'playing' || !actStart) return;
+    if (stage?.events?.[act] || evFired.current === act) return;
+    if (remainMs > actMin * 60000 * 0.55) return;
+    evFired.current = act;
+    fetch('/api/jbs/event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: props.room.id }) }).then(() => router.refresh()).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remainMs, act, isHost, props.room.jbs_phase]);
 
   async function call(url: string, body: any) {
     setBusy(true);
@@ -342,7 +364,7 @@ export default function JbsRoom(props: ShellProps) {
       {...{ en, messages, busy, ended, voting, isHost, act, totalActs, actName, mmss, remainMs, actPct, showTimer: !ended && phase === 'playing' && actStart > 0,
         myChar, myName, tasksDone, objectives, clueList, chars, resources, candidates, accuse, endLabel, showAccuseBtn, keyFound, jbsType, roleMsgs,
         text, setText, send, sheet, setSheet, pickVote, setPickVote, vote, advance, settle, replay, resetting, genAvatars, avatarOf, speakerOf, inputRef,
-        myPlayerId: props.myPlayerId, bottomRef }} />
+        myPlayerId: props.myPlayerId, bottomRef, stage, talkTo, setTalkTo, roomId: props.room.id, refresh: () => router.refresh() }} />
   );
 }
 
@@ -389,6 +411,13 @@ function JbsPlay(p: any) {
 
   const clueN = p.clueList.length;
   const hasRole = p.roleMsgs.length > 0;
+  const curScene = (p.stage?.scenes || []).find((x: any) => x.id === p.stage?.scene) || null;
+  const pages = messages.filter((m: any) => m.payload?.type === 'jbs_page');
+  const [seenPages, setSeenPages] = useState(0);
+  const newPage = pages.length > seenPages;
+  useEffect(() => { if (sheet === 'role') setSeenPages(pages.length); }, [sheet, pages.length]);
+  const npcs: any[] = p.stage?.npcs || [];
+  const look = pickLook(p.stage?.meta || { type: p.jbsType });
 
   return (
     <main className="relative h-[100svh] flex flex-col overflow-hidden">
@@ -411,20 +440,27 @@ function JbsPlay(p: any) {
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5zM4 20.5A2.5 2.5 0 0 1 6.5 18H20" /></svg>
             {en ? 'Script' : '剧本'}
             {p.objectives.length > 0 && <span className="text-[10.5px] text-[#f2d6d6]/60 tabular-nums">{p.tasksDone}/{p.objectives.length}</span>}
+            {newPage && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#e05a4a] ring-2 ring-[#0e0f13] mn-ping" />}
           </button>
           <button onClick={() => setSheet('clues')} className="relative h-10 px-3 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center gap-1.5 text-[12.5px] text-[#d8c7a8]">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="6.5" /><path d="M20 20l-4.2-4.2" /></svg>
             <span className={`min-w-[18px] h-[18px] px-1 rounded-full text-[10.5px] flex items-center justify-center ${clueN ? 'bg-[#c9a96e] text-[#14110b]' : 'bg-white/10 text-parchment/50'}`}>{clueN}</span>
           </button>
         </div>
+        {curScene && (
+          <button onClick={() => setSheet('map')} className="mx-auto max-w-2xl w-full mt-1.5 flex items-center justify-center gap-1.5 text-[12px] text-[#d8c7a8]/70">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#c0453f" strokeWidth="2" strokeLinecap="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z" /><circle cx="12" cy="9.5" r="2.4" /></svg>
+            <span className="truncate">{en ? 'Now at ' : '现在在 · '}{curScene.name}</span><span className="text-parchment/30">›</span>
+          </button>
+        )}
       </header>
 
       {/* 剧情 */}
       <section ref={scrollRef as any} onScroll={(e) => { const el = e.currentTarget; nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 160; if (nearBottom.current && newBelow) setNewBelow(false); }} className="flex-1 min-h-0 overflow-y-auto mn-fade-top">
         <div className="mx-auto max-w-2xl px-4 pt-5 pb-6 space-y-4">
-          {messages.map((m: any) => (
+          {messages.filter((m: any) => m.payload?.type !== 'jbs_whisper').map((m: any) => (
             <div key={m.id} id={'j-' + m.id} className="scroll-mt-4">
-              <Msg m={m} en={en} mine={m.sender_player_id === p.myPlayerId} who={p.speakerOf(m)} avatarOf={p.avatarOf} chars={chars} onOpen={setSheet} />
+              <Msg m={m} en={en} mine={m.sender_player_id === p.myPlayerId} who={p.speakerOf(m)} avatarOf={p.avatarOf} chars={chars} onOpen={setSheet} stage={p.stage} look={look} />
             </div>
           ))}
           {busy && !voting && (
@@ -505,16 +541,24 @@ function JbsPlay(p: any) {
       {/* 我的剧本 */}
       <Sheet open={sheet === 'role'} onClose={() => setSheet(null)} title={en ? 'My script' : '我的剧本'}>
         <div className="space-y-6">
-          {p.myName && (
-            <div className="flex items-center gap-3">
-              <Face src={p.myChar?.avatar_url} name={p.myName} size={56} />
-              <div><div className="font-serif text-[18px] text-[#efe6d2]">{p.myName}</div><div className="text-[12.5px] text-parchment/45">{[p.myChar?.age, p.myChar?.occupation].filter(Boolean).join(' · ')}</div></div>
-            </div>
-          )}
+          {p.myChar && <div className="max-w-[300px] mx-auto"><RoleCard c={p.myChar} look={look} en={en} tag={en ? 'YOU' : '你'} big /></div>}
           <div>
             <SheetLabel>{en ? 'ONLY YOU CAN READ THIS' : '只有你能看'}</SheetLabel>
-            {hasRole ? p.roleMsgs.map((m: any) => <div key={m.id} className="font-serif text-[15px] leading-[1.9] text-[#efe6d2]/88 whitespace-pre-line">{m.content}</div>) : <p className="text-[13px] text-parchment/40">{en ? 'Your script will appear here.' : '你的剧本会出现在这里。'}</p>}
+            {hasRole ? p.roleMsgs.map((m: any) => <ScriptPaper key={m.id} look={look}>{m.content}</ScriptPaper>) : <p className="text-[13px] text-parchment/40">{en ? 'Your script will appear here.' : '你的剧本会出现在这里。'}</p>}
           </div>
+          {pages.length > 0 && (
+            <div>
+              <SheetLabel>{en ? 'UNLOCKED AS THE STORY GOES' : '随剧情解锁'}</SheetLabel>
+              <div className="space-y-3">
+                {pages.map((m: any) => (
+                  <ScriptPaper key={m.id} look={look}>
+                    <div className="text-[10.5px] tracking-[.3em] mb-1.5 font-sans" style={{ color: look.accent }}>{en ? `ACT ${m.payload?.act}` : `第 ${m.payload?.act} 幕`}</div>
+                    {m.content}
+                  </ScriptPaper>
+                ))}
+              </div>
+            </div>
+          )}
           {p.objectives.length > 0 && (
             <div>
               <SheetLabel>{en ? 'YOUR SECRET TASKS' : '你的秘密任务'}</SheetLabel>
@@ -570,29 +614,133 @@ function JbsPlay(p: any) {
 
       {/* 登场人物 */}
       <Sheet open={sheet === 'cast'} onClose={() => setSheet(null)} title={en ? 'The cast' : '登场人物'}>
-        <div className="space-y-2.5">
+        <div className="text-center text-[10.5px] tracking-[.3em] mb-3" style={{ color: look.accent }}>{look.label(en)}</div>
+        <div className="grid grid-cols-2 gap-3">
           {chars.map((c: any) => {
             const me = c.name === p.myName;
             return (
-              <div key={c.name} className={`flex gap-3 rounded-2xl border p-3.5 ${me ? 'border-[#c9a96e]/35 bg-[#c9a96e]/[0.05]' : 'border-white/[0.08] bg-white/[0.025]'}`}>
-                <Face src={c.avatar_url} name={c.name} size={52} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-serif text-[15.5px] text-[#efe6d2] truncate">{c.name}</span>
-                    <span className="text-[10.5px] px-1.5 py-[1px] rounded border border-white/10 text-parchment/45">{me ? (en ? 'you' : '你') : c.assigned_seat ? (en ? 'player' : '真人') : 'AI'}</span>
-                  </div>
-                  <div className="text-[12px] text-parchment/45 truncate">{[c.age, c.occupation].filter(Boolean).join(' · ')}</div>
-                  {c.public_info && <p className="mt-1 text-[13px] text-parchment/70 leading-relaxed">{c.public_info}</p>}
+              <RoleCard key={c.name} c={c} look={look} en={en}
+                tag={me ? (en ? 'YOU' : '你') : c.assigned_seat ? (en ? 'PLAYER' : '真人') : 'AI'}
+                footer={!me && !c.assigned_seat && !p.ended ? (
+                  <button onClick={() => { setSheet(null); p.setTalkTo(c.name); }} className="w-full h-8 rounded-lg text-[12.5px]" style={{ color: look.key === 'ancient' ? '#5a2a20' : look.accent, border: `1px solid ${look.accent}66` }}>{en ? 'Talk in private' : '私下聊聊'}</button>
+                ) : undefined} />
+            );
+          })}
+        </div>
+        {npcs.length > 0 && (
+          <>
+            <div className="mt-6 mb-3 text-center text-[10.5px] tracking-[.3em] text-parchment/40">{en ? 'OTHERS HERE · NOT SUSPECTS' : '其 他 在 场 的 人 · 不 参 与 指 认'}</div>
+            <div className="grid grid-cols-2 gap-3">
+              {npcs.map((n: any) => (
+                <RoleCard key={n.name} c={n} look={look} en={en}
+                  footer={!p.ended ? <button onClick={() => { setSheet(null); p.setTalkTo(n.name); }} className="w-full h-8 rounded-lg text-[12.5px]" style={{ color: look.key === 'ancient' ? '#5a2a20' : look.accent, border: `1px solid ${look.accent}66` }}>{en ? 'Talk in private' : '私下聊聊'}</button> : undefined} />
+              ))}
+            </div>
+          </>
+        )}
+        {isHost && chars.some((c: any) => !c.avatar_url) && (
+          <button onClick={() => p.genAvatars(false)} disabled={busy} className="mt-4 w-full h-10 rounded-xl border border-white/10 text-[13px] text-parchment/60 disabled:opacity-50">{busy ? (en ? 'Drawing…' : '正在画……') : (en ? 'Draw the missing portraits' : '补画缺的头像')}</button>
+        )}
+      </Sheet>
+
+      {/* 地点 */}
+      <Sheet open={sheet === 'map'} onClose={() => setSheet(null)} title={en ? 'Places' : '地点'}>
+        <div className="space-y-2.5">
+          {(p.stage?.scenes || []).map((sc: any) => {
+            const here = sc.id === p.stage?.scene;
+            return (
+              <div key={sc.id} className={`rounded-2xl overflow-hidden border ${here ? 'border-[#c0453f]/50' : 'border-white/[0.08]'} bg-white/[0.025]`}>
+                {sc.image && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={sc.image} alt="" className="w-full h-28 object-cover opacity-80" />
+                )}
+                <div className="px-4 py-3">
+                  <div className="flex items-center gap-2"><span className="font-serif text-[15.5px] text-[#efe6d2]">{sc.name}</span>{here && <span className="text-[10.5px] px-1.5 py-[1px] rounded border border-[#c0453f]/50 text-[#f2a0a0]">{en ? 'you are here' : '你们在这'}</span>}</div>
+                  {sc.mood && <p className="mt-1 text-[13px] text-parchment/65 leading-relaxed">{sc.mood}</p>}
+                  {Array.isArray(sc.spots) && sc.spots.length > 0 && <p className="mt-1.5 text-[12px] text-parchment/40">{en ? 'Worth a look: ' : '能搜的地方：'}{sc.spots.join(en ? ', ' : '、')}</p>}
                 </div>
               </div>
             );
           })}
-          {isHost && chars.some((c: any) => !c.avatar_url) && (
-            <button onClick={() => p.genAvatars(false)} disabled={busy} className="w-full h-10 rounded-xl border border-white/10 text-[13px] text-parchment/60 disabled:opacity-50">{busy ? (en ? 'Drawing…' : '正在画……') : (en ? 'Draw the missing portraits' : '补画缺的头像')}</button>
-          )}
+          <p className="text-[12px] text-parchment/35 leading-relaxed">{en ? 'To go somewhere, just say it — "I go to the study".' : '想去哪，直接说就行，比如「我去书房看看」。'}</p>
         </div>
       </Sheet>
+
+      <Whisper open={!!p.talkTo} target={p.talkTo} onClose={() => p.setTalkTo(null)} en={en} roomId={p.roomId} messages={messages} face={p.avatarOf(p.talkTo) || npcs.find((n: any) => n.name === p.talkTo)?.image} refresh={p.refresh} role={npcs.find((n: any) => n.name === p.talkTo)?.role || chars.find((c: any) => c.name === p.talkTo)?.occupation} />
     </main>
+  );
+}
+
+// 私下聊：一对一，只有你看得到
+function Whisper({ open, target, onClose, en, roomId, messages, face, refresh, role }: { open: boolean; target: string | null; onClose: () => void; en: boolean; roomId: string; messages: any[]; face?: string; refresh: () => void; role?: string }) {
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const endRef = useRef<HTMLDivElement>(null);
+  const thread = messages.filter((m: any) => m.payload?.type === 'jbs_whisper' && m.payload?.with === target);
+  const clues = messages.filter((m: any) => m.payload?.type === 'jbs_evidence' && m.payload?.via === target);
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [thread.length, busy, open]);
+  if (!open || !target) return null;
+  async function send() {
+    const t = text.trim(); if (!t || busy) return;
+    setText(''); setBusy(true); setErr('');
+    try {
+      const r = await fetch('/api/jbs/whisper', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId, target, text: t }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) setErr(d.error || (en ? 'Failed' : '没说成')); else refresh();
+    } catch { setErr(en ? 'Network error' : '网络错误'); }
+    setBusy(false);
+  }
+  return (
+    <div className="fixed inset-0 z-[72]" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-[3px] mn-fadein" />
+      <div onClick={(e) => e.stopPropagation()} className="mn-sheet absolute inset-x-0 bottom-0 h-[86svh] lg:inset-x-auto lg:right-0 lg:top-0 lg:h-full lg:w-[420px] rounded-t-3xl lg:rounded-none lg:rounded-l-3xl bg-gradient-to-b from-[#1a1012] to-[#0e0f13] border-t lg:border-t-0 lg:border-l border-[#a83232]/25 flex flex-col">
+        <div className="shrink-0 px-5 pt-3 pb-3 border-b border-white/[0.06]">
+          <div className="mx-auto w-10 h-1 rounded-full bg-white/15 lg:hidden" />
+          <div className="mt-3 flex items-center gap-3">
+            <Face src={face} name={target} size={44} />
+            <div className="min-w-0 flex-1"><div className="font-serif text-[17px] text-[#efe6d2] truncate">{target}</div><div className="text-[11.5px] text-[#e08a8a]/80">{en ? 'Private · only you can see this' : '私下 · 只有你看得到'}{role ? ` · ${role}` : ''}</div></div>
+            <button onClick={onClose} className="w-9 h-9 -mr-2 rounded-full text-parchment/50 flex items-center justify-center">✕</button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+          {thread.length === 0 && <p className="text-center text-[13px] text-parchment/40 mt-6 leading-relaxed">{en ? <>You pull {target} aside.<br />What do you want to know — and what will you offer?</> : <>你把{target}拉到一边。<br />你想问什么？又打算拿什么换？</>}</p>}
+          {thread.map((m: any) => {
+            const mine = m.payload?.from === 'me';
+            return (
+              <div key={m.id} className={`flex ${mine ? 'justify-end' : 'items-start gap-2'}`}>
+                {!mine && <Face src={face} name={target} size={30} />}
+                <div className={`max-w-[82%] px-4 py-2.5 text-[14.5px] leading-relaxed ${mine ? 'rounded-2xl rounded-br-md border border-[#c9a96e]/30 bg-[#c9a96e]/[0.09] text-[#efe6d2]' : 'rounded-2xl rounded-tl-md border border-[#a83232]/25 bg-[#2a0e0e]/45 text-[#efe6d2]/92'}`}>
+                  {mine ? m.content : <Narration text={m.content} lang={en ? 'en' : 'zh'} fresh={false} tone="quiet" collapse={false} />}
+                </div>
+              </div>
+            );
+          })}
+          {clues.map((m: any) => (
+            <div key={m.id} className="rounded-xl border border-[#c9a96e]/40 bg-[#c9a96e]/[0.07] px-3.5 py-2.5">
+              <div className="text-[10.5px] tracking-[.22em] text-[#c9a96e] mb-0.5">{en ? 'YOU GOT A CLUE' : '你拿到了线索'}</div>
+              <div className="text-[13.5px] text-[#efe6d2]/90">{String(m.content).replace(/^🔍\s*/, '')}</div>
+            </div>
+          ))}
+          {busy && <div className="flex items-center gap-2 text-[12.5px] text-parchment/45"><span className="flex gap-1">{[0, 1, 2].map((i) => <span key={i} className="w-1.5 h-1.5 rounded-full bg-parchment/50 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</span>{en ? `${target} is thinking…` : `${target}在犹豫……`}</div>}
+          {err && <p className="text-[12.5px] text-[#e06060]">{err}</p>}
+          <div ref={endRef} />
+        </div>
+        <div className="shrink-0 px-3 pt-2" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
+          <div className="flex items-end gap-2">
+            <div className="flex-1 min-w-0 flex items-end rounded-2xl border border-white/[0.12] bg-black/30 pl-4 pr-1.5 py-1.5">
+              <textarea rows={1} value={text} onChange={(e) => setText(e.target.value)} style={{ resize: 'none' }}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !(e.nativeEvent as any).isComposing) { e.preventDefault(); send(); } }}
+                placeholder={en ? 'Ask, bargain, threaten…' : '问、谈条件、或者吓唬……'} className="flex-1 min-w-0 bg-transparent py-[7px] text-[15px] leading-[22px] text-[#efe6d2] placeholder:text-parchment/35 outline-none" />
+              <MicButton value={text} onChange={setText} en={en} compact />
+            </div>
+            <button onClick={send} disabled={!text.trim() || busy} className="shrink-0 h-12 w-12 rounded-2xl bg-[#7d1d1d] border border-[#a83232]/60 text-[#f2ead9] flex items-center justify-center disabled:opacity-35">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5.5 11.5L12 5l6.5 6.5" /></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -616,17 +764,45 @@ function Face({ src, name, size, ring, urgent }: { src?: string; name?: string; 
   );
 }
 
-function Msg({ m, en, mine, who, avatarOf, chars, onOpen }: { m: any; en: boolean; mine: boolean; who?: string; avatarOf: (n?: string) => string | undefined; chars: any[]; onOpen: (s: any) => void }) {
+function Msg({ m, en, mine, who, avatarOf, chars, onOpen, stage, look }: { m: any; en: boolean; mine: boolean; who?: string; avatarOf: (n?: string) => string | undefined; chars: any[]; onOpen: (s: any) => void; stage?: any; look: any }) {
   const type = m.payload?.type;
   const lang = en ? 'en' : 'zh';
-  if (type === 'jbs_act') {
+  if (type === 'jbs_scene') {
+    const sc = (stage?.scenes || []).find((x: any) => x.id === m.payload?.scene);
     return (
-      <div className="pt-4 pb-1 text-center nf-in">
-        <div className="flex items-center gap-3"><span className="flex-1 h-px bg-gradient-to-r from-transparent to-[#c0453f]/40" /><span className="text-[10.5px] tracking-[.4em] text-[#c0453f]/80">{en ? 'NEW ACT' : '新的一幕'}</span><span className="flex-1 h-px bg-gradient-to-l from-transparent to-[#c0453f]/40" /></div>
-        <div className="mt-2 font-serif text-[21px] text-[#efe6d2] tracking-[.08em]">{String(m.content).replace(/^[—\-\s]+|[—\-\s]+$/g, '')}</div>
+      <button onClick={() => onOpen('map')} className="relative w-full overflow-hidden rounded-2xl border border-white/10 text-left nf-in">
+        {sc?.image
+          // eslint-disable-next-line @next/next/no-img-element
+          ? <img src={sc.image} alt="" className="w-full h-40 object-cover" />
+          : <div className="w-full h-24 bg-[radial-gradient(120%_100%_at_30%_0%,rgba(192,69,63,.25),rgba(14,15,19,.9))]" />}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
+        <div className="absolute left-4 right-4 bottom-3">
+          <div className="text-[10px] tracking-[.35em] text-[#f2a0a0]/85">{en ? 'LOCATION' : '地 点'}</div>
+          <div className="font-serif text-[20px] text-[#f4ecdc]">{m.content}</div>
+          {sc?.mood && <div className="text-[12.5px] text-[#efe6d2]/70 leading-snug line-clamp-2">{sc.mood}</div>}
+        </div>
+      </button>
+    );
+  }
+  if (type === 'jbs_event') {
+    return (
+      <div className="rounded-2xl border border-[#e05a4a]/45 bg-gradient-to-r from-[#3a0f0f]/80 to-[#1a0c0c]/70 px-4 py-3.5 nf-in shadow-[0_0_40px_-12px_rgba(224,90,74,.6)]">
+        <div className="flex items-center gap-2 text-[10.5px] tracking-[.32em] text-[#ff8a7a]"><span className="w-1.5 h-1.5 rounded-full bg-[#ff6b5a] animate-ping" />{en ? 'SUDDENLY' : '突 发'}</div>
+        <div className="mt-1 font-serif text-[16px] leading-relaxed text-[#fbeee0]">{m.content}</div>
       </div>
     );
   }
+  if (type === 'jbs_page') {
+    return (
+      <button onClick={() => onOpen('role')} className="w-full text-left rounded-2xl border border-[#a83232]/40 bg-[#2a0e0e]/55 px-4 py-3.5 flex items-center gap-3 nf-in">
+        <span className="w-10 h-10 rounded-xl bg-[#7d1d1d]/40 border border-[#a83232]/40 flex items-center justify-center text-[#f2d6d6] font-serif">{m.payload?.act}</span>
+        <span className="min-w-0 flex-1"><span className="block font-serif text-[15px] text-[#f2d6d6]">{en ? 'A new page of your script' : '你的剧本多了一页'}</span><span className="block text-[12.5px] text-parchment/50">{en ? 'Something comes back to you — only you can read it' : '你想起了一些事 · 只有你能看'}</span></span>
+        <span className="text-[#f2d6d6]/60">›</span>
+      </button>
+    );
+  }
+  if (type === 'jbs_dm' && m.payload?.show) return <Narration text={m.content} lang={lang} fresh={fresh(m)} tone="reveal" label={en ? 'On stage' : '演 出'} collapse={false} />;
+  if (type === 'jbs_act') return <ActTitle look={look} en={en} text={String(m.content).replace(/^[▶—\-\s]+|[—\-\s]+$/g, '')} />;
   if (type === 'jbs_dm') return <Narration text={m.content} lang={lang} fresh={fresh(m)} label={en ? 'Host' : '主持人'} />;
   if (type === 'jbs_reveal') return <Narration text={m.content} lang={lang} fresh={fresh(m)} tone="reveal" label={en ? 'The truth' : '真相'} collapse={false} />;
   if (type === 'jbs_role') {
@@ -655,7 +831,7 @@ function Msg({ m, en, mine, who, avatarOf, chars, onOpen }: { m: any; en: boolea
     const key = !!m.payload?.key;
     return (
       <div className={`rounded-2xl border px-4 py-3 nf-in ${key ? 'border-[#c9a96e]/50 bg-[#c9a96e]/[0.08] shadow-[0_0_30px_-10px_rgba(201,169,110,.5)]' : 'border-[#c9a96e]/20 bg-[#c9a96e]/[0.04]'}`}>
-        <div className="text-[10.5px] tracking-[.25em] mb-1 text-[#c9a96e]">{key ? (en ? 'KEY CLUE' : '关键线索') : (en ? 'CLUE' : '线索')}</div>
+        <div className="text-[10.5px] tracking-[.25em] mb-1 text-[#c9a96e]">{key ? (en ? 'KEY CLUE' : '关键线索') : (en ? 'CLUE' : '线索')}{m.payload?.via ? (en ? ` · FROM ${m.payload.via}` : ` · 私下从${m.payload.via}那里`) : ''}</div>
         <div className="text-[14px] text-[#efe6d2]/90 leading-relaxed whitespace-pre-line">{String(m.content).replace(/^🔍\s*/, '')}</div>
       </div>
     );

@@ -4,10 +4,11 @@ import { companionNote, sendRecap } from '@/lib/linger/companion';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { callLLMJson } from '@/lib/llm';
 import { buildJbsCasePrompt } from '@/lib/jbs/prompt';
+import { ensureStage, publicStage } from '@/lib/jbs/stage';
 import { buildModuleReviewSystem, normalizeModuleQuality } from '@/lib/review/quality';
 import { langDirective } from '@/lib/i18n';
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 export async function POST(req: Request) {
   const supabase = createServerClient();
@@ -54,11 +55,17 @@ export async function POST(req: Request) {
       const g = await callLLMJson<any>({
         system: buildJbsCasePrompt(chosen, headcount, realSeats) + langDirective(room.language),
         messages: [{ role: 'user', content: '请生成隐藏案件与全部角色。' }],
-        tier: 'main', temperature: 0.8, maxTokens: 5200,
+        tier: 'main', temperature: 0.8, maxTokens: 8000,
       });
       cf = g.data;
       await admin.from('api_usage').insert({ room_id: roomId, kind: 'llm_main', model: g.usage.model, prompt_tokens: g.usage.promptTokens, completion_tokens: g.usage.completionTokens, latency_ms: g.usage.latencyMs });
     }
+    // 舞台（场景 / 配角 / 每幕演出与突发事件 / 分幕剧本）：缺的话补一次，本库里的案件补完就存回去
+    try {
+      const st = await ensureStage(admin, cf, libCase?.id || null, room.language);
+      cf = st.cf;
+      if (st.usage) await admin.from('api_usage').insert({ room_id: roomId, kind: 'llm_main', model: st.usage.model, prompt_tokens: st.usage.promptTokens, completion_tokens: st.usage.completionTokens, latency_ms: st.usage.latencyMs });
+    } catch (e: any) { await admin.from('error_logs').insert({ room_id: roomId, scope: 'llm', message: '剧本杀补舞台:' + e.message }); }
 
     // 共享评审引擎：对锁定的剧本案件打加权分 + 封顶 + 诊断，存入 case_file.quality（不改表）
     if (!libCase) try {
@@ -132,12 +139,17 @@ export async function POST(req: Request) {
         await admin.from('jbs_objectives').insert({ room_id: roomId, seat, idx: oi, kind: objs[oi].kind, text: objs[oi].text, status: 'pending' });
       }
     }
-    // DM 开场白
+    // 第一幕：先亮出地点，再是开场白，再是开场演出
+    const stage: any = { ...publicStage(cf), meta: { era: cf.era || chosen.era, genre: chosen.genre, place: chosen.place, type: cf.type || chosen.type, title: cf.title || chosen.title } };
+    const sc0 = stage.scenes.find((x: any) => x.id === stage.scene);
+    if (sc0) await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: 1, content: sc0.name, payload: { type: 'jbs_scene', scene: sc0.id } });
     await admin.from('messages').insert({
       room_id: roomId, sender_type: 'kp', turn_no: 1,
       content: cf.opening || (en ? 'The story begins.' : '故事，从这里开始。'),
       payload: { type: 'jbs_dm', audio: libCase?.opening_audio || undefined },
     });
+    const show1 = cf.acts?.[0]?.show;
+    if (show1) await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', turn_no: 1, content: show1, payload: { type: 'jbs_dm', show: true } });
 
     const acts: any[] = Array.isArray(cf.acts) && cf.acts.length >= 4 ? cf.acts : [];
     const totalActs = acts.length ? Math.min(8, Math.max(5, acts.length)) : 7;
@@ -148,7 +160,7 @@ export async function POST(req: Request) {
     await admin.from('rooms').update({
       game_state: 'playing', jbs_phase: 'playing', jbs_act: 1, modules_generating: false, jbs_type: cf.type || chosen.type || '推理',
       jbs_act_minutes: actMin, jbs_act_started_at: new Date().toISOString(),
-      jbs_total_acts: totalActs, jbs_act_names: actNames,
+      jbs_total_acts: totalActs, jbs_act_names: actNames, jbs_stage: stage,
     }).eq('id', roomId);
 
     return NextResponse.json({ ok: true });

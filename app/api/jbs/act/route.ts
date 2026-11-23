@@ -4,6 +4,8 @@ import { companionNote, sendRecap } from '@/lib/linger/companion';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { callLLMJson, type LLMMessage } from '@/lib/llm';
 import { buildJbsDmPrompt } from '@/lib/jbs/prompt';
+import { fireEvent, moveScene } from '@/lib/jbs/stage';
+import { toLLM } from '@/lib/jbs/turn';
 import { langDirective } from '@/lib/i18n';
 
 export const maxDuration = 60;
@@ -19,7 +21,7 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
   const { data: me } = await admin.from('players').select('id, seat').eq('room_id', roomId).eq('user_id', user.id).maybeSingle();
   if (!me) return NextResponse.json({ error: '你不在这个房间' }, { status: 403 });
-  const { data: room } = await admin.from('rooms').select('jbs_act, jbs_phase, jbs_act_minutes, jbs_act_started_at, jbs_total_acts, language').eq('id', roomId).maybeSingle();
+  const { data: room } = await admin.from('rooms').select('jbs_act, jbs_phase, jbs_act_minutes, jbs_act_started_at, jbs_total_acts, language, jbs_stage, companion').eq('id', roomId).maybeSingle();
   if (!room || room.jbs_phase !== 'playing') return NextResponse.json({ error: '现在不能行动' }, { status: 409 });
   const curAct = room.jbs_act || 1;
   const actMin = room.jbs_act_minutes || 6;
@@ -45,26 +47,25 @@ export async function POST(req: Request) {
 
   // 历史（玩家发言标注真实角色名，避免 DM 张冠李戴）
   const { data: history } = await admin.from('messages').select('sender_type, content, payload, visibility, sender_player_id').eq('room_id', roomId).order('created_at', { ascending: true }).limit(400);
-  const base: LLMMessage[] = (history || []).slice(-18).map((m: any) => {
-    if (m.sender_type === 'kp') return { role: 'assistant', content: m.content };
-    let tag = '[系统]';
-    if (m.payload?.type === 'jbs_ai') tag = `[${m.payload?.name || 'NPC'}·AI]`;
-    else if (m.sender_type === 'player') tag = `[${nameBySeat[seatByPid[m.sender_player_id]] || '玩家'}·真人]`;
-    return { role: 'user', content: `${tag} ${m.content}` } as LLMMessage;
-  });
+  const base: LLMMessage[] = (history || []).slice(-18).map((m: any) => toLLM(m, nameBySeat, seatByPid));
+  // 本幕过了一小半还没发生突发事件 → 这一回合顺带让它发生
+  let justHappened: string | null = null;
+  if (elapsedMin >= actMin * 0.45) { try { justHappened = await fireEvent(admin, roomId, room, kase.case_file); } catch {} }
+  const npcNames = (kase.case_file?.npcs || []).map((n: any) => n.name).filter(Boolean);
 
   try {
     const { data: out, usage } = await callLLMJson<any>({
-      system: buildJbsDmPrompt(kase.case_file, curAct, aiNames, realRoster, { elapsedMin, actMin }, myObjs || []) + companionNote(room, room.companion?.role || undefined) + langDirective(room.language),
+      system: buildJbsDmPrompt(kase.case_file, curAct, aiNames, realRoster, { elapsedMin, actMin }, myObjs || [], room.jbs_stage, justHappened) + companionNote(room, room.companion?.role || undefined) + langDirective(room.language),
       messages: [...base, { role: 'user', content: `[${myName}·真人·${me.seat}座] 的行动：${content.trim()}` }],
       tier: 'main', temperature: 0.8, maxTokens: 2200, retry: true, proseKey: 'narration',
     });
     await admin.from('api_usage').insert({ room_id: roomId, kind: 'llm_main', model: usage.model, prompt_tokens: usage.promptTokens, completion_tokens: usage.completionTokens, latency_ms: usage.latencyMs });
 
     if (out.narration) await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', turn_no: room.jbs_act || 1, content: out.narration, payload: { type: 'jbs_dm' } });
+    if (out.scene) { try { await moveScene(admin, roomId, room, String(out.scene), curAct); } catch {} }
     for (const a of out.ai_lines || []) {
       if (!a?.text || !a?.name) continue;
-      if (!aiNames.includes(a.name)) continue; // 硬过滤：绝不让 AI 顶替真人/未知角色发言
+      if (!aiNames.includes(a.name) && !npcNames.includes(a.name)) continue; // 硬过滤：绝不让 AI 顶替真人/未知角色发言
       await admin.from('messages').insert({ room_id: roomId, sender_type: 'kp', turn_no: room.jbs_act || 1, content: a.text, payload: { type: 'jbs_ai', name: a.name } });
     }
     for (const ev of out.evidence_revealed || []) {

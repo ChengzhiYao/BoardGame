@@ -1,3 +1,4 @@
+import { STAGE_SCHEMA_ZH, stageBrief } from '@/lib/jbs/stage';
 import { NARRATE_RULES_ZH } from '@/lib/narrate';
 // 剧本杀（多人本格）prompt 构建。支持多种本型，每种 type 驱动不同的 DM 重心与结算面板。
 export type JbsType = '推理' | '情感' | '欢乐' | '阵营' | '恐怖' | '还原' | '机制';
@@ -91,12 +92,16 @@ ${type === '推理' || type === '恐怖' || type === '阵营' ? '【人人皆有
   ],
   "ending_conditions": [ { "name":"结局名", "when":"触发条件（按指认结果/玩家选择/生存等）", "outcome":"结局描写" } ],
   "acts": [ { "name":"幕名（公开、不剧透）", "goal":"本幕要达成什么（DM 内部用）" } ],
-  "opening": "第一幕开场：DM 念给全体玩家听的开场白（2~4句，营造氛围、交代案件/情境的起点），不剧透真相。"
-}`;
+  "opening": "第一幕开场：DM 念给全体玩家听的开场白（2~4句，营造氛围、交代案件/情境的起点），不剧透真相。",
+  "scenes": [ { "id":"s1", "name":"", "mood":"", "spots":[""] } ],
+  "npcs": [ { "name":"", "gender":"male", "role":"", "look":"", "knows":"", "attitude":"", "price":"" } ]
+}
+acts 里每一幕还要带上 scene / show / event；每个角色还要带上 act_pages。
+${STAGE_SCHEMA_ZH}`;
 }
 
 // DM 主持每一步：玩家行动 → 叙述结果 + 让 AI 角色自主发言 + 适时推进幕。知道全部真相与秘密，但绝不泄露。
-export function buildJbsDmPrompt(caseFile: any, act: number, aiNames: string[], realRoster: { seat: string; name: string }[] = [], timing?: { elapsedMin: number; actMin: number }, actorObjectives?: { idx: number; text: string; status: string; kind?: string }[]) {
+export function buildJbsDmPrompt(caseFile: any, act: number, aiNames: string[], realRoster: { seat: string; name: string }[] = [], timing?: { elapsedMin: number; actMin: number }, actorObjectives?: { idx: number; text: string; status: string; kind?: string }[], stage?: any, justHappened?: string | null) {
   const realNames = realRoster.map((r) => r.name);
   const seatMap = realRoster.filter((r) => r.seat).map((r) => `${r.seat}座=${r.name}`).join('，') || '（无）';
   const seatList = realRoster.filter((r) => r.seat).map((r) => r.seat).join('/') || '无';
@@ -144,7 +149,7 @@ ${JSON.stringify(caseFile).slice(0, 9000)}
 
 【绝不】剧透真相、点明凶手、说"正确答案"、替玩家下结论。
 ${type === '机制' ? '【机制本·账房】你要维护每个角色的资源/分数。每回合在 resources 里给出**全部角色的当前快照**（每人若干项资源，如金钱/筹码/情报/影响力/物资等，用数值或简短描述）；私下的增减原因写进 private_notes 给当事人。resources 必须每回合都返回完整最新快照。' : '本型无需 resources，留空数组。'}
-${objBlock}
+${objBlock}${stageBrief(caseFile, stage, justHappened)}
 
 ${NARRATE_RULES_ZH}
 ai_lines 里的发言也要短：每人 1~2 句。
@@ -157,6 +162,7 @@ ai_lines 里的发言也要短：每人 1~2 句。
   "private_notes": [ { "to": "（真人座位之一：${seatList}）", "text": "只有该玩家察觉到的私人信息" } ],
   "resources": [ { "name": "角色名", "items": [ { "label": "资源名", "value": "数值或描述" } ] } ],
   "objective_updates": [ { "idx": 0, "status": "done|failed|progress", "note": "裁定说明" } ],
+  "scene": "（可选）大家这一回合转移到的地点 id",
   "next_act": ${act},
   "to_vote": false,
   "hint": "下一步玩家可以做什么（不暗示答案，只给方向）"

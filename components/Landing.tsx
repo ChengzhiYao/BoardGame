@@ -193,7 +193,7 @@ export function LandingGames({ lang, onPick }: { lang: Lang; onPick: (g: GM) => 
   return (
     <section id="games" className="w-full py-16 sm:py-24">
       <Reveal className="text-center px-6">
-        <Over>{en ? 'Nine ways to spend the night' : '九种过夜的方式'}</Over>
+        <Over>{en ? 'Most start with Soup or Cthulhu' : '大多数人从海龟汤或克苏鲁开始'}</Over>
         <h2 className="mt-3 font-serif font-semibold text-[26px] sm:text-[34px] tracking-wide text-[#efe6d2]">{en ? 'Pick tonight’s game' : '今晚玩什么'}</h2>
       </Reveal>
       <Reveal delay={150}>

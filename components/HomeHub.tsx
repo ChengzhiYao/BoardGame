@@ -10,7 +10,16 @@ type Bi = { zh: string; en: string };
 const L = (lang: Lang, b: Bi) => (lang === 'en' ? b.en : b.zh);
 
 // 九宫格顺序 = 最常玩的在前
-export const ORDER: GM[] = ['soup', 'jbs', 'coc', 'botc', 'dnd', 'story', 'td', 'mcc', 'market'];
+// 龙与地下城还没做完，先不在任何入口出现
+export const ORDER: GM[] = ['soup', 'coc', 'jbs', 'mcc', 'botc', 'td', 'story', 'market'];
+// 视觉层级：主推 → 次推 → 更多
+export const TIER1: GM[] = ['soup', 'coc'];
+export const TIER2: GM[] = ['jbs', 'mcc'];
+export const TIER3: GM[] = ['botc', 'td', 'story', 'market'];
+const PITCH: Partial<Record<GM, { hook: Bi; meta: Bi }>> = {
+  soup: { hook: { zh: '一句怪事，只能问「是不是」，问出背后的真相。', en: 'One strange line. Ask yes-or-no until the truth comes out.' }, meta: { zh: '1 人可玩 · 10 分钟', en: 'Solo OK · 10 min' } },
+  coc: { hook: { zh: 'AI 守秘人陪你查一桩怪案，理智会一点点流失。', en: 'An AI Keeper runs your investigation. Sanity drains.' }, meta: { zh: '1–6 人 · 约 1 小时', en: '1–6 · ~1 hr' } },
+};
 export const TILE: Record<GM, { short: Bi; line: Bi; color: string; icon: JSX.Element }> = {
   soup: { short: { zh: '海龟汤', en: 'Lateral Soup' }, line: { zh: '问是非猜真相', en: 'Yes/no riddles' }, color: '#3f9d8e',
     icon: <><path d="M3 11h18a9 9 0 0 1-18 0z" /><path d="M8 7.5c0-1.5 1-1.5 1-3M12 7.5c0-1.5 1-1.5 1-3M16 7.5c0-1.5 1-1.5 1-3" /></> },
@@ -138,22 +147,71 @@ export function SellingPoints({ lang }: { lang: Lang }) {
 }
 
 export function GameGrid({ lang, onPick }: { lang: Lang; onPick: (g: GM) => void }) {
+  const en = lang === 'en';
+  const Tag = ({ k }: { k: GM }) => {
+    const free = FREE_MODES.includes(k);
+    return <span className={`text-[10px] tracking-[.14em] ${free ? 'text-[#9fbf9f]/85' : 'text-[#c9a96e]/85'}`}>{free ? (en ? 'FREE' : '免费') : (en ? '✦ PREMIUM' : '✦ 豪华')}</span>;
+  };
+  const Ico = ({ k, cls }: { k: GM; cls: string }) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className={cls}>{TILE[k].icon}</svg>
+  );
   return (
-    <div className="grid grid-cols-3 gap-2 sm:gap-3 w-full">
-      {ORDER.map((k) => {
-        const t = TILE[k]; const free = FREE_MODES.includes(k);
-        return (
-          <button key={k} onClick={() => onPick(k)}
-            className="group relative text-left rounded-xl px-3 pt-3 pb-2.5 sm:px-4 sm:pt-4 sm:pb-3.5 min-h-[86px] sm:min-h-[112px] bg-[#0b0c0f]/60 backdrop-blur-md border border-[#d8c7a8]/[0.13] hover:border-[#c9a96e]/45 hover:bg-[#0b0c0f]/75 transition-colors">
-            <span className={`absolute top-2.5 right-3 text-[10px] tracking-[.12em] ${free ? 'text-[#9fbf9f]/80' : 'text-[#c9a96e]/85'}`}>
-              {free ? (lang === 'en' ? 'FREE' : '免费') : '✦'}
-            </span>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className="w-[20px] h-[20px] sm:w-6 sm:h-6 text-[#d8c7a8]/55 group-hover:text-[#c9a96e] transition-colors">{t.icon}</svg>
-            <div className="mt-2 sm:mt-3 font-serif text-[15px] sm:text-[18px] font-semibold tracking-wide text-[#ece3cf] leading-tight truncate">{L(lang, t.short)}</div>
-            <div className="text-[11px] sm:text-[12.5px] text-parchment/45 leading-tight truncate mt-1">{L(lang, t.line)}</div>
-          </button>
-        );
-      })}
+    <div className="w-full space-y-3">
+      {/* 第一层：主推，大卡 */}
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5">
+        {TIER1.map((k) => {
+          const t = { ...TILE[k], color: k === 'coc' ? '#b8503f' : TILE[k].color }; const p = PITCH[k]!;
+          return (
+            <button key={k} onClick={() => onPick(k)}
+              className="group relative overflow-hidden text-left rounded-2xl p-3.5 sm:p-5 min-h-[208px] sm:min-h-[232px] flex flex-col border backdrop-blur-md transition-all hover:-translate-y-0.5"
+              style={{ borderColor: t.color + '55', background: `radial-gradient(120% 90% at 0% 0%, ${t.color}38, transparent 60%), linear-gradient(180deg, rgba(21,22,27,.88), rgba(11,12,15,.92))`, boxShadow: `0 18px 50px -24px ${t.color}aa` }}>
+              <span aria-hidden className="absolute -right-6 -bottom-8 opacity-[0.10] group-hover:opacity-[0.16] transition-opacity" style={{ color: t.color }}><Ico k={k} cls="w-36 h-36" /></span>
+              <div className="relative flex items-center justify-between">
+                <span className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: t.color + '26', color: t.color }}><Ico k={k} cls="w-[22px] h-[22px]" /></span>
+                <Tag k={k} />
+              </div>
+              <div className="relative mt-auto">
+                <div className="font-serif font-semibold text-[20px] sm:text-[25px] text-[#efe6d2] leading-tight">{L(lang, t.short)}</div>
+                <p className="mt-1.5 text-[12.5px] sm:text-[13.5px] leading-[1.6] text-parchment/65 line-clamp-3">{L(lang, p.hook)}</p>
+                <div className="mt-2.5 flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-parchment/40 truncate">{L(lang, p.meta)}</span>
+                  <span className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-[14px] group-hover:translate-x-0.5 transition-transform" style={{ color: t.color, background: t.color + '22' }}>→</span>
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* 第二层：次推，横条卡 */}
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5">
+        {TIER2.map((k) => {
+          const t = TILE[k];
+          return (
+            <button key={k} onClick={() => onPick(k)}
+              className="group text-left rounded-xl px-3 py-3 sm:px-4 sm:py-3.5 flex items-center gap-3 bg-[#0b0c0f]/65 backdrop-blur-md border border-[#d8c7a8]/[0.12] hover:border-[#c9a96e]/40 transition-colors">
+              <span className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center bg-white/[0.04] text-[#d8c7a8]/70 group-hover:text-[#c9a96e]"><Ico k={k} cls="w-5 h-5" /></span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-1.5"><span className="font-serif text-[15px] sm:text-[17px] font-semibold text-[#ece3cf] truncate">{L(lang, t.short)}</span></span>
+                <span className="block text-[11.5px] text-parchment/45 truncate">{L(lang, t.line)}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* 第三层：更多玩法，小标签 */}
+      <div className="pt-1">
+        <div className="text-[10.5px] tracking-[.24em] text-parchment/35 mb-2 px-0.5">{en ? 'MORE' : '更多玩法'}</div>
+        <div className="flex flex-wrap gap-2">
+          {TIER3.map((k) => (
+            <button key={k} onClick={() => onPick(k)}
+              className="h-9 pl-2.5 pr-3.5 rounded-full flex items-center gap-1.5 text-[13px] text-parchment/65 bg-white/[0.03] border border-white/[0.08] hover:text-[#ece3cf] hover:border-[#c9a96e]/35 transition-colors">
+              <Ico k={k} cls="w-4 h-4 text-parchment/45" />{L(lang, TILE[k].short)}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

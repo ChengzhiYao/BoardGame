@@ -40,6 +40,7 @@ export async function POST(req: Request) {
 
     if (data.solved) {
       await admin.from('soup_puzzles').update({ status: 'solved' }).eq('id', puzzle.id);
+      try { if ((puzzle as any).lib_id) { const { data: l } = await admin.from('soup_library').select('solved').eq('id', (puzzle as any).lib_id).maybeSingle(); await admin.from('soup_library').update({ solved: (l?.solved || 0) + 1 }).eq('id', (puzzle as any).lib_id); } } catch {}
       await admin.from('rooms').update({ game_state: 'ended' }).eq('id', roomId);
       await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: 0, content: (lang === 'en' ? '[Answer] ' : '【汤底揭晓】') + (bot?.bottom || ''), payload: { type: 'soup_reveal' } });
       await sendRecap(admin, roomId, '对方(真人玩家)猜中了汤底:' + String(bot?.bottom || '').slice(0, 200));

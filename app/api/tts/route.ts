@@ -41,6 +41,12 @@ export async function POST(req: Request) {
     const fpath = `tts/${fhash}.mp3`;
     const { data: hit } = await admin.storage.from('scene-images').list('tts', { search: `${fhash}.mp3`, limit: 1 });
     if (hit && hit.length) return NextResponse.json({ url: admin.storage.from('scene-images').getPublicUrl(fpath).data.publicUrl, cached: true });
+    // 防滥用：每人每天新生成的配音有上限（复用存好的不算）。没登录的 20 段，登录的 80 段。
+    const day = new Date().toISOString().slice(0, 10);
+    const cap = (user as any).is_anonymous ? 20 : 80;
+    const { data: q } = await admin.from('tts_daily').select('n').eq('user_id', user.id).eq('day', day).maybeSingle();
+    if ((q?.n || 0) >= cap) return NextResponse.json({ error: 'quota' }, { status: 429 });
+    await admin.from('tts_daily').upsert({ user_id: user.id, day, n: (q?.n || 0) + 1 });
     try {
       const r = await fetch(`${LINGER_URL}/api/mystnight/tts`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'x-linger-key': process.env.LINGER_BRIDGE_KEY || '' },

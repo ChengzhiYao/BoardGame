@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { callLLMJson } from '@/lib/llm';
-import { compOf, companionNote } from '@/lib/linger/companion';
+import { compOf, companionNote, liveCompanion, pushLive } from '@/lib/linger/companion';
 import { langDirective } from '@/lib/i18n';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -13,9 +13,11 @@ export async function POST(req: Request) {
   if (!user) return NextResponse.json({ ok: false }, { status: 401 });
   const { roomId } = await req.json().catch(() => ({} as any));
   const admin = createAdminClient();
-  const { data: room } = await admin.from('rooms').select('*').eq('id', String(roomId || '')).maybeSingle();
+  const { data: room0 } = await admin.from('rooms').select('*').eq('id', String(roomId || '')).maybeSingle();
+  const room: any = room0 ? await liveCompanion(admin, room0) : room0; // 实时：拿 TA 最新的记忆和你们刚在 Linger 聊的
   const c = compOf(room);
-  if (!room || !c || !['botc', 'jbs', 'soup'].includes(room.mode)) return NextResponse.json({ ok: true, skip: 'none' });
+  if (!room || !c || !['botc', 'jbs', 'soup', 'coc'].includes(room.mode)) return NextResponse.json({ ok: true, skip: 'none' });
+  if (room.mode === 'coc' && !c.player_id) return NextResponse.json({ ok: true, skip: 'not_seated' });
   if (room.mode === 'botc' && !c.seat) return NextResponse.json({ ok: true, skip: 'not_started' });
   if (room.mode === 'jbs' && !c.role) return NextResponse.json({ ok: true, skip: 'not_started' });
   const { data: me } = await admin.from('players').select('id, seat').eq('room_id', room.id).eq('user_id', user.id).maybeSingle();
@@ -31,7 +33,7 @@ export async function POST(req: Request) {
   const rows = (hist || []).reverse().filter((m: any) => (!m.visibility || m.visibility === 'public') && m.content && !['botc_role', 'botc_role_action', 'botc_manifest', 'soup_surface'].includes(m.payload?.type));
   // TA 在你最后一句之后已经开过口 → 不重复
   let li = -1; rows.forEach((m: any, i: number) => { if (m.sender_player_id === me.id) li = i; });
-  const isMe = (m: any) => (room.mode === 'jbs' ? m.payload?.type === 'jbs_ai' && m.payload?.name === c.role : room.mode === 'soup' ? m.payload?.type === 'companion' : m.payload?.companion);
+  const isMe = (m: any) => (room.mode === 'coc' ? m.sender_player_id === c.player_id : room.mode === 'jbs' ? m.payload?.type === 'jbs_ai' && m.payload?.name === c.role : room.mode === 'soup' ? m.payload?.type === 'companion' : m.payload?.companion);
   if (li < 0 || rows.slice(li + 1).some(isMe)) return NextResponse.json({ ok: true, skip: 'already' });
 
   let name = c.name, secret = '', scene = '', phaseNote = '', insert: (say: string) => any;
@@ -56,6 +58,13 @@ export async function POST(req: Request) {
     phaseNote = room.game_state === 'ended' ? (en ? 'The game is over; talk freely.' : '这局已经结束,可以随便聊。') : '';
     scene = en ? 'a murder-mystery game' : '一局剧本杀';
     insert = (say) => admin.from('messages').insert({ room_id: room.id, sender_type: 'kp', turn_no: room.jbs_act || 1, content: say, payload: { type: 'jbs_ai', name: c.role } });
+  } else if (room.mode === 'coc') {
+    const { data: ch } = await admin.from('characters').select('name, occupation, personality, hp_current, san_current').eq('player_id', c.player_id).maybeSingle();
+    name = ch?.name || c.name;
+    secret = en ? `You're investigating together as "${name}" (${ch?.occupation || ''}, HP ${ch?.hp_current ?? '?'}, SAN ${ch?.san_current ?? '?'}). This is the party channel — just the two of you talking, the Keeper isn't listening.` : `你们俩是一个调查小队,你扮演「${name}」(${ch?.occupation || ''},HP ${ch?.hp_current ?? '?'},理智 ${ch?.san_current ?? '?'})。这里是队伍频道,只有你们俩在说话,守秘人听不到。`;
+    phaseNote = room.game_state === 'ended' ? (en ? 'The case is over; talk freely.' : '这局已经结束,可以随便聊。') : '';
+    scene = en ? 'a Call of Cthulhu investigation' : '一局克苏鲁跑团';
+    insert = (say) => admin.from('messages').insert({ room_id: room.id, sender_type: 'player', sender_player_id: c.player_id, action_type: 'chat', turn_no: room.turn_count || 0, content: say, visibility: 'public' });
   } else {
     const { data: pz } = await admin.from('soup_puzzles').select('surface, status').eq('room_id', room.id).maybeSingle();
     secret = en ? `You two are a team guessing a lateral-thinking puzzle. Puzzle: ${pz?.surface || ''} (you don't know the answer).` : `你们俩是一队,一起猜海龟汤。汤面:${pz?.surface || ''}(你也不知道汤底)。`;
@@ -78,6 +87,7 @@ ${you}刚说了话。像你真的会回朋友那样接:TA 跟你说话就回 TA,
     } as any);
     const say = String(data?.say || '').trim().slice(0, 400);
     if (say) await insert(say);
+    await pushLive(admin, room); // 实时：桌上最新几句同步回 Linger
     return NextResponse.json({ ok: true, said: !!say });
   } catch (e: any) { return NextResponse.json({ ok: false, error: String(e?.message || e).slice(0, 120) }); }
 }

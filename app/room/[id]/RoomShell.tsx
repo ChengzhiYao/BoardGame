@@ -198,8 +198,10 @@ function CastOrBuild(props: ShellProps & { state: string }) {
   const mine = (props.initialCharacters || []).find((c: any) => c.player_id === props.myPlayerId);
   const inBuild = !!mine && !mine.confirmed && (mine.creation_stage || 0) > 0;
   const [advanced, setAdvanced] = useState(inBuild);
-  if (advanced) return <div className="w-full max-w-2xl mx-auto"><CharacterFlow {...props} /></div>;
-  return <QuickCast {...props} onAdvanced={() => setAdvanced(true)} />;
+  // 和 Linger 伴侣一起玩：只走现成人物（TA 要从同一批人物里挑），不进完整建卡
+  const withComp = !!(props.room as any).companion?.player_id;
+  if (advanced && !withComp) return <div className="w-full max-w-2xl mx-auto"><CharacterFlow {...props} /></div>;
+  return <QuickCast {...props} onAdvanced={withComp ? undefined : () => setAdvanced(true)} />;
 }
 
 function Locking(props: ShellProps) {

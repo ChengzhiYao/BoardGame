@@ -169,6 +169,7 @@ export default function Dashboard(props: ShellProps) {
       action_type: 'chat', content: c, visibility: 'public', turn_no: room.current_round || 1,
     });
     if (error) notify((EN(lang) ? 'Send failed: ' : '发送失败：') + error.message);
+    else if ((props.room as any).companion?.player_id) fetch('/api/linger/react', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: room.id }) }).catch(() => {}); // 伴侣在队伍频道接你的话
   }
   async function submitAction(content: string, act: string = action) {
     const c = (content || '').trim();

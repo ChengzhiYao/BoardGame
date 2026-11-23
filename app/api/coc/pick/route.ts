@@ -27,6 +27,37 @@ export async function POST(req: Request) {
   const { data: others } = await admin.from('characters').select('player_id, name').eq('room_id', roomId);
   if ((others || []).some((o: any) => o.name === c.name && o.player_id !== me.id)) return NextResponse.json({ error: '这个人物已经被队友选了', taken: true }, { status: 409 });
 
+  const en = room?.language === 'en';
+  const row = makeRow(c, roomId, me.id, en);
+  const { data: ex } = await admin.from('characters').select('id').eq('player_id', me.id).maybeSingle();
+  const res = ex ? await admin.from('characters').update(row).eq('id', ex.id) : await admin.from('characters').insert(row);
+  if (res.error) return NextResponse.json({ error: '保存失败：' + res.error.message }, { status: 500 });
+  await admin.from('players').update({ is_ready: true }).eq('id', me.id);
+  // 和 Linger 伴侣一起玩：TA 也挑一个剩下的人物（按 TA 的性格挑最像自己的那个）
+  try {
+    const { data: rm } = await admin.from('rooms').select('companion').eq('id', roomId).maybeSingle();
+    const comp: any = rm?.companion;
+    if (comp?.player_id) {
+      const { data: has } = await admin.from('characters').select('id').eq('player_id', comp.player_id).maybeSingle();
+      if (!has) {
+        const { data: taken } = await admin.from('characters').select('name').eq('room_id', roomId);
+        const free = cast.map((x: any, i: number) => ({ x, i })).filter(({ x }) => !(taken || []).some((t: any) => t.name === x.name));
+        const want = String(comp.persona || '') + ' ' + String(comp.mbti || '');
+        const pickOne = free.sort((p, q) => score(q.x, want) - score(p.x, want))[0];
+        if (pickOne) {
+          await admin.from('characters').insert(makeRow(pickOne.x, roomId, comp.player_id, en));
+          await admin.from('players').update({ is_ready: true }).eq('id', comp.player_id);
+          await admin.from('rooms').update({ companion: { ...comp, role: pickOne.x.name } }).eq('id', roomId);
+          await admin.from('messages').insert({ room_id: roomId, sender_type: 'player', sender_player_id: comp.player_id, action_type: 'chat', turn_no: 0, content: en ? `I'll be ${pickOne.x.name}.` : `那我当${pickOne.x.name}吧。` });
+        }
+      }
+    }
+  } catch {}
+  await maybeStartPlaying(admin, roomId);
+  return NextResponse.json({ ok: true });
+}
+// 按一张现成人物卡生成完整调查员（掷属性、分技能、发资源）
+function makeRow(c: any, roomId: string, playerId: string, en: boolean) {
   // 属性：掷骰，再把擅长方向抬一点
   const a = rollAttributes();
   const want = new Set<string>([c.signature, ...(c.skills || [])].map((n: string) => ATTR_OF[n]).filter(Boolean) as string[]);
@@ -47,7 +78,6 @@ export async function POST(req: Request) {
   const skills: any = {};
   for (const def of SKILLS) { const base = baseFor(def, a); const add = alloc[def.name] || 0; skills[def.name] = { base, occupation: add, interest: 0, total: base + add }; }
 
-  const en = room?.language === 'en';
   const inv: string[] = Array.isArray(c.inventory) ? c.inventory.slice(0, 3) : [];
   const K = en ? { ammo: 'Ammo', light: 'Light', lamp: 'Lamp oil' } : { ammo: '弹药', light: '手电电量', lamp: '灯油' };
   const resources: any = {};
@@ -57,16 +87,18 @@ export async function POST(req: Request) {
   if (inv.some((i) => /油灯|煤油|提灯|lamp|lantern/i.test(i))) resources[K.lamp] = 4;
 
   const row: any = {
-    room_id: roomId, player_id: me.id,
+    room_id: roomId, player_id: playerId,
     name: c.name, gender: c.gender === 'female' ? 'female' : 'male', age: Number(c.age) || 30, occupation: c.occupation || '', appearance: c.appearance || '',
     personality: c.personality || '', background: c.background || c.tagline || '', personal_goal: c.personal_goal || '', fear: c.fear || c.weakness || '',
     inventory: inv, ...a, ...d, skills, resources, creation_stage: 4, is_complete: true, confirmed: true,
     ...(c.avatar ? { avatar_url: c.avatar } : {}),
   };
-  const { data: ex } = await admin.from('characters').select('id').eq('player_id', me.id).maybeSingle();
-  const res = ex ? await admin.from('characters').update(row).eq('id', ex.id) : await admin.from('characters').insert(row);
-  if (res.error) return NextResponse.json({ error: '保存失败：' + res.error.message }, { status: 500 });
-  await admin.from('players').update({ is_ready: true }).eq('id', me.id);
-  await maybeStartPlaying(admin, roomId);
-  return NextResponse.json({ ok: true });
+  return row;
+}
+
+// 粗略匹配：人物卡的性格/职业和伴侣人设重合的字越多越像
+function score(c: any, want: string) {
+  const t = `${c.personality || ''}${c.occupation || ''}${c.tagline || ''}`;
+  let n = 0; for (const ch of new Set(t.split(''))) if (ch.trim() && want.includes(ch)) n++;
+  return n + Math.random() * 2;
 }

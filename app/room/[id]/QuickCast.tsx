@@ -5,7 +5,7 @@ import type { ShellProps } from './RoomShell';
 
 const SK_EN: Record<string, string> = { 会计: 'Accounting', 考古学: 'Archaeology', 攀爬: 'Climb', 计算机使用: 'Computers', 乔装: 'Disguise', 驾驶汽车: 'Drive', 话术: 'Fast Talk', 斗殴: 'Brawl', 手枪: 'Handgun', 急救: 'First Aid', 历史: 'History', 恐吓: 'Intimidate', 图书馆使用: 'Library Use', 聆听: 'Listen', 锁匠: 'Locksmith', 机械维修: 'Mech. Repair', 医学: 'Medicine', 博物学: 'Natural World', 导航: 'Navigate', 神秘学: 'Occult', 说服: 'Persuade', 心理学: 'Psychology', 侦查: 'Spot Hidden', 潜行: 'Stealth', 游泳: 'Swim', 追踪: 'Track', 闪避: 'Dodge' };
 
-export default function QuickCast(props: ShellProps & { onAdvanced: () => void }) {
+export default function QuickCast(props: ShellProps & { onAdvanced?: () => void }) {
   const en = props.room.language === 'en';
   const [cast, setCast] = useState<any[] | null>(null);
   const [err, setErr] = useState('');
@@ -113,7 +113,7 @@ export default function QuickCast(props: ShellProps & { onAdvanced: () => void }
       )}
 
       <div className="text-center">
-        <button onClick={props.onAdvanced} className="text-[12px] text-parchment/40 hover:text-parchment/70">{en ? 'Veteran? Build your own investigator →' : '我是老玩家，自己捏角色 →'}</button>
+        {props.onAdvanced && <button onClick={props.onAdvanced} className="text-[12px] text-parchment/40 hover:text-parchment/70">{en ? 'Veteran? Build your own investigator →' : '我是老玩家，自己捏角色 →'}</button>}
       </div>
     </div>
   );

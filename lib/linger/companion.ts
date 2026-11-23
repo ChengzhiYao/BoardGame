@@ -41,7 +41,7 @@ export async function sendRecap(admin: any, roomId: string, outcome: string) {
     const { data: msgs } = await admin.from('messages').select('sender_type, content, payload, visibility').eq('room_id', roomId).order('created_at', { ascending: true }).limit(400);
     const pub = (msgs || []).filter((m: any) => (!m.visibility || m.visibility === 'public') && m.content).map((m: any) => `${m.payload?.name ? m.payload.name + ':' : m.sender_type === 'kp' ? '主持:' : ''}${String(m.content).slice(0, 200)}`);
     const transcript = [...pub.slice(0, 6), '…', ...pub.slice(-50)].join('\n').slice(0, 7000);
-    const modeZh: Record<string, string> = { botc: '血染钟楼', jbs: '剧本杀', soup: '海龟汤' };
+    const modeZh: Record<string, string> = { botc: '血染钟楼', jbs: '剧本杀', soup: '海龟汤', coc: '克苏鲁跑团' };
     const r = await callLLM({
       system: `你是「${c.name}」。你刚和${c.userName || '对方'}在「谜夜」上一起玩完一局${modeZh[room.mode] || room.mode}${c.role ? `(你演的是「${c.role}」)` : ''}。结果:${outcome}。
 根据下面的对局记录,用你自己的视角写这局的回忆,给你以后聊天时用。只输出 JSON:
@@ -83,4 +83,35 @@ export async function recapIdleCompanionRooms(admin: any, idleMin = 15) {
     }
     return n;
   } catch { return 0; }
+}
+
+// ===== 实时同步 =====
+const bridgeHeaders = () => ({ 'Content-Type': 'application/json', 'x-linger-key': process.env.LINGER_BRIDGE_KEY || '' });
+const withTimeout = <T,>(p: Promise<T>, ms: number) => Promise.race([p, new Promise<null>((r) => setTimeout(() => r(null), ms))]);
+
+// TA 开口前：从 Linger 拉最新记忆 + 你们刚在 Linger 聊的（45 秒内拉过就用缓存），合进 room.companion
+export async function liveCompanion(admin: any, room: any): Promise<any> {
+  const c = compOf(room); if (!c?.agentId) return room;
+  const at = Number((c as any).live_at) || 0;
+  if (Date.now() - at < 45000) return room;
+  try {
+    const r: any = await withTimeout(fetch(`${LINGER_URL}/api/mystnight/context`, { method: 'POST', headers: bridgeHeaders(), body: JSON.stringify({ agentId: c.agentId }) }).then((x) => x.json()), 2500);
+    if (r?.ok) {
+      const next = { ...c, memory: r.memory || c.memory, recent: r.recent || c.recent, affection: r.affection ?? c.affection, live_at: Date.now() };
+      await admin.from('rooms').update({ companion: next }).eq('id', room.id);
+      return { ...room, companion: next };
+    }
+  } catch {}
+  return room;
+}
+
+// TA 说完后：把桌上最新几句推给 Linger（你切回 Linger 聊天，TA 知道桌上刚发生了什么）
+export async function pushLive(admin: any, room: any) {
+  const c = compOf(room); if (!c?.agentId) return;
+  try {
+    const { data } = await admin.from('messages').select('content, payload, sender_type, sender_player_id, visibility').eq('room_id', room.id).order('created_at', { ascending: false }).limit(10);
+    const lines = (data || []).reverse().filter((m: any) => (!m.visibility || m.visibility === 'public') && m.content)
+      .map((m: any) => `${m.payload?.name || (m.sender_type === 'player' ? (c.userName || '对方') : '主持人')}: ${String(m.content).replace(/\*\*|!!|\(\(|\)\)|\[\[|\]\]/g, '').slice(0, 140)}`);
+    await withTimeout(fetch(`${LINGER_URL}/api/mystnight/started`, { method: 'POST', headers: bridgeHeaders(), body: JSON.stringify({ agentId: c.agentId, mode: room.mode, roomId: room.id, live: lines }) }).catch(() => null), 2000);
+  } catch {}
 }

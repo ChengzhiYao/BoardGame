@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: Request) {
   if (!bridgeOk(req)) return NextResponse.json({ ok: false }, { status: 401 });
   const b = await req.json().catch(() => ({} as any));
-  const mode = ['botc', 'jbs', 'soup'].includes(b?.mode) ? b.mode : 'soup';
+  const mode = ['botc', 'jbs', 'soup', 'coc'].includes(b?.mode) ? b.mode : 'soup';
   const p = b?.companion || {};
   if (!p.agentId || !p.name) return NextResponse.json({ ok: false, reason: 'bad' }, { status: 400 });
   const token = (crypto.randomUUID().replace(/-/g, '')).slice(0, 16);

@@ -4,7 +4,7 @@ import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { callLLMJson } from '@/lib/llm';
 import { buildSoupAnswerPrompt, buildSoupJudgePrompt } from '@/lib/soup/prompt';
 import { langDirective } from '@/lib/i18n';
-import { companionNote, compOf, sendRecap } from '@/lib/linger/companion';
+import { companionNote, compOf, sendRecap, liveCompanion, pushLive } from '@/lib/linger/companion';
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
@@ -13,7 +13,8 @@ export async function POST(req: Request) {
   if (!user) return NextResponse.json({ error: '未登录' }, { status: 401 });
   const { roomId } = await req.json().catch(() => ({} as any));
   const admin = createAdminClient();
-  const { data: room } = await admin.from('rooms').select('*').eq('id', roomId).maybeSingle();
+  const { data: room0 } = await admin.from('rooms').select('*').eq('id', roomId).maybeSingle();
+  const room: any = room0 ? await liveCompanion(admin, room0) : room0;
   const c = compOf(room);
   if (!room || !c || room.host_user_id !== user.id || room.mode !== 'soup') return NextResponse.json({ ok: false });
   const { data: puzzle } = await admin.from('soup_puzzles').select('*').eq('room_id', roomId).maybeSingle();
@@ -35,7 +36,7 @@ export async function POST(req: Request) {
   const text = String(mv?.text || '').trim().slice(0, 200);
   if (!text) return NextResponse.json({ ok: false });
   await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: 0, content: text, payload: { type: 'companion', name: c.name, avatar: c.avatar || null, kind } });
-  if (kind === 'chat') return NextResponse.json({ ok: true, kind });
+  if (kind === 'chat') { await pushLive(admin, room); return NextResponse.json({ ok: true, kind }); }
 
   // 2) 主持人回答 / 判定
   if (kind === 'ask') {

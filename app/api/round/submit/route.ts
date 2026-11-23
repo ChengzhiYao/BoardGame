@@ -9,8 +9,9 @@ import { skillCheck, OUTCOME_LABEL } from '@/lib/coc/dice';
 import { skillValueFor } from '@/lib/coc/skills';
 import { SFX_KEYS } from '@/lib/audio/sfx';
 import { langDirective } from '@/lib/i18n';
+import { compOf, companionNote, liveCompanion, pushLive, sendRecap } from '@/lib/linger/companion';
 
-export const maxDuration = 60; // 线上给 AI 结算更长超时（秒）
+export const maxDuration = 120; // 线上给 AI 结算更长超时（秒）；含伴侣行动
 
 const ACTION_LABEL: Record<string, string> = { investigate: '调查', talk: '交谈', combat: '战斗', move: '移动', free: '', chat: '对话' };
 function rollLoss(s: string): number {
@@ -54,7 +55,18 @@ export async function POST(req: Request) {
   // 写完后重新读取最新 pending，避免多人几乎同时提交各读到旧值而卡住
   const { data: fresh } = await admin
     .from('rooms').select('pending_actions').eq('id', roomId).maybeSingle();
-  const freshPending = fresh?.pending_actions || pending;
+  const freshPending = { ...(fresh?.pending_actions || pending) };
+  // Linger 伴侣坐在队里：你交了行动，TA 也按自己的性格决定这回合做什么
+  const comp: any = compOf(room);
+  if (comp?.seat && comp.player_id && comp.seat !== me.seat && !freshPending?.[comp.seat]?.content && !isOut(charOfSeat0(comp.seat))) {
+    try {
+      const act = await companionCocAction(admin, room, comp, content.trim());
+      if (act) {
+        freshPending[comp.seat] = { content: act, action_type: 'free', player_id: comp.player_id };
+        await admin.from('rooms').update({ pending_actions: freshPending }).eq('id', roomId);
+      }
+    } catch (e: any) { await admin.from('error_logs').insert({ room_id: roomId, scope: 'llm', message: '伴侣跑团行动:' + e.message }); }
+  }
   // 在座且未退场的座位都必须提交；空座/已退场座位自动跳过 → 支持 1~6 人同房
   const activeSeats = (players0 || []).map((p: any) => p.seat).filter((s: string) => !isOut(charOfSeat0(s)));
   const remaining = activeSeats.filter((s: string) => !freshPending?.[s]?.content);
@@ -405,10 +417,34 @@ ${sectionHint}
     const kindLabel = kind === 'good' ? '好结局' : kind === 'bad' ? '坏结局' : kind === 'hidden' ? '隐藏结局' : kind.includes('bitter') ? '苦涩结局' : '结局';
     const name = out.progress.ending_name ? `《${out.progress.ending_name}》（${kindLabel}）\n` : '';
     await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: round, content: '【结局】' + name + (out.progress.ending_text || '调查到此结束。'), payload: { type: 'ending' } });
+    await sendRecap(admin, roomId, `克苏鲁跑团打到了结局:${out.progress.ending_name || ''}(${kindLabel})。${String(out.progress.ending_text || '').slice(0, 200)}`);
   } else if (bothOut) {
     roomPatch.game_state = 'ended';
     roomPatch.scene_state = 'BAD_ENDING';
     await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: round, content: '【结局】两位调查员都已倒下——一个死去，一个再也认不出这个世界。无人将真相带出此地。', payload: { type: 'ending' } });
   }
   await admin.from('rooms').update(roomPatch).eq('id', roomId);
+}
+
+// 伴侣的这回合行动：看主持人最新的叙述和你刚做的事，用 TA 的性格、TA 演的人物决定做什么
+async function companionCocAction(admin: any, room0: any, comp: any, yourAction: string): Promise<string> {
+  const room = await liveCompanion(admin, room0);
+  const { data: ch } = await admin.from('characters').select('name, occupation, personality, skills, inventory').eq('player_id', comp.player_id).maybeSingle();
+  const { data: hist } = await admin.from('messages').select('sender_type, content, payload').eq('room_id', room.id).order('created_at', { ascending: false }).limit(8);
+  const lastKp = (hist || []).find((m: any) => m.sender_type === 'kp')?.content || '';
+  const top = Object.entries(ch?.skills || {}).map(([k, v]: any) => [k, v?.total || 0] as [string, number]).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([k, v]) => `${k}${v}`).join('、');
+  const en = room.language === 'en';
+  const you = comp.userName || (en ? 'your friend' : '对方');
+  const { data } = await callLLMJson<any>({
+    system: (en
+      ? `You are playing Call of Cthulhu together with ${you}, as the investigator "${ch?.name || comp.name}" (${ch?.occupation || ''}; best skills: ${top}; carrying: ${(ch?.inventory || []).join(', ')}). The Keeper just narrated:\n${String(lastKp).slice(-1200)}\n${you} has decided: "${yourAction}".\nDecide what YOU do this round — one or two sentences, first person, concrete (where you go, what you touch, who you talk to). Play to your skills; you can back ${you} up, split up to cover more ground, or disagree if your personality would. Output JSON {"action":"..."}`
+      : `你正和${you}一起玩克苏鲁跑团,你扮演调查员「${ch?.name || comp.name}」(${ch?.occupation || ''};拿手:${top};随身:${(ch?.inventory || []).join('、')})。守秘人刚说:\n${String(lastKp).slice(-1200)}\n${you}这回合决定:「${yourAction}」。\n决定你这回合做什么——一两句,第一人称,具体(去哪、碰什么、找谁说话)。发挥你的拿手技能;可以配合${you}、分头行动去查别处、或者按你的脾气提出不同意见。只输出 JSON {"action":"..."}`)
+      + companionNote(room, ch?.name || comp.name) + langDirective(room.language),
+    messages: [{ role: 'user', content: en ? 'Your move.' : '轮到你了。' }],
+    tier: 'main', temperature: 0.85, maxTokens: 200, proseKey: 'action',
+  });
+  const act = String(data?.action || '').trim().slice(0, 300);
+  // 顺便在队伍频道说一句（像朋友一边玩一边嘀咕）
+  if (act) { try { await pushLive(admin, room); } catch {} }
+  return act;
 }

@@ -67,7 +67,7 @@ export default function Upgrade() {
     } catch (e: any) { setErr(e.message); setBusy(''); }
   }
 
-  async function buySub(plan: 'monthly' | 'yearly') {
+  async function buySub(plan: 'monthly' | 'yearly' | 'pass2h' | 'light1') {
     setBusy('sub-' + plan); setErr('');
     try {
       const res = await fetch('/api/billing/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan }) });
@@ -118,8 +118,8 @@ export default function Upgrade() {
 
       <div className="w-full max-w-3xl">
         <div className="text-center mb-3">
-          <div className="font-serif text-xl text-parchment">{lang === 'en' ? 'Membership · Unlimited play ✦' : '会员 · 无限畅玩 ✦'}</div>
-          <p className="text-parchment/50 text-sm">{lang === 'en' ? 'Unlimited free modes + 5 premium plays every month — no weekly time cap.' : '免费模式无限玩 ＋ 豪华大作每月 5 次,免每周时长限制。'}</p>
+          <div className="font-serif text-xl text-parchment">{lang === 'en' ? 'Membership ✦' : '会员 ✦'}</div>
+          <p className="text-parchment/50 text-sm">{lang === 'en' ? '2 extra hours of light games every week + 5 premium plays every month.' : '轻玩法每周多 2 小时 ＋ 豪华大作每月 5 次。'}</p>
         </div>
         <div className="grid sm:grid-cols-2 gap-4">
           <div className="rounded-xl border border-eldritch/30 bg-fog p-5 flex flex-col items-center gap-2">
@@ -140,6 +140,20 @@ export default function Upgrade() {
               {status?.member ? (lang === 'en' ? 'Current member' : '已是会员') : busy === 'sub-yearly' ? t('up_redirect') : status?.loggedIn ? (lang === 'en' ? 'Subscribe · best value' : '开通 · 最划算') : t('up_login_then')}
             </button>
           </div>
+        </div>
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <button onClick={() => (status?.loggedIn ? buySub('light1') : signInWithGoogle('/upgrade').catch((e) => setErr(e.message)))} disabled={busy === 'sub-light1'}
+            className="rounded-xl border border-eldritch/30 bg-fog p-4 text-left disabled:opacity-50">
+            <div className="text-parchment text-sm">{lang === 'en' ? 'One more light game' : '轻玩法多一局'}</div>
+            <div className="text-parchment/45 text-[11px] mt-0.5">{lang === 'en' ? 'Soup or Cat Curse' : '海龟汤或猫诅咒'}</div>
+            <div className="font-serif text-2xl text-parchment mt-2">$1</div>
+          </button>
+          <button onClick={() => (status?.loggedIn ? buySub('pass2h') : signInWithGoogle('/upgrade').catch((e) => setErr(e.message)))} disabled={busy === 'sub-pass2h'}
+            className="rounded-xl border border-blood/50 bg-fog p-4 text-left disabled:opacity-50">
+            <div className="text-parchment text-sm">{lang === 'en' ? '2-hour pass' : '2 小时畅玩卡'}</div>
+            <div className="text-parchment/45 text-[11px] mt-0.5">{lang === 'en' ? 'Soup, Cat Curse, Truth or Dare — unlimited' : '海龟汤、猫诅咒、真心话随便玩'}</div>
+            <div className="font-serif text-2xl text-parchment mt-2">$10</div>
+          </button>
         </div>
         <div className="text-center text-parchment/35 text-xs mt-6 mb-2">{lang === 'en' ? 'Or buy one-off hosting credits for premium modes:' : '或单独购买豪华大作的局数：'}</div>
       </div>

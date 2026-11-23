@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { getEntitlement } from '@/lib/billing/entitlement';
 import { FREE_MODES, monthStart, weekStart, FREE_WEEKLY_SECONDS } from '@/lib/pricing';
+import { WEEKLY_MODES } from '@/lib/billing/light';
 import { clientIp } from '@/lib/net';
 
 function genToken() {
@@ -31,8 +32,11 @@ export async function POST(req: Request) {
     if (!ent.email) {
       return NextResponse.json({ error: '登录即可免费开玩', reason: 'login' }, { status: 402 });
     }
-    if (!ent.member && !ent.whitelisted && ent.freeSecondsUsed >= ent.freeSecondsLimit) {
-      return NextResponse.json({ error: '本周免费时长已用完，开通会员即可无限畅玩', reason: 'free_limit' }, { status: 402 });
+    // 身价场永久免费；海龟汤/猫诅咒按局在开局时收；真心话每周 2 小时（会员也一样），有 2 小时畅玩卡则不限
+    if (WEEKLY_MODES.includes(body.mode) && !ent.whitelisted && ent.freeSecondsUsed >= ent.freeSecondsLimit) {
+      const { data: pp } = await admin.from('profiles').select('pass_until').eq('user_id', user.id).maybeSingle();
+      if (!(pp?.pass_until && new Date(pp.pass_until) > new Date()))
+        return NextResponse.json({ error: '本周 2 小时免费时长已用完，可以买 2 小时畅玩卡继续', reason: 'free_limit' }, { status: 402 });
     }
   } else if (!ent.canHost) {
     const msg = ent.reason === 'login'

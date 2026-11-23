@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { ShellProps } from './RoomShell';
+import { LightPaywall, LightLine, useLightStatus } from '@/components/LightPay';
 import { useTTS } from './useTTS';
 import { playAnswerSfx } from '@/lib/audio/answerSfx';
 
@@ -17,6 +18,9 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
   useTTS({ lang: props.room.language, messages, roomId: props.room.id, classify: (m: any) => { const t = m.payload?.type; if (t === 'soup_surface' || t === 'soup_reveal' || m.sender_type === 'kp') return { kind: 'narrator' as const, text: m.content, audio: m.payload?.audio, urgent: t === 'soup_reveal' }; return null; } });
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
+  const [payOpen, setPayOpen] = useState(false);
+  const [stBump, setStBump] = useState(0);
+  const lightSt = useLightStatus('soup', stBump);
   const [guessing, setGuessing] = useState(false);
   const [guess, setGuess] = useState('');
   const [copied, setCopied] = useState(false);
@@ -100,7 +104,9 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
     try {
       const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const d = await res.json();
+      if (res.status === 402 && d?.reason === 'light_pay') { setPayOpen(true); return d; }
       if (!res.ok) alert(d.error || '出错了');
+      setStBump((x) => x + 1);
       return d;
     } catch (e: any) { alert('失败：' + e.message); }
     finally { setBusy(false); }
@@ -167,6 +173,8 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
           className="mt-7 w-full max-w-sm py-3.5 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] border border-[#a83232]/60 text-[#f2ead9] font-serif font-semibold tracking-[.2em] text-[17px] shadow-[0_10px_40px_-10px_rgba(125,29,29,.7)] disabled:opacity-50">
           {busy || generating ? '正在出题…' : '开始出题'}
         </button>
+        <div className="mt-2.5"><LightLine st={lightSt} mode="soup" en={en} /></div>
+        <LightPaywall open={payOpen} onClose={() => setPayOpen(false)} mode="soup" en={en} />
 
         <div className="mt-4 w-full max-w-sm flex items-center gap-2 rounded-xl border border-[#d8c7a8]/[0.13] bg-[#0b0c0f]/60 px-4 py-2.5 text-left">
           <span className="flex-1 text-[13px] text-parchment/70">叫朋友一起问 <span className="text-parchment/35">· 人多更好猜</span></span>

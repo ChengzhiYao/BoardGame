@@ -1,6 +1,7 @@
 // 出一道海龟汤：优先从题库挑一道这个玩家没玩过、设置对得上的好题（配音也跟着复用）；不够才让 AI 新编，新题入库。
 // 汤面给玩家看，汤底单独存（机密）。
 import { NextResponse } from 'next/server';
+import { lightStatus, decide, consume, PAY_ERROR } from '@/lib/billing/light';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { callLLMJson } from '@/lib/llm';
 import { buildSoupGenPrompt } from '@/lib/soup/prompt';
@@ -24,6 +25,13 @@ export async function POST(req: Request) {
   const { data: existing } = await admin.from('soup_puzzles').select('id').eq('room_id', roomId).maybeSingle();
   if (existing) return NextResponse.json({ ok: true });
 
+  // 计费：每天 2 碗免费，之后 $1 一碗或 2 小时畅玩（Linger 伴侣带来的局不在这里收）
+  const { data: rc } = await admin.from('rooms').select('companion').eq('id', roomId).maybeSingle();
+  let via: any = 'whitelist';
+  if (!rc?.companion) {
+    via = decide(await lightStatus(admin, user, 'soup'));
+    if (!via) return NextResponse.json(PAY_ERROR, { status: 402 });
+  }
   await admin.from('rooms').update({ modules_generating: true }).eq('id', roomId);
   try {
     const { data: room } = await admin.from('rooms').select('language').eq('id', roomId).maybeSingle();
@@ -86,6 +94,7 @@ export async function POST(req: Request) {
       payload: { type: 'soup_surface', audio: data.surface_audio || undefined, lib: libId || undefined },
     });
     if (usage) await admin.from('api_usage').insert({ room_id: roomId, kind: 'llm_main', model: usage.model, prompt_tokens: usage.promptTokens, completion_tokens: usage.completionTokens, latency_ms: usage.latencyMs });
+    try { await consume(admin, user.id, 'soup', via); } catch {}
 
     return NextResponse.json({ ok: true });
   } catch (e: any) {

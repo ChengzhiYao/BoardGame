@@ -1,5 +1,6 @@
 // MCC · 开局：洗牌发牌，初始化对局（仅房主，≥2 名玩家）。
 import { NextResponse } from 'next/server';
+import { lightStatus, decide, consume, PAY_ERROR } from '@/lib/billing/light';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { newGame } from '@/lib/mcc/engine';
 import { persist } from '@/lib/mcc/db';
@@ -33,8 +34,12 @@ export async function POST(req: Request) {
   if (list.length < 2) return NextResponse.json({ error: '至少需要 2 名玩家（或开启 AI 补位）' }, { status: 409 });
   list.sort((a, b) => a.seat.localeCompare(b.seat));
 
+  // 计费：每天 1 局免费，之后 $1 一局或 2 小时畅玩
+  const via = decide(await lightStatus(admin, user, 'mcc'));
+  if (!via) return NextResponse.json(PAY_ERROR, { status: 402 });
   await admin.from('mcc_hands').delete().eq('room_id', roomId);
   const state = newGame(list, (room as any).language);
   await persist(admin, roomId, state);
+  try { await consume(admin, user.id, 'mcc', via); } catch {}
   return NextResponse.json({ ok: true });
 }

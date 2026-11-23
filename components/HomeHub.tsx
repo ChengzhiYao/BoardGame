@@ -15,7 +15,7 @@ export const ORDER: GM[] = ['soup', 'coc', 'jbs', 'mcc', 'botc', 'td', 'story', 
 // 视觉层级：主推 → 次推 → 更多
 export const TIER1: GM[] = ['soup', 'coc'];
 export const TIER2: GM[] = ['jbs', 'mcc'];
-export const TIER3: GM[] = ['botc', 'td', 'story', 'market'];
+export const TIER3: GM[] = ['botc', 'td', 'story'];
 const PITCH: Partial<Record<GM, { hook: Bi; meta: Bi }>> = {
   soup: { hook: { zh: '一句怪事，只能问「是不是」，问出背后的真相。', en: 'One strange line. Ask yes-or-no until the truth comes out.' }, meta: { zh: '1 人可玩 · 10 分钟', en: 'Solo OK · 10 min' } },
   coc: { hook: { zh: 'AI 守秘人陪你查一桩怪案，理智会一点点流失。', en: 'An AI Keeper runs your investigation. Sanity drains.' }, meta: { zh: '1–6 人 · 约 1 小时', en: '1–6 · ~1 hr' } },
@@ -192,13 +192,29 @@ export function GameGrid({ lang, onPick }: { lang: Lang; onPick: (g: GM) => void
               className="group text-left rounded-xl px-3 py-3 sm:px-4 sm:py-3.5 flex items-center gap-3 bg-[#0b0c0f]/65 backdrop-blur-md border border-[#d8c7a8]/[0.12] hover:border-[#c9a96e]/40 transition-colors">
               <span className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center bg-white/[0.04] text-[#d8c7a8]/70 group-hover:text-[#c9a96e]"><Ico k={k} cls="w-5 h-5" /></span>
               <span className="min-w-0 flex-1">
-                <span className="flex items-center justify-between gap-1.5"><span className="font-serif text-[15px] sm:text-[17px] font-semibold text-[#ece3cf] truncate">{L(lang, t.short)}</span><span className="shrink-0"><Tag k={k} /></span></span>
-                <span className="block text-[11.5px] text-parchment/45 truncate">{L(lang, t.line)}</span>
+                <span className="block font-serif text-[15px] sm:text-[17px] font-semibold text-[#ece3cf] truncate">{L(lang, t.short)}</span>
+                <span className="flex items-center gap-1.5 text-[11.5px] text-parchment/45 min-w-0"><span className="truncate">{L(lang, t.line)}</span><span className="shrink-0"><Tag k={k} /></span></span>
               </span>
             </button>
           );
         })}
       </div>
+
+      {/* 身价场：全站玩家都在一个场子里，单独一条横幅 */}
+      <button onClick={() => onPick('market')}
+        className="group relative w-full overflow-hidden text-left rounded-2xl px-4 py-3.5 sm:px-5 sm:py-4 flex items-center gap-3.5 border border-[#c9a54a]/35 backdrop-blur-md transition-colors hover:border-[#c9a54a]/60"
+        style={{ background: 'linear-gradient(100deg, rgba(201,165,74,.16), rgba(201,165,74,.04) 55%, rgba(11,12,15,.7))' }}>
+        <span className="relative shrink-0 w-11 h-11 rounded-xl flex items-center justify-center bg-[#c9a54a]/20 text-[#e6c76e]"><Ico k="market" cls="w-[22px] h-[22px]" /></span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-2">
+            <span className="font-serif text-[16px] sm:text-[18px] font-semibold text-[#f1e3b8]">{L(lang, TILE.market.short)}</span>
+            <span className="flex items-center gap-1 text-[10.5px] text-[#e6c76e]/90"><span className="w-1.5 h-1.5 rounded-full bg-[#e6c76e] animate-pulse" />{en ? 'EVERYONE IS IN' : '全站都在'}</span>
+            <span className="ml-auto"><Tag k="market" /></span>
+          </span>
+          <span className="block mt-0.5 text-[12px] text-parchment/55 truncate">{en ? 'Every player has a price. Buy, sell, climb the board.' : '每个玩家都有身价——买进、卖出、冲上排行榜。'}</span>
+        </span>
+        <span className="shrink-0 text-[#e6c76e] text-[16px] group-hover:translate-x-0.5 transition-transform">→</span>
+      </button>
 
       {/* 第三层：更多玩法，小标签 */}
       <div className="pt-1">
@@ -221,9 +237,10 @@ export function PricingStrip({ lang }: { lang: Lang }) {
   const en = lang === 'en';
   const m = MEMBERSHIP.monthly.price / 100, y = MEMBERSHIP.yearly.price / 100;
   const rows: { tag: string; color: string; text: string }[] = [
-    { tag: en ? 'Free' : '免费', color: '#9fbf9f', text: en ? 'Soup, Truth or Dare, Cat Curse, Market — 2 hrs every week' : '海龟汤 · 真心话 · 猫诅咒 · 身价场，每周 2 小时' },
+    { tag: en ? 'Free' : '免费', color: '#9fbf9f', text: en ? 'Soup 2 a day · Cat Curse 1 a day · Truth or Dare 2 hrs a week · the Market always free' : '海龟汤每天 2 碗 · 猫诅咒每天 1 局 · 真心话每周 2 小时 · 身价场永久免费' },
+    { tag: en ? 'More' : '加玩', color: '#d9a441', text: en ? '$1 per extra game, or $10 for 2 hours of unlimited light games' : '多玩一局 $1，或 $10 买 2 小时轻玩法随便玩' },
     { tag: en ? 'New' : '新人', color: '#c9a96e', text: en ? `${FREE_PLAYS_ON_SIGNUP} free ✦ premium games when you sign up` : `注册送 ${FREE_PLAYS_ON_SIGNUP} 局 ✦ 豪华大作` },
-    { tag: en ? 'Member' : '会员', color: '#ece3cf', text: en ? `$${m}/mo · unlimited free modes + ${MEMBER_PREMIUM_PLAYS} premium/mo ($${y}/yr)` : `$${m}/月 · 免费玩法无限 + 每月 ${MEMBER_PREMIUM_PLAYS} 局豪华（年付 $${y}）` },
+    { tag: en ? 'Member' : '会员', color: '#ece3cf', text: en ? `$${m}/mo · +2 hrs/week of light games + ${MEMBER_PREMIUM_PLAYS} premium/mo ($${y}/yr)` : `$${m}/月 · 轻玩法每周多 2 小时 + 每月 ${MEMBER_PREMIUM_PLAYS} 局豪华（年付 $${y}）` },
   ];
   return (
     <a href="/upgrade" className="block w-full rounded-xl bg-[#0b0c0f]/60 backdrop-blur-md border border-[#d8c7a8]/[0.13] px-4 py-3 sm:px-6 sm:py-4 text-left hover:border-[#c9a96e]/40 transition-colors">

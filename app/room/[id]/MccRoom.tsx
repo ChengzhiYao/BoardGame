@@ -1,4 +1,5 @@
 'use client';
+import { LightPaywall, LightLine, useLightStatus } from '@/components/LightPay';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -31,6 +32,9 @@ export default function MccRoom(props: ShellProps) {
   const [hand, setHand] = useState<string[]>(props.mccHand || []);
   useEffect(() => { setHand(props.mccHand || []); }, [props.mccHand]);
   const [busy, setBusy] = useState(false);
+  const [payOpen, setPayOpen] = useState(false);
+  const [stBump, setStBump] = useState(0);
+  const lightSt = useLightStatus('mcc', stBump);
   const [copied, setCopied] = useState(false);
   const [pickCard, setPickCard] = useState<string>('');
   const [peek, setPeek] = useState<string[] | null>(null);
@@ -132,6 +136,7 @@ export default function MccRoom(props: ShellProps) {
     try {
       const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const d = await res.json().catch(() => ({} as any));
+      if (res.status === 402 && d?.reason === 'light_pay') { setPayOpen(true); return null; }
       if (!res.ok) {
         const msg = d?.error || (en ? 'Error' : '出错了');
         if (quiet && quiet.some((q) => String(msg).includes(q))) { router.refresh(); return null; } // 迟到/竞态：静默刷新，不弹框
@@ -139,6 +144,7 @@ export default function MccRoom(props: ShellProps) {
         return null;
       }
       router.refresh();
+      if (url.endsWith('/start')) setStBump((x) => x + 1);
       return d;
     } catch (e: any) { alert((en ? 'Failed: ' : '失败：') + e.message); return null; }
     finally { inFlight.current = false; setBusy(false); }
@@ -240,6 +246,8 @@ export default function MccRoom(props: ShellProps) {
               className="px-6 py-3 rounded bg-blood/80 hover:bg-blood text-parchment border border-blood disabled:opacity-50">
               {busy ? (en ? 'Dealing…' : '发牌中…') : (!aiFill && props.initialPlayers.length < 2) ? (en ? 'Need 2+ players' : '至少 2 人') : (en ? 'Deal & start →' : '发牌开始 →')}
             </button>
+            <LightLine st={lightSt} mode="mcc" en={en} />
+            <LightPaywall open={payOpen} onClose={() => setPayOpen(false)} mode="mcc" en={en} />
           </>
         ) : <span className="text-sm text-parchment/50">{en ? 'Waiting for the host to start…' : '等待房主开始……'}</span>}
       </main>
@@ -254,6 +262,7 @@ export default function MccRoom(props: ShellProps) {
   return (
     <main className="h-[100svh] flex flex-col overflow-hidden">
       {flashKey > 0 && <div key={flashKey} className="mcc-flash pointer-events-none fixed inset-0 z-[60] bg-red-700" />}
+      <LightPaywall open={payOpen} onClose={() => setPayOpen(false)} mode="mcc" en={en} />
       {drag && (
         <>
           <div className="pointer-events-none fixed inset-x-0 top-0 z-[57]" style={{ height: '60vh', background: 'linear-gradient(to bottom, rgba(178,58,72,0.16), transparent)' }} />

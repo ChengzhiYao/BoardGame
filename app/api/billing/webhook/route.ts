@@ -42,6 +42,15 @@ export async function POST(req: Request) {
         { user_id: userId, member_until: until.toISOString(), member_interval: interval, stripe_customer_id: customer, stripe_subscription_id: typeof s.subscription === 'string' ? s.subscription : null },
         { onConflict: 'user_id' }
       );
+    } else if (userId && (s.metadata?.kind === 'light1' || s.metadata?.kind === 'pass2h')) {
+      const { data: p } = await admin.from('profiles').select('light_credits, pass_until').eq('user_id', userId).maybeSingle();
+      if (s.metadata.kind === 'light1') {
+        await admin.from('profiles').upsert({ user_id: userId, light_credits: (p?.light_credits || 0) + 1, ...(customer ? { stripe_customer_id: customer } : {}) }, { onConflict: 'user_id' });
+      } else {
+        // 2 小时：从现在算；已有未用完的畅玩卡就接着往后加
+        const base = p?.pass_until && new Date(p.pass_until) > new Date() ? new Date(p.pass_until) : new Date();
+        await admin.from('profiles').upsert({ user_id: userId, pass_until: new Date(base.getTime() + 2 * 3600 * 1000).toISOString(), ...(customer ? { stripe_customer_id: customer } : {}) }, { onConflict: 'user_id' });
+      }
     } else {
       const games = parseInt(s.metadata?.games || '0', 10);
       if (userId && games > 0) {

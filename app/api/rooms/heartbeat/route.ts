@@ -26,7 +26,11 @@ export async function POST(req: Request) {
     const { data: room } = await admin.from('rooms').select('mode, host_user_id').eq('id', roomId).maybeSingle();
     if (room && FREE_MODES.includes(room.mode) && room.host_user_id === user.id) {
       const ent = await getEntitlement(admin, user);
-      if (!ent.member && !ent.whitelisted) {
+      const { data: pp } = await admin.from('profiles').select('pass_until').eq('user_id', user.id).maybeSingle();
+      const onPass = !!(pp?.pass_until && new Date(pp.pass_until) > new Date());
+      // 真心话：所有人都计时；海龟汤/猫诅咒：只有会员计（会员每周 2 小时）；身价场不计；畅玩卡期间不计
+      const counts = room.mode === 'td' || ((room.mode === 'soup' || room.mode === 'mcc') && ent.member);
+      if (counts && !ent.whitelisted && !onPass) {
         const ws = weekStart();
         const { data: fu } = await admin.from('free_usage').select('seconds').eq('user_id', user.id).eq('week_start', ws).maybeSingle();
         await admin.from('free_usage').upsert({ user_id: user.id, week_start: ws, seconds: (fu?.seconds || 0) + 60 }, { onConflict: 'user_id,week_start' });

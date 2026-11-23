@@ -94,7 +94,7 @@ export default function PlayHub() {
                 ? <span><span className="text-[#c9a96e]">✦ {en ? 'Member' : '会员'}</span>{acct.memberPremiumLimit ? (en ? ` · ${Math.max(0, acct.memberPremiumLimit - (acct.memberPremiumUsed || 0))} premium left this month` : ` · 本月豪华还剩 ${Math.max(0, acct.memberPremiumLimit - (acct.memberPremiumUsed || 0))} 局`) : ''}</span>
                 : <>
                     <span>{en ? 'Premium games ' : '豪华局数 '}<b className="text-[#ece3cf] font-serif">{acct.credits ?? 0}</b></span>
-                    <span>{en ? 'Free time this week ' : '本周免费时长 '}<b className="text-[#ece3cf] font-serif">{hm(freeLeft)}</b></span>
+                    <span>{en ? 'Truth or Dare this week ' : '真心话本周还剩 '}<b className="text-[#ece3cf] font-serif">{hm(freeLeft)}</b></span>
                     <span className="text-[#c9a96e]">{en ? 'Get more →' : '获取更多 →'}</span>
                   </>}
             </a>

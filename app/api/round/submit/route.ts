@@ -233,7 +233,7 @@ ${actionBlock}
 ${due.length ? `\n★本回合世界时钟到点：${due.map((e) => e.label + (e.on_fire ? `（${e.on_fire}）` : '')).join('；')}——必须把它写进剧情。` : ''}
 narration 必须分段输出，每位调查员一段，再加世界状态：
 ${sectionHint}
-【世界状态变化】…（嫌疑值/NPC态度/SAN/HP 概述）
+【世界状态变化】…（一两句：周围此刻起了什么变化、谁的态度变了。像小说一样写，不写任何数字、不写嫌疑值/SAN/HP 这类术语）
 下一步可行动作放进 guidance.options。骰子已判定，不要再请求。${round >= 25 ? `\n（本局已进行 ${round} 回合。若案件已接近真相或收尾，请果断给出结局：progress.ending_triggered=true 并写好 ending_text 与结局类型。）` : ''}`;
 
   const { data: out, usage } = await callLLMJson<any>({ system: buildKpTurnSystem(narratorCtx) + langDirective(room.language), messages: [...baseMessages, { role: 'user', content: note }], tier: 'main', temperature: 0.7, maxTokens: 3000, retry: true });
@@ -297,10 +297,7 @@ ${sectionHint}
   const susDelta = Number(out.suspicion_delta) || 0;
   const newSuspicion = Math.max(0, (room.suspicion || 0) + susDelta);
   if (susDelta !== 0 || out.world_reaction) {
-    const parts: string[] = [];
-    if (out.world_reaction) parts.push(out.world_reaction);
-    if (susDelta !== 0) parts.push(`嫌疑值 ${susDelta > 0 ? '+' : ''}${susDelta}（现 ${newSuspicion}）`);
-    await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: round, content: '【世界反应】' + parts.join(' · '), payload: { type: 'world' } });
+    await admin.from('messages').insert({ room_id: roomId, sender_type: 'system', turn_no: round, content: String(out.world_reaction || ''), payload: { type: 'world', delta: susDelta, suspicion: newSuspicion } });
   }
 
   // 线索

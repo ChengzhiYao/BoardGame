@@ -115,7 +115,22 @@ export default function Dashboard(props: ShellProps) {
     return () => { supabase.removeChannel(ch); };
   }, [props.room.id, props.userId, props.mySeat, supabase]);
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, thinking]);
+  const scrollRef = useRef<HTMLElement>(null);
+  const nearBottom = useRef(true);
+  const [newBelow, setNewBelow] = useState(false);
+  const lastId = useRef<string | null>(null);
+  useEffect(() => {
+    const last = messages[messages.length - 1];
+    const first = lastId.current === null;
+    const isNew = !!last && last.id !== lastId.current;
+    lastId.current = last?.id || null;
+    if (first) { bottomRef.current?.scrollIntoView(); return; }
+    if (!isNew) { if (nearBottom.current) bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); return; }
+    if (!nearBottom.current && last.sender_player_id !== props.myPlayerId) { setNewBelow(true); return; }
+    // 守秘人的新一段：滚到这段开头，从头读，而不是直接冲到底
+    if (last.sender_type === 'kp') document.getElementById('m-' + last.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    else bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, thinking, props.myPlayerId]);
 
   // 轮询兜底：被邀请的匿名玩家realtime可能被RLS过滤收不到推送，这里定时主动拉消息+回合状态，保证两边同步。
   useEffect(() => {
@@ -135,7 +150,7 @@ export default function Dashboard(props: ShellProps) {
     lang,
     messages,
     roomId: props.room.id,
-    classify: (m: any) => (m.sender_type === 'kp' ? { kind: 'narrator' as const, text: m.content, audio: m.payload?.audio } : null),
+    classify: (m: any) => (m.sender_type === 'kp' ? { kind: 'narrator' as const, text: voiceText(m.content, props.mySeat), audio: m.payload?.audio } : null),
   });
   const myReady = !!room.pending_actions?.[props.mySeat as string]?.content;
   const resolving = room.resolution_status === 'resolving';
@@ -278,9 +293,10 @@ export default function Dashboard(props: ShellProps) {
   const others = [...players].filter((p) => p.seat !== props.mySeat).sort((a, b) => a.seat.localeCompare(b.seat));
   const waitingOn = others.filter((p) => !room.pending_actions?.[p.seat]?.content).map((p) => charNameOrUser(p.seat));
   const clueTotal = props.initialClues.length;
+  const worldTurns = new Set(messages.filter((m) => m.sender_type === 'kp' && /【世界状态变化】/.test(m.content || '')).map((m) => m.turn_no));
 
   return (
-    <main className="mn-coc h-[100svh] flex flex-col overflow-hidden">
+    <main className="mn-coc relative h-[100svh] flex flex-col overflow-hidden">
       {showUpgrade && (
         <div className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowUpgrade(false)}>
           <div className="w-full max-w-sm rounded-2xl bg-[#121318] border border-[#c9a96e]/25 shadow-2xl p-5" onClick={(e) => e.stopPropagation()}>
@@ -338,19 +354,26 @@ export default function Dashboard(props: ShellProps) {
       )}
 
       {/* ── 故事 ── */}
-      <section className="flex-1 min-h-0 overflow-y-auto mn-fade-top">
+      <section ref={scrollRef as any} onScroll={(e) => { const el = e.currentTarget; nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 160; if (nearBottom.current && newBelow) setNewBelow(false); }} className="relative flex-1 min-h-0 overflow-y-auto mn-fade-top">
         <div className="mx-auto max-w-2xl px-4 pt-5 pb-6 space-y-4">
           <div className="text-center text-[11px] tracking-[.3em] text-parchment/30">{en ? `ROUND ${room.current_round || 1}` : `第 ${room.current_round || 1} 回合`}</div>
           {stream.map((m) => m.__img
             ? <SceneImage key={'i' + m.id} img={m} en={en} />
-            : <MessageRow key={m.id} m={m} mine={m.sender_player_id === props.myPlayerId}
-                seat={playerById(m.sender_player_id)?.seat} who={charNameOrUser(playerById(m.sender_player_id)?.seat || '')} lang={lang} />
+            : <div key={m.id} id={'m-' + m.id} className="scroll-mt-4"><MessageRow m={m} mine={m.sender_player_id === props.myPlayerId} mySeat={props.mySeat}
+                worldInNarr={worldTurns.has(m.turn_no)}
+                seat={playerById(m.sender_player_id)?.seat} who={charNameOrUser(playerById(m.sender_player_id)?.seat || '')} lang={lang} /></div>
           )}
           {(thinking || resolving) && <KeeperTyping en={en} />}
           <div ref={bottomRef} className="h-1" />
         </div>
       </section>
 
+      {newBelow && (
+        <button onClick={() => { setNewBelow(false); const last = messages[messages.length - 1]; (last && document.getElementById('m-' + last.id) || bottomRef.current)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
+          className="mn-fadein absolute left-1/2 -translate-x-1/2 z-[40] h-9 px-4 rounded-full bg-[#17140d]/95 border border-[#c9a96e]/40 text-[12.5px] text-[#efe6d2] shadow-[0_8px_30px_rgba(0,0,0,.6)] flex items-center gap-1.5" style={{ bottom: 'calc(max(12px, env(safe-area-inset-bottom)) + 150px)' }}>
+          {en ? 'New ↓' : '有新进展 ↓'}
+        </button>
+      )}
       {/* ── 底部：行动 ── */}
       <footer className="shrink-0 px-3 pt-2 bg-gradient-to-t from-[#0b0c0f] via-[#0b0c0f]/95 to-[#0b0c0f]/0" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
         <div className="mx-auto max-w-2xl space-y-2">
@@ -576,12 +599,20 @@ function Field({ k, v }: { k: string; v?: string }) {
   return <div><div className="text-[11px] tracking-[.2em] text-[#c9a96e]/80 mb-1">{k}</div><div className="text-[#efe6d2]/90 leading-relaxed">{v}</div></div>;
 }
 
-function MessageRow({ m, mine, seat, who, lang }: { m: any; mine: boolean; seat?: string; who: string; lang: string }) {
+function MessageRow({ m, mine, seat, who, lang, mySeat, worldInNarr }: { m: any; mine: boolean; seat?: string; who: string; lang: string; mySeat?: string | null; worldInNarr?: boolean }) {
   const t = tr(lang);
   const en = EN(lang);
   const type = m.payload?.type;
   if (m.sender_type === 'system' && type === 'ending') {
     return <Narration text={m.content} lang={lang} fresh={fresh(m)} tone="reveal" label={en ? 'Ending' : '结局'} collapse={false} />;
+  }
+  if (m.sender_type === 'system' && type === 'world') {
+    // 旧消息格式：【世界反应】xxx · 嫌疑值 +2（现 5）
+    const raw = String(m.content || '').replace(/^【世界反应】/, '');
+    const dm = raw.match(/嫌疑值\s*([+-]\d+)/);
+    const delta = typeof m.payload?.delta === 'number' ? m.payload.delta : dm ? Number(dm[1]) : 0;
+    const text = raw.replace(/\s*·?\s*嫌疑值[^·]*$/, '').trim();
+    return <Omen delta={delta} text={worldInNarr ? '' : text} en={en} />;
   }
   if (m.sender_type === 'system') {
     if (type === 'private') {
@@ -608,7 +639,9 @@ function MessageRow({ m, mine, seat, who, lang }: { m: any; mine: boolean; seat?
   if (m.sender_type === 'kp') {
     const sst = String(m.payload?.scene_state || '');
     const tone = /MONSTER|CHASE|COMBAT|FINAL|PARANORMAL|COSMIC|BAD/.test(sst) ? 'danger' : /BREAKTHROUGH|TRUTH|CLUE|GOOD/.test(sst) ? 'reveal' : 'kp';
-    return <Narration text={m.content} lang={lang} fresh={fresh(m)} tone={tone as any} label={t('kp')} />;
+    const turn = splitTurn(m.content);
+    if (!turn) return <Narration text={m.content} lang={lang} fresh={fresh(m)} tone={tone as any} label={t('kp')} />;
+    return <KpTurn turn={turn} m={m} lang={lang} tone={tone} mySeat={mySeat} />;
   }
   const chat = m.action_type === 'chat';
   return (
@@ -618,6 +651,85 @@ function MessageRow({ m, mine, seat, who, lang }: { m: any; mine: boolean; seat?
         ? 'rounded-2xl border border-[#5aa39a]/25 bg-[#5aa39a]/[0.08] text-[#d9ece8] italic'
         : mine ? 'rounded-2xl rounded-br-md border border-[#c9a96e]/30 bg-[#c9a96e]/[0.09] text-[#efe6d2]'
           : 'rounded-2xl rounded-bl-md border border-white/10 bg-white/[0.04] text-[#efe6d2]/90'}`}>{m.content}</div>
+    </div>
+  );
+}
+
+// 守秘人一回合的旁白：按「谁的行动结果」切开。你的那段在最前、完整展开；队友的折叠成一行，想看再点开。
+type Turn = { intro: string; secs: { seat: string; name: string; text: string }[]; world: string };
+function splitTurn(content: string): Turn | null {
+  const re = /【\s*([^】（(]+?)\s*[（(]\s*([A-F])\s*[）)][^】]*】|【\s*(世界状态变化|世界反应|四周)\s*】/g;
+  const hits = Array.from(String(content || '').matchAll(re));
+  if (!hits.length) return null;
+  const t: Turn = { intro: content.slice(0, hits[0].index).trim(), secs: [], world: '' };
+  hits.forEach((h, i) => {
+    const body = content.slice((h.index || 0) + h[0].length, i + 1 < hits.length ? hits[i + 1].index : undefined).trim();
+    if (h[3]) t.world = (t.world ? t.world + '\n' : '') + body;
+    else t.secs.push({ name: h[1].trim(), seat: h[2], text: body });
+  });
+  return t;
+}
+function voiceText(content: string, mySeat?: string | null): string {
+  const t = splitTurn(content);
+  if (!t) return content;
+  const mine = t.secs.find((s) => s.seat === mySeat) || t.secs[0];
+  return [t.intro, mine?.text, t.world].filter(Boolean).join('\n\n');
+}
+
+function KpTurn({ turn, m, lang, tone, mySeat }: { turn: Turn; m: any; lang: string; tone: string; mySeat?: string | null }) {
+  const en = EN(lang);
+  const mine = turn.secs.find((s) => s.seat === mySeat) || null;
+  const others = turn.secs.filter((s) => s !== mine);
+  const isFresh = fresh(m);
+  return (
+    <div className="space-y-3">
+      {turn.intro && <Narration text={turn.intro} lang={lang} fresh={isFresh} tone={tone as any} label={en ? 'Keeper' : '守秘人'} />}
+      {mine && <Narration text={mine.text} lang={lang} fresh={isFresh && !turn.intro} tone={tone as any} label={en ? 'You' : '你这边'} />}
+      {others.map((o) => <OtherPart key={o.seat} o={o} lang={lang} tone={tone} first={!mine && !turn.intro && o === others[0]} fresh={isFresh} />)}
+      {turn.world && <Omen text={turn.world} delta={0} en={en} plain />}
+    </div>
+  );
+}
+
+function OtherPart({ o, lang, tone, first, fresh: isFresh }: { o: { seat: string; name: string; text: string }; lang: string; tone: string; first: boolean; fresh: boolean }) {
+  const en = EN(lang);
+  const [open, setOpen] = useState(first);
+  const preview = o.text.replace(/\*\*|!!|\(\(|\)\)|\[\[|\]\]|「|」/g, '').replace(/\s+/g, ' ').slice(0, 34);
+  if (open) return (
+    <div className="relative">
+      <Narration text={o.text} lang={lang} fresh={first && isFresh} tone={tone as any} label={en ? `${o.name}'s side` : `${o.name} 那边`} collapse={false} />
+      {!first && <button onClick={() => setOpen(false)} className="mt-1 ml-1 text-[12px] text-parchment/40">{en ? 'Fold' : '收起'}</button>}
+    </div>
+  );
+  return (
+    <button onClick={() => setOpen(true)} className="w-full text-left rounded-2xl border border-white/[0.08] bg-white/[0.025] px-4 py-3 flex items-center gap-3 hover:border-white/15">
+      <span className="shrink-0 w-7 h-7 rounded-full border border-white/15 flex items-center justify-center text-[12px] text-parchment/60">{o.name.slice(0, 1)}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[12px] text-parchment/45">{en ? `Meanwhile, ${o.name}` : `与此同时，${o.name}`}</span>
+        <span className="block text-[13.5px] text-[#efe6d2]/70 truncate">{preview}…</span>
+      </span>
+      <span className="shrink-0 text-[12px] text-[#c9a96e]/70">{en ? 'Read' : '展开'}</span>
+    </button>
+  );
+}
+
+// 世界的动静：不写数字和术语，只用一个直觉的标题告诉你"情况变了"
+function Omen({ text, delta, en, plain }: { text: string; delta: number; en: boolean; plain?: boolean }) {
+  const lv = delta >= 3 ? 3 : delta > 0 ? 2 : delta < 0 ? 0 : 1;
+  if (!text && lv === 1) return null;
+  const head = [en ? 'Things ease off a little' : '风声松了些', en ? 'Something has changed' : '四周起了变化', en ? 'Someone is starting to notice you' : '有人开始注意你们了', en ? 'This is going very wrong' : '大事不妙'][lv];
+  const c = ['#8fd3b8', '#c9a96e', '#e3a04a', '#e05a4a'][lv];
+  return (
+    <div className="flex gap-3 items-start px-1 nf-in">
+      <span className="mt-[3px] shrink-0 w-6 h-6 rounded-full flex items-center justify-center" style={{ background: c + '1f', border: `1px solid ${c}55` }}>
+        {lv >= 2
+          ? <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.2" strokeLinecap="round"><path d="M12 8v5M12 17h.01" /><path d="M10.3 3.9L2.6 17.5A2 2 0 0 0 4.3 20.5h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" /></svg>
+          : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z" /><circle cx="12" cy="12" r="2.4" /></svg>}
+      </span>
+      <div className="min-w-0">
+        {!plain || lv !== 1 ? <div className={`text-[12px] tracking-[.12em] ${lv === 3 ? 'animate-pulse' : ''}`} style={{ color: c }}>{plain ? (en ? 'Around you' : '四周') : head}</div> : <div className="text-[12px] tracking-[.12em]" style={{ color: c }}>{en ? 'Around you' : '四周'}</div>}
+        {text && <p className="mt-0.5 text-[13.5px] leading-relaxed text-[#efe6d2]/65 italic">{text}</p>}
+      </div>
     </div>
   );
 }

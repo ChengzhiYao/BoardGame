@@ -112,9 +112,11 @@ input[type=range] { accent-color: #3f7d70; }
 
 /* 房间左上角的「离开」按钮：给顶栏/步骤条让出位置 */
 .mn-header { padding-left: 88px !important; }
+@media (max-width: 1023px) { .mn-header { padding-right: 148px !important; } body:has(.mn-exit) .mn-stepbar { padding-right: 148px; } }
 body:has(.mn-exit) .mn-stepbar { padding-left: 88px; }
-.mn-dock-room > div > button { width: 38px !important; height: 38px !important; opacity: .85; }
-.mn-dock-room > div:first-child:not(:last-child) { max-height: 60vh; overflow-y: auto; position: fixed; right: 3.25rem; top: 20%; }
+.mn-dock-room > div > button { width: 36px !important; height: 36px !important; background: rgba(11,12,15,.75) !important; border-color: rgba(216,199,168,.15) !important; box-shadow: none !important; }
+.mn-dock-room > div > button svg { width: 16px; height: 16px; }
+.mn-dock-room > div:first-child:not(:last-child) { max-height: 70vh; overflow-y: auto; position: fixed; right: .5rem; top: calc(max(10px, env(safe-area-inset-top)) + 46px); }
 
 /* 声音按钮：播放时的跳动音柱 */
 @keyframes mnEq { 0%,100% { height: 25%; } 50% { height: 100%; } }

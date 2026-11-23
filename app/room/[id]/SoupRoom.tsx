@@ -196,7 +196,7 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
           <div className="font-serif text-[17px] leading-tight text-[#efe6d2]">海龟汤</div>
           <div className="text-[11px] text-parchment/40 truncate">{props.room.name}</div>
         </div>
-        <div className="shrink-0 text-right mr-11">
+        <div className="shrink-0 text-right">
           <div className="text-[10.5px] tracking-[.25em] text-parchment/40">{ended ? '已结束' : `第 ${qCount} 问`}</div>
         </div>
       </header>

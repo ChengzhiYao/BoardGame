@@ -41,6 +41,8 @@ export default function AudioManager({ state }: { state: string }) {
 
   const [open, setOpen] = useState(false);
   const [speaking, setSpeaking] = useState(false);
+  const [hint, setHint] = useState(true);
+  useEffect(() => { const t = setTimeout(() => setHint(false), 3500); return () => clearTimeout(t); }, []);
   // 记住玩家的音乐开关和音量
   useEffect(() => { try { const m = localStorage.getItem('mn_music'); if (m === 'off') setMuted(true); const v = Number(localStorage.getItem('mn_vol')); if (v > 0 && v <= 1) setVol(v); } catch {} }, []);
   useEffect(() => { try { localStorage.setItem('mn_music', muted ? 'off' : 'on'); localStorage.setItem('mn_vol', String(vol)); } catch {} }, [muted, vol]);
@@ -218,7 +220,7 @@ export default function AudioManager({ state }: { state: string }) {
   return (
     <>
       {open && <div className="fixed inset-0 z-[55]" onClick={() => setOpen(false)} />}
-      <div className="fixed right-2.5 top-[58px] lg:top-auto lg:bottom-4 lg:right-4 z-[56] flex flex-col items-end">
+      <div className="fixed right-2.5 top-[max(10px,env(safe-area-inset-top))] lg:top-auto lg:bottom-4 lg:right-4 z-[56] flex flex-col items-end">
         <button onClick={() => setOpen((v) => !v)} aria-label="声音" title="声音设置"
           className={`relative w-9 h-9 rounded-full flex items-center justify-center backdrop-blur-md border transition-colors ${open ? 'bg-[#c9a96e]/15 border-[#c9a96e]/50' : 'bg-[#0b0c0f]/75 border-[#d8c7a8]/15 hover:border-[#c9a96e]/40'}`}>
           {live ? (
@@ -232,8 +234,8 @@ export default function AudioManager({ state }: { state: string }) {
           )}
           {!enabled && (musicOn || voiceOn) && <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#c9a96e] border-2 border-ink animate-pulse" />}
         </button>
-        {!enabled && (musicOn || voiceOn) && !open && (
-          <div className="mt-2 px-3 py-1.5 rounded-full bg-[#0b0c0f]/85 backdrop-blur border border-[#d8c7a8]/12 text-[11.5px] text-parchment/70 whitespace-nowrap nf-in">轻点任意处，开启声音</div>
+        {!enabled && (musicOn || voiceOn) && !open && hint && (
+          <div className="absolute right-0 top-full mt-1.5 text-[11px] text-parchment/55 whitespace-nowrap nf-in">轻点开启声音</div>
         )}
         {open && (
           <div className="mt-2 w-[264px] rounded-xl bg-[#0f1013]/[0.97] backdrop-blur-xl border border-[#d8c7a8]/[0.14] shadow-[0_24px_60px_-12px_rgba(0,0,0,.9)] p-1.5 text-left nf-in">

@@ -7,7 +7,7 @@ import { buildSoupGenPrompt } from '@/lib/soup/prompt';
 import { langDirective } from '@/lib/i18n';
 import { voicePuzzle } from '@/lib/soup/voice';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 const DIFF = ['普通', '普通', '困难', '困难', '地狱'];
 const SUPER = ['any', 'allow', 'real'];

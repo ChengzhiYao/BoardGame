@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { getClientLang } from '@/lib/i18n';
 import Icon from '@/components/Icon';
 import { parseBeat } from '@/lib/narrate';
+import BadgeCheck from '@/components/BadgeCheck';
+import StageText, { STAGE_CSS, splitSentences, locate } from '@/components/StageText';
 import { setStoryBgm, pauseStoryBgm, resumeStoryBgm, stopStoryBgm, storySfx, storyStinger, setStoryVol } from '@/lib/audio/storyCue';
 import { STORY_MOODS } from '@/lib/story/prompt';
 
@@ -41,6 +43,14 @@ export default function TonightClient({ initial }: { initial: any }) {
   const timer = useRef<any>(null);
   const lineRefs = useRef<(HTMLDivElement | null)[]>([]);
   const L = (zh: string, e: string) => (en ? e : zh);
+  const [lp, setLp] = useState(0); // 当前这句念到百分之几
+  const [showAll, setShowAll] = useState(false);
+  const [listened, setListened] = useState<string | null>(null);
+  useEffect(() => {
+    if (!playing) return; let raf = 0, last = 0;
+    const loop = (now: number) => { if (now - last > 40) { last = now; const a = audio.current; if (a && a.duration) setLp(Math.min(1, a.currentTime / a.duration)); } raf = requestAnimationFrame(loop); };
+    raf = requestAnimationFrame(loop); return () => cancelAnimationFrame(raf);
+  }, [playing]);
 
   async function load(id?: string) {
     const lang = (() => { try { return getClientLang(); } catch { return 'zh'; } })();
@@ -75,7 +85,8 @@ export default function TonightClient({ initial }: { initial: any }) {
   function playAt(i: number) {
     clearTimeout(timer.current);
     if (i >= lines.length) { setPlaying(false); setEnded(true); setIdx(lines.length); stopStoryBgm(); lastCat.current = ''; return; }
-    setIdx(i); setEnded(false); setPlaying(true);
+    setIdx(i); setLp(0); setEnded(false); setPlaying(true);
+    if (s && lines.length && i >= lines.length * 0.6 && listened !== s.id) { setListened(s.id); fetch('/api/me/listened', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ref: 'ghost:' + s.id, kind: 'ghost', genre: '恐怖 怪谈', real: !!s.real }) }).catch(() => {}); }
     applyCue(i);
     const l = lines[i];
     if (!l?.audio) { timer.current = setTimeout(() => playAt(i + 1), 1800); return; }
@@ -106,7 +117,7 @@ export default function TonightClient({ initial }: { initial: any }) {
 
   return (
     <main className="min-h-[100svh] text-parchment pb-40">
-      <style>{`@keyframes gsFlicker{0%,100%{opacity:.85;transform:scale(1)}40%{opacity:1;transform:scale(1.04)}60%{opacity:.75;transform:scale(.98)}}.gs-flame{animation:gsFlicker 2.6s ease-in-out infinite}@keyframes gsShake{0%,100%{transform:translate(0,0)}20%{transform:translate(-2px,1px) rotate(-1deg)}40%{transform:translate(2px,-1px) rotate(1deg)}60%{transform:translate(-1px,-1px)}80%{transform:translate(1px,1px)}}.gs-shake{animation:gsShake .35s linear 3}@keyframes gsPulse{0%,100%{box-shadow:0 0 0 0 rgba(232,168,124,0)}50%{box-shadow:0 0 18px 2px rgba(232,168,124,.45)}}.gs-pulse{animation:gsPulse 1.4s ease-in-out 2}`}</style>
+      <style>{STAGE_CSS + `@keyframes gsFlicker{0%,100%{opacity:.85;transform:scale(1)}40%{opacity:1;transform:scale(1.04)}60%{opacity:.75;transform:scale(.98)}}.gs-flame{animation:gsFlicker 2.6s ease-in-out infinite}@keyframes gsShake{0%,100%{transform:translate(0,0)}20%{transform:translate(-2px,1px) rotate(-1deg)}40%{transform:translate(2px,-1px) rotate(1deg)}60%{transform:translate(-1px,-1px)}80%{transform:translate(1px,1px)}}.gs-shake{animation:gsShake .35s linear 3}@keyframes gsPulse{0%,100%{box-shadow:0 0 0 0 rgba(232,168,124,0)}50%{box-shadow:0 0 18px 2px rgba(232,168,124,.45)}}.gs-pulse{animation:gsPulse 1.4s ease-in-out 2}`}</style>
       <div aria-hidden className="fixed inset-0 -z-10 transition-[background] duration-[2000ms]" style={{ background: playing ? 'radial-gradient(80% 45% at 50% 18%, rgba(120,30,30,.22), transparent 70%), #07080a' : 'radial-gradient(80% 45% at 50% 18%, rgba(201,140,80,.16), transparent 70%), #0a0b0e' }} />
       <a href="/play" className="fixed left-3 z-30 h-8 px-3 rounded-full flex items-center text-[12.5px] text-parchment/70 border border-white/10 bg-black/50 backdrop-blur" style={{ top: 'calc(env(safe-area-inset-top) + 10px)' }}>{L('← 大厅', '← Hall')}</a>
 
@@ -146,6 +157,19 @@ export default function TonightClient({ initial }: { initial: any }) {
                 </div>
                 <p className="mt-3 text-center text-[12px] text-parchment/40">{idx < 0 ? L('戴上耳机，关掉灯', 'Headphones on, lights off') : ended ? L('讲完了', 'The end') : L(`${idx + 1} / ${lines.length}`, `${idx + 1} / ${lines.length}`)}</p>
 
+                {idx >= 0 && idx < lines.length && !showAll && (() => {
+                  const l = lines[idx]; const c = l.who !== 'teller' ? castOf(l.who) : null;
+                  const sents = splitSentences(l.text); const loc = locate(sents, lp);
+                  const cue = cueFor(idx); const scary = ['scare', 'eerie', 'cosmic', 'chase', 'tension'].includes(cue?.mood);
+                  return (
+                    <div className="mt-10 min-h-[42svh] flex flex-col justify-center">
+                      {loc.si > 0 && <div key={'pv' + idx + loc.si} className="prev-line mb-5 text-center font-serif text-[14px] text-parchment/30 line-clamp-2">{sents[loc.si - 1].replace(/\*\*|!!|\(\(|\)\)|\[\[|\]\]/g, '')}</div>}
+                      <StageText key={idx + '-' + loc.si} text={sents[loc.si]} p={loc.sp} scary={scary} calm={['calm', 'tender', 'sad'].includes(cue?.mood)} label={c && loc.si === 0 ? c.name : c ? c.name : undefined} labelColor={c ? (c.gender === 'female' ? '#e8a0b8' : '#8fb8e8') : undefined} />
+                    </div>
+                  );
+                })()}
+                {(idx >= 0 && !ended) && <div className="mt-6 text-center"><button onClick={() => setShowAll((v) => !v)} className="text-[12px] text-parchment/45 border-b border-white/15">{showAll ? L('回到大字', 'Back to big text') : L('看全文', 'Show full text')}</button></div>}
+                {(idx < 0 || ended || showAll) && (
                 <div className="mt-8 space-y-4">
                   {lines.map((l, i) => {
                     const c = l.who !== 'teller' ? castOf(l.who) : null;
@@ -159,6 +183,7 @@ export default function TonightClient({ initial }: { initial: any }) {
                   })}
                 </div>
 
+                )}
                 {ended && (
                   <div className="mt-10 rounded-2xl border border-[#e8a87c]/30 bg-[#14120d]/80 px-5 py-5 text-center">
                     <div className="font-serif text-[18px] text-[#f2e6d0]">{L('今晚的故事讲完了', 'That’s tonight’s story')}</div>
@@ -192,6 +217,7 @@ export default function TonightClient({ initial }: { initial: any }) {
         )}
       </div>
 
+      {listened && ended && <BadgeCheck en={en} />}
       {s && !d?.locked && idx >= 0 && !ended && (
         <div className="fixed inset-x-0 bottom-0 z-30 bg-[#07080a]/90 backdrop-blur-xl border-t border-white/[0.06]" style={{ paddingBottom: 'max(10px, env(safe-area-inset-bottom))' }}>
           <div className="h-[2px] bg-white/[0.06]"><div className="h-full bg-[#e8a87c] transition-all duration-500" style={{ width: `${prog * 100}%` }} /></div>

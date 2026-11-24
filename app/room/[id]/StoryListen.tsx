@@ -3,8 +3,10 @@
 // 发表情时从 TA 的头像上冒出气泡，发文字时像 B 站弹幕一样飘过。背景音和音效跟着情节走。
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Beat, { BEAT_CSS } from '@/components/Beat';
+import StageText, { STAGE_CSS, splitSentences, locate } from '@/components/StageText';
 import Icon from '@/components/Icon';
 import Sticker, { STICKERS } from '@/components/Sticker';
+import BadgeCheck from '@/components/BadgeCheck';
 import { createClient } from '@/lib/supabase/client';
 import { STORY_MOODS } from '@/lib/story/prompt';
 import { setStoryBgm, pauseStoryBgm, resumeStoryBgm, stopStoryBgm, storyStinger, storySfx, setStoryVol } from '@/lib/audio/storyCue';
@@ -12,8 +14,8 @@ import { setStoryBgm, pauseStoryBgm, resumeStoryBgm, stopStoryBgm, storyStinger,
 type Who = { pid: string; name: string; avatar?: string | null; me?: boolean; ai?: boolean };
 type Live = { id: string; pid: string; kind: 'text' | 'sticker'; value: string; at: number };
 
-export default function StoryListen({ roomId, en, title, text, url, playback, cues, rating, genre, people, myPid, aiPid, isHost, onTools, narrating }: {
-  roomId: string; en: boolean; title: string; text: string; url?: string | null; playback?: any; cues?: any[]; rating?: any; genre?: string;
+export default function StoryListen({ roomId, en, title, text, url, segs, playback, cues, rating, genre, people, myPid, aiPid, isHost, onTools, narrating }: {
+  roomId: string; segs?: { i: number; a: number; b: number }[]; en: boolean; title: string; text: string; url?: string | null; playback?: any; cues?: any[]; rating?: any; genre?: string;
   people: Who[]; myPid?: string | null; aiPid?: string | null; isHost: boolean; onTools?: () => void; narrating?: boolean;
 }) {
   const L = (zh: string, e: string) => (en ? e : zh);
@@ -47,10 +49,38 @@ export default function StoryListen({ roomId, en, title, text, url, playback, cu
     else { a.pause(); post(false, a.currentTime); }
   }
   const fmt = (s: number) => { s = Math.max(0, Math.floor(s || 0)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
-  const frac = dur > 0 ? Math.min(1, cur / dur) : 0;
-  const activeIdx = url && cur > 0.2 ? Math.max(0, ends.findIndex((e) => frac * total < e)) : -1;
+  // 播放时每帧读一次进度，字才能一个一个顺滑地冒出来
+  const [t, setT] = useState(0);
+  useEffect(() => {
+    if (!isPlaying) return; let raf = 0, last = 0;
+    const loop = (now: number) => { if (now - last > 40) { last = now; const a = aRef.current; if (a) setT(a.currentTime || 0); } raf = requestAnimationFrame(loop); };
+    raf = requestAnimationFrame(loop); return () => cancelAnimationFrame(raf);
+  }, [isPlaying]);
+  const tt = isPlaying ? t : cur;
+  const frac = dur > 0 ? Math.min(1, tt / dur) : 0;
+  let activeIdx = -1, paraP = 0;
+  if (url && tt > 0.15) {
+    const sg = Array.isArray(segs) && segs.length === paras.length ? segs.find((x) => frac >= x.a && frac < x.b) || segs[segs.length - 1] : null;
+    if (sg) { activeIdx = sg.i; paraP = (frac - sg.a) / Math.max(0.0001, sg.b - sg.a); }
+    else { activeIdx = Math.max(0, ends.findIndex((e) => frac * total < e)); const st0 = activeIdx > 0 ? ends[activeIdx - 1] : 0; paraP = (frac * total - st0) / Math.max(1, ends[activeIdx] - st0); }
+  }
+  const sentences = useMemo(() => (activeIdx >= 0 ? splitSentences(paras[activeIdx]) : []), [activeIdx, paras]);
+  const loc = activeIdx >= 0 ? locate(sentences, paraP) : { si: -1, sp: 0 };
+  const curSentence = activeIdx >= 0 ? sentences[loc.si] : '';
+  const prevSentence = activeIdx >= 0 ? (loc.si > 0 ? sentences[loc.si - 1] : activeIdx > 0 ? splitSentences(paras[activeIdx - 1]).slice(-1)[0] : '') : '';
+  const curCue = activeIdx >= 0 && Array.isArray(cues) ? cues[activeIdx] : null;
+  const calm = ['calm', 'tender', 'happy', 'sad'].includes(curCue?.mood);
+  const scaryNow = ['scare', 'eerie', 'cosmic', 'chase', 'tension'].includes(curCue?.mood);
+  const [fullText, setFullText] = useState(false);
+  // 听到 60% 算听完：记一笔（称号用）
+  const [listened, setListened] = useState(false);
+  useEffect(() => {
+    if (listened || frac < 0.6 || !dur) return; setListened(true);
+    fetch('/api/me/listened', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ref: `story:${roomId}:${title}`, kind: 'story', genre, real: /真实经历|true/i.test(genre || ''), together: people.length > 1 }) }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [frac >= 0.6]);
   const paraRefs = useRef<(HTMLParagraphElement | null)[]>([]);
-  useEffect(() => { if (isPlaying && activeIdx >= 0) paraRefs.current[activeIdx]?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, [activeIdx, isPlaying]);
+  useEffect(() => { if (fullText && activeIdx >= 0) paraRefs.current[activeIdx]?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, [activeIdx, fullText]);
 
   // ---------- 氛围音：跟着段落情绪换背景，字面出现的声音放音效，吓人处来一下 ----------
   const lastCue = useRef(-1);
@@ -150,7 +180,7 @@ export default function StoryListen({ roomId, en, title, text, url, playback, cu
 
   return (
     <main className="h-[100svh] relative overflow-hidden text-parchment" onPointerMove={onMove} onPointerUp={onUp}>
-      <style>{BEAT_CSS + `@keyframes dmFly{from{transform:translateX(100vw)}to{transform:translateX(-110%)}}.dm-fly{animation:dmFly linear forwards}@keyframes popIn{0%{opacity:0;transform:translateY(8px) scale(.6)}20%{opacity:1;transform:translateY(0) scale(1.08)}30%{transform:scale(1)}85%{opacity:1}100%{opacity:0;transform:translateY(-10px)}}.pop-in{animation:popIn 2.8s ease forwards}@keyframes avFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}.av-float{animation:avFloat 3.2s ease-in-out infinite}`}</style>
+      <style>{BEAT_CSS + STAGE_CSS + `@keyframes dmFly{from{transform:translateX(100vw)}to{transform:translateX(-110%)}}.dm-fly{animation:dmFly linear forwards}@keyframes popIn{0%{opacity:0;transform:translateY(8px) scale(.6)}20%{opacity:1;transform:translateY(0) scale(1.08)}30%{transform:scale(1)}85%{opacity:1}100%{opacity:0;transform:translateY(-10px)}}.pop-in{animation:popIn 2.8s ease forwards}@keyframes avFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}.av-float{animation:avFloat 3.2s ease-in-out infinite}`}</style>
       <div aria-hidden className="absolute inset-0 -z-10 transition-[background] duration-[2500ms]" style={{ background: isPlaying ? 'radial-gradient(90% 55% at 50% 0%, rgba(110,40,40,.22), transparent 65%), #07080a' : 'radial-gradient(90% 55% at 50% 0%, rgba(201,169,110,.14), transparent 65%), #0a0b0e' }} />
 
       {/* 顶栏 */}
@@ -162,24 +192,37 @@ export default function StoryListen({ roomId, en, title, text, url, playback, cu
         </div>
       </header>
 
-      {/* 正文 */}
-      <div className="absolute inset-0 overflow-y-auto pt-20 pb-[260px] px-5">
-        <div className="max-w-2xl mx-auto">
+      {/* 舞台：只放正在念的那一句，大字逐字出现 */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center px-6 pb-[230px] pt-24">
+        {activeIdx < 0 ? (
           <div className="text-center">
             {genre && <div className="text-[10.5px] tracking-[.35em] text-[#c9a96e]/80">{genre}</div>}
-            <h1 className="mt-2 font-serif font-semibold text-[28px] leading-tight text-[#f7ecd8]">{title}</h1>
-            {score > 0 && <button onClick={onTools} className="mt-2 inline-flex items-center gap-1.5 text-[12px] px-2.5 py-0.5 rounded-full border border-[#c9a96e]/35 text-[#e6c76e]"><Icon n="trophy" size={12} />{L(`评分 ${score}`, `Score ${score}`)}</button>}
+            <h1 className="mt-3 font-serif font-semibold text-[34px] leading-tight text-[#f7ecd8] [text-shadow:0_2px_30px_rgba(0,0,0,.9)]">{title}</h1>
+            {score > 0 && <button onClick={onTools} className="mt-3 inline-flex items-center gap-1.5 text-[12px] px-2.5 py-0.5 rounded-full border border-[#c9a96e]/35 text-[#e6c76e]"><Icon n="trophy" size={12} />{L(`评分 ${score}`, `Score ${score}`)}</button>}
+            <p className="mt-6 text-[13px] text-parchment/45">{url ? L('戴上耳机，按下播放', 'Headphones on, press play') : narrating ? L('正在配上真人声音…', 'Recording the narration…') : ''}</p>
           </div>
-          <article className="mt-8 space-y-4">
+        ) : (
+          <div className="w-full max-w-2xl">
+            <div key={'p' + activeIdx + '-' + loc.si} className="prev-line mb-6 text-center font-serif text-[15px] leading-relaxed text-parchment/30 line-clamp-2">{prevSentence ? prevSentence.replace(/\*\*|!!|\(\(|\)\)|\[\[|\]\]/g, '') : ''}</div>
+            <StageText key={activeIdx + '-' + loc.si} text={curSentence} p={loc.sp} calm={calm} scary={scaryNow} />
+          </div>
+        )}
+        {activeIdx >= 0 && <div className="absolute left-1/2 -translate-x-1/2 bottom-[238px] flex gap-1">{paras.map((_, i) => <span key={i} className={`h-[3px] rounded-full transition-all ${i === activeIdx ? 'w-5 bg-[#c9a96e]' : i < activeIdx ? 'w-1.5 bg-[#c9a96e]/45' : 'w-1.5 bg-white/12'}`} />).slice(Math.max(0, activeIdx - 12), activeIdx + 13)}</div>}
+      </div>
+      <button onClick={() => setFullText(true)} className="absolute z-20 left-3 h-8 px-3 rounded-full border border-white/10 bg-black/40 text-[12px] text-parchment/60 inline-flex items-center gap-1.5" style={{ top: 'calc(env(safe-area-inset-top) + 54px)' }}><Icon n="scroll" size={14} />{L('全文', 'Full text')}</button>
+      {fullText && (
+        <div className="absolute inset-0 z-40 bg-[#07080a]/96 overflow-y-auto px-5 pb-40" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 60px)' }}>
+          <button onClick={() => setFullText(false)} className="fixed right-3 z-50 h-9 px-3.5 rounded-full bg-[#c9a96e] text-[#14110a] text-[13px]" style={{ top: 'calc(env(safe-area-inset-top) + 12px)' }}>{L('回到大字', 'Back')}</button>
+          <article className="max-w-2xl mx-auto space-y-4">
+            <h2 className="font-serif text-[22px] text-[#f7ecd8] text-center mb-4">{title}</h2>
             {paras.map((p, i) => (
-              <p key={i} ref={(el) => { paraRefs.current[i] = el; }} className={`font-serif leading-[1.95] transition-all duration-500 ${i === activeIdx ? 'text-[19px] text-[#fff4e0]' : activeIdx >= 0 && i < activeIdx ? 'text-[16px] text-parchment/35' : 'text-[16px] text-parchment/80'}`}>
-                <Beat text={p} cur={i === activeIdx && isPlaying} />
-              </p>
+              <p key={i} ref={(el) => { paraRefs.current[i] = el; }} className={`font-serif leading-[1.95] text-[16px] ${i === activeIdx ? 'text-[#fff4e0]' : 'text-parchment/70'}`}><Beat text={p} /></p>
             ))}
           </article>
         </div>
-      </div>
+      )}
 
+      {listened && <BadgeCheck en={en} />}
       {/* 弹幕层 */}
       <div className="pointer-events-none absolute inset-x-0 z-20 overflow-hidden" style={{ top: 'calc(env(safe-area-inset-top) + 56px)', height: 200 }}>
         {danmaku.map((d) => {

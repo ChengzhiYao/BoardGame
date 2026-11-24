@@ -168,7 +168,7 @@ export async function tonight(admin: any, lang: Lang) {
 
 export function publicStory(s: any, full: boolean) {
   return {
-    id: s.id, lang: s.lang, title: s.title, teaser: s.teaser, day: s.day, no: s.no, seconds: s.seconds, style: s.style || 'city', fear: s.fear || 3,
+    id: s.id, lang: s.lang, title: s.title, teaser: s.teaser, day: s.day, no: s.no, seconds: s.seconds, style: s.style || 'city', fear: s.fear || 3, real: !!s.seed_id,
     teller: { name: s.teller?.name, gender: s.teller?.gender }, cast: (s.cast_list || []).map((c: any) => ({ name: c.name, gender: c.gender })),
     lines: full ? (s.lines || []).map((l: any, i: number) => ({ who: l.who, text: stripCue(l.text), audio: l.audio || null, cue: (s.cues || [])[i] || null })) : [],
   };

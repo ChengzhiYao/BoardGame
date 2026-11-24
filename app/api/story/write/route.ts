@@ -5,8 +5,20 @@ import { callLLMJson } from '@/lib/llm';
 import { buildStoryWritePrompt, buildStoryPlanPrompt, buildStoryRatePrompt, normalizeStoryRating } from '@/lib/story/prompt';
 import { loadStory, persistStory } from '@/lib/story/db';
 import { langDirective } from '@/lib/i18n';
+import { narrateStory, cueStory, presetFor } from '@/lib/story/narrate';
 
-export const maxDuration = 120;
+// 故事写好时，声音和配乐一起做好再给大家看（念到哪字就冒到哪需要分段时间）
+async function withVoice(admin: any, room: any, roomId: string, story: string, genre: string, params: any, ghostLines?: any[], ghostCues?: any) {
+  const lang: 'zh' | 'en' = room.language === 'en' ? 'en' : 'zh';
+  const preset = presetFor(genre, params);
+  const [n, cues] = await Promise.all([
+    narrateStory(admin, story, lang, preset, ghostLines).catch(async (e: any) => { await admin.from('error_logs').insert({ room_id: roomId, scope: 'tts', message: '讲故事同步配音失败:' + String(e?.message || e).slice(0, 120) }); return null; }),
+    ghostCues ? Promise.resolve(ghostCues) : cueStory(story, genre, room.language),
+  ]);
+  return { narration: n ? { url: n.url, segs: n.segs, voice: n.voice, preset: n.preset, provider: 'fish', ts: Date.now() } : null, cues: cues || undefined, playback: { playing: false, position: 0, ts: Date.now() } };
+}
+
+export const maxDuration = 300;
 
 export async function POST(req: Request) {
   const supabase = createServerClient();
@@ -38,7 +50,8 @@ export async function POST(req: Request) {
         let rating: any = null;
         try { const rr = await callLLMJson<any>({ system: buildStoryRatePrompt(body, chosen.genre || '', room.language) + langDirective(room.language), messages: [{ role: 'user', content: '请精确评分。' }], tier: 'main', temperature: 0.3, maxTokens: 1200, retry: true }); rating = normalizeStoryRating(rr.data); } catch {}
         await admin.from('ghost_stories').update({ plays: (g.plays || 0) + 1 }).eq('id', g.id);
-        await persistStory(admin, roomId, { ...state, phase: 'reading', chosen, full: { title: String(g.title || chosen.title), story: body }, rating, cues: g.cues || undefined });
+        const v = await withVoice(admin, room, roomId, body, chosen.genre || '', state.params, g.lines, g.cues);
+        await persistStory(admin, roomId, { ...state, phase: 'reading', chosen, full: { title: String(g.title || chosen.title), story: body }, rating, ...v });
         await admin.from('rooms').update({ modules_generating: false, game_state: 'playing' }).eq('id', roomId);
         return NextResponse.json({ ok: true, fromGhost: true });
       }
@@ -48,7 +61,8 @@ export async function POST(req: Request) {
       const { data: libRow } = await admin.from('story_library').select('*').eq('id', chosen.libraryId).maybeSingle();
       if (libRow) {
         await admin.from('story_library').update({ times_used: (libRow.times_used || 0) + 1 }).eq('id', libRow.id);
-        await persistStory(admin, roomId, { ...state, phase: 'reading', chosen, full: { title: String(libRow.title || chosen.title), story: String(libRow.story || '') }, rating: libRow.rating });
+        const v = await withVoice(admin, room, roomId, String(libRow.story || ''), chosen.genre || '', state.params);
+        await persistStory(admin, roomId, { ...state, phase: 'reading', chosen, full: { title: String(libRow.title || chosen.title), story: String(libRow.story || '') }, rating: libRow.rating, ...v });
         await admin.from('rooms').update({ modules_generating: false, game_state: 'playing' }).eq('id', roomId);
         return NextResponse.json({ ok: true, fromLibrary: true });
       }
@@ -81,7 +95,8 @@ export async function POST(req: Request) {
         await admin.from('story_library').insert({ title: winner.title, genre: String(chosen.genre || ''), logline: String(chosen.logline || ''), mood: String(chosen.mood || ''), est_minutes: Number(chosen.est_minutes) || 10, genres: Array.isArray(state.params?.genres) ? state.params.genres : [], tone: state.params?.tone || null, story, rating, overall });
       } catch { /* 入库失败不阻断 */ }
     }
-    await persistStory(admin, roomId, { ...state, phase: 'reading', chosen, full: { title: winner.title, story }, rating, narration: null, playback: null });
+    const v = await withVoice(admin, room, roomId, story, chosen.genre || '', state.params);
+    await persistStory(admin, roomId, { ...state, phase: 'reading', chosen, full: { title: winner.title, story }, rating, ...v });
     await admin.from('rooms').update({ modules_generating: false, game_state: 'playing' }).eq('id', roomId);
     return NextResponse.json({ ok: true });
   } catch (e: any) {

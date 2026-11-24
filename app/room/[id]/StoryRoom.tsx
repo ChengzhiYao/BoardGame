@@ -169,7 +169,7 @@ export default function StoryRoom(props: ShellProps) {
   );
 
   if (generating) {
-    return (<main className="h-[100svh] flex flex-col">{Header}<div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-6"><div className="w-8 h-8 border-2 border-white/10 border-t-eldritch rounded-full animate-spin" /><p className="text-parchment/60">{en ? 'Weaving the story…' : '正在编织故事……'}</p></div></main>);
+    return (<main className="h-[100svh] flex flex-col">{Header}<div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-6"><div className="w-8 h-8 border-2 border-white/10 border-t-eldritch rounded-full animate-spin" /><p className="font-serif text-[17px] text-parchment/75">{st?.phase === 'select' ? (en ? 'Writing it and recording the voice…' : '正在写故事，同时配上真人声音……') : (en ? 'Finding stories for tonight…' : '正在挑今晚的故事……')}</p>{st?.phase === 'select' && <p className="text-[12px] text-parchment/40">{en ? 'About a minute — it will start with sound ready.' : '大约一分钟，好了直接带声音开讲'}</p>}</div></main>);
   }
 
   // ---------------- LOBBY 等待间：邀请 + 在线名单 ----------------
@@ -275,7 +275,7 @@ export default function StoryRoom(props: ShellProps) {
   });
   return (
     <>
-      <StoryListen roomId={props.room.id} en={en} title={story?.title || ''} text={story?.story || ''} url={st?.narration?.url || null} playback={st?.playback} cues={st?.cues}
+      <StoryListen roomId={props.room.id} en={en} title={story?.title || ''} text={story?.story || ''} url={st?.narration?.url || null} segs={st?.narration?.segs} playback={st?.playback} cues={st?.cues}
         rating={r} genre={st?.chosen?.genre || ''} people={people} myPid={props.myPlayerId} aiPid={comp?.player_id || null} isHost={canEdit}
         onTools={() => setToolsOpen(true)} narrating={busy || autoNarr.current} />
       {toolsOpen && (

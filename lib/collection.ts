@@ -8,6 +8,7 @@ export type Stats = {
   cocEndings: number; cocGood: number; cocBad: number; cocMad: number; cocVet: number;
   jbsDone: number; botcDone: number; mccPlayed: number; companion: number; bigHost: number;
   soupPeek: number; soupGrind: number; soupWrong: number; dailyFail: number; cocDead: number; cocInsane: number;
+  listens: number; ghostNights: number; lHorror: number; lScifi: number; lRomance: number; lHealing: number; lMystery: number; lFantasy: number; lReal: number; lTogether: number;
 };
 
 export const BADGES: Badge[] = [
@@ -32,6 +33,20 @@ export const BADGES: Badge[] = [
   { id: 'mcc', icon: 'cat', zh: '九命猫', en: 'Nine Lives', dzh: '玩一局猫猫炸弹', den: 'Play Cat Curse', test: (s) => s.mccPlayed >= 1 },
   { id: 'modes4', icon: 'dice', zh: '百戏通', en: 'Jack of All Games', dzh: '玩过 4 种不同玩法', den: 'Play 4 different games', test: (s) => s.modes >= 4 },
   { id: 'companion', icon: 'heart', zh: '和 TA 一起', en: 'Together', dzh: '和 Linger 里的 TA 玩过一局', den: 'Play with your Linger companion', test: (s) => s.companion >= 1 },
+  // —— 听故事
+  { id: 'listen1', icon: 'headphones', zh: '第一个故事', en: 'First Story', dzh: '完整听完一个故事', den: 'Listen to a story to the end', test: (s) => s.listens >= 1 },
+  { id: 'listen10', icon: 'headphones', zh: '故事迷', en: 'Story Lover', dzh: '听完 10 个故事', den: 'Finish 10 stories', test: (s) => s.listens >= 10 },
+  { id: 'listen30', icon: 'moon', zh: '夜夜有故事', en: 'Every Night a Story', dzh: '听完 30 个故事', den: 'Finish 30 stories', test: (s) => s.listens >= 30 },
+  { id: 'tonight7', icon: 'candle', zh: '今夜常客', en: 'Night Regular', dzh: '听完 7 个夜晚的今夜怪谈', den: 'Finish 7 nights of Tonight’s Ghost Story', test: (s) => s.ghostNights >= 7 },
+  { id: 'horror5', icon: 'ghost', zh: '恐怖故事爱好者', en: 'Horror Fan', dzh: '听完 5 个恐怖故事', den: 'Finish 5 horror stories', test: (s) => s.lHorror >= 5 },
+  { id: 'horror20', icon: 'flame', zh: '胆子是真的大', en: 'Nerves of Steel', dzh: '听完 20 个恐怖故事', den: 'Finish 20 horror stories', test: (s) => s.lHorror >= 20 },
+  { id: 'real5', icon: 'scroll', zh: '真实经历收集者', en: 'True Story Collector', dzh: '听完 5 个真实经历改编的故事', den: 'Finish 5 stories retold from real experiences', test: (s) => s.lReal >= 5 },
+  { id: 'scifi3', icon: 'sparkle', zh: '科幻故事迷', en: 'Sci-fi Fan', dzh: '听完 3 个科幻故事', den: 'Finish 3 sci-fi stories', test: (s) => s.lScifi >= 3 },
+  { id: 'romance3', icon: 'heart', zh: '甜宠党', en: 'Hopeless Romantic', dzh: '听完 3 个爱情 / 甜宠故事', den: 'Finish 3 love stories', test: (s) => s.lRomance >= 3 },
+  { id: 'healing3', icon: 'sun', zh: '治愈系', en: 'Comfort Listener', dzh: '听完 3 个治愈故事', den: 'Finish 3 comforting stories', test: (s) => s.lHealing >= 3 },
+  { id: 'mystery3', icon: 'eye', zh: '推理控', en: 'Mystery Buff', dzh: '听完 3 个悬疑 / 推理故事', den: 'Finish 3 mystery stories', test: (s) => s.lMystery >= 3 },
+  { id: 'fantasy3', icon: 'key', zh: '奇幻旅人', en: 'Fantasy Wanderer', dzh: '听完 3 个奇幻故事', den: 'Finish 3 fantasy stories', test: (s) => s.lFantasy >= 3 },
+  { id: 'together1', icon: 'masks', zh: '一起听过', en: 'Listened Together', dzh: '和别人或 TA 一起听完一个故事', den: 'Finish a story with someone', test: (s) => s.lTogether >= 1 },
   // —— 黑历史：没通关也算一种经历
   { id: 'peek1', icon: 'eyeoff', zh: '偷看了一眼', en: 'Just a Peek', dzh: '第一次直接看了汤底', den: 'Peek at the truth for the first time', dark: true, test: (s) => s.soupPeek >= 1 },
   { id: 'peek10', icon: 'eyeoff', zh: '好奇心害死猫', en: 'Curiosity Killed the Cat', dzh: '看了 10 次汤底', den: 'Peek at the truth 10 times', dark: true, test: (s) => s.soupPeek >= 10 },
@@ -129,7 +144,18 @@ export async function collect(admin: any, userId: string, lang: 'zh' | 'en' = 'z
     dailyFail: dailyMine.filter((r: any) => !r.solved).length,
     cocDead: chars.filter((c: any) => !!c.status_flags?.dead || (c.hp_current ?? 1) <= 0).length,
     cocInsane: chars.filter((c: any) => !(c.status_flags?.dead || (c.hp_current ?? 1) <= 0) && (c.status_flags?.retired || (c.san_current ?? 1) <= 0)).length,
+    listens: 0, ghostNights: 0, lHorror: 0, lScifi: 0, lRomance: 0, lHealing: 0, lMystery: 0, lFantasy: 0, lReal: 0, lTogether: 0,
   };
+  // —— 听故事
+  try {
+    const { data: ls } = await admin.from('story_listens').select('kind, genre, real, together').eq('user_id', userId).limit(2000);
+    const L = ls || []; const g = (re: RegExp) => L.filter((x: any) => re.test(String(x.genre || ''))).length;
+    stats.listens = L.length; stats.ghostNights = L.filter((x: any) => x.kind === 'ghost').length;
+    stats.lHorror = L.filter((x: any) => x.kind === 'ghost' || /恐怖|惊悚|怪谈|灵异|克苏鲁|鬼|horror|ghost|creepy/i.test(String(x.genre || ''))).length;
+    stats.lScifi = g(/科幻|赛博|太空|未来|sci-?fi|cyber|space/i); stats.lRomance = g(/爱情|甜宠|恋|浪漫|romance|love/i); stats.lHealing = g(/治愈|温馨|温情|healing|cozy|warm/i);
+    stats.lMystery = g(/悬疑|推理|侦探|mystery|detective|noir/i); stats.lFantasy = g(/奇幻|魔法|仙侠|童话|fantasy|magic|fairy/i);
+    stats.lReal = L.filter((x: any) => x.real).length; stats.lTogether = L.filter((x: any) => x.together).length;
+  } catch {}
   const hosted = rooms.filter((r: any) => r.host_user_id === userId && !r.companion).map((r: any) => r.id).slice(0, 300);
   if (hosted.length) {
     const { data: pc } = await admin.from('players').select('room_id').in('room_id', hosted).limit(3000);

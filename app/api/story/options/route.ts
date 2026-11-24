@@ -41,6 +41,16 @@ export async function POST(req: Request) {
         libOpts = pool.map((r) => ({ title: String(r.title || ''), genre: String(r.genre || ''), logline: String(r.logline || ''), mood: String(r.mood || ''), est_minutes: Number(r.est_minutes) || 10, appeal: Math.round(Number(r.overall) || 90), fromLibrary: true, libraryId: r.id }));
       }
     } catch { /* 库不可用则全新生成 */ }
+    // 真实经历改编的故事（网上收集 → 打分 → 重新讲过、配好音的怪谈库）：想听恐怖的、或者没指定题材时放一个进来
+    try {
+      const { data: room2 } = await admin.from('rooms').select('language').eq('id', roomId).maybeSingle();
+      const gl = room2?.language === 'en' ? 'en' : 'zh';
+      if (!reqGenres.length || reqGenres.includes('horror')) {
+        const { data: gs } = await admin.from('ghost_stories').select('id, title, teaser, seconds, seed_id').eq('lang', gl).eq('status', 'ready').order('plays', { ascending: true }).limit(8);
+        const g = (gs || []).sort((a: any, b: any) => (b.seed_id ? 1 : 0) - (a.seed_id ? 1 : 0))[0];
+        if (g) libOpts = [{ title: g.title, genre: gl === 'en' ? (g.seed_id ? 'True-story horror' : 'Horror · voice note') : (g.seed_id ? '真实经历改编 · 怪谈' : '怪谈 · 真人口吻'), logline: g.teaser || '', mood: gl === 'en' ? 'eerie' : '诡异', est_minutes: Math.max(3, Math.round((g.seconds || 480) / 60)), ghostId: g.id, real: !!g.seed_id }, ...libOpts].slice(0, 2);
+      }
+    } catch {}
     const want = Math.max(1, 3 - libOpts.length);
     const { data: out, usage } = await callLLMJson<any>({
       system: buildStoryOptionsPrompt(p, room.language) + langDirective(room.language),

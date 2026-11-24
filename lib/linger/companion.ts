@@ -41,7 +41,7 @@ export async function sendRecap(admin: any, roomId: string, outcome: string) {
     const { data: msgs } = await admin.from('messages').select('sender_type, content, payload, visibility').eq('room_id', roomId).order('created_at', { ascending: true }).limit(400);
     const pub = (msgs || []).filter((m: any) => (!m.visibility || m.visibility === 'public') && m.content).map((m: any) => `${m.payload?.name ? m.payload.name + ':' : m.sender_type === 'kp' ? '主持:' : ''}${String(m.content).slice(0, 200)}`);
     const transcript = [...pub.slice(0, 6), '…', ...pub.slice(-50)].join('\n').slice(0, 7000);
-    const modeZh: Record<string, string> = { botc: '血染钟楼', jbs: '剧本杀', soup: '海龟汤', coc: '克苏鲁跑团' };
+    const modeZh: Record<string, string> = { botc: '血染钟楼', jbs: '剧本杀', soup: '海龟汤', coc: '克苏鲁跑团', story: '一起听的故事' };
     const r = await callLLM({
       system: `你是「${c.name}」。你刚和${c.userName || '对方'}在「谜夜」上一起玩完一局${modeZh[room.mode] || room.mode}${c.role ? `(你演的是「${c.role}」)` : ''}。结果:${outcome}。
 根据下面的对局记录,用你自己的视角写这局的回忆,给你以后聊天时用。只输出 JSON:

@@ -31,7 +31,7 @@ export const TILE: Record<GM, { short: Bi; line: Bi; color: string; icon: JSX.El
     icon: <><circle cx="12" cy="13.5" r="7.5" /><path d="M12 10v3.5l2.5 2M9 2.5h6M12 2.5v3.5" /></> },
   dnd: { short: { zh: '龙与地下城', en: 'D&D' }, line: { zh: '打怪升级', en: 'Dice & loot' }, color: '#d9a441',
     icon: <><path d="M12 2l9 5v10l-9 5-9-5V7z" /><path d="M12 2L7 11h10zM7 11l5 11 5-11M3 7l4 4M21 7l-4 4" /></> },
-  story: { short: { zh: '讲故事', en: 'Storyteller' }, line: { zh: '读给你听', en: 'Read aloud' }, color: '#5aa0c4',
+  story: { short: { zh: '讲故事', en: 'Storyteller' }, line: { zh: '真实经历·一起听', en: 'True stories, together' }, color: '#5aa0c4',
     icon: <><path d="M2 5.5c3-1 7-1 10 1 3-2 7-2 10-1v13c-3-1-7-1-10 1-3-2-7-2-10-1z" /><path d="M12 6.5v13" /></> },
   td: { short: { zh: '真心话', en: 'Truth or Dare' }, line: { zh: '派对现场出题', en: 'Party prompts' }, color: '#d9668f',
     icon: <><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" /><path d="M12 8v4.5M12 15.5v.2" /></> },

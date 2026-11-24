@@ -2,6 +2,7 @@
 import { toast } from '@/components/Toast';
 import Beat, { BEAT_CSS } from '@/components/Beat';
 import Icon from '@/components/Icon';
+import StoryListen from './StoryListen';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -45,6 +46,8 @@ export default function StoryRoom(props: ShellProps) {
   const [showCompare, setShowCompare] = useState(false);
   const [onlyUp, setOnlyUp] = useState(false);
   const autoGen = useRef(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const autoNarr = useRef(false);
 
   useEffect(() => {
     const ch = supabase.channel(`story-${props.room.id}`)
@@ -74,6 +77,12 @@ export default function StoryRoom(props: ShellProps) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isHost, st?.narration?.url, st?.cues, busy]);
+
+  // 故事写好了还没朗读：房主这边自动配上真人声音（不用再手动点）
+  useEffect(() => {
+    if (canEdit && isHost && phase === 'reading' && st?.full?.story && !st?.narration?.url && !busy && !autoNarr.current) { autoNarr.current = true; genNarration(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, st?.full?.story, st?.narration?.url, busy]);
 
   // 恐怖题材：默认用阴森嗓音（仅自动设一次，之后用户可改）
   useEffect(() => {
@@ -212,7 +221,7 @@ export default function StoryRoom(props: ShellProps) {
               {(st.options || []).map((o: any) => (
                 <div key={o.id} className="rounded-xl bg-[#121318] border border-white/10 p-4 space-y-1.5">
                   <div className="flex items-start justify-between gap-2"><div className="font-serif text-parchment">{o.title}</div>{o.fromLibrary ? <span className="text-amber-400 text-sm shrink-0" title={en ? 'Saved high-scorer (precise rating)' : '精选库 · 真实精确评分'}>{o.appeal} <span className="text-[10px]">{en ? 'saved' : '精选'}</span></span> : <span className="text-parchment/40 text-[11px] shrink-0" title={en ? 'Premise appeal — not the final precise rating' : '开场卖相分，非成稿精确评分'}>{en ? 'appeal' : '卖相'} {o.appeal}</span>}</div>
-                  <div className="text-[11px] text-[#c9a96e]">{o.genre} · {o.mood} · ~{o.est_minutes}min</div>
+                  <div className="text-[11px] text-[#c9a96e]">{o.real && <span className="mr-1.5 px-1.5 py-0.5 rounded bg-[#8fd3b8]/15 text-[#8fd3b8]">{en ? 'Real experience' : '真实经历'}</span>}{o.genre} · {o.mood} · ~{o.est_minutes}min</div>
                   <div className="text-sm text-parchment/75">{o.logline}</div>
                   {canEdit && <button onClick={() => write(o.id)} disabled={busy} className="mt-1 w-full py-2 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] text-parchment text-sm border border-[#a83232]/60 disabled:opacity-50">{en ? 'Write this story →' : '写这个故事 →'}</button>}
                 </div>
@@ -255,14 +264,24 @@ export default function StoryRoom(props: ShellProps) {
     );
   }
 
-  // ---------------- READING ----------------
+  // ---------------- READING：一起听 ----------------
   const story = st?.full;
   const r = st?.rating;
+  const comp: any = (props.room as any).companion;
+  const people = players.map((p: any) => {
+    const u: any = users.find((x: any) => x.id === p.user_id);
+    const ai = !!comp?.player_id && comp.player_id === p.id;
+    return { pid: p.id, name: ai ? comp.name : (u?.display_name || (en ? 'Listener' : '听众')), avatar: ai ? (comp.avatar || u?.avatar_url || null) : (u?.avatar_url || null), me: p.id === props.myPlayerId, ai };
+  });
   return (
-    <main className="h-[100svh] flex flex-col">{Header}
-      <div className="flex-1 overflow-y-auto px-5 py-6">
-        <div className="max-w-2xl mx-auto space-y-6">
-          {st?.narration?.url && <StoryPlayer url={st.narration.url} playback={st?.playback} roomId={props.room.id} en={en} provider={st?.narration?.provider} soundtrack={soundtrack} onToggleSoundtrack={() => setSoundtrack((v) => !v)} trackVol={trackVol} onTrackVol={setTrackVol} onTime={(c, d) => setNarrPos({ cur: c, dur: d })} />}
+    <>
+      <StoryListen roomId={props.room.id} en={en} title={story?.title || ''} text={story?.story || ''} url={st?.narration?.url || null} playback={st?.playback} cues={st?.cues}
+        rating={r} genre={st?.chosen?.genre || ''} people={people} myPid={props.myPlayerId} aiPid={comp?.player_id || null} isHost={canEdit}
+        onTools={() => setToolsOpen(true)} narrating={busy || autoNarr.current} />
+      {toolsOpen && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-end sm:items-center justify-center" onClick={() => setToolsOpen(false)}>
+          <div className="w-full sm:max-w-lg max-h-[85svh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-[#121318] border border-white/10 p-5 space-y-5 mn-sheet" style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between"><span className="font-serif text-[18px] text-[#f2e6d0]">{en ? 'Story tools' : '故事工作台'}</span><button onClick={() => setToolsOpen(false)} className="text-parchment/50 text-[20px] px-2">×</button></div>
           {canEdit && (
             <div className="flex flex-col items-center gap-2">
               <div className="flex flex-wrap items-center justify-center gap-2">
@@ -280,7 +299,6 @@ export default function StoryRoom(props: ShellProps) {
             </div>
           )}
           {!canEdit && !st?.narration?.url && <p className="text-center text-[12px] text-parchment/40">{en ? 'Waiting for the host to generate narration…' : '等房主生成朗读…'}</p>}
-          <StoryArticle title={story?.title} text={story?.story || ''} pos={narrPos} active={!!st?.narration?.url} playing={!!st?.playback?.playing} cues={st?.cues} soundtrack={soundtrack} />
 
           {r && <Scorecard r={r} en={en} />}
           {canEdit && (
@@ -306,9 +324,12 @@ export default function StoryRoom(props: ShellProps) {
               <p className="text-[11px] text-parchment/40 text-center">{en ? 'Each pass writes 2 candidates and keeps the best only if it beats the current score — never worse. Reaching 90 usually needs structural (deep) changes, not just polish.' : '每次写 2 稿、只保留分更高的一版——只升不降。要破 88/90 通常得靠「深改」动结构，光润色到不了。满 85 自动入库。'}</p>
             </div>
           )}
+
+            {isHost && <button onClick={replay} className="w-full py-2.5 rounded-xl border border-white/10 text-parchment/70 text-sm">{en ? 'Start over with a new story' : '重新开始，换个故事'}</button>}
+          </div>
         </div>
-      </div>
-    </main>
+      )}
+    </>
   );
 }
 

@@ -15,12 +15,12 @@ export const GAMES: Game[] = [
     key: 'story',
     name: { zh: '讲故事', en: 'Storyteller' },
     meta: { zh: '1–6 人 · 约 10 分钟 · 朗读', en: '1–6 players · ~10 min · narrated' },
-    blurb: { zh: 'AI 构思、反复打磨、并用真人嗓音朗读一个只属于今晚的原创故事——还配着会呼吸的背景音乐。', en: 'An AI plans, refines and reads aloud an original story made just for tonight — with music that breathes under every line.' },
+    blurb: { zh: '网上收集的真实经历改编，加上按你心意现讲的高质量故事。每篇都打分，真人声音讲给你听，音效跟着情节走——叫上朋友或 TA，边听边发弹幕。', en: 'True experiences people shared online, retold — plus high-quality originals told for your mood. Every story is scored, read in a real-sounding voice with sound that follows the plot. Listen with friends and react live.' },
     rules: [
-      { zh: '选题材与心情（恐怖 / 温柔 / 治愈…）', en: 'Pick a genre and a mood' },
-      { zh: 'AI 反复起草并自评，直到故事真的好看', en: 'AI drafts and self-scores until it truly lands' },
-      { zh: '挑嗓音与语速，卡拉OK式逐句高亮朗读', en: 'Choose a voice; listen with karaoke highlighting' },
-      { zh: '配乐随段落切换，双人实时同步聆听', en: 'Music shifts per paragraph, synced for two' },
+      { zh: '挑一个：真实经历改编，或按题材心情现讲', en: 'Pick a true story retold, or a new one for your mood' },
+      { zh: '每篇打分，不够好可以一键改稿', en: 'Every story is scored; revise it higher in one tap' },
+      { zh: '真人声音朗读，吓人处音效突然响起', en: 'Natural voice; sounds hit when it gets scary' },
+      { zh: '一起听：表情从头像冒出、弹幕飘过屏幕', en: 'Together: stickers pop from avatars, comments fly by' },
     ],
   },
   {

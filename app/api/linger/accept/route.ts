@@ -5,8 +5,8 @@ import { ensureCompanionUser } from '@/lib/linger/account';
 import { LINGER_URL } from '@/lib/linger/companion';
 export const dynamic = 'force-dynamic';
 
-const MODE_ZH: Record<string, string> = { botc: '血染钟楼', jbs: '剧本杀', soup: '海龟汤', coc: '克苏鲁跑团' };
-const MODE_EN: Record<string, string> = { botc: 'Clocktower', jbs: 'Murder Mystery', soup: 'Lateral Puzzle', coc: 'Call of Cthulhu' };
+const MODE_ZH: Record<string, string> = { botc: '血染钟楼', jbs: '剧本杀', soup: '海龟汤', coc: '克苏鲁跑团', story: '一起听故事' };
+const MODE_EN: Record<string, string> = { botc: 'Clocktower', jbs: 'Murder Mystery', soup: 'Lateral Puzzle', coc: 'Call of Cthulhu', story: 'Story Night' };
 
 export async function POST(req: Request) {
   const supabase = createServerClient();
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
   const lang = p.language === 'en' ? 'en' : 'zh';
   const inviteToken = Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
   const { data: room, error } = await admin.from('rooms').insert({
-    name: lang === 'en' ? `${MODE_EN[inv.mode]} with ${p.name}` : `和 ${p.name} 的${MODE_ZH[inv.mode]}`,
+    name: lang === 'en' ? `${MODE_EN[inv.mode]} with ${p.name}` : inv.mode === 'story' ? `和 ${p.name} 一起听故事` : `和 ${p.name} 的${MODE_ZH[inv.mode]}`,
     host_user_id: user.id, status: 'waiting', mode: inv.mode, language: lang,
     invite_token: inviteToken, invite_expires_at: new Date(Date.now() + 7 * 86400000).toISOString(),
     companion: { ...p, linger: true },
@@ -42,7 +42,7 @@ export async function POST(req: Request) {
   await admin.from('linger_invites').update({ room_id: room.id, used_by: user.id, used_at: new Date().toISOString() }).eq('token', inv.token);
   const compUid = await ensureCompanionUser(admin, { ...p, language: lang }, user.id); // TA 在谜夜注册账号并加你好友
   // 克苏鲁跑团：TA 真的坐进队伍里（B 座），和你一起建卡、每回合行动
-  if (inv.mode === 'coc' && compUid) {
+  if ((inv.mode === 'coc' || inv.mode === 'story') && compUid) {
     const { data: cp } = await admin.from('players').insert({ room_id: room.id, user_id: compUid, seat: 'B', is_online: true }).select('id').single();
     if (cp?.id) await admin.from('rooms').update({ companion: { ...p, linger: true, seat: 'B', player_id: cp.id } }).eq('id', room.id);
   }

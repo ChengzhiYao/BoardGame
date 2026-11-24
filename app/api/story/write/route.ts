@@ -29,6 +29,20 @@ export async function POST(req: Request) {
   if (!claimed || !claimed.length) return NextResponse.json({ ok: true, busy: true });
 
   try {
+    // 选中的是怪谈库里的故事（真实经历改编 / 真人口吻）：转成正文，打个分，直接开讲
+    if (chosen.ghostId) {
+      const { data: g } = await admin.from('ghost_stories').select('*').eq('id', chosen.ghostId).maybeSingle();
+      if (g) {
+        const strip = (t: string) => String(t || '').replace(/\{[a-z][a-z ]{1,24}\}\s*/gi, '').trim();
+        const body = (g.lines || []).map((l: any) => l.who === 'teller' ? strip(l.text) : `${l.who}：「${strip(l.text)}」`).join('\n\n');
+        let rating: any = null;
+        try { const rr = await callLLMJson<any>({ system: buildStoryRatePrompt(body, chosen.genre || '', room.language) + langDirective(room.language), messages: [{ role: 'user', content: '请精确评分。' }], tier: 'main', temperature: 0.3, maxTokens: 1200, retry: true }); rating = normalizeStoryRating(rr.data); } catch {}
+        await admin.from('ghost_stories').update({ plays: (g.plays || 0) + 1 }).eq('id', g.id);
+        await persistStory(admin, roomId, { ...state, phase: 'reading', chosen, full: { title: String(g.title || chosen.title), story: body }, rating, cues: g.cues || undefined });
+        await admin.from('rooms').update({ modules_generating: false, game_state: 'playing' }).eq('id', roomId);
+        return NextResponse.json({ ok: true, fromGhost: true });
+      }
+    }
     // 选中的是精选库故事：直接取出，不再生成
     if (chosen.fromLibrary && chosen.libraryId) {
       const { data: libRow } = await admin.from('story_library').select('*').eq('id', chosen.libraryId).maybeSingle();
@@ -49,7 +63,7 @@ export async function POST(req: Request) {
     } catch { /* 规划失败则裸写 */ }
     // 2) 按蓝图 + 文学手法写 2 稿（并行）
     const sys = buildStoryWritePrompt(chosen, state.params || {}, room.language, plan) + dir;
-    const drafts = await Promise.all([0, 1].map(() => callLLMJson<any>({ system: sys, messages: [{ role: 'user', content: '写出可发表水准的完整故事。' }], tier: 'main', temperature: 0.95, maxTokens: 4000, retry: true }).catch(() => null)));
+    const drafts = await Promise.all([0, 1].map(() => callLLMJson<any>({ system: sys, messages: [{ role: 'user', content: '把这个故事完整讲出来。' }], tier: 'main', temperature: 0.95, maxTokens: 4000, retry: true }).catch(() => null)));
     // 3) 各自精确评分，择优
     const rated = await Promise.all(drafts.map(async (d) => {
       if (!d) return null; await logU(d.usage);

@@ -160,9 +160,10 @@ export default function StoryListen({ roomId, en, title, text, url, segs, playba
   const [pos, setPos] = useState<Record<string, { x: number; y: number }>>({});
   useEffect(() => {
     let saved: any = {}; try { saved = JSON.parse(localStorage.getItem('sl-pos-' + roomId) || '{}'); } catch {}
+    Object.keys(saved).forEach((k) => { if (saved[k]?.y > window.innerHeight - 310) delete saved[k]; });
     const W = window.innerWidth, H = window.innerHeight; const next: any = {};
     let r = 0;
-    people.forEach((p) => { next[p.pid] = saved[p.pid] || (p.me ? { x: 14, y: H - 250 } : { x: W - 70, y: H - 250 - (r++) * 74 }); });
+    people.forEach((p) => { next[p.pid] = saved[p.pid] || (p.me ? { x: 14, y: H - 330 } : { x: W - 70, y: H - 330 - (r++) * 74 }); });
     setPos(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [people.map((p) => p.pid).join(',')]);
@@ -170,7 +171,7 @@ export default function StoryListen({ roomId, en, title, text, url, segs, playba
   function onDown(e: React.PointerEvent, pid: string) { const p = pos[pid]; if (!p) return; drag.current = { pid, dx: e.clientX - p.x, dy: e.clientY - p.y, moved: false }; (e.target as any).setPointerCapture?.(e.pointerId); }
   function onMove(e: React.PointerEvent) {
     const d = drag.current; if (!d) return;
-    const x = Math.max(4, Math.min(window.innerWidth - 60, e.clientX - d.dx)), y = Math.max(60, Math.min(window.innerHeight - 200, e.clientY - d.dy));
+    const x = Math.max(4, Math.min(window.innerWidth - 60, e.clientX - d.dx)), y = Math.max(60, Math.min(window.innerHeight - 310, e.clientY - d.dy));
     d.moved = true; setPos((p) => ({ ...p, [d.pid]: { x, y } }));
   }
   function onUp() { if (drag.current?.moved) { try { localStorage.setItem('sl-pos-' + roomId, JSON.stringify(pos)); } catch {} } drag.current = null; }
@@ -271,7 +272,7 @@ export default function StoryListen({ roomId, en, title, text, url, segs, playba
                   onPointerUp={() => { seeking.current = false; const a = aRef.current; if (a) post(!a.paused, a.currentTime); }} />
                 <div className="flex justify-between text-[10.5px] text-parchment/40"><span>{fmt(cur)}</span>{needTap ? <span className="text-[#e6c76e]">{L('点一下播放键跟上', 'Tap play to join')}</span> : <span>{people.length > 1 ? L(`${people.length} 人一起在听`, `${people.length} listening`) : ''}</span>}<span>{fmt(dur)}</span></div>
               </div>
-              <button onClick={() => setSound((v) => !v)} className={`shrink-0 w-9 h-9 rounded-full border flex items-center justify-center ${sound ? 'border-[#c9a96e]/40 text-[#e6c76e]' : 'border-white/10 text-parchment/35'}`} aria-label="ambience"><Icon n="headphones" size={17} /></button>
+              <button onClick={() => setSound((v) => !v)} className={`shrink-0 h-9 px-2.5 rounded-full border flex flex-col items-center justify-center leading-none ${sound ? 'border-[#c9a96e]/40 text-[#e6c76e]' : 'border-white/10 text-parchment/35'}`} aria-label="ambience"><span className="text-[10.5px]">{L('氛围音', 'Ambience')}</span><span className="mt-0.5 text-[9.5px] opacity-80">{sound ? L('开', 'on') : L('关', 'off')}</span></button>
             </div>
           ) : (
             <div className="h-12 flex items-center justify-center gap-2 text-[13px] text-parchment/55">{narrating ? <><span className="w-4 h-4 rounded-full border-2 border-white/10 border-t-[#c9a96e] animate-spin" />{L('正在配上真人声音…', 'Recording the narration…')}</> : L('等房主生成朗读', 'Waiting for narration')}</div>

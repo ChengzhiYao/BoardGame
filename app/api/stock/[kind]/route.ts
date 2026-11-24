@@ -34,8 +34,9 @@ export async function POST(req: Request, { params }: { params: { kind: string } 
     }
     for (const lang of ['zh', 'en'] as const) {
       const { count } = await admin.from('ghost_stories').select('id', { count: 'exact', head: true }).eq('lang', lang).is('day', null);
-      const want = lang === 'zh' ? 10 : 4;
-      if ((count || 0) < want && Date.now() < t0 + 120000 && (lang === 'zh' || Math.random() < 0.34)) {
+      // Fish 免费期内多攒：中文存 60 篇、英文 20 篇
+      const want = lang === 'zh' ? 60 : 20;
+      if ((count || 0) < want && Date.now() < t0 + 120000 && (lang === 'zh' || Math.random() < 0.5)) {
         try { const id = await writeGhost(admin, lang); out.made++; if (id && !dead) await voiceGhost(admin, id, deadline); } catch (e: any) { out.err = String(e?.message || e).slice(0, 120); }
       }
     }

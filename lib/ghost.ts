@@ -61,7 +61,16 @@ ${MARK_ZH}
 export async function writeGhost(admin: any, lang: Lang) {
   const { data: recent } = await admin.from('ghost_stories').select('title').eq('lang', lang).order('created_at', { ascending: false }).limit(30);
   const topics = lang === 'en' ? TOPICS_EN : TOPICS_ZH;
-  const topic = topics[Math.floor(Math.random() * topics.length)];
+  let topic = topics[Math.floor(Math.random() * topics.length)];
+  // 优先用网上收集来的真人经历（定时任务每天收、打过分）：只借梗概和关键情节，全部用自己的话重新讲
+  const { data: seeds } = await admin.from('ghost_seeds').select('*').eq('lang', lang).eq('status', 'new').order('score', { ascending: false }).limit(1);
+  const seed = seeds?.[0];
+  if (seed) {
+    await admin.from('ghost_seeds').update({ status: 'using' }).eq('id', seed.id);
+    topic = lang === 'en'
+      ? `Adapt this real-sounding experience someone shared online. Use ONLY its premise and key beats; retell it completely in your own words as a new person's voice note — new names, new details, no sentences copied. Premise: ${seed.premise}${seed.beats ? ` Key beats: ${seed.beats}` : ''}${seed.setting ? ` Setting: ${seed.setting}` : ''}`
+      : `改编一个网友分享的"亲身经历"。只借它的梗概和关键情节，用一个新的讲述人、全新的名字和细节完整地重新讲一遍，不要照抄原文任何句子。梗概：${seed.premise}${seed.beats ? ` 关键情节：${seed.beats}` : ''}${seed.setting ? ` 场景：${seed.setting}` : ''}`;
+  }
   const { data } = await callLLMJson<any>({ system: ghostPrompt(lang, topic, (recent || []).map((r: any) => r.title).filter(Boolean)), messages: [{ role: 'user', content: lang === 'en' ? 'Write tonight’s story.' : '写今晚的故事。' }], tier: 'main', temperature: 0.95, maxTokens: 6000 });
   const noChat = (t: string) => t.replace(/\p{Extended_Pictographic}|[\u{1F300}-\u{1FAFF}]/gu, '').replace(/(?:h{3,}|哈{4,}|LL|orz|QAQ|TAT|233+|\(\s*[^()\s]{1,4}\s*\))/gi, (m) => (/^哈/.test(m) ? '哈哈' : '')).replace(/\s{2,}/g, ' ').trim();
   const lines = (Array.isArray(data?.lines) ? data.lines : []).map((l: any) => ({ who: String(l.who || 'teller'), text: noChat(String(l.text || '')) })).filter((l: any) => l.text);
@@ -84,8 +93,9 @@ export async function writeGhost(admin: any, lang: Lang) {
     lang, title: String(data.title).slice(0, 40), teaser: String(data.teaser || '').slice(0, 120),
     style: (STYLES as readonly string[]).includes(data.style) ? data.style : 'city', fear: Math.max(1, Math.min(5, Number(data.fear) || 3)),
     teller: { name: String(data.teller?.name || (lang === 'en' ? 'A friend' : '朋友')), gender: tg, age: Number(data.teller?.age) || null, voice: tellerVoice },
-    cast_list: cast, lines, status: 'draft',
+    cast_list: cast, lines, status: 'draft', seed_id: seed?.id || null,
   }).select('id').single();
+  if (seed) await admin.from('ghost_seeds').update({ status: 'used', story_id: row?.id || null }).eq('id', seed.id);
   return row?.id;
 }
 

@@ -16,6 +16,7 @@ const STY: Record<string, { c: string; zh: string; en: string; icon: string }> =
   hospital: { c: '#8fd3b8', zh: '医院', en: 'Hospital', icon: 'scroll' }, school: { c: '#c9b8ff', zh: '学校', en: 'School', icon: 'clock' },
   village: { c: '#c9a96e', zh: '乡下老家', en: 'Back home', icon: 'candle' }, water: { c: '#6fb7d9', zh: '水边', en: 'By the water', icon: 'moon' },
   road: { c: '#f0a35a', zh: '路上', en: 'On the road', icon: 'eye' }, old: { c: '#b89a7a', zh: '旧物', en: 'Old things', icon: 'ghost' },
+  cosmic: { c: '#a48cff', zh: '不可名状', en: 'Cosmic', icon: 'spiral' },
 };
 const sty = (k?: string) => STY[k || 'city'] || STY.city;
 function Fear({ n, c }: { n: number; c: string }) {

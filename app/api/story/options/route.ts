@@ -46,10 +46,12 @@ export async function POST(req: Request) {
       const { data: room2 } = await admin.from('rooms').select('language').eq('id', roomId).maybeSingle();
       const gl = room2?.language === 'en' ? 'en' : 'zh';
       if (!reqGenres.length || reqGenres.includes('horror')) {
-        const { data: gs } = await admin.from('ghost_stories').select('id, title, teaser, seconds, seed_id').eq('lang', gl).eq('status', 'ready').order('plays', { ascending: true }).limit(12);
+        const { data: gs } = await admin.from('ghost_stories').select('id, title, teaser, seconds, seed_id, style').eq('lang', gl).eq('status', 'ready').order('plays', { ascending: true }).limit(40);
         // 真实经历改编的排前面,同一批里最多放 3 篇(没听过的优先)
-        const gsel = (gs || []).sort((a: any, b: any) => (b.seed_id ? 1 : 0) - (a.seed_id ? 1 : 0) || Math.random() - 0.5).slice(0, 3);
-        libOpts = [...gsel.map((g: any) => ({ title: g.title, genre: gl === 'en' ? (g.seed_id ? 'True-story horror' : 'Horror · voice note') : (g.seed_id ? '真实经历改编 · 怪谈' : '怪谈 · 真人口吻'), logline: g.teaser || '', mood: gl === 'en' ? 'eerie' : '诡异', est_minutes: Math.max(3, Math.round((g.seconds || 480) / 60)), ghostId: g.id, real: !!g.seed_id })), ...libOpts].slice(0, 4);
+        const wantCosmic = Array.isArray(p.horror_sub) && p.horror_sub.includes('cthulhu');
+        // 选了「克苏鲁/宇宙恐怖」:只放宇宙恐怖味的;否则真实经历改编的排前面
+        const gsel = (gs || []).filter((g: any) => !wantCosmic || g.style === 'cosmic').sort((a: any, b: any) => (b.seed_id ? 1 : 0) - (a.seed_id ? 1 : 0) || Math.random() - 0.5).slice(0, 3);
+        libOpts = [...gsel.map((g: any) => ({ title: g.title, genre: g.style === 'cosmic' ? (gl === 'en' ? (g.seed_id ? 'True story · cosmic horror' : 'Cosmic horror · voice note') : (g.seed_id ? '真实经历改编 · 宇宙恐怖' : '宇宙恐怖 · 真人口吻')) : gl === 'en' ? (g.seed_id ? 'True-story horror' : 'Horror · voice note') : (g.seed_id ? '真实经历改编 · 怪谈' : '怪谈 · 真人口吻'), logline: g.teaser || '', mood: gl === 'en' ? 'eerie' : '诡异', est_minutes: Math.max(3, Math.round((g.seconds || 480) / 60)), ghostId: g.id, real: !!g.seed_id })), ...libOpts].slice(0, 4);
       }
     } catch {}
     const want = Math.max(2, 6 - libOpts.length);

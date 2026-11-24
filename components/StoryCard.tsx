@@ -4,6 +4,7 @@ import Icon from '@/components/Icon';
 
 type Theme = { c: string; c2: string; icon: string; zh: string; en: string; tex: string };
 const THEMES: { re: RegExp; t: Theme }[] = [
+  { re: /克苏鲁|宇宙恐怖|不可名状|cosmic|lovecraft|cthulhu/i, t: { c: '#a48cff', c2: '#160f30', icon: 'spiral', zh: '不可名状', en: 'Cosmic', tex: 'repeating-radial-gradient(circle at 70% 30%, rgba(164,140,255,.06) 0 2px, transparent 2px 14px)' } },
   { re: /怪谈|恐怖|灵异|惊悚|鬼|horror|ghost|eerie|creep/i, t: { c: '#e0574d', c2: '#3a0d0d', icon: 'ghost', zh: '怪谈', en: 'Horror', tex: 'repeating-linear-gradient(180deg, rgba(255,255,255,.025) 0 1px, transparent 1px 4px)' } },
   { re: /悬疑|推理|侦探|犯罪|mystery|detective|crime|thriller/i, t: { c: '#6fb7d9', c2: '#0b2230', icon: 'eye', zh: '悬疑', en: 'Mystery', tex: 'repeating-linear-gradient(135deg, rgba(255,255,255,.03) 0 1px, transparent 1px 9px)' } },
   { re: /科幻|未来|太空|赛博|sci-?fi|space|cyber|future/i, t: { c: '#8c9bff', c2: '#12163a', icon: 'spiral', zh: '科幻', en: 'Sci‑fi', tex: 'radial-gradient(rgba(255,255,255,.18) 1px, transparent 1.2px) 0 0/18px 18px' } },

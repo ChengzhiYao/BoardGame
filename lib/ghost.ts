@@ -25,7 +25,7 @@ const V = {
 const TOPICS_ZH = ['夜班便利店', '老小区的电梯', '出租屋隔壁的邻居', '一张奇怪的外卖单', '高速服务区的厕所', '医院住院部的夜班', '大学宿舍楼', '老家奶奶的房子', '刚搬进去的新房', '网约车的夜单', '酒店走廊尽头的房间', '地铁末班车', '一段婚礼录像', '二手市场买的旧手机', '小区监控里的人', '山里的民宿', '做入殓师的朋友', '寺庙借宿的一晚', '合租的室友', '婴儿监视器', '加班到半夜的写字楼', '驾校夜训', '老式照相馆', '游泳馆闭馆后', '县城的录像厅', '小时候的捉迷藏', '一个总打错的电话', '村口的老井', '新买的二手衣柜', '同学聚会少了一个人'];
 const TOPICS_EN = ['a night shift at a gas station', 'an old apartment elevator', 'the neighbor through the wall', 'a strange food delivery order', 'a rest stop bathroom at 3am', 'a hospital night shift', 'a college dorm', 'grandma’s old house', 'the house we just moved into', 'a late-night rideshare pickup', 'the room at the end of a hotel hallway', 'the last train', 'a wedding video', 'a second-hand phone', 'a figure on the building security camera', 'a cabin rental in the woods', 'a friend who works at a funeral home', 'a babysitting job', 'a baby monitor', 'an office building after midnight'];
 
-export const STYLES = ['city', 'home', 'hospital', 'school', 'village', 'water', 'road', 'old'] as const;
+export const STYLES = ['city', 'home', 'hospital', 'school', 'village', 'water', 'road', 'old', 'cosmic'] as const;
 
 const MARK_ZH = `排版标记（屏幕上会把这些放大成特效，念的时候会变成对应的语气）——每行最多 1 处，全篇 15–25 处，用在最吓人、最有画面的地方：
   **动作或关键细节**（如：**门把手自己转了半圈**）
@@ -73,6 +73,11 @@ export async function writeGhost(admin: any, lang: Lang) {
       ? `Adapt this real-sounding experience someone shared online. Use ONLY its premise and key beats; retell it completely in your own words as a new person's voice note — new names, new details, no sentences copied. Premise: ${seed.premise}${seed.beats ? ` Key beats: ${seed.beats}` : ''}${seed.setting ? ` Setting: ${seed.setting}` : ''}`
       : `改编一个网友分享的"亲身经历"。只借它的梗概和关键情节，用一个新的讲述人、全新的名字和细节完整地重新讲一遍，不要照抄原文任何句子。梗概：${seed.premise}${seed.beats ? ` 关键情节：${seed.beats}` : ''}${seed.setting ? ` 场景：${seed.setting}` : ''}`;
   }
+  // 宇宙恐怖味的真实经历(时间/空间错乱、不该存在的东西):恐怖来自"规则不对",不解释、不收尾
+  const cosmic = seed?.flavor === 'cosmic';
+  if (cosmic) topic += lang === 'en'
+    ? ' This one has a cosmic-horror flavour (Lovecraft-like, but told as a real experience): the dread comes from rules of reality quietly breaking — time slips, rooms or streets that should not exist, a scale too big to understand, something that should not be looked at. No monsters explained, no lore, no tentacles; never explain it at the end. Set "style":"cosmic".'
+    : ' 这一篇是"宇宙恐怖/克苏鲁味"的真实经历:恐怖不是鬼,而是现实的规则悄悄坏掉——时间对不上、不该存在的房间或街道、大到无法理解的东西、不该去看的东西。不要怪物、不要设定、不要触手,结尾绝对不解释。封面风格写 "style":"cosmic"。';
   const { data } = await callLLMJson<any>({ system: ghostPrompt(lang, topic, (recent || []).map((r: any) => r.title).filter(Boolean)), messages: [{ role: 'user', content: lang === 'en' ? 'Write tonight’s story.' : '写今晚的故事。' }], tier: 'main', temperature: 0.95, maxTokens: 6000 });
   const noChat = (t: string) => t.replace(/\p{Extended_Pictographic}|[\u{1F300}-\u{1FAFF}]/gu, '').replace(/(?:h{3,}|哈{4,}|LL|orz|QAQ|TAT|233+|\(\s*[^()\s]{1,4}\s*\))/gi, (m) => (/^哈/.test(m) ? '哈哈' : '')).replace(/\s{2,}/g, ' ').trim();
   const lines = (Array.isArray(data?.lines) ? data.lines : []).map((l: any) => ({ who: String(l.who || 'teller'), text: noChat(String(l.text || '')) })).filter((l: any) => l.text);
@@ -93,7 +98,7 @@ export async function writeGhost(admin: any, lang: Lang) {
   });
   const { data: row } = await admin.from('ghost_stories').insert({
     lang, title: String(data.title).slice(0, 40), teaser: String(data.teaser || '').slice(0, 120),
-    style: (STYLES as readonly string[]).includes(data.style) ? data.style : 'city', fear: Math.max(1, Math.min(5, Number(data.fear) || 3)),
+    style: cosmic ? 'cosmic' : (STYLES as readonly string[]).includes(data.style) ? data.style : 'city', fear: Math.max(1, Math.min(5, Number(data.fear) || 3)),
     teller: { name: String(data.teller?.name || (lang === 'en' ? 'A friend' : '朋友')), gender: tg, age: Number(data.teller?.age) || null, voice: tellerVoice },
     cast_list: cast, lines, status: 'draft', seed_id: seed?.id || null,
   }).select('id').single();

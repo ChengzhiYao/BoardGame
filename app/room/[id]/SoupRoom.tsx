@@ -56,9 +56,16 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
       .subscribe();
     const ch2 = supabase.channel(`soup-room-${props.room.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms', filter: `id=eq.${props.room.id}` }, () => router.refresh())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'players', filter: `room_id=eq.${props.room.id}` }, () => router.refresh())
       .subscribe();
     return () => { supabase.removeChannel(ch); supabase.removeChannel(ch2); };
   }, [props.room.id, supabase, router]);
+  // 还在大厅等人时:实时没推过来也每 8 秒刷新一次,新加入的人能马上出现
+  useEffect(() => {
+    if (props.room.game_state !== 'lobby') return;
+    const t = setInterval(() => { if (!document.hidden) router.refresh(); }, 8000);
+    return () => clearInterval(t);
+  }, [props.room.game_state, router]);
 
   useEffect(() => { setMessages((prev) => { const ids = new Set(prev.map((m) => m.id)); const add = props.initialMessages.filter((m) => !ids.has(m.id)); return add.length ? [...prev, ...add] : prev; }); }, [props.initialMessages]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
@@ -185,6 +192,8 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
   }
   // 大厅：还没出题
   if (state === 'lobby' || (!playing && !ended)) {
+    const who = props.initialPlayers.map((p: any) => ({ id: p.id, me: p.user_id === props.userId, host: p.user_id === props.room.host_user_id, name: p.user_id === props.userId ? '我' : (props.initialUsers.find((u: any) => u.id === p.user_id)?.display_name || '玩家') }));
+    if (comp && !who.some((w) => w.name === comp.name)) who.push({ id: 'comp', me: false, host: false, name: comp.name });
     const pickLv = (v: number, lv: string[]) => lv[Math.min(lv.length - 1, Math.max(0, Math.round((v / 100) * (lv.length - 1))))];
     const summary = [difficulty, { any: '灵异不限', allow: '可灵异', real: '纯现实' }[supernatural as 'any'] || '', pickLv(gore, GORE), pickLv(horror, HORROR), pickLv(edge, EDGE), tone === 'any' ? '基调不限' : tone].filter(Boolean).join(' · ');
     return (
@@ -197,8 +206,21 @@ export default function SoupRoom(props: ShellProps & { soupSurface?: string }) {
           <span>听汤面</span><span className="w-[3px] h-[3px] rotate-45 bg-[#c9a96e]/60" /><span>问是非题</span><span className="w-[3px] h-[3px] rotate-45 bg-[#c9a96e]/60" /><span>说出真相</span>
         </div>
 
+        <div className="mt-6 w-full max-w-sm">
+          <div className="text-[11px] tracking-[.25em] text-parchment/40">{`在场 ${who.length} 人`}</div>
+          <div className="mt-2 flex flex-wrap justify-center gap-x-3 gap-y-2">
+            {who.map((w) => (
+              <div key={w.id} className="flex flex-col items-center w-14">
+                <span className={`w-11 h-11 rounded-full flex items-center justify-center font-serif text-[16px] border ${w.me ? 'border-[#c9a96e]/70 text-[#f2e6d0] bg-[#1a1712]' : 'border-white/15 text-parchment/80 bg-[#16171c]'}`}>{String(w.name).slice(0, 1)}</span>
+                <span className="mt-1 max-w-full truncate text-[11px] text-parchment/60">{w.name}{w.host && !w.me ? ' · 房主' : ''}</span>
+              </div>
+            ))}
+            {who.length < 2 && <div className="flex flex-col items-center w-14"><span className="w-11 h-11 rounded-full border border-dashed border-white/15 flex items-center justify-center text-parchment/30 text-[18px]">+</span><span className="mt-1 text-[11px] text-parchment/35">等朋友</span></div>}
+          </div>
+        </div>
+
         <button onClick={start} disabled={busy || generating}
-          className="mt-7 w-full max-w-sm py-3.5 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] border border-[#a83232]/60 text-[#f2ead9] font-serif font-semibold tracking-[.2em] text-[17px] shadow-[0_10px_40px_-10px_rgba(125,29,29,.7)] disabled:opacity-50">
+          className="mt-6 w-full max-w-sm py-3.5 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] border border-[#a83232]/60 text-[#f2ead9] font-serif font-semibold tracking-[.2em] text-[17px] shadow-[0_10px_40px_-10px_rgba(125,29,29,.7)] disabled:opacity-50">
           {busy || generating ? '正在出题…' : '开始出题'}
         </button>
         <div className="mt-2.5"><LightLine st={lightSt} mode="soup" en={en} /></div>

@@ -38,7 +38,9 @@ export default function StoryCard({ o, i, en, canEdit, busy, onPick }: { o: any;
           <span className="opacity-40">/</span>
           <span className="tracking-[.18em] opacity-75">No.{String(i + 1).padStart(2, '0')}</span>
           <span className="flex-1" />
-          {o.real && <span className="tracking-[.12em] normal-case px-2 py-0.5 rounded-full border text-[10.5px]" style={{ borderColor: '#8fd3b8' + '66', color: '#8fd3b8' }}>{en ? 'TRUE STORY' : '真实经历'}</span>}
+          {o.real
+            ? <span className="tracking-[.08em] normal-case px-2 py-0.5 rounded-full border text-[10.5px]" style={{ borderColor: '#8fd3b8' + '66', color: '#8fd3b8' }}>{en ? 'TRUE STORY · AI-RETOLD' : '真实经历改编'}</span>
+            : <span className="tracking-[.08em] normal-case px-2 py-0.5 rounded-full border border-white/20 text-parchment/60 text-[10.5px]">{en ? 'AI ORIGINAL' : 'AI 原创'}</span>}
           {o.fromLibrary && !o.real && <span className="tracking-[.12em] normal-case px-2 py-0.5 rounded-full border border-[#e6c76e]/50 text-[#e6c76e] text-[10.5px]">{en ? 'CURATED' : '精选'}</span>}
         </div>
         <h3 className="mt-3 font-serif font-semibold text-[23px] leading-[1.25] text-[#f7ecd8] [text-shadow:0_2px_24px_rgba(0,0,0,.8)]">{o.title}</h3>

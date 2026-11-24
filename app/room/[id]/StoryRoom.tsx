@@ -221,6 +221,7 @@ export default function StoryRoom(props: ShellProps) {
               <div className="text-[10.5px] tracking-[.5em] pl-[.5em] uppercase text-[#c9a96e]/70">{en ? 'Tonight’s Shelf' : '今晚的书架'}</div>
               <h1 className="mt-2 font-serif font-semibold text-[26px] tracking-[.06em] text-[#f2e6d0]">{en ? 'Pick a story' : '挑一个故事'}</h1>
               <p className="mt-1.5 text-[12.5px] text-parchment/45">{!canEdit ? (en ? 'The host is choosing…' : '房主正在挑…') : (en ? 'True stories from the web and our best AI tales, each one scored' : '网上收集的真实故事 + 高质量 AI 故事，每篇都打过分')}</p>
+              <p className="mt-1 text-[11px] text-parchment/35">{en ? 'Every story is written or retold by AI and narrated with AI voices.' : '所有故事由 AI 创作或整理改写，朗读为 AI 合成声音。'}</p>
             </div>
             <div className="grid gap-4">
               {(st.options || []).map((o: any, i: number) => <StoryCard key={o.id} o={o} i={i} en={en} canEdit={canEdit} busy={busy} onPick={() => write(o.id)} />)}

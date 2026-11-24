@@ -163,7 +163,8 @@ export default function TonightClient({ initial }: { initial: any }) {
                 <div className="relative mt-4 flex items-center justify-center gap-3 text-[12px] text-parchment/50 flex-wrap">
                   <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border" style={{ borderColor: t.c + '55', color: t.c }}><Icon n={t.icon} size={12} />{en ? t.en : t.zh}</span>
                   <span className="inline-flex items-center gap-1.5">{L('吓人程度', 'Fear')} <Fear n={s.fear || 3} c={t.c} /></span>
-                  <span>{L(`讲述：${s.teller?.name || '朋友'}`, `Told by ${s.teller?.name || 'a friend'}`)}{mins ? L(` · 约 ${mins} 分钟`, ` · ~${mins} min`) : ''}{L(` · ${voices} 个声音`, ` · ${voices} voices`)}</span>
+                  <span className="px-2 py-0.5 rounded-full border border-white/15 text-parchment/55">{s.real ? L('真实经历改编 · AI 整理', 'True story · AI-retold') : L('AI 原创', 'AI original')}</span>
+                  <span>{L(`讲述：${s.teller?.name || '朋友'}`, `Told by ${s.teller?.name || 'a friend'}`)}{mins ? L(` · 约 ${mins} 分钟`, ` · ~${mins} min`) : ''}{L(` · ${voices} 个 AI 声音`, ` · ${voices} AI voices`)}</span>
                 </div>
               </div>
             ); })()}

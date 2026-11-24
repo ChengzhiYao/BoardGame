@@ -16,6 +16,12 @@ export async function POST(req: Request) {
   if (!me) return NextResponse.json({ error: '你不在这个房间' }, { status: 403 });
   // 只让伴侣反应（听到吓人的段落时，由房主的页面触发）
   if (ask) { const r = await storyReact(admin, room, { para, why: ask === 'scary' || ask === 'moving' ? ask : 'periodic' }); return NextResponse.json({ ok: true, r }); }
+  // 开麦说的话：大家已经直接听到了，不再存成弹幕；只交给伴侣，TA 大多会接一句
+  if (kind === 'voice') {
+    const said = String(value || '').trim().slice(0, 120);
+    if (said && room.companion?.player_id && Math.random() < 0.85) { try { await storyReact(admin, room, { para, why: 'user', userSaid: `（说出声的）${said}` }); } catch {} }
+    return NextResponse.json({ ok: true });
+  }
   const k = kind === 'sticker' ? 'sticker' : 'text';
   const v = k === 'sticker' ? (STICKERS.some((s) => s.k === value) ? value : null) : String(value || '').trim().slice(0, 40);
   if (!v) return NextResponse.json({ error: '空的' }, { status: 400 });

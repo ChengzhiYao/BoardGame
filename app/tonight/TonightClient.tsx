@@ -109,7 +109,7 @@ export default function TonightClient({ initial }: { initial: any }) {
   }
   function playAt(i: number) {
     clearTimeout(timer.current);
-    if (i >= lines.length) { setPlaying(false); setEnded(true); setIdx(lines.length); stopStoryBgm(); lastCat.current = ''; return; }
+    if (i >= lines.length) { setPlaying(false); setEnded(true); setShowAll(false); setIdx(lines.length); stopStoryBgm(); lastCat.current = ''; return; }
     setIdx(i); idxRef.current = i; lineStart.current = performance.now(); setLp(0); setEnded(false); setPlaying(true);
     if (s && lines.length && i >= lines.length * 0.6 && listened !== s.id) { setListened(s.id); fetch('/api/me/listened', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ref: 'ghost:' + s.id, kind: 'ghost', genre: '恐怖 怪谈', real: !!s.real }) }).catch(() => {}); }
     applyCue(i);
@@ -184,7 +184,7 @@ export default function TonightClient({ initial }: { initial: any }) {
                 </div>
                 <p className="mt-3 text-center text-[12px] text-parchment/40">{idx < 0 ? L('戴上耳机，关掉灯', 'Headphones on, lights off') : ended ? L('讲完了', 'The end') : L(`${idx + 1} / ${lines.length}`, `${idx + 1} / ${lines.length}`)}</p>
 
-                {(idx < 0 || ended) && (
+                {ended && showAll && (
                 <div className="mt-8 space-y-4">
                   {lines.map((l, i) => {
                     const c = l.who !== 'teller' ? castOf(l.who) : null;
@@ -207,6 +207,7 @@ export default function TonightClient({ initial }: { initial: any }) {
                       <a href="/zh/games/cthulhu" className="h-11 rounded-xl bg-[#7d1d1d] border border-[#a83232]/60 text-[13.5px] flex items-center justify-center">{L('自己走进一个怪谈', 'Step into one yourself')}</a>
                       <button onClick={share} className="h-11 rounded-xl border border-white/15 text-[13.5px]">{L('分享给朋友', 'Share')}</button>
                     </div>
+                    <button onClick={() => setShowAll((v) => !v)} className="mt-3 text-[12.5px] text-parchment/50 border-b border-white/15">{showAll ? L('收起全文', 'Hide text') : L('回看全文', 'Read the full text')}</button>
                   </div>
                 )}
               </>

@@ -9,6 +9,7 @@ import Sticker, { STICKERS } from '@/components/Sticker';
 import BadgeCheck from '@/components/BadgeCheck';
 import { createClient } from '@/lib/supabase/client';
 import { STORY_MOODS } from '@/lib/story/prompt';
+import { useVoiceRoom } from '@/lib/useVoiceRoom';
 import { setStoryBgm, pauseStoryBgm, resumeStoryBgm, stopStoryBgm, storyStinger, storySfx, setStoryVol } from '@/lib/audio/storyCue';
 
 type Who = { pid: string; name: string; avatar?: string | null; me?: boolean; ai?: boolean };
@@ -44,6 +45,7 @@ export default function StoryListen({ roomId, en, title, text, url, segs, playba
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playback?.playing, playback?.position, playback?.ts]);
   function toggle() {
+    voice.unlock();
     const a = aRef.current; if (!a) return;
     if (a.paused) { a.play().then(() => setNeedTap(false)).catch(() => setNeedTap(true)); post(true, a.currentTime); }
     else { a.pause(); post(false, a.currentTime); }
@@ -146,6 +148,9 @@ export default function StoryListen({ roomId, en, title, text, url, segs, playba
   }, [roomId]);
   const [txt, setTxt] = useState('');
   const [sending, setSending] = useState(false);
+  // 语音：开麦说话大家都听得到；伴侣在的话，说的话转成文字让 TA 听见
+  const paraNow = useRef(''); paraNow.current = activeIdx >= 0 ? paras[activeIdx] : paras[0] || '';
+  const voice = useVoiceRoom(supabase, roomId, myPid, { onUtterance: aiPid ? (t) => { fetch('/api/story/live', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId, kind: 'voice', value: t, para: paraNow.current }) }).catch(() => {}); } : undefined });
   async function send(kind: 'text' | 'sticker', value: string) {
     if (!value.trim() || !myPid) return;
     const tmp: Live = { id: 'tmp-' + Date.now(), pid: myPid, kind, value: value.trim().slice(0, 40), at: Date.now() };
@@ -249,7 +254,7 @@ export default function StoryListen({ roomId, en, title, text, url, segs, playba
             </div>
           )}
           <div className="av-float flex flex-col items-center cursor-grab active:cursor-grabbing">
-            <Av p={p} size={52} ring />
+            <span className={`relative rounded-full transition-shadow duration-150 ${voice.speaking[p.pid] ? 'shadow-[0_0_0_3px_rgba(120,220,150,.85),0_0_26px_2px_rgba(120,220,150,.55)]' : ''}`}><Av p={p} size={52} ring />{voice.speaking[p.pid] && <span className="absolute -right-1 -bottom-1 w-5 h-5 rounded-full bg-[#2f7d55] text-white flex items-center justify-center"><Icon n="mic" size={11} stroke={2.4} /></span>}</span>
             <span className="mt-1 max-w-[70px] truncate text-[10.5px] px-1.5 rounded-full bg-black/50 text-parchment/80">{p.me ? L('我', 'me') : p.name}</span>
           </div>
         </div>
@@ -270,7 +275,7 @@ export default function StoryListen({ roomId, en, title, text, url, segs, playba
                 <input type="range" min={0} max={dur || 0} step={0.1} value={Math.min(cur, dur || 0)} className="w-full accent-[#c9a96e]"
                   onChange={(e) => { const a = aRef.current; if (!a) return; seeking.current = true; const t = Number(e.target.value); setCur(t); a.currentTime = t; }}
                   onPointerUp={() => { seeking.current = false; const a = aRef.current; if (a) post(!a.paused, a.currentTime); }} />
-                <div className="flex justify-between text-[10.5px] text-parchment/40"><span>{fmt(cur)}</span>{needTap ? <span className="text-[#e6c76e]">{L('点一下播放键跟上', 'Tap play to join')}</span> : <span>{people.length > 1 ? L(`${people.length} 人一起在听`, `${people.length} listening`) : ''}</span>}<span>{fmt(dur)}</span></div>
+                <div className="flex justify-between text-[10.5px] text-parchment/40"><span>{fmt(cur)}</span>{needTap ? <span className="text-[#e6c76e]">{L('点一下播放键跟上', 'Tap play to join')}</span> : <span>{people.length > 1 ? L(`${people.length} 人一起在听`, `${people.length} listening`) : ''}{voice.linked > 0 ? L(` · 语音已连 ${voice.linked} 人`, ` · voice: ${voice.linked}`) : ''}</span>}<span>{fmt(dur)}</span></div>
               </div>
               <button onClick={() => setSound((v) => !v)} className={`shrink-0 h-9 px-2.5 rounded-full border flex flex-col items-center justify-center leading-none ${sound ? 'border-[#c9a96e]/40 text-[#e6c76e]' : 'border-white/10 text-parchment/35'}`} aria-label="ambience"><span className="text-[10.5px]">{L('氛围音', 'Ambience')}</span><span className="mt-0.5 text-[9.5px] opacity-80">{sound ? L('开', 'on') : L('关', 'off')}</span></button>
             </div>
@@ -284,7 +289,9 @@ export default function StoryListen({ roomId, en, title, text, url, segs, playba
               </button>
             ))}
           </div>
+          {voice.micErr && <div className="text-center text-[11.5px] text-[#e08a7a]">{L('没拿到麦克风权限，去浏览器设置里允许一下', 'Microphone blocked — allow it in browser settings')}</div>}
           <div className="flex gap-2">
+            <button onClick={() => { voice.unlock(); voice.toggleMic(); }} className={`shrink-0 h-11 pl-3 pr-3.5 rounded-full border inline-flex items-center gap-1.5 text-[12.5px] transition ${voice.micOn ? 'bg-[#2f7d55] border-[#5fc48a]/60 text-white shadow-[0_0_22px_-4px_rgba(95,196,138,.7)]' : 'bg-[#121318] border-white/10 text-parchment/55'}`} aria-label="mic"><Icon n={voice.micOn ? 'mic' : 'micoff'} size={17} />{voice.micOn ? L('开麦中', 'Mic on') : L('麦克风', 'Mic')}</button>
             <input value={txt} onChange={(e) => setTxt(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send('text', txt)} maxLength={40} placeholder={L('发条弹幕，说说你的感受…', 'Say something…')} className="flex-1 min-w-0 h-11 px-4 rounded-full bg-[#121318] border border-white/10 text-[14px] text-parchment placeholder:text-parchment/30 outline-none focus:border-[#c9a96e]/50" />
             <button onClick={() => send('text', txt)} disabled={!txt.trim() || sending} className="shrink-0 h-11 px-5 rounded-full bg-[#c9a96e] text-[#14110a] text-[14px] font-medium disabled:opacity-40">{L('发送', 'Send')}</button>
           </div>

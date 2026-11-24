@@ -1,6 +1,7 @@
 'use client';
 // 每日一汤：大厅入口卡、结束后的成绩卡（可分享）、排行榜。
 import { useEffect, useState } from 'react';
+import Icon from '@/components/Icon';
 import { toast } from '@/components/Toast';
 import { LightPaywall } from '@/components/LightPay';
 
@@ -30,7 +31,7 @@ function untilTomorrow(en: boolean) {
 }
 
 const Flame = ({ n, en }: { n: number; en: boolean }) => n > 0 ? (
-  <span className="inline-flex items-center gap-1 text-[12px] text-[#f0a35a]"><span className="text-[13px]">🔥</span>{en ? `${n}-day streak` : `连续 ${n} 天`}</span>
+  <span className="inline-flex items-center gap-1 text-[12px] text-[#f0a35a]"><Icon n="flame" size={13} />{en ? `${n}-day streak` : `连续 ${n} 天`}</span>
 ) : null;
 
 // 大厅里的入口：一条醒目的横幅
@@ -109,7 +110,7 @@ export function DailyResult({ en, grid }: { en: boolean; grid?: string }) {
         {r.solved && (en ? `Beat ${r.beat}% of players · ` : `击败了 ${r.beat}% 的人 · `)}
         {en ? `#${r.rank} of ${d.players}` : `今天第 ${r.rank} / ${d.players} 名`}{r.hints ? (en ? ` · ${r.hints} hints` : ` · 用了 ${r.hints} 个提示`) : ''}
       </div>
-      {cells.length > 0 && <div className="mt-3 text-[17px] leading-[1.35] tracking-[2px] break-all">{cells.join('')}</div>}
+      {cells.length > 0 && <div className="mt-3 flex flex-wrap gap-[5px]">{cells.map((c, i) => <span key={i} className="w-[18px] h-[18px] rounded-[4px]" style={{ background: ({ '🟩': '#4f9d6b', '🟥': '#b8463f', '⬜': '#3a3d44', '🟨': '#c9a54a', '✅': '#8fd3b8', '❌': '#7d1d1d' } as any)[c] || '#3a3d44' }} />)}</div>}
       <div className="mt-3.5 flex gap-2">
         <button onClick={share} className="flex-1 h-10 rounded-xl bg-[#8fd3b8]/20 border border-[#8fd3b8]/40 text-[#e6f5ef] text-[14px]">{en ? 'Share (no spoilers)' : '分享成绩（不剧透）'}</button>
         <a href="/daily" className="h-10 px-4 rounded-xl border border-white/10 text-parchment/70 text-[13px] flex items-center">{en ? 'Leaderboard' : '排行榜'}</a>
@@ -169,7 +170,7 @@ export function DailyPage({ en }: { en: boolean }) {
               <div key={a.day} className="flex items-center gap-3 rounded-xl border border-white/[0.07] bg-[#0b0c0f]/50 px-3 py-2.5">
                 <span className="w-10 text-center font-serif text-[14px] text-[#8fd3b8]/80">#{a.no}</span>
                 <span className="flex-1 min-w-0"><span className="block truncate text-[13.5px] text-parchment/85">{a.title || '—'}</span><span className="text-[11px] text-parchment/40">{a.day}</span></span>
-                {a.result ? <span className="text-[12px] text-parchment/55">{a.result.solved ? (en ? `✅ ${a.result.questions} Q` : `✅ ${a.result.questions} 问`) : '❌'}</span>
+                {a.result ? <span className="text-[12px] text-parchment/55">{a.result.solved ? <span className="inline-flex items-center gap-1 text-[#8fd3b8]"><Icon n="check" size={13} stroke={2.4} />{en ? `${a.result.questions} Q` : `${a.result.questions} 问`}</span> : (en ? 'Missed' : '没猜出')}</span>
                   : <button onClick={() => go(a.day)} disabled={!!busy} className="text-[12.5px] text-[#c9a96e] border-b border-[#c9a96e]/40">{busy === a.day ? '…' : (en ? 'Play' : '补玩')}</button>}
               </div>
             ))}

@@ -2,6 +2,8 @@
 // 身价场：手机优先重做。上面是"我"（身价、现金、今日能做的事），下面分页：市场 / 我的队伍 / 排行 / 动态。
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getClientLang } from '@/lib/i18n';
+import Icon from '@/components/Icon';
+const noEmoji = (t: string) => String(t || '').replace(/\p{Extended_Pictographic}\uFE0F?/gu, '').replace(/\s{2,}/g, ' ').trim();
 
 type Tab = 'market' | 'team' | 'rank' | 'feed';
 const openProfile = (id: string) => { try { window.dispatchEvent(new CustomEvent('mn-profile', { detail: { id } })); } catch {} };
@@ -22,7 +24,7 @@ export default function MarketPage() {
   const [confirmLeave, setConfirmLeave] = useState(false);
 
   useEffect(() => { try { setEn(getClientLang() === 'en'); } catch {} try { if (!localStorage.getItem('mk_help')) { setHelp(true); localStorage.setItem('mk_help', '1'); } } catch {} }, []);
-  async function load() { try { const r = await fetch('/api/market/state'); const d = await r.json(); setS(d); if (d && Array.isArray(d.notices) && d.notices.length) flash(d.notices.length > 1 ? (d.notices[0] + L(` 等 ${d.notices.length} 条`, ` +${d.notices.length - 1} more`)) : d.notices[0], true); } catch {} setLoaded(true); }
+  async function load() { try { const r = await fetch('/api/market/state'); const d = await r.json(); setS(d); if (d && Array.isArray(d.notices) && d.notices.length) flash(noEmoji(d.notices.length > 1 ? (d.notices[0] + L(` 等 ${d.notices.length} 条`, ` +${d.notices.length - 1} more`)) : d.notices[0]), true); } catch {} setLoaded(true); }
   useEffect(() => { load(); const id = setInterval(() => { if (!document.hidden) load(); }, 15000); return () => clearInterval(id); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const tt = useRef<any>(null);
@@ -39,10 +41,10 @@ export default function MarketPage() {
           const seg: string[] = [];
           if (d.dPrice) seg.push(L('身价', 'Price') + (d.dPrice > 0 ? ' +' : ' ') + d.dPrice);
           if (d.dCash) seg.push(L('现金', 'Cash') + (d.dCash > 0 ? ' +' : ' ') + d.dCash);
-          const head = d.kind === 'soothe' ? L('🤲 安抚了 TA', '🤲 Soothed') : L('🔥 折磨了 TA', '🔥 Tormented');
+          const head = d.kind === 'soothe' ? L('安抚了 TA', 'Soothed') : L('折磨了 TA', 'Tormented');
           flash(seg.length ? head + ' · ' + seg.join(' · ') : head);
         }
-        else if (d.text) flash(d.text);
+        else if (d.text) flash(noEmoji(d.text));
         else if (d.cost) flash(L('赎身成功，你自由了', 'Redeemed — you’re free')); else if (url.includes('buy')) flash(L('买下了！TA 现在归你', 'Bought — they’re on your team'));
         await load();
       } else {
@@ -64,7 +66,7 @@ export default function MarketPage() {
   if (!loaded) return <main className="min-h-[100svh] flex items-center justify-center text-parchment/50">…</main>;
   if (!s || !s.loggedIn) return (
     <main className="min-h-[100svh] flex flex-col items-center justify-center gap-4 text-parchment px-6 text-center">
-      <div className="text-[40px]">🪙</div>
+      <span className="w-16 h-16 rounded-full flex items-center justify-center bg-[#c9a54a]/15 border border-[#c9a54a]/40 text-[#e6c76e]"><Icon n="coin" size={30} /></span>
       <h1 className="font-serif text-[24px] text-[#f1e3b8]">{L('身价场', 'The Market')}</h1>
       <p className="text-parchment/65 text-[14px] leading-relaxed max-w-xs">{L('每个玩家都有身价。买下别人、派 TA 打工、冲上资产排行榜。登录就能进场，永久免费。', 'Every player has a price. Buy players, send them to work, climb the rich list. Free — just sign in.')}</p>
       <a href="/play" className="px-6 py-3 rounded-xl bg-[#c9a54a] text-[#14110a] font-medium">{L('去登录', 'Sign in')}</a>
@@ -77,7 +79,7 @@ export default function MarketPage() {
   const idle = (s.team || []).filter((t: any) => !t.working).length;
 
   return (
-    <main className="min-h-[100svh] text-parchment pb-36 overflow-x-hidden">
+    <main className="min-h-[100svh] text-parchment pb-44 overflow-x-hidden">
       <style>{`
         @keyframes mkUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
         @keyframes mkShimmer{0%{background-position:-180% 0}100%{background-position:180% 0}}
@@ -95,7 +97,7 @@ export default function MarketPage() {
         <div className="max-w-xl mx-auto h-12 px-3 flex items-center gap-2">
           <a href="/play" className="h-8 px-2.5 rounded-full flex items-center text-[13px] text-parchment/70 border border-white/10">{L('← 大厅', '← Hall')}</a>
           <div className="flex-1 text-center font-serif text-[17px] text-[#f1e3b8]">{L('身价场', 'The Market')}</div>
-          <button onClick={() => setHelp(true)} className="h-8 w-8 rounded-full border border-white/10 text-parchment/60 text-[14px]">?</button>
+          <button onClick={() => setHelp(true)} className="h-8 w-8 rounded-full border border-white/10 text-parchment/60 flex items-center justify-center" aria-label="help"><Icon n="help" size={17} /></button>
         </div>
       </header>
 
@@ -110,15 +112,15 @@ export default function MarketPage() {
                 <div className="h-1.5 rounded-full bg-black/40 overflow-hidden flex-1"><div className="h-full mk-xp transition-[width] duration-700" style={{ width: (me.rank.prog * 100) + '%' }} /></div>
                 <span className="text-[10.5px] text-parchment/45 shrink-0">{me.rank.nextMin ? `${me.rank.exp}/${me.rank.nextMin}` : 'MAX'}</span>
               </div>
-              <div className="mt-1 text-[12px] text-parchment/60">{me.ownerName ? <span className="text-[#e8a87c]">{L(`⛓ 被 ${me.ownerName} 持有`, `⛓ Owned by ${me.ownerName}`)}</span> : protectedNow ? L('🛡 保护期中，没人能买你', '🛡 Protected — nobody can buy you') : L('🕊 自由身', '🕊 Free agent')}{myRank ? <span className="text-parchment/40">{L(` · 资产第 ${myRank} 名`, ` · #${myRank} by net worth`)}</span> : null}</div>
+              <div className="mt-1 text-[12px] text-parchment/60">{me.ownerName ? <span className="inline-flex items-center gap-1 text-[#e8a87c]"><Icon n="chain" size={13} />{L(`被 ${me.ownerName} 持有`, `Owned by ${me.ownerName}`)}</span> : protectedNow ? <span className="inline-flex items-center gap-1"><Icon n="shield" size={13} />{L('保护期中，没人能买你', 'Protected — nobody can buy you')}</span> : <span className="inline-flex items-center gap-1"><Icon n="feather" size={13} />{L('自由身', 'Free agent')}</span>}{myRank ? <span className="text-parchment/40">{L(` · 资产第 ${myRank} 名`, ` · #${myRank} by net worth`)}</span> : null}</div>
             </div>
           </div>
-          <div className="mt-4 px-4 flex items-end justify-between">
-            <div>
+          <div className="mt-4 px-4 flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
+            <div className="min-w-0">
               <div className="text-[11px] tracking-[.2em] text-[#e6c76e]/80">{L('我的身价', 'MY PRICE')}</div>
-              <div className="font-serif text-[36px] leading-none text-[#f6ecd0] mt-1"><CountUp value={me.price} prefix="¥" /></div>
+              <div className="font-serif leading-none text-[#f6ecd0] mt-1 break-all" style={{ fontSize: "clamp(28px, 9vw, 36px)" }}><CountUp value={me.price} prefix="¥" /></div>
             </div>
-            <button disabled={!!busy || me.cash < (me.hypeCost || 0)} onClick={() => act('/api/market/hype')} className="h-9 px-3.5 rounded-xl border border-[#c9a54a]/50 text-[#f1e3b8] text-[13px] disabled:opacity-40">📈 {L(`炒作 ${fmt(me.hypeCost)}`, `Hype ${fmt(me.hypeCost)}`)}</button>
+            <button disabled={!!busy || me.cash < (me.hypeCost || 0)} onClick={() => act('/api/market/hype')} className="shrink-0 whitespace-nowrap h-9 px-3.5 rounded-xl border border-[#c9a54a]/50 text-[#f1e3b8] text-[13px] disabled:opacity-40" ><span className="inline-flex items-center gap-1.5"><Icon n="trend" size={15} />{L(`炒作 ${fmt(me.hypeCost)}`, `Hype ${fmt(me.hypeCost)}`)}</span></button>
           </div>
           <div className="mt-4 grid grid-cols-3 border-t border-white/[0.07] divide-x divide-white/[0.07] bg-black/20">
             <Stat label={L('现金', 'Cash')} value={<CountUp value={me.cash} prefix="¥" />} />
@@ -140,8 +142,8 @@ export default function MarketPage() {
 
         {/* 今天 */}
         <section className="mt-3 grid grid-cols-2 gap-2.5">
-          <BigBtn on={me.dailyAvailable} busy={!!busy} onClick={() => act('/api/market/daily')} icon="🪙" title={me.dailyAvailable ? L('领今日 +¥100', 'Daily +¥100') : L('今天领过了', 'Claimed today')} sub={L('每天来一次', 'Come back daily')} gold />
-          <BigBtn on={me.fateAvailable} busy={!!busy} onClick={() => act('/api/market/fate')} icon="🃏" title={me.fateAvailable ? L('抽命运卡', 'Draw a fate card') : L('明天再抽', 'Tomorrow')} sub={L('可能大赚，也可能翻车', 'Big win or big loss')} red />
+          <BigBtn on={me.dailyAvailable} busy={!!busy} onClick={() => act('/api/market/daily')} icon="coin" title={me.dailyAvailable ? L('领今日 +¥100', 'Daily +¥100') : L('今天领过了', 'Claimed today')} sub={L('每天来一次', 'Come back daily')} gold />
+          <BigBtn on={me.fateAvailable} busy={!!busy} onClick={() => act('/api/market/fate')} icon="cards" title={me.fateAvailable ? L('抽命运卡', 'Draw a fate card') : L('明天再抽', 'Tomorrow')} sub={L('可能大赚，也可能翻车', 'Big win or big loss')} red />
         </section>
 
         {/* 每日任务 */}
@@ -152,7 +154,7 @@ export default function MarketPage() {
           </div>
           <div className="mt-2.5 grid grid-cols-3 gap-2">
             {[[L('买入 1 人', 'Buy 1'), 'market'], [L('派人打工', 'Send to work'), 'team'], [L('互动 1 次', 'Interact once'), 'team']].map(([t, go], i) => (
-              <button key={i} onClick={() => setTab(go as Tab)} className={`rounded-xl px-2 py-2 text-[12px] border text-center ${qDone[i] ? 'border-[#8fd3b8]/35 bg-[#8fd3b8]/[0.08] text-[#bfeadb]' : 'border-white/[0.08] text-parchment/55'}`}>{qDone[i] ? '✓ ' : ''}{t}</button>
+              <button key={i} onClick={() => setTab(go as Tab)} className={`rounded-xl px-2 py-2 text-[12px] border text-center ${qDone[i] ? 'border-[#8fd3b8]/35 bg-[#8fd3b8]/[0.08] text-[#bfeadb]' : 'border-white/[0.08] text-parchment/55'}`}><span className="inline-flex items-center justify-center gap-1">{qDone[i] && <Icon n="check" size={13} stroke={2.4} />}{t}</span></button>
             ))}
           </div>
         </section>
@@ -176,7 +178,7 @@ export default function MarketPage() {
               {list.length === 0 && <Empty t={L('没有符合的玩家', 'Nobody matches')} />}
               {list.map((r: any, i: number) => {
                 const can = r.status === 'buyable' && r.price <= me.cash;
-                const why = ({ mine: L('已在你队伍', 'On your team'), protected: L('🛡 保护期', '🛡 Protected'), working: L('打工中', 'At work'), capped: L('队伍满了', 'Full team'), soldout: L('今天卖完了', 'Sold out today') } as any)[r.status];
+                const why = ({ mine: L('已在你队伍', 'On your team'), protected: L('保护期', 'Protected'), working: L('打工中', 'At work'), capped: L('队伍满了', 'Full team'), soldout: L('今天卖完了', 'Sold out today') } as any)[r.status];
                 return (
                   <div key={r.id} className="mk-up flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-[#121318]/85 pl-3 pr-2 py-2.5" style={{ animationDelay: Math.min(i, 12) * 25 + 'ms' }}>
                     <button onClick={() => openProfile(r.id)} className="shrink-0"><Av url={r.avatar} name={r.name} size={42} /></button>
@@ -198,26 +200,30 @@ export default function MarketPage() {
         )}
 
         {tab === 'team' && (
-          <section className="mt-2 space-y-2">
-            {s.team.length === 0 && <Empty t={L('你还没买下任何人', 'Your team is empty')} cta={L('去市场看看 →', 'Browse the market →')} onCta={() => setTab('market')} />}
-            {s.team.length > 0 && <p className="text-[12px] text-parchment/45 px-1">{L('派队员去打工赚钱；安抚会让 TA 身价涨，折磨能榨出现金但 TA 会贬值。', 'Send members to work for cash. Soothing raises their price; tormenting squeezes cash but they lose value.')}</p>}
-            {s.team.map((t: any, i: number) => (
-              <div key={t.id} className="mk-up rounded-2xl border border-white/[0.08] bg-[#121318]/85 px-3 py-3" style={{ animationDelay: i * 30 + 'ms' }}>
-                <div className="flex items-center gap-3">
-                  <button onClick={() => openProfile(t.id)}><Av url={t.avatar} name={t.name} size={42} /></button>
-                  <div className="flex-1 min-w-0">
-                    <div className="truncate text-[14.5px] text-[#ece3cf]">{t.name}</div>
-                    <div className="text-[11.5px]"><span className="text-[#e6c76e]/80">{fmt(t.price)}</span> <span className={t.working ? 'text-[#8fd3b8]' : 'text-parchment/45'}>· {t.working ? L('打工中…', 'At work…') : L('闲着', 'Idle')}</span></div>
-                  </div>
-                  <button onClick={() => { setSheet(t); setNick(''); }} className="shrink-0 w-9 h-9 rounded-full border border-white/10 text-parchment/60">⋯</button>
+          <section className="mt-2">
+            {s.team.length === 0 ? <Empty t={L('你还没买下任何人', 'Your team is empty')} cta={L('去市场看看', 'Browse the market')} onCta={() => setTab('market')} /> : (
+              <>
+                <div className="flex items-center gap-2 mb-2.5">
+                  <p className="flex-1 text-[12px] leading-snug text-parchment/45">{L('派队员打工赚钱。安抚让 TA 涨价，折磨马上榨出现金但会掉价——在「⋯」里。', 'Send members to work. Soothe raises their price; torment squeezes cash but drops it — under “⋯”.')}</p>
+                  {idle > 0 && <button disabled={!!busy} onClick={async () => { for (const t of s.team.filter((x: any) => !x.working)) await act('/api/market/work', { targetId: t.id }); }} className="shrink-0 h-9 px-3 rounded-xl bg-[#c9a54a] text-[#14110a] text-[12.5px] font-medium inline-flex items-center gap-1.5"><Icon n="briefcase" size={15} />{L(`全部去打工 ${idle}`, `All to work (${idle})`)}</button>}
                 </div>
-                <div className="mt-2.5 grid grid-cols-3 gap-2">
-                  <button disabled={!!busy || t.working} onClick={() => act('/api/market/work', { targetId: t.id })} className="h-10 rounded-xl bg-[#c9a54a]/20 border border-[#c9a54a]/35 text-[13px] text-[#f1e3b8] disabled:opacity-35">💼 {L('打工', 'Work')}</button>
-                  <button disabled={!!busy} onClick={() => act('/api/market/interact', { targetId: t.id, kind: 'soothe' })} className="h-10 rounded-xl bg-white/[0.05] border border-white/10 text-[13px]">🤲 {L('安抚', 'Soothe')}</button>
-                  <button disabled={!!busy} onClick={() => act('/api/market/interact', { targetId: t.id, kind: 'torment' })} className="h-10 rounded-xl bg-[#7d1d1d]/60 border border-[#a83232]/40 text-[13px]">🔥 {L('折磨', 'Torment')}</button>
+                <div className="rounded-2xl border border-white/[0.08] bg-[#121318]/85 divide-y divide-white/[0.05] overflow-hidden">
+                  {s.team.map((t: any) => (
+                    <div key={t.id} className="flex items-center gap-3 pl-3 pr-2 py-2.5">
+                      <button onClick={() => openProfile(t.id)} className="shrink-0"><Av url={t.avatar} name={t.name} size={40} /></button>
+                      <div className="flex-1 min-w-0">
+                        <div className="truncate text-[14.5px] text-[#ece3cf]">{t.name}</div>
+                        <div className="text-[11.5px] text-[#e6c76e]/80">{fmt(t.price)}</div>
+                      </div>
+                      {t.working
+                        ? <span className="shrink-0 h-9 px-3 rounded-full inline-flex items-center gap-1.5 text-[12px] text-[#8fd3b8] bg-[#8fd3b8]/10 border border-[#8fd3b8]/25"><span className="w-1.5 h-1.5 rounded-full bg-[#8fd3b8] animate-pulse" />{L('打工中', 'Working')}</span>
+                        : <button disabled={!!busy} onClick={() => act('/api/market/work', { targetId: t.id })} className="shrink-0 h-9 px-3.5 rounded-full inline-flex items-center gap-1.5 text-[12.5px] text-[#f1e3b8] bg-[#c9a54a]/15 border border-[#c9a54a]/40"><Icon n="briefcase" size={15} />{L('去打工', 'Work')}</button>}
+                      <button onClick={() => { setSheet(t); setNick(''); }} className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-parchment/60 hover:bg-white/[0.05]" aria-label="more"><Icon n="more" size={20} stroke={2.6} /></button>
+                    </div>
+                  ))}
                 </div>
-              </div>
-            ))}
+              </>
+            )}
           </section>
         )}
 
@@ -226,7 +232,7 @@ export default function MarketPage() {
             {s.leaderboard.length === 0 && <Empty t={L('还没有人上榜', 'Nobody yet')} />}
             {s.leaderboard.map((r: any, i: number) => (
               <button key={r.id} onClick={() => r.id !== me.id && openProfile(r.id)} className={`w-full text-left flex items-center gap-3 px-3.5 py-2.5 ${r.id === me.id ? 'bg-[#c9a54a]/[0.1]' : ''}`}>
-                <span className={`w-6 text-center font-serif text-[14px] ${i < 3 ? 'text-[#e6c76e]' : 'text-parchment/40'}`}>{i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</span>
+                <span className={`w-6 text-center font-serif text-[14px] ${i < 3 ? 'text-[#e6c76e]' : 'text-parchment/40'}`}>{i < 3 ? <span className="inline-flex w-6 h-6 rounded-full items-center justify-center text-[12px] font-sans font-semibold text-[#14110a]" style={{ background: ['#e6c76e', '#cfd6df', '#d39a6a'][i] }}>{i + 1}</span> : i + 1}</span>
                 <Av url={r.avatar} name={r.name} size={34} />
                 <span className="flex-1 truncate text-[14px] text-[#ece3cf]">{r.name}{r.id === me.id ? L('（你）', ' (you)') : ''}</span>
                 <span className="text-[13px] text-[#e6c76e]">{fmt(r.assets)}</span>
@@ -238,7 +244,7 @@ export default function MarketPage() {
         {tab === 'feed' && (
           <section className="mt-2 rounded-2xl border border-white/[0.08] bg-[#121318]/85 px-4 py-1">
             {s.feed.length === 0 && <Empty t={L('还没有动态', 'No activity yet')} />}
-            {s.feed.map((f: any, i: number) => (<div key={i} className="text-[13px] leading-relaxed text-parchment/65 border-b border-white/[0.05] last:border-0 py-2.5">{f.text}</div>))}
+            {s.feed.map((f: any, i: number) => (<div key={i} className="text-[13px] leading-relaxed text-parchment/65 border-b border-white/[0.05] last:border-0 py-2.5">{noEmoji(f.text)}</div>))}
           </section>
         )}
 
@@ -256,14 +262,18 @@ export default function MarketPage() {
         <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center" onClick={() => setSheet(null)}>
           <div className="w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl bg-[#121318] border border-white/10 p-5 mn-sheet" style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3"><Av url={sheet.avatar} name={sheet.name} size={44} /><div><div className="font-serif text-[17px] text-[#f6ecd0]">{sheet.name}</div><div className="text-[12px] text-[#e6c76e]/80">{fmt(sheet.price)}</div></div></div>
-            <div className="mt-4 text-[12px] text-parchment/50">{L('给 TA 起个绰号（只有你们看得到的那种）', 'Give them a nickname')}</div>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button disabled={!!busy} onClick={() => { act('/api/market/interact', { targetId: sheet.id, kind: 'soothe' }); setSheet(null); }} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-left"><span className="flex items-center gap-2 text-[14px] text-[#f6ecd0]"><Icon n="hand" size={17} className="text-[#e8a0b8]" />{L('安抚', 'Soothe')}</span><span className="block mt-0.5 text-[11px] text-parchment/45">{L('TA 身价上涨', 'Their price goes up')}</span></button>
+              <button disabled={!!busy} onClick={() => { act('/api/market/interact', { targetId: sheet.id, kind: 'torment' }); setSheet(null); }} className="rounded-xl border border-[#a83232]/40 bg-[#7d1d1d]/25 px-3 py-3 text-left"><span className="flex items-center gap-2 text-[14px] text-[#f6ecd0]"><Icon n="flame" size={17} className="text-[#f2a070]" />{L('折磨', 'Torment')}</span><span className="block mt-0.5 text-[11px] text-parchment/45">{L('马上榨出现金，TA 掉价', 'Instant cash, they lose value')}</span></button>
+            </div>
+            <div className="mt-4 text-[12px] text-parchment/50">{L('给 TA 起个绰号', 'Give them a nickname')}</div>
             <div className="mt-1.5 flex gap-2">
               <input value={nick} onChange={(e) => setNick(e.target.value)} maxLength={16} placeholder={L('留空 = 清除绰号', 'Blank = clear')} className="flex-1 min-w-0 h-10 px-3 rounded-xl bg-[#0c0d10] border border-white/10 text-parchment text-[14px] outline-none" />
               <button onClick={() => { act('/api/market/nick', { targetId: sheet.id, name: nick }); setSheet(null); }} className="h-10 px-4 rounded-xl bg-[#c9a54a] text-[#14110a] text-[13.5px]">{L('保存', 'Save')}</button>
             </div>
             <div className="mt-4 grid grid-cols-2 gap-2">
-              <button onClick={() => { openProfile(sheet.id); setSheet(null); }} className="h-11 rounded-xl border border-white/10 text-[13.5px]">{L('看资料 / 私聊', 'Profile / message')}</button>
-              <button onClick={() => { act('/api/market/release', { targetId: sheet.id }); setSheet(null); }} className="h-11 rounded-xl border border-[#a83232]/40 text-[#e8a0a0] text-[13.5px]">{L('放 TA 自由', 'Release')}</button>
+              <button onClick={() => { openProfile(sheet.id); setSheet(null); }} className="h-11 rounded-xl border border-white/10 text-[13.5px] inline-flex items-center justify-center gap-1.5"><Icon n="user" size={16} />{L('资料 / 私聊', 'Profile')}</button>
+              <button onClick={() => { act('/api/market/release', { targetId: sheet.id }); setSheet(null); }} className="h-11 rounded-xl border border-[#a83232]/40 text-[#e8a0a0] text-[13.5px] inline-flex items-center justify-center gap-1.5"><Icon n="release" size={16} />{L('放 TA 自由', 'Release')}</button>
             </div>
           </div>
         </div>
@@ -273,7 +283,7 @@ export default function MarketPage() {
       {help && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-end sm:items-center justify-center" onClick={() => setHelp(false)}>
           <div className="w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl bg-[#121318] border border-[#c9a54a]/30 p-6 mn-sheet" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }} onClick={(e) => e.stopPropagation()}>
-            <div className="text-center"><div className="text-[40px] mk-coin inline-block">🪙</div><div className="font-serif text-[22px] text-[#f1e3b8] mt-1">{L('身价场怎么玩', 'How the Market works')}</div></div>
+            <div className="text-center"><span className="mk-coin inline-flex w-16 h-16 rounded-full items-center justify-center bg-[#c9a54a]/15 border border-[#c9a54a]/40 text-[#e6c76e]"><Icon n="coin" size={30} /></span><div className="font-serif text-[22px] text-[#f1e3b8] mt-1">{L('身价场怎么玩', 'How the Market works')}</div></div>
             <ol className="mt-4 space-y-3 text-[14px] leading-relaxed text-parchment/80">
               {(en ? ['Every player on MystNight has a price.', 'Buy players with your cash — they join your team and you become their owner.', 'Send your team to work for cash. Soothe them to raise their price, or torment them for quick cash.', 'If someone buys you, please your owner or save up and buy your freedom.', 'Claim +¥100 daily, draw a fate card, finish quests — and climb the rich list.']
                 : ['全站每个玩家都有一个身价。', '用现金买下别人，TA 就进了你的队伍，你是 TA 的主人。', '派队员去打工赚钱；安抚让 TA 身价上涨，折磨能马上榨出现金。', '你也可能被别人买下：讨好主人赚钱，或者攒够钱给自己赎身。', '每天领 ¥100、抽命运卡、做任务，冲上资产排行榜。']).map((t, i) => (
@@ -308,7 +318,7 @@ function BigBtn({ on, busy, onClick, icon, title, sub, gold, red }: { on: boolea
   const tone = !on ? 'border-white/[0.07] bg-white/[0.02] opacity-55' : gold ? 'border-[#c9a54a]/45 bg-[#c9a54a]/[0.12]' : red ? 'border-[#a83232]/50 bg-[#7d1d1d]/30' : 'border-white/10';
   return (
     <button disabled={!on || busy} onClick={onClick} className={`rounded-2xl border px-3.5 py-3 text-left flex items-center gap-3 ${tone}`}>
-      <span className={`text-[26px] ${on ? 'mk-coin' : ''}`}>{icon}</span>
+      <span className={`w-11 h-11 rounded-xl flex items-center justify-center ${gold ? 'bg-[#c9a54a]/20 text-[#f1d58a]' : 'bg-[#a83232]/25 text-[#f2b0a0]'} ${on ? 'mk-coin' : ''}`}><Icon n={icon} size={22} /></span>
       <span className="min-w-0"><span className="block text-[14px] text-[#f6ecd0] truncate">{title}</span><span className="block text-[11px] text-parchment/50 truncate">{sub}</span></span>
     </button>
   );

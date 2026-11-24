@@ -16,6 +16,7 @@ export default function SiteFooter({ lang }: { lang: 'zh' | 'en' }) {
           <ul className="space-y-1.5">
             <li><Link href="/daily" className="text-parchment/65 hover:text-parchment">{en ? 'Daily Soup' : '每日一汤'}</Link></li>
             <li><Link href={`/${lang}/soup`} className="text-parchment/65 hover:text-parchment">{en ? 'Lateral thinking puzzles' : '海龟汤题库'}</Link></li>
+            <li><Link href="/tonight" className="text-parchment/65 hover:text-parchment">{en ? 'Tonight’s ghost story' : '今夜怪谈'}</Link></li>
             <li><Link href="/ranks" className="text-parchment/65 hover:text-parchment">{en ? 'Leaderboard' : '排行榜'}</Link></li>
             <li><Link href="/market" className="text-parchment/65 hover:text-parchment">{en ? 'The Market' : '身价场'}</Link></li>
           </ul>

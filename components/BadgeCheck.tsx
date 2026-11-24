@@ -1,6 +1,7 @@
 'use client';
 // 一局结束时挂上：有新称号就从底部弹一张小卡，点开去收藏页
 import { useEffect, useRef, useState } from 'react';
+import Icon from '@/components/Icon';
 
 export default function BadgeCheck({ en }: { en: boolean }) {
   const done = useRef(false);
@@ -20,7 +21,7 @@ export default function BadgeCheck({ en }: { en: boolean }) {
   return (
     <div className="fixed inset-x-0 z-50 flex justify-center px-4 pointer-events-none" style={{ bottom: 'calc(env(safe-area-inset-bottom) + 96px)' }}>
       <a href="/me" className={`pointer-events-auto w-full max-w-sm flex items-center gap-3 rounded-2xl border ${b.dark ? "border-[#a78bfa]/40 bg-[#14111c]/95" : "border-[#e6c76e]/40 bg-[#17140c]/95"} backdrop-blur-xl px-4 py-3 shadow-[0_20px_60px_-15px_rgba(0,0,0,.8)] mn-sheet`}>
-        <span className="shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-[24px] bg-[#e6c76e]/15 border border-[#e6c76e]/40 mcc-breathe">{b.icon}</span>
+        <span className="shrink-0 w-12 h-12 rounded-full flex items-center justify-center bg-[#e6c76e]/15 border border-[#e6c76e]/40 text-[#f1d58a] mcc-breathe"><Icon n={b.icon} size={24} stroke={1.5} /></span>
         <span className="flex-1 min-w-0">
           <span className="block text-[10.5px] tracking-[.3em] text-[#e6c76e]/85">{b.dark ? (en ? 'BLACK MARK' : '解锁黑历史') : (en ? 'NEW TITLE' : '获得新称号')}</span>
           <span className="block font-serif text-[17px] text-[#f6ecd0]">{en ? b.en : b.zh}</span>

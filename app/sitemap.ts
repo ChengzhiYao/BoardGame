@@ -10,6 +10,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const out: MetadataRoute.Sitemap = [
     // 注意：裸根 "/" 会 302 跳到 /zh 或 /en，不放进 sitemap（避免被判为「重定向网页」）。
     { url: `${SITE}/daily`, lastModified: now, changeFrequency: 'daily', priority: 0.9 },
+    { url: `${SITE}/tonight`, lastModified: now, changeFrequency: 'daily', priority: 0.9 },
     { url: `${SITE}/ranks`, lastModified: now, changeFrequency: 'daily', priority: 0.5 },
     { url: `${SITE}/market`, lastModified: now, changeFrequency: 'weekly', priority: 0.4 },
     { url: `${SITE}/upgrade`, lastModified: now, changeFrequency: 'monthly', priority: 0.6 },

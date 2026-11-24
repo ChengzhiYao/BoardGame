@@ -2,6 +2,7 @@
 // 我的收藏：称号墙 + 汤谱 + 结局 + 调查员档案
 import { useEffect, useState } from 'react';
 import { getClientLang } from '@/lib/i18n';
+import Icon from '@/components/Icon';
 
 const FATE: Record<string, [string, string, string]> = {
   survived: ['活了下来', 'Survived', '#8fd3b8'], dead: ['死去', 'Died', '#c0453f'], mad: ['疯了', 'Went mad', '#a78bfa'],
@@ -76,7 +77,7 @@ export default function MeClient() {
             <div className="grid grid-cols-4 sm:grid-cols-6 gap-2.5">
               {d.badges.filter((b: any) => !!b.dark === dark).map((b: any) => (
                 <button key={b.id} onClick={() => setBadge(b)} className="flex flex-col items-center gap-1.5">
-                  <span className={`w-14 h-14 rounded-full flex items-center justify-center text-[24px] border transition ${!b.earned ? 'border-white/[0.08] bg-white/[0.02] grayscale opacity-35' : dark ? 'border-[#a78bfa]/50 bg-[radial-gradient(circle_at_35%_30%,rgba(167,139,250,.28),rgba(167,139,250,.05))] shadow-[0_0_24px_-6px_rgba(167,139,250,.55)]' : 'border-[#e6c76e]/50 bg-[radial-gradient(circle_at_35%_30%,rgba(230,199,110,.3),rgba(230,199,110,.06))] shadow-[0_0_24px_-6px_rgba(230,199,110,.55)]'}`}>{b.icon}</span>
+                  <span className={`w-14 h-14 rounded-full flex items-center justify-center border transition ${!b.earned ? 'border-white/[0.08] bg-white/[0.02] grayscale opacity-35' : dark ? 'border-[#a78bfa]/50 bg-[radial-gradient(circle_at_35%_30%,rgba(167,139,250,.28),rgba(167,139,250,.05))] shadow-[0_0_24px_-6px_rgba(167,139,250,.55)]' : 'border-[#e6c76e]/50 bg-[radial-gradient(circle_at_35%_30%,rgba(230,199,110,.3),rgba(230,199,110,.06))] shadow-[0_0_24px_-6px_rgba(230,199,110,.55)]'}`}><Icon n={b.icon} size={24} stroke={1.5} className={b.earned ? (dark ? 'text-[#d9ccff]' : 'text-[#f1d58a]') : 'text-parchment/60'} /></span>
                   <span className={`text-[11px] leading-tight text-center ${b.earned ? (dark ? 'text-[#d9ccff]' : 'text-[#efe6d2]') : 'text-parchment/35'}`}>{en ? b.en : b.zh}</span>
                 </button>
               ))}
@@ -98,7 +99,7 @@ export default function MeClient() {
               {d.soups?.map((p: any) => (
                 <div key={p.id} className="rounded-xl border border-white/[0.08] bg-[#0b0c0f]/60">
                   <button onClick={() => setOpen(open === p.id ? null : p.id)} className="w-full flex items-center gap-3 px-3.5 py-3 text-left">
-                    <span className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-[13px] ${p.solved ? 'bg-[#8fd3b8]/15 text-[#8fd3b8]' : 'bg-white/[0.05] text-parchment/40'}`}>{p.solved ? '✓' : '·'}</span>
+                    <span className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-[13px] ${p.solved ? 'bg-[#8fd3b8]/15 text-[#8fd3b8]' : 'bg-white/[0.05] text-parchment/40'}`}>{p.solved ? <Icon n="check" size={14} stroke={2.4} /> : '·'}</span>
                     <span className="flex-1 min-w-0">
                       <span className="block truncate font-serif text-[15px] text-[#efe6d2]">{p.title || L('无题', 'Untitled')}</span>
                       <span className="text-[11.5px] text-parchment/40">{fmtDay(p.at)} · {p.solved ? L(`${p.questions ?? '?'} 问猜中${p.hints ? ` · ${p.hints} 提示` : ''}`, `cracked in ${p.questions ?? '?'}`) : L('看了汤底', 'peeked')}</span>
@@ -130,7 +131,7 @@ export default function MeClient() {
               ); })}
               {d.jbs?.map((j: any) => (
                 <div key={j.room} className="rounded-xl border border-white/[0.08] bg-[#0b0c0f]/60 px-4 py-3 flex items-center gap-3">
-                  <span className="text-[18px]">🎭</span>
+                  <span className="w-8 h-8 rounded-full bg-[#c9a96e]/10 text-[#c9a96e] flex items-center justify-center"><Icon n="masks" size={17} /></span>
                   <span className="flex-1 min-w-0"><span className="block truncate font-serif text-[15px] text-[#efe6d2]">{j.name}</span><span className="text-[11.5px] text-parchment/40">{fmtDay(j.at)} · {L('剧本杀 · 已结案', 'Murder mystery · closed')}</span></span>
                   <a href={`/room/${j.room}`} className="text-[12px] text-[#c9a96e] border-b border-[#c9a96e]/40">{L('回看', 'Revisit')}</a>
                 </div>
@@ -161,7 +162,7 @@ export default function MeClient() {
       {badge && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60" onClick={() => setBadge(null)}>
           <div className="w-full max-w-sm m-3 rounded-2xl border border-[#d8c7a8]/15 bg-[#121318] p-6 text-center mn-sheet" onClick={(e) => e.stopPropagation()}>
-            <div className={`mx-auto w-20 h-20 rounded-full flex items-center justify-center text-[36px] border ${badge.earned ? (badge.dark ? 'border-[#a78bfa]/50 bg-[#a78bfa]/10' : 'border-[#e6c76e]/50 bg-[#e6c76e]/10') : 'border-white/10 grayscale opacity-40'}`}>{badge.icon}</div>
+            <div className={`mx-auto w-20 h-20 rounded-full flex items-center justify-center border ${badge.earned ? (badge.dark ? 'border-[#a78bfa]/50 bg-[#a78bfa]/10' : 'border-[#e6c76e]/50 bg-[#e6c76e]/10') : 'border-white/10 grayscale opacity-40'}`}><Icon n={badge.icon} size={36} stroke={1.4} className={badge.dark ? 'text-[#d9ccff]' : 'text-[#f1d58a]'} /></div>
             <div className="mt-3 font-serif text-[20px] text-[#efe6d2]">{en ? badge.en : badge.zh}</div>
             <div className="mt-1 text-[13px] text-parchment/60">{en ? badge.den : badge.dzh}</div>
             <div className={`mt-3 text-[12px] ${badge.earned ? 'text-[#e6c76e]' : 'text-parchment/40'}`}>{badge.earned ? L('已获得', 'Earned') : L('还没拿到', 'Not yet')}</div>

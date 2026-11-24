@@ -24,6 +24,24 @@ export async function POST(req: Request, { params }: { params: { kind: string } 
   const t0 = Date.now(); const out: any = { kind: params.kind, voiced: 0, made: 0 };
   const dead = await voiceDead(admin);
 
+  if (params.kind === 'ghost') {
+    // 今夜怪谈：先把没配完音的配完；做好的存货少于 10 篇就再写一篇（中文为主，三篇里一篇英文）
+    const { writeGhost, voiceGhost } = await import('@/lib/ghost');
+    const deadline = t0 + 250000;
+    if (!dead) {
+      const { data: drafts } = await admin.from('ghost_stories').select('id').eq('status', 'draft').order('created_at').limit(2);
+      for (const d of drafts || []) { const r = await voiceGhost(admin, d.id, deadline); out.voiced++; if (r === 'quota') { await markDead(admin); break; } }
+    }
+    for (const lang of ['zh', 'en'] as const) {
+      const { count } = await admin.from('ghost_stories').select('id', { count: 'exact', head: true }).eq('lang', lang).is('day', null);
+      const want = lang === 'zh' ? 10 : 4;
+      if ((count || 0) < want && Date.now() < t0 + 120000 && (lang === 'zh' || Math.random() < 0.34)) {
+        try { const id = await writeGhost(admin, lang); out.made++; if (id && !dead) await voiceGhost(admin, id, deadline); } catch (e: any) { out.err = String(e?.message || e).slice(0, 120); }
+      }
+    }
+    return NextResponse.json({ ok: true, ...out, ms: Date.now() - t0 });
+  }
+
   if (params.kind === 'coc') {
     // 1) 补配音：达标但没配音的模组
     if (!dead) {

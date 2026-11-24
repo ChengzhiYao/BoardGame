@@ -3,6 +3,7 @@ import { toast } from '@/components/Toast';
 import Beat, { BEAT_CSS } from '@/components/Beat';
 import Icon from '@/components/Icon';
 import StoryListen from './StoryListen';
+import StoryCard, { STORY_CARD_CSS } from '@/components/StoryCard';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -215,23 +216,20 @@ export default function StoryRoom(props: ShellProps) {
       <main className="h-[100svh] flex flex-col">{Header}
         <div className="flex-1 overflow-y-auto px-5 py-6">
           <div className="max-w-2xl mx-auto space-y-4">
-            <h1 className="text-xl font-serif text-parchment text-center">{en ? 'Pick a story' : '选一个故事'}</h1>
-            {!canEdit && <p className="text-center text-parchment/50 text-sm">{en ? 'The host is choosing…' : '由房主挑选…'}</p>}
-            <div className="grid gap-3">
-              {(st.options || []).map((o: any) => (
-                <div key={o.id} className="rounded-xl bg-[#121318] border border-white/10 p-4 space-y-1.5">
-                  <div className="flex items-start justify-between gap-2"><div className="font-serif text-parchment">{o.title}</div>{o.fromLibrary ? <span className="text-amber-400 text-sm shrink-0" title={en ? 'Saved high-scorer (precise rating)' : '精选库 · 真实精确评分'}>{o.appeal} <span className="text-[10px]">{en ? 'saved' : '精选'}</span></span> : <span className="text-parchment/40 text-[11px] shrink-0" title={en ? 'Premise appeal — not the final precise rating' : '开场卖相分，非成稿精确评分'}>{en ? 'appeal' : '卖相'} {o.appeal}</span>}</div>
-                  <div className="text-[11px] text-[#c9a96e]">{o.real && <span className="mr-1.5 px-1.5 py-0.5 rounded bg-[#8fd3b8]/15 text-[#8fd3b8]">{en ? 'Real experience' : '真实经历'}</span>}{o.genre} · {o.mood} · ~{o.est_minutes}min</div>
-                  <div className="text-sm text-parchment/75">{o.logline}</div>
-                  {canEdit && <button onClick={() => write(o.id)} disabled={busy} className="mt-1 w-full py-2 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] text-parchment text-sm border border-[#a83232]/60 disabled:opacity-50">{en ? 'Write this story →' : '写这个故事 →'}</button>}
-                </div>
-              ))}
+            <style>{STORY_CARD_CSS}</style>
+            <div className="text-center pt-1 pb-2">
+              <div className="text-[10.5px] tracking-[.5em] pl-[.5em] uppercase text-[#c9a96e]/70">{en ? 'Tonight’s Shelf' : '今晚的书架'}</div>
+              <h1 className="mt-2 font-serif font-semibold text-[26px] tracking-[.06em] text-[#f2e6d0]">{en ? 'Pick a story' : '挑一个故事'}</h1>
+              <p className="mt-1.5 text-[12.5px] text-parchment/45">{!canEdit ? (en ? 'The host is choosing…' : '房主正在挑…') : (en ? 'True stories from the web and our best AI tales, each one scored' : '网上收集的真实故事 + 高质量 AI 故事，每篇都打过分')}</p>
+            </div>
+            <div className="grid gap-4">
+              {(st.options || []).map((o: any, i: number) => <StoryCard key={o.id} o={o} i={i} en={en} canEdit={canEdit} busy={busy} onPick={() => write(o.id)} />)}
             </div>
             {canEdit && (
               <div className="space-y-3">
                 <div className="flex gap-2">
-                  <button onClick={generate} disabled={busy} className="flex-1 py-2 rounded-xl bg-[#121318] border border-white/10 text-parchment/70 text-sm">↻ {en ? 'Regenerate 3' : '换一批'}</button>
-                  <button onClick={() => setShowCustom((v) => !v)} className="flex-1 py-2 rounded-xl bg-[#121318] border border-white/10 text-parchment/70 text-sm">{en ? 'Customize' : '定制方向'}</button>
+                  <button onClick={generate} disabled={busy} className="flex-1 h-11 rounded-xl bg-[#121318] border border-white/10 text-parchment/75 text-[13.5px] inline-flex items-center justify-center gap-1.5"><Icon n="spiral" size={15} />{en ? 'Another 3' : '换一批'}</button>
+                  <button onClick={() => setShowCustom((v) => !v)} className={`flex-1 h-11 rounded-xl border text-[13.5px] inline-flex items-center justify-center gap-1.5 ${showCustom ? 'bg-[#c9a96e]/15 border-[#c9a96e]/40 text-[#e6c76e]' : 'bg-[#121318] border-white/10 text-parchment/75'}`}><Icon n="feather" size={15} />{en ? 'Write my own' : '定制专属故事'}</button>
                 </div>
                 {showCustom && (
                   <div className="rounded-xl bg-[#121318] border border-white/10 p-4 space-y-4 text-left">

@@ -46,19 +46,20 @@ export async function POST(req: Request) {
       const { data: room2 } = await admin.from('rooms').select('language').eq('id', roomId).maybeSingle();
       const gl = room2?.language === 'en' ? 'en' : 'zh';
       if (!reqGenres.length || reqGenres.includes('horror')) {
-        const { data: gs } = await admin.from('ghost_stories').select('id, title, teaser, seconds, seed_id').eq('lang', gl).eq('status', 'ready').order('plays', { ascending: true }).limit(8);
-        const g = (gs || []).sort((a: any, b: any) => (b.seed_id ? 1 : 0) - (a.seed_id ? 1 : 0))[0];
-        if (g) libOpts = [{ title: g.title, genre: gl === 'en' ? (g.seed_id ? 'True-story horror' : 'Horror · voice note') : (g.seed_id ? '真实经历改编 · 怪谈' : '怪谈 · 真人口吻'), logline: g.teaser || '', mood: gl === 'en' ? 'eerie' : '诡异', est_minutes: Math.max(3, Math.round((g.seconds || 480) / 60)), ghostId: g.id, real: !!g.seed_id }, ...libOpts].slice(0, 2);
+        const { data: gs } = await admin.from('ghost_stories').select('id, title, teaser, seconds, seed_id').eq('lang', gl).eq('status', 'ready').order('plays', { ascending: true }).limit(12);
+        // 真实经历改编的排前面,同一批里最多放 3 篇(没听过的优先)
+        const gsel = (gs || []).sort((a: any, b: any) => (b.seed_id ? 1 : 0) - (a.seed_id ? 1 : 0) || Math.random() - 0.5).slice(0, 3);
+        libOpts = [...gsel.map((g: any) => ({ title: g.title, genre: gl === 'en' ? (g.seed_id ? 'True-story horror' : 'Horror · voice note') : (g.seed_id ? '真实经历改编 · 怪谈' : '怪谈 · 真人口吻'), logline: g.teaser || '', mood: gl === 'en' ? 'eerie' : '诡异', est_minutes: Math.max(3, Math.round((g.seconds || 480) / 60)), ghostId: g.id, real: !!g.seed_id })), ...libOpts].slice(0, 4);
       }
     } catch {}
-    const want = Math.max(1, 3 - libOpts.length);
+    const want = Math.max(2, 6 - libOpts.length);
     const { data: out, usage } = await callLLMJson<any>({
       system: buildStoryOptionsPrompt(p, room.language) + langDirective(room.language),
-      messages: [{ role: 'user', content: `生成 ${want} 个故事方案。` }], tier: 'main', temperature: 0.95, maxTokens: 1200, retry: true,
+      messages: [{ role: 'user', content: `生成 ${want} 个故事方案。` }], tier: 'main', temperature: 0.95, maxTokens: 2400, retry: true,
     });
     await admin.from('api_usage').insert({ room_id: roomId, kind: 'llm_main', model: usage.model, prompt_tokens: usage.promptTokens, completion_tokens: usage.completionTokens, latency_ms: usage.latencyMs });
     const fresh = (Array.isArray(out.options) ? out.options : []).slice(0, want).map((o: any) => ({ title: String(o.title || ''), genre: String(o.genre || ''), logline: String(o.logline || ''), mood: String(o.mood || ''), est_minutes: Number(o.est_minutes) || 10, appeal: Math.max(0, Math.min(100, Math.round(Number(o.appeal) || 0))) }));
-    const options = [...libOpts, ...fresh].slice(0, 3).map((o: any, i: number) => ({ id: i, ...o }));
+    const options = [...libOpts, ...fresh].slice(0, 6).map((o: any, i: number) => ({ id: i, ...o }));
     if (!options.length) throw new Error('未生成有效方案');
     await persistStory(admin, roomId, { phase: 'select', params: p, options });
     await admin.from('rooms').update({ modules_generating: false, game_state: 'playing' }).eq('id', roomId);

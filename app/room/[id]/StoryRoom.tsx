@@ -207,7 +207,7 @@ export default function StoryRoom(props: ShellProps) {
   // ---------------- SETUP → 自动生成 3 个推荐 ----------------
   if (phase === 'setup' || !st) {
     if (!isHost) return (<main className="h-[100svh] flex flex-col">{Header}<div className="flex-1 flex items-center justify-center text-parchment/50">{en ? 'Waiting for the host…' : '等待房主…'}</div></main>);
-    return (<main className="h-[100svh] flex flex-col">{Header}<div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-6"><div className="w-8 h-8 border-2 border-white/10 border-t-eldritch rounded-full animate-spin" /><p className="text-parchment/60">{en ? 'Picking 3 stories for you…' : '正在为你挑选 3 个推荐故事……'}</p></div></main>);
+    return (<main className="h-[100svh] flex flex-col">{Header}<div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-6"><div className="w-8 h-8 border-2 border-white/10 border-t-eldritch rounded-full animate-spin" /><p className="text-parchment/60">{en ? 'Picking 6 stories for you…' : '正在为你挑选 6 个故事……'}</p></div></main>);
   }
 
   // ---------------- SELECT ----------------
@@ -229,7 +229,7 @@ export default function StoryRoom(props: ShellProps) {
             {canEdit && (
               <div className="space-y-3">
                 <div className="flex gap-2">
-                  <button onClick={generate} disabled={busy} className="flex-1 h-11 rounded-xl bg-[#121318] border border-white/10 text-parchment/75 text-[13.5px] inline-flex items-center justify-center gap-1.5"><Icon n="spiral" size={15} />{en ? 'Another 3' : '换一批'}</button>
+                  <button onClick={generate} disabled={busy} className="flex-1 h-11 rounded-xl bg-[#121318] border border-white/10 text-parchment/75 text-[13.5px] inline-flex items-center justify-center gap-1.5"><Icon n="spiral" size={15} />{en ? 'Another batch' : '换一批'}</button>
                   <button onClick={() => setShowCustom((v) => !v)} className={`flex-1 h-11 rounded-xl border text-[13.5px] inline-flex items-center justify-center gap-1.5 ${showCustom ? 'bg-[#c9a96e]/15 border-[#c9a96e]/40 text-[#e6c76e]' : 'bg-[#121318] border-white/10 text-parchment/75'}`}><Icon n="feather" size={15} />{en ? 'Write my own' : '定制专属故事'}</button>
                 </div>
                 {showCustom && (

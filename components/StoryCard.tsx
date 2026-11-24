@@ -65,3 +65,40 @@ export default function StoryCard({ o, i, en, canEdit, busy, onPick }: { o: any;
   );
 }
 export const STORY_CARD_CSS = `@keyframes scIn{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:none}}.sc-in{animation:scIn .6s cubic-bezier(.2,.7,.2,1) both}`;
+
+// 海报卡：竖版、横着滑，一屏一张，旁边露出下一张
+export function StoryPoster({ o, i, en, canEdit, busy, onPick }: { o: any; i: number; en: boolean; canEdit: boolean; busy: boolean; onPick: () => void }) {
+  const t = storyTheme(o);
+  const score = Number(o.appeal) || 0;
+  return (
+    <div className="sc-in relative shrink-0 snap-center w-[78vw] max-w-[340px] aspect-[3/4.6] overflow-hidden rounded-[26px] border flex flex-col"
+      style={{ borderColor: t.c + '45', background: `radial-gradient(120% 70% at 50% 0%, ${t.c}38, transparent 60%), linear-gradient(175deg, ${t.c2} 0%, #0a0b0e 78%)`, animationDelay: `${i * 70}ms`, boxShadow: `0 30px 60px -30px ${t.c}80` }}>
+      <span aria-hidden className="absolute inset-0 opacity-80 pointer-events-none" style={{ background: t.tex }} />
+      {/* 封面图：大图标 + 光晕 */}
+      <div className="relative h-[40%] flex items-center justify-center">
+        <span aria-hidden className="absolute w-40 h-40 rounded-full blur-3xl opacity-40" style={{ background: t.c }} />
+        <span className="relative" style={{ color: t.c, filter: `drop-shadow(0 0 18px ${t.c}aa)` }}><Icon n={t.icon} size={92} stroke={1} /></span>
+        <span className="absolute top-4 left-4 text-[10.5px] tracking-[.3em] uppercase" style={{ color: t.c }}>{en ? t.en : t.zh}</span>
+        <span className="absolute top-4 right-4 font-serif text-[13px] text-parchment/45">No.{String(i + 1).padStart(2, '0')}</span>
+        <div className="absolute bottom-2 left-4 right-4 flex flex-wrap gap-1.5">
+          {o.real
+            ? <span className="px-2 py-0.5 rounded-full border text-[10.5px]" style={{ borderColor: '#8fd3b8' + '66', color: '#8fd3b8', background: '#0b0c0f99' }}>{en ? 'True story · AI-retold' : '真实经历改编'}</span>
+            : <span className="px-2 py-0.5 rounded-full border border-white/20 text-parchment/60 text-[10.5px] bg-black/40">{en ? 'AI original' : 'AI 原创'}</span>}
+        </div>
+      </div>
+      <div className="relative flex-1 flex flex-col px-5 pt-3 pb-5 min-h-0">
+        <h3 className="font-serif font-semibold text-[24px] leading-[1.22] text-[#f7ecd8] line-clamp-2">{o.title}</h3>
+        <p className="mt-2 font-serif text-[14px] leading-[1.75] text-parchment/72 line-clamp-4">{o.logline}</p>
+        <div className="mt-auto pt-3 flex items-center gap-2.5 text-[11.5px] text-parchment/50">
+          <span className="inline-flex items-center gap-1"><Icon n="clock" size={12} />{o.est_minutes || 10} min</span>
+          {o.mood && <><span className="w-[3px] h-[3px] rotate-45 bg-current opacity-60" /><span className="truncate max-w-[40%]">{o.mood}</span></>}
+          <span className="flex-1" />
+          {score > 0 && <span className="inline-flex items-baseline gap-1"><span className="font-serif text-[20px] leading-none" style={{ color: t.c }}>{score}</span><span className="text-[10px] opacity-70">{o.fromLibrary ? (en ? 'score' : '分') : (en ? 'appeal' : '卖相')}</span></span>}
+        </div>
+        {canEdit
+          ? <button onClick={onPick} disabled={busy} className="mt-3 h-12 rounded-2xl font-medium text-[15px] active:scale-[0.98] transition disabled:opacity-50" style={{ background: t.c, color: '#0b0c0f', boxShadow: `0 10px 30px -10px ${t.c}` }}>{busy ? (en ? 'Writing…' : '正在写…') : (en ? 'Tell me this one' : '就讲这个')}</button>
+          : <div className="mt-3 h-12 rounded-2xl border border-white/10 flex items-center justify-center text-[13px] text-parchment/40">{en ? 'Host is choosing' : '房主在挑'}</div>}
+      </div>
+    </div>
+  );
+}

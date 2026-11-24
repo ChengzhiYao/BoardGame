@@ -3,7 +3,8 @@ import { toast } from '@/components/Toast';
 import Beat, { BEAT_CSS } from '@/components/Beat';
 import Icon from '@/components/Icon';
 import StoryListen from './StoryListen';
-import StoryCard, { STORY_CARD_CSS } from '@/components/StoryCard';
+import { StoryPoster, STORY_CARD_CSS } from '@/components/StoryCard';
+import PosterRail from '@/components/PosterRail';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -223,9 +224,9 @@ export default function StoryRoom(props: ShellProps) {
               <p className="mt-1.5 text-[12.5px] text-parchment/45">{!canEdit ? (en ? 'The host is choosing…' : '房主正在挑…') : (en ? 'True stories from the web and our best AI tales, each one scored' : '网上收集的真实故事 + 高质量 AI 故事，每篇都打过分')}</p>
               <p className="mt-1 text-[11px] text-parchment/35">{en ? 'Every story is written or retold by AI and narrated with AI voices.' : '所有故事由 AI 创作或整理改写，朗读为 AI 合成声音。'}</p>
             </div>
-            <div className="grid gap-4">
-              {(st.options || []).map((o: any, i: number) => <StoryCard key={o.id} o={o} i={i} en={en} canEdit={canEdit} busy={busy} onPick={() => write(o.id)} />)}
-            </div>
+            <PosterRail count={(st.options || []).length}>
+              {(st.options || []).map((o: any, i: number) => <StoryPoster key={o.id} o={o} i={i} en={en} canEdit={canEdit} busy={busy} onPick={() => write(o.id)} />)}
+            </PosterRail>
             {canEdit && (
               <div className="space-y-3">
                 <div className="flex gap-2">

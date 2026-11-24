@@ -1,4 +1,5 @@
 // 申请加入一条组队公告：记录 + 给发布者发邮件(含申请人邮箱与留言)。
+import { mailFetch } from '@/lib/mail';
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 
@@ -35,7 +36,7 @@ export async function POST(req: Request) {
         <p style="margin:18px 0"><a href="${site}" style="display:inline-block;background:#7a1f1f;color:#fff;padding:11px 22px;border-radius:8px;text-decoration:none">回到 MystNight 查看 →</a></p>
         <p style="font-size:13px;color:#888;margin-top:18px">申请人 / From: <b>${esc(String(user.email))}</b></p>
       </div>`;
-      fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to: author.email, reply_to: user.email, subject: `🙋 ${applicant} 申请加入你的组队公告`, html }) }).catch(() => {});
+      mailFetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to: author.email, reply_to: user.email, subject: `🙋 ${applicant} 申请加入你的组队公告`, html }) }).catch(() => {});
     }
   } catch {}
   return NextResponse.json({ ok: true });

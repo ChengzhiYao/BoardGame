@@ -1,4 +1,5 @@
 // 联系客服：访客留言 → 发邮件到管理员邮箱（收件人是 Resend 账号本人，无需验证域名即可送达）。
+import { mailFetch } from '@/lib/mail';
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
@@ -21,7 +22,7 @@ export async function POST(req: Request) {
   </div>`;
   let r: Response;
   try {
-    r = await fetch('https://api.resend.com/emails', {
+    r = await mailFetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ from, to: ADMIN, ...(validEmail ? { reply_to: email } : {}), subject: '📩 MystNight 客服留言', html }),

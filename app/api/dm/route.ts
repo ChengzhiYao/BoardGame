@@ -1,5 +1,6 @@
 // 持久化私信：GET ?with=<userId> 取与某人的历史并标记已读；POST {toUserId,text} 发送。
 // 非好友：从我发给对方的消息累计 ≤1 条，互相加好友后解除。hattie 不参与公共私信。
+import { mailFetch } from '@/lib/mail';
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 
@@ -77,7 +78,7 @@ export async function POST(req: Request) {
           <p style="margin:18px 0"><a href="${site}" style="display:inline-block;background:#7a1f1f;color:#fff;padding:11px 22px;border-radius:8px;text-decoration:none">回到 MystNight 查看并回复 →</a></p>
           <p style="font-size:13px;color:#888;margin-top:18px">来自 / From: <b>${esc(String(user.email))}</b></p>
         </div>`;
-        fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to: target.email, reply_to: user.email, subject: `💬 ${fromName} 给你发了私信`, html }) }).catch(() => {});
+        mailFetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to: target.email, reply_to: user.email, subject: `💬 ${fromName} 给你发了私信`, html }) }).catch(() => {});
       }
     }
   } catch {}

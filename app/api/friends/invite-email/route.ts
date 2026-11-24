@@ -1,4 +1,5 @@
 // 邀请离线好友上线一起玩：给好友邮箱发一封邀请邮件（best-effort）。
+import { mailFetch } from '@/lib/mail';
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 export const dynamic = 'force-dynamic';
@@ -35,7 +36,7 @@ export async function POST(req: Request) {
         <h3 style="font-weight:600;font-size:15px">🎲 ${esc(fromName)} invited you to play on MystNight</h3>
         <p style="color:#444;font-size:14px">Your friend is online and wants to start a game with you. Two players is all it takes.</p>
       </div>`;
-      fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to: target.email, reply_to: user.email, subject: `🎲 ${fromName} 邀请你来 MystNight 一起玩`, html }) }).catch(() => {});
+      mailFetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to: target.email, reply_to: user.email, subject: `🎲 ${fromName} 邀请你来 MystNight 一起玩`, html }) }).catch(() => {});
     }
     return NextResponse.json({ ok: true });
   } catch (e: any) { return NextResponse.json({ error: e?.message || 'fail' }, { status: 500 }); }

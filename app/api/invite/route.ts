@@ -1,6 +1,7 @@
 // 给某个注册玩家发游戏邀请邮件（Resend）。模板末尾附上发送者的邮箱。
 // 需登录（有邮箱）。防刷：每人每天≤30 封，同一对 6 小时内只发一次。
 // 隐藏 hattie：不能邀请她、也不会泄露她的邮箱。
+import { mailFetch } from '@/lib/mail';
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 
@@ -56,7 +57,7 @@ export async function POST(req: Request) {
 
   let r: Response;
   try {
-    r = await fetch('https://api.resend.com/emails', {
+    r = await mailFetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ from, to: target.email, reply_to: inviter, subject: `🎲 ${fromName} 邀请你一起玩 MystNight`, html }),

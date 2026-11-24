@@ -1,5 +1,6 @@
 // 白名单账号上线时调用：给其他白名单邮箱发「上线提醒」邮件（Resend）。
 // 未配置 RESEND_API_KEY 时静默不发。客户端用 localStorage 防重复，无需建表。
+import { mailFetch } from '@/lib/mail';
 import { NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { getEntitlement } from '@/lib/billing/entitlement';
@@ -28,7 +29,7 @@ export async function POST() {
   let sent = 0;
   for (const to of others) {
     try {
-      const r = await fetch('https://api.resend.com/emails', {
+      const r = await mailFetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({

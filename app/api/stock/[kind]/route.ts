@@ -26,7 +26,9 @@ export async function POST(req: Request, { params }: { params: { kind: string } 
 
   if (params.kind === 'ghost') {
     // 今夜怪谈：先把没配完音的配完；做好的存货少于 10 篇就再写一篇（中文为主，三篇里一篇英文）
-    const { writeGhost, voiceGhost } = await import('@/lib/ghost');
+    const { writeGhost, voiceGhost, cueGhost } = await import('@/lib/ghost');
+    // 还没配氛围音的旧故事补上
+    try { const { data: nc } = await admin.from('ghost_stories').select('id').is('cues', null).limit(2); for (const r of nc || []) await cueGhost(admin, r.id); } catch {}
     const deadline = t0 + 250000;
     if (!dead) {
       const { data: drafts } = await admin.from('ghost_stories').select('id').eq('status', 'draft').order('created_at').limit(2);

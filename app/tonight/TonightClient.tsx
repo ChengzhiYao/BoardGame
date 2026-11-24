@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { getClientLang } from '@/lib/i18n';
 import Icon from '@/components/Icon';
 import { parseBeat } from '@/lib/narrate';
+import { setStoryBgm, pauseStoryBgm, resumeStoryBgm, stopStoryBgm, storySfx, storyStinger, setStoryVol } from '@/lib/audio/storyCue';
+import { STORY_MOODS } from '@/lib/story/prompt';
 
 // 每种故事风格一套卡片配色
 const STY: Record<string, { c: string; zh: string; en: string; icon: string }> = {
@@ -36,7 +38,6 @@ export default function TonightClient({ initial }: { initial: any }) {
   const [playing, setPlaying] = useState(false);
   const [ended, setEnded] = useState(false);
   const audio = useRef<HTMLAudioElement | null>(null);
-  const bed = useRef<HTMLAudioElement | null>(null);
   const timer = useRef<any>(null);
   const lineRefs = useRef<(HTMLDivElement | null)[]>([]);
   const L = (zh: string, e: string) => (en ? e : zh);
@@ -52,13 +53,30 @@ export default function TonightClient({ initial }: { initial: any }) {
   const lines: any[] = s?.lines || [];
   const castOf = (who: string) => (s?.cast || []).find((c: any) => c.name === who);
 
-  function stop() { clearTimeout(timer.current); try { audio.current?.pause(); } catch {} try { bed.current?.pause(); } catch {} setPlaying(false); }
+  function stop() { clearTimeout(timer.current); try { audio.current?.pause(); } catch {} pauseStoryBgm(); setPlaying(false); }
+  useEffect(() => () => stopStoryBgm(), []);
+  // 每句的氛围：有配好的线索就用；没有就按位置和标记推一个（前面诡异 → 中段紧张 → 喊叫处惊吓 → 结尾揭晓）
+  const lastCat = useRef('');
+  function cueFor(i: number) {
+    const l = lines[i]; if (!l) return null;
+    if (l.cue) return l.cue;
+    const f = i / Math.max(1, lines.length - 1);
+    const shout = /!!.+?!!/.test(l.text);
+    return { mood: shout ? 'scare' : f > 0.88 ? 'reveal' : f > 0.55 ? 'tension' : f > 0.2 ? 'eerie' : 'mystery', sfx: /\[\[.*(门|吱呀|creak|door).*\]\]/i.test(l.text) ? ['creaking_door'] : /\[\[.*(脚步|footstep).*\]\]/i.test(l.text) ? ['footsteps_concrete'] : [], stinger: shout };
+  }
+  function applyCue(i: number) {
+    const c = cueFor(i); if (!c) return;
+    const cat = STORY_MOODS.find((m) => m.word === c.mood)?.cat || 'PARANORMAL_EVENT';
+    setStoryVol(0.2);
+    if (cat !== lastCat.current) { lastCat.current = cat; setStoryBgm(cat, 0.2); } else resumeStoryBgm();
+    (c.sfx || []).forEach((k: string, n: number) => setTimeout(() => storySfx(k), 300 + n * 900));
+    if (c.stinger) setTimeout(() => storyStinger(), 150);
+  }
   function playAt(i: number) {
     clearTimeout(timer.current);
-    if (i >= lines.length) { setPlaying(false); setEnded(true); setIdx(lines.length); try { bed.current?.pause(); } catch {} return; }
+    if (i >= lines.length) { setPlaying(false); setEnded(true); setIdx(lines.length); stopStoryBgm(); lastCat.current = ''; return; }
     setIdx(i); setEnded(false); setPlaying(true);
-    if (!bed.current) { bed.current = new Audio('/audio/veil-of-night/loop1.ogg'); bed.current.loop = true; bed.current.volume = 0.1; }
-    bed.current.play().catch(() => {});
+    applyCue(i);
     const l = lines[i];
     if (!l?.audio) { timer.current = setTimeout(() => playAt(i + 1), 1800); return; }
     try { audio.current?.pause(); } catch {}
@@ -71,7 +89,7 @@ export default function TonightClient({ initial }: { initial: any }) {
   }
   function toggle() {
     if (playing) { stop(); return; }
-    if (idx >= 0 && idx < lines.length && audio.current && audio.current.src) { setPlaying(true); audio.current.play().catch(() => {}); bed.current?.play().catch(() => {}); return; }
+    if (idx >= 0 && idx < lines.length && audio.current && audio.current.src) { setPlaying(true); audio.current.play().catch(() => {}); resumeStoryBgm(); return; }
     playAt(idx >= 0 && idx < lines.length ? idx : 0);
   }
   useEffect(() => { if (idx >= 0) lineRefs.current[idx]?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, [idx]);

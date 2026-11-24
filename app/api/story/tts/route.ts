@@ -4,8 +4,33 @@ import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { createHash } from 'crypto';
 import OpenAI from 'openai';
 import { loadStory, persistStory } from '@/lib/story/db';
+import { LINGER_URL } from '@/lib/linger/companion';
 
-export const maxDuration = 120;
+// 真人感 Fish 声音（经 Linger 桥、只用免费模型），按用户选的音色挑
+const FISH: Record<string, { zh: string; en: string; speed: number }> = {
+  gentle_f: { zh: '26c259f0f07247c98899ae4cfa1774be', en: '933563129e564b19a115bedd57b7406a', speed: 0.97 },
+  deep_m: { zh: '591cbde691fd40ebac212f16d05bf334', en: 'c5f56a6cc2ec4fa8920cb4c5889a3fb7', speed: 0.95 },
+  healing: { zh: '7b577042ea3d46e0a152e0172cef78c8', en: 'b347db033a6549378b48d00acb0d06cd', speed: 0.95 },
+  eerie: { zh: '22dd5bf942eb4aab962cc45c2211cb38', en: '3778d9610ede45cda7976d2dc51ed369', speed: 0.92 },
+  whisper: { zh: '9a57d4b15e80433da1191abd881ed6ea', en: 'f48d143a59a946ab87c0130fd081f349', speed: 0.93 },
+};
+async function fishStory(text: string, voice: string, lang: string, speed: number): Promise<Buffer | null> {
+  const paras = text.split(/\n+/).map((p) => p.trim()).filter(Boolean);
+  const parts: string[] = [];
+  for (const p of paras) { let rest = p; while (rest.length > 480) { const cut = Math.max(rest.lastIndexOf('。', 480), rest.lastIndexOf('！', 480), rest.lastIndexOf('？', 480), rest.lastIndexOf('. ', 480)); const k = cut > 120 ? cut + 1 : 480; parts.push(rest.slice(0, k)); rest = rest.slice(k); } if (rest.trim()) parts.push(rest); }
+  const out: (Buffer | null)[] = new Array(parts.length).fill(null);
+  for (let k = 0; k < parts.length; k += 4) {
+    const res = await Promise.all(parts.slice(k, k + 4).map(async (t) => {
+      const r = await fetch(`${LINGER_URL}/api/mystnight/tts`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-linger-key': process.env.LINGER_BRIDGE_KEY || '' }, body: JSON.stringify({ text: t, voice, lang, speed }) });
+      if (!r.ok) throw new Error('fish ' + r.status);
+      return Buffer.from(await r.arrayBuffer());
+    }));
+    res.forEach((b, n) => { out[k + n] = b; });
+  }
+  return out.every(Boolean) ? Buffer.concat(out as Buffer[]) : null;
+}
+
+export const maxDuration = 300;
 
 type Preset = { voice: string; style?: string; pitch?: string };
 const AZ: Record<string, { zh: Preset; en: Preset }> = {
@@ -60,6 +85,23 @@ export async function POST(req: Request) {
   const path = `story-tts/${hash}.mp3`;
 
   const persist = async (url: string) => persistStory(admin, roomId, { ...state, phase: 'reading', narration: { url, voice, preset: presetKey, speed, provider: tag, ts: Date.now() }, playback: { playing: false, position: 0, ts: Date.now() } });
+
+  // 先用 Fish 免费真人声音（整篇按段合成再拼起来）；失败或额度用完再退回原来的声音
+  const fv = (FISH[presetKey] || FISH.gentle_f)[zh ? 'zh' : 'en'];
+  const fhash = createHash('sha1').update(`story|fish|${fv}|${story}`).digest('hex');
+  const fpath = `story-tts/${fhash}.mp3`;
+  try {
+    const { data: fx } = await admin.storage.from('scene-images').list('story-tts', { search: `${fhash}.mp3`, limit: 1 });
+    let furl: string | null = fx && fx.length ? admin.storage.from('scene-images').getPublicUrl(fpath).data.publicUrl : null;
+    if (!furl) {
+      const fb = await fishStory(story, fv, zh ? 'zh' : 'en', (FISH[presetKey] || FISH.gentle_f).speed);
+      if (fb && fb.length > 4000) { const up = await admin.storage.from('scene-images').upload(fpath, fb, { contentType: 'audio/mpeg', upsert: true }); if (!up.error) furl = admin.storage.from('scene-images').getPublicUrl(fpath).data.publicUrl; }
+    }
+    if (furl) {
+      await persistStory(admin, roomId, { ...state, phase: 'reading', narration: { url: furl, voice: fv, preset: presetKey, speed, provider: 'fish', ts: Date.now() }, playback: { playing: false, position: 0, ts: Date.now() } });
+      return NextResponse.json({ ok: true, url: furl, provider: 'fish' });
+    }
+  } catch (e: any) { await admin.from('error_logs').insert({ room_id: roomId, scope: 'tts', message: '讲故事 Fish 朗读失败，退回旧声音:' + String(e?.message || e).slice(0, 120) }); }
 
   const { data: existing } = await admin.storage.from('scene-images').list('story-tts', { search: `${hash}.mp3`, limit: 1 });
   if (existing && existing.length) {

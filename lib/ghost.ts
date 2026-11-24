@@ -3,6 +3,8 @@
 import { callLLMJson } from '@/lib/llm';
 import { LINGER_URL } from '@/lib/linger/companion';
 import { dayKey, type Lang } from '@/lib/soup/daily';
+import { buildStoryCuesPrompt, STORY_MOODS, STORY_SFX } from '@/lib/story/prompt';
+import { stripMarks } from '@/lib/narrate';
 
 // Fish 声音（都是 Linger 挑过的真人感声音，不用动漫 / 明星声音）
 const V = {
@@ -96,7 +98,23 @@ export async function writeGhost(admin: any, lang: Lang) {
     cast_list: cast, lines, status: 'draft', seed_id: seed?.id || null,
   }).select('id').single();
   if (seed) await admin.from('ghost_seeds').update({ status: 'used', story_id: row?.id || null }).eq('id', seed.id);
+  if (row?.id) await cueGhost(admin, row.id);
   return row?.id;
+}
+
+// 每句配氛围：背景氛围乐类别 + 音效 + 惊吓一击（跟讲故事模式同一套声音库）
+export async function cueGhost(admin: any, id: string) {
+  const { data: s } = await admin.from('ghost_stories').select('id, lang, lines').eq('id', id).maybeSingle();
+  const lines: any[] = s?.lines || [];
+  if (!lines.length) return;
+  const paras = lines.map((l) => stripMarks(stripCue(l.text)));
+  try {
+    const { data } = await callLLMJson<any>({ system: buildStoryCuesPrompt(paras, s.lang === 'en' ? 'horror, true-story voice note' : '恐怖 / 真实经历怪谈', s.lang), messages: [{ role: 'user', content: '逐句配乐。' }], tier: 'aux', temperature: 0.4, maxTokens: 2600 });
+    const raw: any[] = Array.isArray(data?.cues) ? data.cues : [];
+    const words = STORY_MOODS.map((m) => m.word);
+    const cues = paras.map((_, i) => { const c = raw.find((x) => Number(x?.i) === i) || raw[i] || {}; return { mood: words.includes(c.mood) ? c.mood : 'eerie', sfx: (Array.isArray(c.sfx) ? c.sfx : []).filter((k: string) => STORY_SFX.includes(k)).slice(0, 2), stinger: !!c.stinger }; });
+    await admin.from('ghost_stories').update({ cues }).eq('id', id);
+  } catch {}
 }
 
 const stripCue = (t: string) => String(t || '').replace(/\{[a-z][a-z ]{1,24}\}\s*/gi, '').trim();
@@ -152,6 +170,6 @@ export function publicStory(s: any, full: boolean) {
   return {
     id: s.id, lang: s.lang, title: s.title, teaser: s.teaser, day: s.day, no: s.no, seconds: s.seconds, style: s.style || 'city', fear: s.fear || 3,
     teller: { name: s.teller?.name, gender: s.teller?.gender }, cast: (s.cast_list || []).map((c: any) => ({ name: c.name, gender: c.gender })),
-    lines: full ? (s.lines || []).map((l: any) => ({ who: l.who, text: stripCue(l.text), audio: l.audio || null })) : [],
+    lines: full ? (s.lines || []).map((l: any, i: number) => ({ who: l.who, text: stripCue(l.text), audio: l.audio || null, cue: (s.cues || [])[i] || null })) : [],
   };
 }

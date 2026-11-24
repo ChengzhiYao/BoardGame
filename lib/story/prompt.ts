@@ -79,18 +79,21 @@ ${paramBlock(p)}
 export function buildStoryWritePrompt(chosen: any, p: any, lang?: string, plan?: any) {
   const en = lang === 'en';
   const bp = plan ? `\n按以下写作蓝图来写（务必落地每一项，这是达到可发表水准的关键）：\n- 核心意象（贯穿+结尾回扣）：${plan.central_image || ''}\n- 主角欲望：${plan.protagonist?.desire || ''}；主动转变：${plan.protagonist?.arc || ''}\n- 关键关系如何推动剧情：${plan.relationship || ''}\n- 中段强事件/转折：${plan.turn || ''}\n- 高潮两难：${plan.climax || ''}\n- 结尾：${plan.ending?.type || ''}；回扣方式：${plan.ending?.callback || ''}\n- 节拍：${(Array.isArray(plan.beats) ? plan.beats : []).join(' / ')}\n- 必用的具体细节：${(Array.isArray(plan.concrete_anchors) ? plan.concrete_anchors : []).join('、')}\n- 本篇必须避免的套话：${(Array.isArray(plan.avoid) ? plan.avoid : []).join('、')}` : '';
-  return `你是一位**可发表水准**的短篇小说作者。请把下面方案写成**完整的、约 10 分钟阅读**的故事，目标是让挑剔的文学编辑也认可。
+  return `你是一个特别会讲故事的普通人，睡前给朋友讲一个完整的故事（会被配上真人声音念出来）。按下面的方案讲成一个**完整的、约 10 分钟**的故事。
 方案：《${chosen?.title || ''}》｜${chosen?.genre || ''}｜钩子：${chosen?.logline || ''}｜基调：${chosen?.mood || ''}
 参数：
 ${paramBlock(p)}${bp}
-文学手法（硬要求，逐条做到）：
-- **Show, don't tell**：用具体动作/画面/感官细节承载情绪，严禁抽象堆词（"难以名状的恐惧"→"门缝下那双脚，脚尖朝着天花板"）。核心意象要反复出现并在结尾回扣。
-- 主角全程有明确欲望，并完成**由自己选择推动**的转变；别让主角被事件推着走。
-- 关键关系要**真正推动剧情**，成为结局的触发/回扣，而不是工具人。
-- 中段让那个强事件**真的发生**（别用大段解释设定代替情节）；信息一点点从事件里露出。
-- 对话像真人说话、带潜台词，不要让角色替作者解释主题。
-- 结尾有不可替代的**落点**（反转/释怀/回扣/余味），避免"原来是一场梦""最后全解释清楚"这种烂收。
-- ${en ? 'English' : '中文'}写作，约 ${en ? '1300~1800 words' : '1600~2200 字'}；严格遵守"特别要求"与"必须避免"。
+怎么讲（硬要求）：
+- **像真人在讲，不像 AI 写的**：大白话、短句为主，偶尔长句；可以有讲述人的一两句口头反应（"说真的""你猜怎么着"），但别多。故事本身要具体：几点、什么天气、谁穿了什么、闻到什么、手里拿着什么。
+- **禁用 AI 腔和书面腔**：不要"仿佛""宛如""映入眼帘""心中一凛""不可名状""永恒""灵魂深处""命运的齿轮""空气仿佛凝固""那一刻她终于明白""破碎感""留白"这类词；不要对仗金句；不要让角色替作者讲道理、总结主题；不要每段都用比喻。
+- 用动作和细节让人感觉到情绪，不直接说"她很害怕/很感动"。
+- 主角要有想要的东西，靠自己的选择改变；中段要有一件真的发生的事改变局面；结尾要有落点（反转 / 释怀 / 回扣开头的一个小东西 / 留个余味），不要"原来是一场梦"，不要最后把一切解释清楚。
+- 对话像真人说话：会打断、会答非所问、有没说出口的意思。人物说话用「」。
+- **画面标记**（屏幕上会放大成特效、念的时候会换语气）：全篇 10–20 处，用在最有画面、最紧张或最动人的地方，每段最多 1 处：
+  **动作或关键细节**　!!喊叫或突然的冲击!!（≤6 字）　((低语、心里的声音、听不清的声音))　[[拟声]]（如 [[咚]] [[吱呀——]]）。标记成对，不嵌套。
+- 不要表情符号、颜文字、"hhh"、网络缩写——这是要念出来的。
+- 每段 1–4 句，段与段之间空行，方便一段一段念。
+- ${en ? 'English' : '中文'}，约 ${en ? '1300~1800 words' : '1600~2200 字'}；严格遵守"特别要求"与"必须避免"。
 - 直接输出故事正文，不要解释、不要标题外的元信息。
 只输出 JSON：{ "title": "最终标题", "story": "完整故事正文（可含换行）" }`;
 }
@@ -104,7 +107,7 @@ export function buildStoryRevisePrompt(story: string, rating: any, p: any, genre
   const targets = dims.filter((d: any) => d.score < 9).sort((a: any, b: any) => (10 - b.score) * wOf(b.key) - (10 - a.score) * wOf(a.key)).slice(0, 10)
     .map((d: any) => `「${d.label}」当前 ${d.score}/10（权重${wOf(d.key)}）— 扣分原因：${d.note || '还能更好'}`).join('\n  ');
   const allDimLine = dims.map((d: any) => `${d.label} ${d.score}`).join('、');
-  return `你是一位顶尖的文学编辑兼作者。下面这篇故事经过严苛评审，总分 ${rating?.overall ?? '未知'}/100。请**在保留它原有优点的前提下重写一稿，目标是把总分冲到 90+**。
+  return `你是一个特别会讲故事的普通人，也是个好编辑。改稿时保持「像真人讲故事」的口吻：大白话、短句、具体细节；保留并用好 **动作** !!喊叫!! ((低语)) [[拟声]] 这些画面标记（全篇 10–20 处）；不要 AI 腔和书面腔（仿佛、宛如、映入眼帘、心中一凛、不可名状、灵魂深处、对仗金句、替作者总结主题），不要表情符号。下面这篇故事经过严苛评审，总分 ${rating?.overall ?? '未知'}/100。请**在保留它原有优点的前提下重写一稿，目标是把总分冲到 90+**。
 题材：${genre}。
 当前各维度（满分10）：${allDimLine || '未知'}
 评审一句话总评：${rating?.verdict || ''}
@@ -220,7 +223,7 @@ export const STORY_MOODS: { word: string; cat: string; desc: string }[] = [
   { word: 'sad', cat: 'BITTERSWEET_ENDING', desc: '悲伤/苦涩/离别' },
   { word: 'happy', cat: 'GOOD_ENDING', desc: '温暖结局/释怀/重逢' },
 ];
-export const STORY_SFX = ['ambient_wind', 'creaking_door', 'monster_growl', 'footsteps_wood', 'footsteps_leaves', 'footsteps_gravel'];
+export const STORY_SFX = ['ambient_wind', 'creaking_door', 'monster_growl', 'footsteps_wood', 'footsteps_leaves', 'footsteps_gravel', 'footsteps_stairs', 'footsteps_concrete', 'footsteps_carpet', 'footsteps_metal', 'footsteps_mud'];
 
 export function buildStoryCuesPrompt(paras: string[], genre: string, lang?: string) {
   const en = lang === 'en';
@@ -230,7 +233,7 @@ export function buildStoryCuesPrompt(paras: string[], genre: string, lang?: stri
 可选情绪（只能从中选一个词）：${moods}
 规则：
 - 跟着剧情走，别每段都一样；温情段用 calm/tender，恐怖段用 eerie/scare/cosmic，紧张段 tension/chase，高潮 climax，结尾按情绪 sad/happy/reveal。
-- sfx 可选 0~2 个，仅在**字面真的出现**时加：ambient_wind(风/旷野)、creaking_door(门/吱呀)、monster_growl(怪物低吼/嘶鸣)、footsteps_wood/footsteps_leaves/footsteps_gravel(脚步，按地面)。没有就留空数组。
+- sfx 可选 0~2 个，仅在**字面真的出现**时加：ambient_wind(风/旷野)、creaking_door(门/吱呀)、monster_growl(怪物低吼/嘶鸣)、脚步按地面选 footsteps_wood(木地板)/footsteps_stairs(楼梯)/footsteps_concrete(水泥地、楼道)/footsteps_carpet(地毯)/footsteps_metal(铁板、铁楼梯)/footsteps_leaves(落叶)/footsteps_gravel(碎石)/footsteps_mud(泥地)。没有就留空数组。
 - stinger=true 只用于**突然的惊吓/震撼**那一段（如怪物猛然出现、真相骤然揭穿），全篇最多 1~2 段。
 只输出 JSON（cues 长度必须 = 段落数 ${paras.length}，按编号顺序）：
 { "cues": [ { "i": 0, "mood": "calm", "sfx": [], "stinger": false } ] }

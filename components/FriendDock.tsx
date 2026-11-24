@@ -128,6 +128,7 @@ export default function FriendDock() {
   const [clAdmin, setClAdmin] = useState(false);
   const [clOpen, setClOpen] = useState(false);
   const [clForm, setClForm] = useState(false);
+  const [clOpenId, setClOpenId] = useState<string | null>(null);
   const [clTitle, setClTitle] = useState(''); const [clBody, setClBody] = useState('');
   const [clSeenTs, setClSeenTs] = useState<number>(() => { try { return Number(localStorage.getItem('cl_seen_ts') || 0); } catch { return 0; } });
 
@@ -500,19 +501,28 @@ export default function FriendDock() {
           <button onClick={createCl} className="w-full py-1.5 rounded-xl bg-[#c9a96e]/20 hover:bg-white/10 text-parchment text-xs">{L('发布更新', 'Publish')}</button>
         </div>
       )}
-      <div className="flex-1 min-h-0 overflow-y-auto px-3 py-2 space-y-2.5">
+      <div className="flex-1 min-h-0 overflow-y-auto px-3 py-1">
         {changelog.length === 0 && <div className="text-xs text-parchment/35 py-8 text-center">{L('暂无更新', 'No updates yet')}</div>}
-        {changelog.map((e) => (
-          <div key={e.id} className="border-b border-white/10 pb-2">
-            <div className="flex items-center gap-1.5">
-              {e.ts > clSeenTs && <span className="w-1.5 h-1.5 rounded-full bg-[#7d1d1d] shrink-0" />}
-              <span className="text-sm text-parchment flex-1 min-w-0 truncate">{e.title}</span>
-              <span className="text-[10px] text-parchment/35 shrink-0">{ago(e.ts, en)}</span>
-              {clAdmin && <button onClick={(ev) => { ev.stopPropagation(); delCl(e.id); }} className="text-[10px] text-parchment/30 hover:text-[#e06060] shrink-0">×</button>}
+        {changelog.map((e) => {
+          const open = clOpenId === e.id;
+          const fresh = Date.now() - e.ts < 7 * 86400000;
+          const clean = (t: string) => String(t || '').replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, '').replace(/^\s+/, '');
+          return (
+          <div key={e.id} className="border-b border-white/10 last:border-0">
+            <button onClick={(ev) => { ev.stopPropagation(); setClOpenId(open ? null : e.id); if (clHasNew) markClSeen(); }} className="w-full flex items-start gap-1.5 py-1.5 text-left group">
+              {e.ts > clSeenTs && <span className="w-1.5 h-1.5 mt-[7px] rounded-full bg-[#e06060] shrink-0" />}
+              <span className={`text-[13px] leading-snug text-parchment flex-1 min-w-0 ${open ? '' : 'line-clamp-2'}`}>{clean(e.title) || L('更新', 'Update')}</span>
+              {fresh && <span className="mt-[2px] text-[9px] font-semibold tracking-wide px-1.5 py-[1px] rounded-md bg-[#7d1d1d] text-parchment shrink-0">NEW</span>}
+              <svg viewBox="0 0 12 12" className={`w-3 h-3 mt-[4px] text-parchment/40 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            </button>
+            <div className="flex items-center gap-2 -mt-1 pb-1.5 pl-3">
+              <span className="text-[10px] text-parchment/35">{ago(e.ts, en)}</span>
+              {clAdmin && open && <button onClick={(ev) => { ev.stopPropagation(); delCl(e.id); }} className="text-[10px] text-parchment/30 hover:text-[#e06060]">{L('删除', 'Delete')}</button>}
             </div>
-            {e.body && <div className="text-xs text-parchment/65 whitespace-pre-wrap mt-0.5 leading-snug">{e.body}</div>}
+            {open && e.body && <div className="text-xs text-parchment/70 whitespace-pre-wrap pb-2.5 leading-relaxed">{clean(e.body)}</div>}
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

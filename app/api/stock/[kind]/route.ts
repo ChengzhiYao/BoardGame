@@ -31,16 +31,18 @@ export async function POST(req: Request, { params }: { params: { kind: string } 
     try { const { data: nc } = await admin.from('ghost_stories').select('id').is('cues', null).limit(2); for (const r of nc || []) await cueGhost(admin, r.id); } catch {}
     const deadline = t0 + 250000;
     if (!dead) {
-      const { data: drafts } = await admin.from('ghost_stories').select('id').eq('status', 'draft').order('created_at').limit(2);
+      const { data: drafts } = await admin.from('ghost_stories').select('id').eq('status', 'draft').order('created_at').limit(3);
       for (const d of drafts || []) { const r = await voiceGhost(admin, d.id, deadline); out.voiced++; if (r === 'quota') { await markDead(admin); break; } }
     }
-    for (const lang of ['zh', 'en'] as const) {
+    // Fish 免费期内多攒：中文存 200 篇、英文 60 篇；每次跑尽量多写几篇（留够时间配音）
+    const WANT = { zh: 200, en: 60 } as const;
+    let round = 0;
+    while (Date.now() < t0 + 160000 && round < 4) {
+      const lang: 'zh' | 'en' = round % 3 === 2 ? 'en' : 'zh';
+      round++;
       const { count } = await admin.from('ghost_stories').select('id', { count: 'exact', head: true }).eq('lang', lang).is('day', null);
-      // Fish 免费期内多攒：中文存 60 篇、英文 20 篇
-      const want = lang === 'zh' ? 60 : 20;
-      if ((count || 0) < want && Date.now() < t0 + 120000 && (lang === 'zh' || Math.random() < 0.5)) {
-        try { const id = await writeGhost(admin, lang); out.made++; if (id && !dead) await voiceGhost(admin, id, deadline); } catch (e: any) { out.err = String(e?.message || e).slice(0, 120); }
-      }
+      if ((count || 0) >= WANT[lang]) continue;
+      try { const id = await writeGhost(admin, lang); out.made++; if (id && !dead) { const r = await voiceGhost(admin, id, deadline); if (r === 'quota') { await markDead(admin); break; } } } catch (e: any) { out.err = String(e?.message || e).slice(0, 120); }
     }
     return NextResponse.json({ ok: true, ...out, ms: Date.now() - t0 });
   }

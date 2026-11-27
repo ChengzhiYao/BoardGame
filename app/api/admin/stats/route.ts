@@ -8,7 +8,17 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser();
   const adminEmail = (process.env.ADMIN_EMAIL || 'yxhzdm@gmail.com').toLowerCase();
   if (!user?.email || user.email.toLowerCase() !== adminEmail) {
-    const since7 = new Date(Date.now() - 7 * 86400000).toISOString();
+  return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  }
+
+  const admin = createAdminClient();
+  await closeStaleRooms(admin, ROOM_IDLE_MIN);
+  const since10 = new Date(Date.now() - 10 * 60000).toISOString();
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+  const todayISO = todayStart.toISOString();
+
+  // 最近 7 天流量
+  const since7 = new Date(Date.now() - 7 * 86400000).toISOString();
   const { data: pv } = await admin.from('page_views').select('path, ref, vid, created_at').gte('created_at', since7).limit(50000);
   const pvRows = (pv || []) as any[];
   const isSearch = (r: string) => /google|bing|baidu|duckduckgo|yahoo|yandex|sogou|so\.com|360|naver|ecosia|brave|qwant/i.test(r || '');
@@ -25,14 +35,6 @@ export async function GET() {
   const topRefs = Object.entries(refCount).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([ref, n]) => ({ ref, n }));
   const traffic = { pvToday, uvToday: vidToday.size, pv7d: pvRows.length, uv7d: vid7.size, organic7d: organic7, topPages, topRefs };
 
-  return NextResponse.json({ error: 'forbidden' }, { status: 403 });
-  }
-
-  const admin = createAdminClient();
-  await closeStaleRooms(admin, ROOM_IDLE_MIN);
-  const since10 = new Date(Date.now() - 10 * 60000).toISOString();
-  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-  const todayISO = todayStart.toISOString();
 
   const { data: recent } = await admin.from('messages').select('room_id, sender_player_id, sender_type').gte('created_at', since10).limit(5000);
   const activeRoomSet = new Set<string>();

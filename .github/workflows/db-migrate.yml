@@ -1,0 +1,50 @@
+# 谜夜数据库搬家(一次性):旧 Supabase 项目 → MystNight 组织里的新项目
+# 触发:往 ops/db-migrate 分支推一个提交,ops/step.txt 里写 dump 或 restore <dump 那次的 run id>
+# 用到的 GitHub Secrets(站长自己填,代码里不出现密码):OLD_DB_URL(旧项目连接串)、NEW_DB_URL(新项目连接串)
+name: db-migrate
+on:
+  push:
+    branches: [ops/db-migrate]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - id: step
+        run: |
+          echo "args=$(head -1 ops/step.txt)" >> "$GITHUB_OUTPUT"
+          echo "rid=$(head -1 ops/step.txt | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - uses: supabase/setup-cli@v1
+        with: { version: latest }
+      - name: dump (old project)
+        if: startsWith(steps.step.outputs.args, 'dump')
+        env: { OLD_DB_URL: "${{ secrets.OLD_DB_URL }}" }
+        run: |
+          mkdir -p out
+          supabase db dump --db-url "$OLD_DB_URL" -f out/roles.sql --role-only
+          supabase db dump --db-url "$OLD_DB_URL" -f out/schema.sql
+          supabase db dump --db-url "$OLD_DB_URL" -f out/data.sql --use-copy --data-only -x "storage.objects" -x "storage.buckets_vectors" -x "storage.vector_indexes"
+          ls -la out; grep -c "^COPY" out/data.sql || true
+      - name: keep the dump (7 days, private to the repo)
+        if: startsWith(steps.step.outputs.args, 'dump')
+        uses: actions/upload-artifact@v4
+        with: { name: mystnight-db, path: out/, retention-days: 7 }
+      - name: fetch the dump
+        if: startsWith(steps.step.outputs.args, 'restore')
+        uses: actions/download-artifact@v4
+        with:
+          name: mystnight-db
+          path: out/
+          run-id: ${{ steps.step.outputs.rid }}
+          github-token: ${{ github.token }}
+      - name: restore (new project)
+        if: startsWith(steps.step.outputs.args, 'restore')
+        env: { NEW_DB_URL: "${{ secrets.NEW_DB_URL }}" }
+        run: |
+          sudo apt-get -qq update && sudo apt-get -qq install -y postgresql-client >/dev/null
+          psql --single-transaction --variable ON_ERROR_STOP=1 --file out/roles.sql --file out/schema.sql --command 'SET session_replication_role = replica' --file out/data.sql --dbname "$NEW_DB_URL"
+          psql "$NEW_DB_URL" -c "select (select count(*) from auth.users) users, (select count(*) from public.soup_library) soups, (select count(*) from public.messages) msgs"

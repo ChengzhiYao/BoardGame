@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/server';
 import { r2, r2On } from '@/lib/store';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
+export const fetchCache = 'force-no-store'; // 不然读进度那一下会被 Next 缓存,每次都从头搬
 
 export async function GET(req: Request) {
   const sp = new URL(req.url).searchParams; const admin = createAdminClient();

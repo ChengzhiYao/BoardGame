@@ -1,6 +1,7 @@
 // 为伴侣生成头像。以自拍为主(偶尔宠物/动漫);人物一律 21-26 岁年轻成年人,女生偏好看的网红自拍感。
 // 更像真人用的社交头像。虚构,非真人冒用。
 import { NextResponse } from 'next/server';
+import { store } from '@/lib/store';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { ensureCompanion, isAllowed } from '@/lib/companion/engine';
 import { generateImage } from '@/lib/image';
@@ -202,9 +203,9 @@ He is good-looking and youthful; this is a real selfie he posted himself — NOT
     // 中档画质 + 较重 JPEG 压缩:像手机前置拍完再经微信发出来的画质,而不是高清相机
     const buf = await generateImage(prompt, { quality: 'medium', jpeg: 58 });
     const path = `avatars/companion/${user.id}.jpg`;
-    const up = await admin.storage.from('scene-images').upload(path, buf, { contentType: buf[0] === 0xff ? 'image/jpeg' : 'image/png', upsert: true });
+    const up = await store(admin).from('scene-images').upload(path, buf, { contentType: buf[0] === 0xff ? 'image/jpeg' : 'image/png', upsert: true });
     if (up.error) throw new Error(up.error.message);
-    const { data: pub } = admin.storage.from('scene-images').getPublicUrl(path);
+    const { data: pub } = store(admin).from('scene-images').getPublicUrl(path);
     const url = `${pub.publicUrl}?t=${Date.now()}`;
     await admin.from('companion').update({ avatar_url: url }).eq('user_id', user.id);
     return NextResponse.json({ ok: true, avatarUrl: url, type });

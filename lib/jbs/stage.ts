@@ -1,6 +1,7 @@
 // 剧本杀「舞台」：场景地图、非嫌疑人角色（NPC）、每幕开场演出 + 中途突发事件、分幕剧本（每幕解锁的私人记忆）。
 // 新案件由出本 prompt 直接写好；老案件（本库里已有的）第一次被玩时用一次调用补齐，并存回本库永久复用。
 import { callLLMJson } from '@/lib/llm';
+import { store } from '@/lib/store';
 import { generateImage } from '@/lib/image';
 
 export type Scene = { id: string; name: string; mood?: string; spots?: string[]; image?: string };
@@ -75,8 +76,8 @@ export async function drawScenes(admin: any, cf: any, opts: { roomId: string; li
       const prompt = `电影感的场景概念图，竖向构图，没有人物正脸，没有任何文字。地点：${s.name}。${s.mood || ''} 时代：${era}。剧本杀《${cf.title || ''}》。氛围压抑、写实、低饱和、有戏剧性的光影。`;
       const buf = await generateImage(prompt, { quality: 'low', jpeg: 60 });
       const path = `jbs-scenes/${opts.libId || opts.roomId}-${s.id}.jpg`;
-      const up = await admin.storage.from('scene-images').upload(path, buf, { contentType: 'image/jpeg', upsert: true });
-      if (!up.error) s.image = admin.storage.from('scene-images').getPublicUrl(path).data.publicUrl;
+      const up = await store(admin).from('scene-images').upload(path, buf, { contentType: 'image/jpeg', upsert: true });
+      if (!up.error) s.image = store(admin).from('scene-images').getPublicUrl(path).data.publicUrl;
     } catch {}
   }));
   const drawn = todo.filter((s: any) => s.image).length;

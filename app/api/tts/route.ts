@@ -1,5 +1,6 @@
 // 语音。默认走 Linger 桥接的 Fish 免费模型（不花钱；免费额度用完回 quota，前端自动关语音）。TTS_PROVIDER=openai/azure 时走付费。按性别+种子选嗓音；相同文本+嗓音命中缓存不重复生成。
 import { NextResponse } from 'next/server';
+import { store } from '@/lib/store';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { createHash } from 'crypto';
 import OpenAI from 'openai';
@@ -42,8 +43,8 @@ export async function POST(req: Request) {
     const fseed = narrator ? 0 : Math.abs(seed) % 3;
     const fhash = createHash('sha1').update(`fish|${narrator ? 'n' : gender}|${zh ? 'zh' : 'en'}|${fseed}|${text}`).digest('hex');
     const fpath = `tts/${fhash}.mp3`;
-    const { data: hit } = await admin.storage.from('scene-images').list('tts', { search: `${fhash}.mp3`, limit: 1 });
-    if (hit && hit.length) return NextResponse.json({ url: admin.storage.from('scene-images').getPublicUrl(fpath).data.publicUrl, cached: true });
+    const { data: hit } = await store(admin).from('scene-images').list('tts', { search: `${fhash}.mp3`, limit: 1 });
+    if (hit && hit.length) return NextResponse.json({ url: store(admin).from('scene-images').getPublicUrl(fpath).data.publicUrl, cached: true });
     if (Date.now() >= FREE_VOICE_UNTIL) {
       let ok = false;
       if (roomId) { const { data: rm } = await admin.from('rooms').select('companion').eq('id', roomId).maybeSingle(); ok = !!(rm as any)?.companion?.agentId; }
@@ -68,10 +69,10 @@ export async function POST(req: Request) {
       if (r.status === 429) return NextResponse.json({ error: 'quota' }, { status: 429 });
       if (!r.ok) return NextResponse.json({ error: 'voice_unavailable' }, { status: 502 });
       const fbuf = Buffer.from(await r.arrayBuffer());
-      const up = await admin.storage.from('scene-images').upload(fpath, fbuf, { contentType: 'audio/mpeg', upsert: true });
+      const up = await store(admin).from('scene-images').upload(fpath, fbuf, { contentType: 'audio/mpeg', upsert: true });
       if (up.error) return NextResponse.json({ error: up.error.message }, { status: 500 });
       if (roomId) await admin.from('api_usage').insert({ room_id: roomId, kind: 'tts', model: 'fish:s2.1-pro-free', prompt_tokens: text.length, cost: 0 });
-      return NextResponse.json({ url: admin.storage.from('scene-images').getPublicUrl(fpath).data.publicUrl });
+      return NextResponse.json({ url: store(admin).from('scene-images').getPublicUrl(fpath).data.publicUrl });
     } catch { return NextResponse.json({ error: 'voice_unavailable' }, { status: 502 }); }
   }
   const azureKey = process.env.AZURE_SPEECH_KEY;
@@ -90,9 +91,9 @@ export async function POST(req: Request) {
   const hash = createHash('sha1').update(`${tag}|${voice}|${text}`).digest('hex');
   const path = `tts/${hash}.mp3`;
 
-  const { data: existing } = await admin.storage.from('scene-images').list('tts', { search: `${hash}.mp3`, limit: 1 });
+  const { data: existing } = await store(admin).from('scene-images').list('tts', { search: `${hash}.mp3`, limit: 1 });
   if (existing && existing.length) {
-    const { data: pub } = admin.storage.from('scene-images').getPublicUrl(path);
+    const { data: pub } = store(admin).from('scene-images').getPublicUrl(path);
     return NextResponse.json({ url: pub.publicUrl, cached: true });
   }
 
@@ -122,9 +123,9 @@ export async function POST(req: Request) {
       buf = Buffer.from(await res.arrayBuffer());
     }
 
-    const up = await admin.storage.from('scene-images').upload(path, buf, { contentType: 'audio/mpeg', upsert: true });
+    const up = await store(admin).from('scene-images').upload(path, buf, { contentType: 'audio/mpeg', upsert: true });
     if (up.error) throw new Error(up.error.message);
-    const { data: pub } = admin.storage.from('scene-images').getPublicUrl(path);
+    const { data: pub } = store(admin).from('scene-images').getPublicUrl(path);
     if (roomId) await admin.from('api_usage').insert({ room_id: roomId, kind: 'tts', model: tag + ':' + voice, prompt_tokens: text.length, cost: useAzure ? 0 : (text.length / 1000) * 0.015 });
     return NextResponse.json({ url: pub.publicUrl });
   } catch (e: any) {

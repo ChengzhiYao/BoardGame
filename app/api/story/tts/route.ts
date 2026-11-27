@@ -1,5 +1,6 @@
 // 讲故事 · 整篇朗读合成。优先 Azure（若配置），否则用 OpenAI TTS（与 CoC 语音同一套 key）。都返回 MP3，可拖动进度。
 import { NextResponse } from 'next/server';
+import { store } from '@/lib/store';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { createHash } from 'crypto';
 import OpenAI from 'openai';
@@ -70,9 +71,9 @@ export async function POST(req: Request) {
     }
   } catch (e: any) { await admin.from('error_logs').insert({ room_id: roomId, scope: 'tts', message: '讲故事 Fish 朗读失败，退回旧声音:' + String(e?.message || e).slice(0, 120) }); }
 
-  const { data: existing } = await admin.storage.from('scene-images').list('story-tts', { search: `${hash}.mp3`, limit: 1 });
+  const { data: existing } = await store(admin).from('scene-images').list('story-tts', { search: `${hash}.mp3`, limit: 1 });
   if (existing && existing.length) {
-    const { data: pub } = admin.storage.from('scene-images').getPublicUrl(path);
+    const { data: pub } = store(admin).from('scene-images').getPublicUrl(path);
     await persist(pub.publicUrl);
     return NextResponse.json({ ok: true, url: pub.publicUrl, cached: true });
   }
@@ -103,9 +104,9 @@ export async function POST(req: Request) {
       }
     }
     const buf = Buffer.concat(bufs);
-    const up = await admin.storage.from('scene-images').upload(path, buf, { contentType: 'audio/mpeg', upsert: true });
+    const up = await store(admin).from('scene-images').upload(path, buf, { contentType: 'audio/mpeg', upsert: true });
     if (up.error) throw new Error(up.error.message);
-    const { data: pub } = admin.storage.from('scene-images').getPublicUrl(path);
+    const { data: pub } = store(admin).from('scene-images').getPublicUrl(path);
     await admin.from('api_usage').insert({ room_id: roomId, kind: 'tts', model: tag + ':' + voice, prompt_tokens: story.length, cost: useAzure ? 0 : (story.length / 1000) * 0.015 });
     await persist(pub.publicUrl);
     return NextResponse.json({ ok: true, url: pub.publicUrl });

@@ -2,6 +2,7 @@
 // 声音用 Fish 免费真人声音，按段合成后拼成一条；记下每段在整条音频里的起止位置（按字节比例，mp3 恒定码率时就是时间比例），
 // 前端据此做"念到哪、字就从哪冒出来"的大字效果。
 import { createHash } from 'crypto';
+import { store } from '@/lib/store';
 import { LINGER_URL } from '@/lib/linger/companion';
 import { callLLMJson } from '@/lib/llm';
 import { buildStoryCuesPrompt, STORY_MOODS, STORY_SFX } from '@/lib/story/prompt';
@@ -61,9 +62,9 @@ export async function narrateStory(admin: any, story: string, lang: 'zh' | 'en',
   if (total < 4000) return null;
   let acc = 0;
   const segs = bufs.map((b, i) => { const a = acc / total; acc += b.length; return { i, a: Math.round(a * 10000) / 10000, b: Math.round((acc / total) * 10000) / 10000 }; });
-  const up = await admin.storage.from('scene-images').upload(path, Buffer.concat(bufs), { contentType: 'audio/mpeg', upsert: true });
+  const up = await store(admin).from('scene-images').upload(path, Buffer.concat(bufs), { contentType: 'audio/mpeg', upsert: true });
   if (up.error) return null;
-  return { url: admin.storage.from('scene-images').getPublicUrl(path).data.publicUrl, segs, voice, preset };
+  return { url: store(admin).from('scene-images').getPublicUrl(path).data.publicUrl, segs, voice, preset };
 }
 
 export async function cueStory(story: string, genre: string, lang: string) {

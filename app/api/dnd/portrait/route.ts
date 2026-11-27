@@ -1,5 +1,6 @@
 // D&D · 为本人英雄生成肖像（建卡后自动调用；幂等）。
 import { NextResponse } from 'next/server';
+import { store } from '@/lib/store';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { generateImage } from '@/lib/image';
 import { buildDndPortraitPrompt } from '@/lib/image/style';
@@ -30,9 +31,9 @@ export async function POST(req: Request) {
     const subject = `${c.name}，${RACES[c.race]?.cn || ''}${CLASSES[c.cls]?.cn || ''}（${BACKGROUNDS[c.background]?.cn || ''}出身，擅长${top}）`;
     const buf = await generateImage(buildDndPortraitPrompt(subject, state?.theme));
     const path = `avatars/dnd/${roomId}-${me.seat}.png`;
-    const up = await admin.storage.from('scene-images').upload(path, buf, { contentType: 'image/jpeg', upsert: true });
+    const up = await store(admin).from('scene-images').upload(path, buf, { contentType: 'image/jpeg', upsert: true });
     if (up.error) throw new Error(up.error.message);
-    const { data: pub } = admin.storage.from('scene-images').getPublicUrl(path);
+    const { data: pub } = store(admin).from('scene-images').getPublicUrl(path);
     await mutateState(admin, roomId, (s) => { if (s.chars[me.seat]) s.chars[me.seat].avatar = `${pub.publicUrl}?t=${Date.now()}`; return { ok: true }; });
     await admin.from('api_usage').insert({ room_id: roomId, kind: 'image', model: process.env.IMAGE_MODEL || 'gpt-image-1-mini', image_count: 1, cost: 0.005 });
     return NextResponse.json({ ok: true });

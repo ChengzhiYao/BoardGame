@@ -1,5 +1,6 @@
 // 头像上传：multipart file → Supabase Storage(avatars 桶) → 存 users.avatar_url。
 import { NextResponse } from 'next/server';
+import { store } from '@/lib/store';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
@@ -18,9 +19,9 @@ export async function POST(req: Request) {
   const path = `${user.id}/${Date.now()}.${ext}`;
   const buf = Buffer.from(await file.arrayBuffer());
   const admin = createAdminClient();
-  const { error: upErr } = await admin.storage.from('avatars').upload(path, buf, { contentType: file.type, upsert: true });
+  const { error: upErr } = await store(admin).from('avatars').upload(path, buf, { contentType: file.type, upsert: true });
   if (upErr) return NextResponse.json({ ok: false, reason: 'upload', detail: upErr.message }, { status: 500 });
-  const { data: pub } = admin.storage.from('avatars').getPublicUrl(path);
+  const { data: pub } = store(admin).from('avatars').getPublicUrl(path);
   const avatarUrl = pub.publicUrl;
   await admin.from('users').update({ avatar_url: avatarUrl }).eq('id', user.id);
   return NextResponse.json({ ok: true, avatarUrl });

@@ -1,6 +1,7 @@
 // 今夜怪谈：每天一个免费的恐怖故事。像一个普通人深夜发语音给你讲他遇到的怪事，讲述人和故事里每个角色用不同的 Fish 声音（男角色男声、女角色女声）。
 // 故事和配音都提前做好存起来（Linger 每 10 分钟叫一次补货），每天发一篇；往期是会员 / 畅玩卡专属。
 import { callLLMJson } from '@/lib/llm';
+import { store } from '@/lib/store';
 import { LINGER_URL } from '@/lib/linger/companion';
 import { dayKey, type Lang } from '@/lib/soup/daily';
 import { buildStoryCuesPrompt, STORY_MOODS, STORY_SFX } from '@/lib/story/prompt';
@@ -142,8 +143,8 @@ export async function voiceGhost(admin: any, id: string, deadline: number): Prom
         if (!r.ok) return;
         const buf = Buffer.from(await r.arrayBuffer());
         const path = `tts/ghost-${id}-${i}.mp3`;
-        const up = await admin.storage.from('scene-images').upload(path, buf, { contentType: 'audio/mpeg', upsert: true });
-        if (!up.error) { lines[i] = { ...l, audio: admin.storage.from('scene-images').getPublicUrl(path).data.publicUrl, secs: Math.round(buf.length / 16000 * 10) / 10 }; }
+        const up = await store(admin).from('scene-images').upload(path, buf, { contentType: 'audio/mpeg', upsert: true });
+        if (!up.error) { lines[i] = { ...l, audio: store(admin).from('scene-images').getPublicUrl(path).data.publicUrl, secs: Math.round(buf.length / 16000 * 10) / 10 }; }
       } catch {}
     }));
     await admin.from('ghost_stories').update({ lines }).eq('id', id);

@@ -1,11 +1,12 @@
 // 克苏鲁的海报与人物肖像：画一次存起来，永久复用（低画质 + JPEG 压缩，手机上看足够，最省钱）。
 import { generateImage } from '@/lib/image';
+import { store as mediaStore } from '@/lib/store';
 import { artStyleFor, buildAvatarPrompt } from '@/lib/image/style';
 
 async function store(admin: any, path: string, buf: Buffer): Promise<string | null> {
-  const up = await admin.storage.from('scene-images').upload(path, buf, { contentType: 'image/jpeg', upsert: true });
+  const up = await mediaStore(admin).from('scene-images').upload(path, buf, { contentType: 'image/jpeg', upsert: true });
   if (up.error) return null;
-  return admin.storage.from('scene-images').getPublicUrl(path).data.publicUrl;
+  return mediaStore(admin).from('scene-images').getPublicUrl(path).data.publicUrl;
 }
 
 export async function makePoster(admin: any, m: { id: string; title?: string; hook?: string; tagline?: string; genre?: string; era?: string; place?: string }) {

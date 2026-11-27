@@ -1,5 +1,6 @@
 // TA 发来的生活照:从 TA 的视角拍眼前的东西(不拍脸),手机随手拍画质。每天有上限。
 import { NextResponse } from 'next/server';
+import { store } from '@/lib/store';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { ensureCompanion, isAllowed } from '@/lib/companion/engine';
 import { verifyPhoto, photosToday, PHOTO_DAILY_LIMIT } from '@/lib/companion/photo';
@@ -26,9 +27,9 @@ Photorealistic, not an illustration, not a 3D render, not a professional or stoc
   try {
     const buf = await generateImage(prompt, { quality: 'low', jpeg: 60 });
     const path = `avatars/companion/photos/${user.id}/${Date.now()}.jpg`;
-    const up = await admin.storage.from('scene-images').upload(path, buf, { contentType: buf[0] === 0xff ? 'image/jpeg' : 'image/png', upsert: true });
+    const up = await store(admin).from('scene-images').upload(path, buf, { contentType: buf[0] === 0xff ? 'image/jpeg' : 'image/png', upsert: true });
     if (up.error) throw new Error(up.error.message);
-    const { data: pub } = admin.storage.from('scene-images').getPublicUrl(path);
+    const { data: pub } = store(admin).from('scene-images').getPublicUrl(path);
     const text = `[photo:${pub.publicUrl}|${desc.replace(/[\]|]/g, ' ')}]`;
     await admin.from('companion_msgs').insert({ user_id: user.id, role: 'ai', text });
     await admin.from('companion').update({ last_ai_at: new Date().toISOString() }).eq('user_id', user.id);

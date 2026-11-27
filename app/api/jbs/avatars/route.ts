@@ -1,6 +1,7 @@
 // 为剧本杀全部角色生成头像（含 AI 角色）。画风按本剧设定 + 角色描述自适应，不套固定风格。
 // 房主触发；幂等：已有头像的角色跳过，可重复点击补齐剩余。
 import { NextResponse } from 'next/server';
+import { store } from '@/lib/store';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { generateImage } from '@/lib/image';
 import { buildJbsPortraitPrompt } from '@/lib/image/style';
@@ -38,9 +39,9 @@ export async function POST(req: Request) {
     const full = { ...(byName[c.name] || {}), name: c.name, age: c.age, occupation: c.occupation, public_info: c.public_info };
     const buf = await generateImage(buildJbsPortraitPrompt(full, meta));
     const path = `avatars/jbs/${c.id}.png`;
-    const up = await admin.storage.from('scene-images').upload(path, buf, { contentType: 'image/jpeg', upsert: true });
+    const up = await store(admin).from('scene-images').upload(path, buf, { contentType: 'image/jpeg', upsert: true });
     if (up.error) throw new Error(up.error.message);
-    const { data: pub } = admin.storage.from('scene-images').getPublicUrl(path);
+    const { data: pub } = store(admin).from('scene-images').getPublicUrl(path);
     await admin.from('jbs_characters').update({ avatar_url: pub.publicUrl }).eq('id', c.id);
     await admin.from('api_usage').insert({ room_id: roomId, kind: 'image', model: process.env.IMAGE_MODEL || 'gpt-image-1-mini', image_count: 1, cost: 0.005 });
   }));

@@ -1,5 +1,6 @@
 // 玩家确认配图建议 → 用 OpenAI 出图 → 上传 Storage → 入画廊；含预算控制。
 import { NextResponse } from 'next/server';
+import { store } from '@/lib/store';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { generateImage } from '@/lib/image';
 import { buildImagePrompt } from '@/lib/image/style';
@@ -52,9 +53,9 @@ export async function POST(req: Request) {
   try {
     const buf = await generateImage(buildImagePrompt(img.image_type || 'scene_image', img.prompt || '一处不安的场景', era, theme));
     const path = `${roomId}/${imageId}.png`;
-    const up = await admin.storage.from('scene-images').upload(path, buf, { contentType: 'image/jpeg', upsert: true });
+    const up = await store(admin).from('scene-images').upload(path, buf, { contentType: 'image/jpeg', upsert: true });
     if (up.error) throw new Error('上传失败：' + up.error.message);
-    const { data: pub } = admin.storage.from('scene-images').getPublicUrl(path);
+    const { data: pub } = store(admin).from('scene-images').getPublicUrl(path);
 
     await admin.from('images').update({ status: 'done', storage_url: pub.publicUrl, cost: 0.04 }).eq('id', imageId);
     await admin.from('rooms').update({ image_used: (room.image_used || 0) + 1 }).eq('id', roomId);

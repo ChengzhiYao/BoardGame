@@ -1,5 +1,6 @@
 // 生成角色头像（套用全局锁定风格 + 模组时代）。幂等：已有头像则直接返回。
 import { NextResponse } from 'next/server';
+import { store } from '@/lib/store';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { generateImage } from '@/lib/image';
 import { buildAvatarPrompt } from '@/lib/image/style';
@@ -35,9 +36,9 @@ export async function POST(req: Request) {
   try {
     const buf = await generateImage(buildAvatarPrompt(ch, era, theme));
     const path = `avatars/${ch.id}.png`;
-    const up = await admin.storage.from('scene-images').upload(path, buf, { contentType: 'image/jpeg', upsert: true });
+    const up = await store(admin).from('scene-images').upload(path, buf, { contentType: 'image/jpeg', upsert: true });
     if (up.error) throw new Error('上传失败：' + up.error.message);
-    const { data: pub } = admin.storage.from('scene-images').getPublicUrl(path);
+    const { data: pub } = store(admin).from('scene-images').getPublicUrl(path);
 
     await admin.from('characters').update({ avatar_url: pub.publicUrl }).eq('id', ch.id);
     await admin.from('api_usage').insert({ room_id: roomId, kind: 'image', model: process.env.IMAGE_MODEL || 'gpt-image-1-mini', image_count: 1, cost: 0.005 });

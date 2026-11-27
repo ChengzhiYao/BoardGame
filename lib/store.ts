@@ -1,3 +1,4 @@
+// Supabase: MystNight runs on its own project (jyvnlqlonyueuxsybnzq, org MystNight) since 2026-11-27.
 // 文件存储:配了 Cloudflare R2(R2_* 环境变量)就存 R2(下载流量免费),否则还用 Supabase Storage。
 // 用法跟 supabase 的 storage 一样:store(admin).from('scene-images').upload / getPublicUrl / list(只支持按文件名精确查)。
 // R2 里的路径 = <原 bucket>/<原路径>,公开地址 = R2_PUBLIC_URL/<原 bucket>/<原路径>。

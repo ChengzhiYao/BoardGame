@@ -26,7 +26,7 @@ export async function GET(req: Request) {
       const p = await r2('PUT', o.k, buf, o.mime || r.headers.get('content-type') || 'application/octet-stream');
       if (!p.ok) throw new Error(`put ${p.status}`);
       ok++;
-    } catch (e: any) { bad++; if (errs.length < 5) errs.push(`${o.k}: ${String(e?.message || e).slice(0, 80)}`); }
+    } catch (e: any) { bad++; if (errs.length < 5) errs.push(`${o.k}: ${String(e?.message || e).replace(/Credential=\S+/g, 'Credential=…').slice(0, 80)}`); }
   }));
   const last = objs[objs.length - 1].k;
   await admin.from('r2_migrate').update({ cursor: last, done: (st.done || 0) + ok, failed: (st.failed || 0) + bad, updated_at: new Date().toISOString() }).eq('id', 1);

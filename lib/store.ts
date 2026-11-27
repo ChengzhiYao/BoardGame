@@ -3,7 +3,9 @@
 // R2 里的路径 = <原 bucket>/<原路径>,公开地址 = R2_PUBLIC_URL/<原 bucket>/<原路径>。
 import { createHash, createHmac } from 'crypto';
 
-const env = () => ({ acct: process.env.R2_ACCOUNT_ID || '', key: process.env.R2_ACCESS_KEY_ID || '', secret: process.env.R2_SECRET_ACCESS_KEY || '', bucket: process.env.R2_BUCKET || '', pub: (process.env.R2_PUBLIC_URL || '').replace(/\/+$/, '') });
+// 粘贴进 Vercel 的值可能带换行/空格:只取第一段
+const tok = (v?: string) => String(v || '').trim().split(/\s+/)[0] || '';
+const env = () => ({ acct: tok(process.env.R2_ACCOUNT_ID), key: tok(process.env.R2_ACCESS_KEY_ID), secret: tok(process.env.R2_SECRET_ACCESS_KEY), bucket: tok(process.env.R2_BUCKET), pub: tok(process.env.R2_PUBLIC_URL).replace(/\/+$/, '') });
 export const r2On = () => { const e = env(); return !!(e.acct && e.key && e.secret && e.bucket && e.pub); };
 
 const sha = (b: Buffer | string) => createHash('sha256').update(b).digest('hex');

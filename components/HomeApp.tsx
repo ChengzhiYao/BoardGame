@@ -216,7 +216,6 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
           { label: lang === 'en' ? 'Blog' : '博客', href: lang === 'en' ? '/en/blog' : '/zh/blog', icon: 'blog' as const, group: 3 },
           { label: lang === 'en' ? 'Guestbook' : '留言板', onClick: () => setShowFeedback(true), icon: 'book' as const, group: 3 },
           { label: lang === 'en' ? 'Contact us' : '联系我们', onClick: () => { setShowContact(true); setContactState('idle'); }, icon: 'mail' as const, group: 3 },
-          ...(isOwner ? [{ label: lang === 'en' ? 'AI Companion' : 'AI 陪伴', href: '/companion', icon: 'heart' as const, group: 3 }] : []),
         ]} />
 
       <LandingHero lang={lang} busy={busy && gameMode === 'soup'} name={name} setName={setName} needName={!acctName}

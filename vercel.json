@@ -4,10 +4,6 @@
     {
       "path": "/api/rooms/sweep",
       "schedule": "0 4 * * *"
-    },
-    {
-      "path": "/api/companion/cron",
-      "schedule": "0 15 * * *"
     }
   ]
 }

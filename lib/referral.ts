@@ -1,4 +1,4 @@
-// 推广链接(跟 Linger 同一套):任何人都能生成自己的链接(mystnight.com/?ref=代码),别人通过它注册、之后付款,推广人拿分成。
+// 合作推广链接(邀请制,不公开):只有站长在 /partner/admin 手动加的合作方才有专属链接(mystnight.com/?ref=代码),别人通过它注册、之后付款,合作方拿分成。
 // - 点链接:记一次点击,浏览器记 30 天(第一次点的那个推广人算数)
 // - 30 天内注册的新用户 → 记到这个推广人名下(自己推荐自己不算)
 // - 这个用户前 N 个月(默认 3)的每一笔付款(会员月费/年费、会员卡、派对包、单局、畅玩卡、定制剧本)→ 按比例(默认 40%)记一笔分成,状态"待付"
@@ -20,8 +20,8 @@ export async function claimReferral(admin: any, user: any, code: string) {
   try {
     const created = new Date(user.created_at || 0).getTime();
     if (Date.now() - created > 30 * 86400000) return; // 老用户不算
-    const { data: p } = await admin.from('ref_partners').select('code, user_id').eq('code', code).maybeSingle();
-    if (!p || p.user_id === user.id) return;
+    const { data: p } = await admin.from('ref_partners').select('code, user_id, email').eq('code', code).maybeSingle();
+    if (!p || p.user_id === user.id || (p.email && String(p.email).toLowerCase() === String(user.email || '').toLowerCase())) return;
     await admin.from('ref_signups').insert({ user_id: user.id, code });
   } catch {}
 }

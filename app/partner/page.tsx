@@ -1,5 +1,6 @@
 'use client';
-// 推广计划:生成自己的推广链接,看点击 / 注册 / 付费 / 收入,填收款方式。简中 / 繁中 / 英文
+// 合作伙伴后台(邀请制):站长手动加的合作方用受邀邮箱登录后,看自己的专属链接、数据、收入,填收款方式。简中 / 繁中 / 英文。
+// 不公开、不介绍成「人人可参加的推广计划」:没被邀请的人只看到「没有合作资料」。
 import { useEffect, useState } from 'react';
 import { signInWithGoogle, sendEmailOtp, verifyEmailOtp } from '@/lib/auth';
 
@@ -10,10 +11,7 @@ const Card = ({ children, className = '' }: any) => <div className={`rounded-2xl
 export default function Partner() {
   const [lg, setLg] = useState<Lg>('zh');
   const [d, setD] = useState<any>(null);
-  const [code, setCode] = useState('');
   const [payout, setPayout] = useState('');
-  const [method, setMethod] = useState('PayPal');
-  const [acct, setAcct] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   const [copied, setCopied] = useState(false);
@@ -25,13 +23,6 @@ export default function Partner() {
     setLg(/^zh-(tw|hk|mo|hant)/.test(n) ? 'tw' : n.startsWith('zh') ? 'zh' : 'en');
     load();
   }, []);
-  async function create() {
-    setBusy(true); setMsg('');
-    const r = await fetch('/api/ref/me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'create', code, payout: `${method}: ${acct.trim()}` }) });
-    const j = await r.json().catch(() => ({}));
-    if (!j.ok) setMsg(j.reason === 'taken' ? T('这个代码已经被用了,换一个', '這個代碼已經被使用,請換一個', 'That code is taken — try another') : j.reason === 'payout' ? T('先填收款账号', '請先填寫收款帳號', 'Enter where we should pay you') : j.reason === 'short' ? T('代码至少 3 个字符', '代碼至少 3 個字元', 'At least 3 characters') : T('出错了,再试一次', '出錯了,請再試一次', 'Something went wrong'));
-    await load(); setBusy(false);
-  }
   async function savePayout() { setBusy(true); await fetch('/api/ref/me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'payout', payout }) }); setMsg(T('已保存', '已儲存', 'Saved')); setBusy(false); }
   const p = d?.partner; const s = d?.stats;
   const rate = p ? Math.round(p.rate * 100) : 40; const months = p?.months || 3;
@@ -43,20 +34,12 @@ export default function Partner() {
     <main className="min-h-screen bg-[#0b0c0f] text-parchment" style={{ backgroundImage: 'radial-gradient(100% 50% at 50% 0%, rgba(201,169,110,.12), transparent 60%)' }}>
       <div className="max-w-md mx-auto px-4 pt-[calc(env(safe-area-inset-top)+1.25rem)] pb-16 space-y-4">
         <div className="flex justify-between items-center px-1">
-          <a href="/" className="font-serif text-[16px] text-[#efe6d2]">{lg === 'en' ? 'MystNight' : lg === 'tw' ? '謎夜' : '谜夜'} <span className="text-[11px] tracking-[.25em] text-[#c9a96e]/70 ml-1">PARTNERS</span></a>
+          <a href="/" className="font-serif text-[16px] text-[#efe6d2]">{lg === 'en' ? 'MystNight' : lg === 'tw' ? '謎夜' : '谜夜'} <span className="text-[11px] tracking-[.25em] text-[#c9a96e]/70 ml-1">PARTNER</span></a>
           <div className="flex gap-1 text-[12px]">{(['zh', 'tw', 'en'] as Lg[]).map((k) => <button key={k} onClick={() => setLg(k)} className={`px-2 py-1 rounded-full ${lg === k ? 'bg-[#c9a96e]/20 text-[#e6c76e]' : 'text-parchment/40'}`}>{k === 'zh' ? '简' : k === 'tw' ? '繁' : 'EN'}</button>)}</div>
         </div>
-        <Card>
-          <h1 className="font-serif text-[22px] text-[#efe6d2]">{T('推荐谜夜,赚分成', '推薦謎夜,賺分潤', 'Share MystNight, earn commission')}</h1>
-          <p className="mt-2 text-[14px] leading-relaxed text-parchment/70">{T(`用你的专属链接推荐别人。通过你的链接注册的玩家,前 ${months} 个月里每一笔付款(会员、派对包、单局都算),你都拿 ${rate}%。`, `用你的專屬連結推薦別人。透過你的連結註冊的玩家,前 ${months} 個月內每一筆付款(會員、派對包、單局都算),你都可以獲得 ${rate}%。`, `Share your personal link. For every player who signs up through it, you earn ${rate}% of every payment they make in their first ${months} months — memberships, party passes and single games all count.`)}</p>
-          <ol className="mt-4 space-y-2 text-[13.5px] text-parchment/80">
-            {[T('生成你的专属链接', '建立你的專屬連結', 'Get your personal link'), T('放到视频简介、置顶评论、社群、群聊', '放在影片說明欄、置頂留言、社群、群組', 'Put it in video descriptions, pinned comments, posts and group chats'), T('有人通过链接注册并付款,自动记到你名下,每月结算,没有最低门槛', '有人透過連結註冊並付款,系統自動記錄,每月結算,沒有最低提現門檻', 'Signups and payments are tracked automatically — paid out monthly, no minimum')].map((t, i) => <li key={i} className="flex gap-3"><span className={`w-6 h-6 shrink-0 rounded-full text-[12px] flex items-center justify-center ${gold}`}>{i + 1}</span><span className="pt-0.5">{t}</span></li>)}
-          </ol>
-        </Card>
-
         {!d ? <Card><div className="text-parchment/40 text-sm">…</div></Card> : !d.loggedIn ? (
           <Card>
-            <div className="text-[14px] text-parchment/80 mb-3">{T('先登录,再生成你的推广链接', '請先登入,再建立你的推薦連結', 'Sign in to get your link')}</div>
+            <div className="text-[14px] text-parchment/80 mb-3">{T('合作伙伴登录 · 请使用收到邀请的邮箱', '合作夥伴登入 · 請使用收到邀請的信箱', 'Partner sign-in · use the email you were invited with')}</div>
             <button onClick={() => signInWithGoogle('/partner')} className={`w-full py-3 rounded-xl ${gold}`}>{T('用 Google 登录', '使用 Google 登入', 'Continue with Google')}</button>
             {!sent ? (
               <div className="flex gap-2 mt-3"><input value={email} onChange={(e) => setEmail(e.target.value)} placeholder={T('或者用邮箱', '或使用 Email', 'or your email')} className={inp} />
@@ -68,19 +51,20 @@ export default function Partner() {
           </Card>
         ) : !p ? (
           <Card>
-            <div className="text-[14px] text-[#efe6d2] mb-2">{T('1. 收款方式', '1. 收款方式', '1. How should we pay you?')}</div>
-            <div className="flex flex-wrap gap-2 mb-2">{['PayPal', 'Wise', T('银行转账', '銀行轉帳', 'Bank transfer'), T('其他', '其他', 'Other')].map((m) => <button key={m} onClick={() => setMethod(m)} className={`px-3 py-1.5 rounded-full border text-[13px] ${method === m ? 'border-[#c9a96e] bg-[#c9a96e]/15 text-[#e6c76e]' : 'border-white/10 text-parchment/60'}`}>{m}</button>)}</div>
-            <input value={acct} onChange={(e) => setAcct(e.target.value)} placeholder={method === 'PayPal' ? T('PayPal 邮箱', 'PayPal 信箱', 'PayPal email') : method === 'Wise' ? T('Wise 邮箱', 'Wise 信箱', 'Wise email') : T('收款方式和账号', '收款方式和帳號', 'Payment method and account')} className={`${inp} mb-5`} />
-            <div className="text-[14px] text-[#efe6d2] mb-2">{T('2. 链接代码(选填,不填就随机)', '2. 連結代碼(選填,不填則隨機)', '2. Link code (optional)')}</div>
-            <div className="flex items-center gap-1 text-[14px]"><span className="text-parchment/40 shrink-0">mystnight.com/?ref=</span><input value={code} onChange={(e) => setCode(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 24))} placeholder="yourname" className={inp} /></div>
-            <button disabled={busy || acct.trim().length < 3} onClick={create} className={`mt-4 w-full disabled:opacity-50 py-3 rounded-xl ${gold}`}>{T('生成我的推广链接', '建立我的推薦連結', 'Create my link')}</button>
+            <div className="text-[14px] text-parchment/75 leading-relaxed">{T(`这个账号(${d.email})没有合作资料。如果你是谜夜的合作伙伴,请换成收到邀请的那个邮箱登录。`, `這個帳號(${d.email})沒有合作資料。如果你是謎夜的合作夥伴,請改用收到邀請的信箱登入。`, `No partnership is set up for ${d.email}. If you're a MystNight partner, sign in with the email you were invited with.`)}</div>
           </Card>
         ) : (<>
+          <Card className="border-[#c9a96e]/35" >
+            <div className="text-[11px] tracking-[.25em] text-[#c9a96e]/75">{T('专属合作', '專屬合作', 'EXCLUSIVE PARTNERSHIP')}</div>
+            <h1 className="mt-1.5 font-serif text-[22px] text-[#efe6d2]">{p.name ? `${p.name} × ` : ''}{T('谜夜', '謎夜', 'MystNight')}</h1>
+            <p className="mt-2 text-[14px] leading-relaxed text-parchment/70">{T(`通过你的专属链接注册的玩家,前 ${months} 个月里每一笔付款(会员、派对包、单局都算),你都拿 ${rate}%。系统自动记录,每笔都会邮件通知你;每月结算,没有最低门槛。`, `透過你的專屬連結註冊的玩家,前 ${months} 個月內每一筆付款(會員、派對包、單局都算),你都可以獲得 ${rate}%。系統自動記錄,每一筆都會寄信通知你;每月結算,沒有最低提現門檻。`, `Every player who signs up through your link: you earn ${rate}% of every payment they make in their first ${months} months — memberships, party passes and single games all count. Tracked automatically with an email for each one; paid monthly, no minimum.`)}</p>
+          </Card>
+          {!p.payout && <Card className="border-[#e6c76e]/50"><div className="text-[14px] text-[#e6c76e]">{T('先在下面填一下收款方式(比如 PayPal 邮箱),我们好给你打款。', '請先在下方填寫收款方式(例如 PayPal 信箱),方便我們付款給你。', 'Please add how we should pay you (e.g. your PayPal email) below.')}</div></Card>}
           <Card>
-            <div className="text-[11px] tracking-[.25em] text-[#c9a96e]/70 mb-2">{T('你的推广链接', '你的推薦連結', 'YOUR LINK')}</div>
+            <div className="text-[11px] tracking-[.25em] text-[#c9a96e]/70 mb-2">{T('你的专属链接', '你的專屬連結', 'YOUR LINK')}</div>
             <div className="text-[14px] break-all text-[#efe6d2] bg-black/30 border border-white/10 rounded-lg px-3 py-2.5">{p.link}</div>
             <button onClick={async () => { try { if ((navigator as any).share) await (navigator as any).share({ url: p.link }); else { await navigator.clipboard.writeText(p.link); setCopied(true); setTimeout(() => setCopied(false), 2000); } } catch {} }} className={`mt-3 w-full py-2.5 rounded-xl ${gold}`}>{copied ? T('已复制', '已複製', 'Copied') : T('复制 / 分享', '複製 / 分享', 'Copy / Share')}</button>
-            <p className="mt-3 text-[12px] text-parchment/50">{T(`分成 ${rate}% · 对方注册后的前 ${months} 个月 · 点开链接后 30 天内注册都算你的`, `分潤 ${rate}% · 對方註冊後的前 ${months} 個月 · 點開連結後 30 天內註冊都算你的`, `${rate}% commission · first ${months} months after signup · 30-day attribution window`)}</p>
+            <p className="mt-3 text-[12px] text-parchment/50">{T('放在视频简介第一行、置顶评论、社群贴文都可以。点开链接后 30 天内注册的都算你的。', '放在影片說明欄第一行、置頂留言、社群貼文都可以。點開連結後 30 天內註冊的都算你的。', 'Use it in your description, pinned comment and posts. Anyone who signs up within 30 days of clicking counts as yours.')}</p>
           </Card>
           <Card>
             <div className="text-[11px] tracking-[.25em] text-[#c9a96e]/70 mb-3">{T('数据', '數據', 'STATS')}</div>
@@ -99,13 +83,13 @@ export default function Partner() {
           </Card>
           <Card>
             <div className="text-[11px] tracking-[.25em] text-[#c9a96e]/70 mb-2">{T('收款方式', '收款方式', 'HOW TO PAY YOU')}</div>
-            <input value={payout} onChange={(e) => setPayout(e.target.value)} placeholder={T('比如:PayPal 邮箱', '例如:PayPal 信箱', 'e.g. PayPal email')} className={inp} />
+            <input value={payout} onChange={(e) => setPayout(e.target.value)} placeholder={T('比如:PayPal 邮箱', '例如:PayPal 信箱', 'e.g. PayPal: you@email.com')} className={inp} />
             <button disabled={busy} onClick={savePayout} className="mt-3 px-4 py-2 rounded-lg border border-white/15 text-[13.5px]">{T('保存', '儲存', 'Save')}</button>
           </Card>
         </>)}
-        {d?.isAdmin && <a href="/partner/admin" className="block text-center text-[13px] text-[#c9a96e] underline">{T('站长:所有推广人 / 打款', '站長:所有推薦人 / 付款', 'Owner: all partners / payouts')}</a>}
+        {d?.isAdmin && <a href="/partner/admin" className="block text-center text-[13px] text-[#c9a96e] underline">站长:合作方 / 打款</a>}
         {msg && <p className="text-center text-[13px] text-parchment/60">{msg}</p>}
-        <p className="text-center text-[11px] text-parchment/35 px-4">{T('自己推荐自己、刷单等不计入。分成按对方实际付款金额计算,退款的订单会扣回。', '自己推薦自己、灌單等不列入計算。分潤依實際付款金額計算,退款的訂單會扣回。', 'Self-referrals and abuse are not eligible. Commission is based on amounts actually paid; refunded payments are reversed.')}</p>
+        <p className="text-center text-[11px] text-parchment/35 px-4">{d?.partner ? T('分成按对方实际付款金额计算,退款的订单会扣回。', '分潤依實際付款金額計算,退款的訂單會扣回。', 'Commission is based on amounts actually paid; refunded payments are reversed.') : ''}</p>
       </div>
     </main>
   );

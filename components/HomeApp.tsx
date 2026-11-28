@@ -211,7 +211,6 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
           ...(account?.loggedIn ? [{ label: lang === 'en' ? 'My collection' : '我的收藏', href: '/me', icon: 'trophy' as const, group: 2 }] : []),
           { label: lang === 'en' ? 'Leaderboard' : '排行榜', href: '/ranks', icon: 'trophy' as const, group: 2 },
           { label: lang === 'en' ? 'Prices & my games' : '价格与局数', href: '/upgrade', icon: 'price' as const, group: 2 },
-          { label: lang === 'en' ? 'Partner program (earn 40%)' : '推广赚分成', href: '/partner', icon: 'invite' as const, group: 2 },
           { label: lang === 'en' ? 'Trailer' : '宣传片', onClick: openPromo, icon: 'play' as const, group: 3 },
           { label: lang === 'en' ? 'Music' : '音乐', href: '/music', icon: 'music' as const, group: 3 },
           { label: lang === 'en' ? 'Blog' : '博客', href: lang === 'en' ? '/en/blog' : '/zh/blog', icon: 'blog' as const, group: 3 },

@@ -20,7 +20,7 @@ export async function GET(req: Request) {
   const { data: u } = await admin.from('users').select('id, display_name, email, bio, avatar_url, last_seen, created_at').eq('id', id).maybeSingle();
   if (!u || !u.email || u.email === HIDDEN) return NextResponse.json({ ok: false, reason: 'notfound' }, { status: 404 });
 
-  const { data: prs } = await admin.from('players').select('room_id, created_at').eq('user_id', id).order('created_at', { ascending: false }).limit(50);
+  const { data: prs } = await admin.from('players').select('room_id, joined_at').eq('user_id', id).order('joined_at', { ascending: false }).limit(50);
   const roomIds = Array.from(new Set((prs || []).map((p: any) => p.room_id)));
   let games: any[] = [];
   if (roomIds.length) {
@@ -30,7 +30,7 @@ export async function GET(req: Request) {
     for (const pr of (prs || [])) {
       if (seen.has(pr.room_id)) continue; seen.add(pr.room_id);
       const r = byId[pr.room_id]; if (!r) continue;
-      games.push({ mode: r.mode, modeName: MODE_ZH[r.mode] || r.mode, ended: r.game_state === 'ended', ts: new Date(r.created_at || pr.created_at).getTime() });
+      games.push({ mode: r.mode, modeName: MODE_ZH[r.mode] || r.mode, ended: r.game_state === 'ended', ts: new Date(r.created_at || pr.joined_at).getTime() });
     }
     games.sort((a, b) => b.ts - a.ts);
   }

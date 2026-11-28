@@ -8,7 +8,7 @@ export async function POST(req: Request) {
   const ids: string[] = Array.isArray(b?.ids) ? b.ids.filter((x: any) => typeof x === 'string').slice(0, 100) : [];
   if (!ids.length) return NextResponse.json({ map: {} });
   const admin = createAdminClient();
-  const { data: prs } = await admin.from('players').select('user_id, room_id, created_at').in('user_id', ids).order('created_at', { ascending: false }).limit(1000);
+  const { data: prs } = await admin.from('players').select('user_id, room_id, joined_at').in('user_id', ids).order('joined_at', { ascending: false }).limit(1000);
   const latest: Record<string, string> = {};
   (prs || []).forEach((p: any) => { if (p.user_id && !latest[p.user_id]) latest[p.user_id] = p.room_id; });
   const roomIds = Array.from(new Set(Object.values(latest)));

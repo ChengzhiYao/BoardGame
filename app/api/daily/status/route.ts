@@ -28,10 +28,12 @@ export async function GET(req: Request) {
     return { rank: i + 1, id: r.user_id, name: u?.display_name || (lang === 'en' ? 'Player' : '玩家'), avatar: u?.avatar_url || null, questions: r.questions, hints: r.hints, seconds: r.seconds, solved: r.solved, me: r.user_id === user?.id };
   });
 
+  let shareRewarded = false;
   let me: any = null, streak = 0, savedDays = 0, isProtected = false, playing: string | null = null;
   if (user) {
     const { data: mine } = await admin.from('daily_results').select('*').eq('user_id', user.id).eq('lang', lang).order('day', { ascending: false }).limit(400);
-    const { data: p } = await admin.from('profiles').select('member_until, is_whitelisted, pass_until, party_until').eq('user_id', user.id).maybeSingle();
+    const { data: p } = await admin.from('profiles').select('member_until, is_whitelisted, pass_until, party_until, share_reward_day').eq('user_id', user.id).maybeSingle();
+    shareRewarded = String(p?.share_reward_day || '') === new Date().toISOString().slice(0, 10);
     const now = new Date();
     isProtected = !!(p?.is_whitelisted || [p?.member_until, p?.pass_until, p?.party_until].some((x: any) => x && new Date(x) > now));
     const s = streakOf((mine || []).map((r: any) => String(r.day)), today, isProtected);
@@ -59,6 +61,6 @@ export async function GET(req: Request) {
 
   return NextResponse.json({
     ok: true, day: today, no: daily.no, title: title?.title || '', players: list.length, solved: solvedN,
-    me, playing, streak, savedDays, protected: isProtected, board, archive, loggedIn: !!user?.email,
+    me, playing, streak, savedDays, protected: isProtected, board, archive, loggedIn: !!user?.email, shareRewarded,
   });
 }

@@ -58,7 +58,8 @@ export function DailyCard({ en }: { en: boolean }) {
           {done
             ? (d.me.solved ? (en ? `Solved in ${d.me.questions} · beat ${d.me.beat}% · next in ${untilTomorrow(en)}` : `${d.me.questions} 问破案 · 击败 ${d.me.beat}% · ${untilTomorrow(en)}后换新题`) : (en ? `Not cracked today · next in ${untilTomorrow(en)}` : `今天没猜出来 · ${untilTomorrow(en)}后换新题`))
             : d.playing ? (en ? 'You started today’s — keep going' : '今天这碗你还没喝完，接着来')
-            : (en ? `Same puzzle for everyone today · ${d.players} played` : `全站今天同一道题 · 已有 ${d.players} 人挑战`)}
+            : d.players >= 5 ? (en ? `Same puzzle for everyone today · ${d.players} played` : `全站今天同一道题 · 已有 ${d.players} 人挑战`)
+            : (en ? 'Same puzzle for everyone today · be one of the first to crack it' : '全站今天同一道题 · 来当最早解开的那几个人')}
         </span>
       </span>
       <span className="shrink-0 h-9 px-3.5 rounded-full flex items-center text-[13px] bg-[#8fd3b8]/15 text-[#bfeadb] border border-[#8fd3b8]/30">{busy ? '…' : done ? (en ? 'Results' : '看成绩') : d.playing ? (en ? 'Resume' : '继续') : (en ? 'Play' : '挑战')}</span>
@@ -95,8 +96,22 @@ export function DailyResult({ en, grid }: { en: boolean; grid?: string }) {
   async function share() {
     const { shareText } = await import('@/lib/soup/daily');
     const t = shareText(r, d.no, en, d.streak);
-    try { if ((navigator as any).share) { await (navigator as any).share({ text: t }); return; } } catch { return; }
-    try { await navigator.clipboard.writeText(t); toast(en ? 'Copied — paste it anywhere' : '已复制，去群里贴一下', 'info'); } catch {}
+    let done = false;
+    try {
+      const { renderDailyCard } = await import('@/lib/soup/shareCard');
+      const blob = await renderDailyCard({ no: d.no, solved: !!r.solved, questions: r.questions, hints: r.hints || 0, beat: r.beat, rank: r.rank, players: d.players, streak: d.streak, grid: String(r.grid || grid || ''), en });
+      const nav: any = navigator;
+      if (blob) {
+        const file = new File([blob], `mystnight-daily-${d.no}.png`, { type: 'image/png' });
+        if (nav.canShare?.({ files: [file] })) { try { await nav.share({ files: [file], text: t }); done = true; } catch (e: any) { if (e?.name === 'AbortError') return; } }
+        if (!done && !nav.share) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = file.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); try { await navigator.clipboard.writeText(t); } catch {} toast(en ? 'Card saved & text copied — post it anywhere' : '成绩卡已保存,文字也复制好了,去发吧', 'info'); done = true; }
+      }
+      if (!done && nav.share) { try { await nav.share({ text: t }); done = true; } catch (e: any) { if (e?.name === 'AbortError') return; } }
+      if (!done) { await navigator.clipboard.writeText(t); toast(en ? 'Copied — paste it anywhere' : '已复制，去群里贴一下', 'info'); done = true; }
+    } catch {}
+    if (done && d.loggedIn && !d.shareRewarded) {
+      try { const g = await fetch('/api/daily/share', { method: 'POST' }).then((x) => x.json()); if (g?.granted) { toast(en ? 'Thanks for sharing — 1 free game added (once a day)' : '分享成功,送你 1 局免费海龟汤(每天一次)', 'info'); setBump((b) => b + 1); } } catch {}
+    }
   }
   const cells = Array.from(String(r.grid || grid || ''));
   return (
@@ -112,7 +127,7 @@ export function DailyResult({ en, grid }: { en: boolean; grid?: string }) {
       </div>
       {cells.length > 0 && <div className="mt-3 flex flex-wrap gap-[5px]">{cells.map((c, i) => <span key={i} className="w-[18px] h-[18px] rounded-[4px]" style={{ background: ({ '🟩': '#4f9d6b', '🟥': '#b8463f', '⬜': '#3a3d44', '🟨': '#c9a54a', '✅': '#8fd3b8', '❌': '#7d1d1d' } as any)[c] || '#3a3d44' }} />)}</div>}
       <div className="mt-3.5 flex gap-2">
-        <button onClick={share} className="flex-1 h-10 rounded-xl bg-[#8fd3b8]/20 border border-[#8fd3b8]/40 text-[#e6f5ef] text-[14px]">{en ? 'Share (no spoilers)' : '分享成绩（不剧透）'}</button>
+        <button onClick={share} className="flex-1 h-10 rounded-xl bg-[#8fd3b8]/20 border border-[#8fd3b8]/40 text-[#e6f5ef] text-[14px]">{en ? 'Share card (no spoilers)' : '晒成绩卡（不剧透）'}{d.loggedIn && !d.shareRewarded ? (en ? ' · +1 free game' : ' · 送 1 局') : ''}</button>
         <a href="/daily" className="h-10 px-4 rounded-xl border border-white/10 text-parchment/70 text-[13px] flex items-center">{en ? 'Leaderboard' : '排行榜'}</a>
       </div>
       <div className="mt-2.5 text-[11.5px] text-parchment/40 text-center">{en ? `New puzzle in ${untilTomorrow(en)}` : `${untilTomorrow(en)}后出下一碗`}{d.protected ? (en ? ' · your streak is protected' : ' · 你有断签保护') : ''}</div>

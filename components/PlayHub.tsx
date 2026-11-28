@@ -1,5 +1,6 @@
 'use client';
 // 「我的大厅」：老玩家每次打开谜夜看到的地方——进行中的局、再开一局、玩过的局、我的额度。
+import { useHomeBgSrc } from '@/components/useHomeBg';
 import PartyPass from '@/components/PartyPass';
 import { DailyCard } from '@/components/Daily';
 import { LevelChip, CheckinButton } from '@/components/Progress';
@@ -31,6 +32,7 @@ export default function PlayHub() {
   const [emailOpen, setEmailOpen] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const bgRef = useRef<HTMLIFrameElement | null>(null);
+  const bgSrc = useHomeBgSrc();
 
   useEffect(() => {
     setLang(getClientLang());
@@ -75,7 +77,7 @@ export default function PlayHub() {
 
   return (
     <main className="min-h-screen flex flex-col items-center">
-      <iframe ref={bgRef} src="/coc3d-demo.html?embed=1&full=1&auto=1" title="" aria-hidden tabIndex={-1} className="fixed inset-0 w-full h-full border-0 pointer-events-none -z-20" />
+      <iframe ref={bgRef} src={bgSrc} title="" aria-hidden tabIndex={-1} className="fixed inset-0 w-full h-full border-0 pointer-events-none -z-20" />
       <div className="fixed inset-0 pointer-events-none -z-10" style={{ background: 'linear-gradient(to bottom, rgba(12,13,16,.55), rgba(12,13,16,.86) 40%, rgba(12,13,16,.95))' }} />
       <HomeTopBar lang={lang} home="/play" onLang={(l) => { setClientLang(l); setLang(l); }} account={acct}
         onLogin={() => setLoginGate(true)}

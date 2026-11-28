@@ -1,5 +1,6 @@
 'use client';
 // HomeApp — the homepage UI, reusable for / and /zh /en (forcedLang locks the language).
+import { useHomeBgSrc } from '@/components/useHomeBg';
 import LingerPromo, { LingerToast } from '@/components/LingerPromo';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -73,6 +74,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
   }, []);
   // 3D 背景跟着手机倾斜 / 鼠标移动转动视角。iPhone 要先点一下屏幕并允许“动作与方向”才拿得到倾斜数据。
   const bgRef = useRef<HTMLIFrameElement | null>(null);
+  const bgSrc = useHomeBgSrc();
   useEffect(() => {
     let base: { b: number; g: number } | null = null;
     const send = (x: number, y: number) => { try { bgRef.current?.contentWindow?.postMessage({ type: 'tilt', x, y }, '*'); } catch {} };
@@ -191,7 +193,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
       {leaving && <div className="fixed inset-0 z-[90] bg-ink" />}
       <iframe
         ref={bgRef}
-        src="/coc3d-demo.html?embed=1&full=1&auto=1"
+        src={bgSrc}
         title=""
         aria-hidden
         tabIndex={-1}

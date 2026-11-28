@@ -106,7 +106,7 @@ export const BGS: Bg[] = [
   { id: 'bloodmoon', zh: '血月', en: 'Blood Moon', dzh: '升到 8 级', den: 'Reach level 8', test: (s) => s.level >= 8, swatch: 'linear-gradient(180deg,#14060a,#3a0f14 70%,#0b0507)' },
   { id: 'abyss', zh: '深渊', en: 'The Abyss', dzh: '升到 15 级', den: 'Reach level 15', test: (s) => s.level >= 15, swatch: 'linear-gradient(180deg,#02100f,#0b2a2c 70%,#020809)' },
   { id: 'aurora', zh: '幽光', en: 'Eerie Aurora', dzh: '签到大奖', den: 'Check-in reward', test: (s) => checkinLoot(s.checkins || 0).bgs.includes('aurora'), swatch: 'linear-gradient(180deg,#030a12,#1f5a4a 30%,#10262c 70%,#04080b)' },
-  { id: 'pumpkin', zh: '南瓜', en: 'Pumpkin Night', dzh: '签到大奖', den: 'Check-in reward', test: (s) => checkinLoot(s.checkins || 0).bgs.includes('pumpkin'), swatch: 'linear-gradient(180deg,#0e0612,#3a1622 70%,#e0762a 100%)' },
+  { id: 'pumpkin', zh: '南瓜田', en: 'Pumpkin Patch', dzh: '签到大奖', den: 'Check-in reward', test: (s) => checkinLoot(s.checkins || 0).bgs.includes('pumpkin'), swatch: 'linear-gradient(180deg,#0e0612,#3a1622 70%,#e0762a 100%)' },
   { id: 'meteor', zh: '流星', en: 'Meteor Shower', dzh: '签到大奖', den: 'Check-in reward', test: (s) => checkinLoot(s.checkins || 0).bgs.includes('meteor'), swatch: 'linear-gradient(200deg,#03040c,#141833 70%,#05060c)' },
   { id: 'harbor', zh: '雾港', en: 'Fog Harbor', dzh: '签到大奖', den: 'Check-in reward', test: (s) => checkinLoot(s.checkins || 0).bgs.includes('harbor'), swatch: 'linear-gradient(180deg,#070c12,#5a6470 55%,#1c2630 70%,#080b0e)' },
   { id: 'ufo', zh: '异客', en: 'Visitors', dzh: '签到大奖', den: 'Check-in reward', test: (s) => checkinLoot(s.checkins || 0).bgs.includes('ufo'), swatch: 'linear-gradient(180deg,#030a0a,#0e2426 50%,#3d7a5a 80%,#040808)' },

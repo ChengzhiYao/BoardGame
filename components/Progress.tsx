@@ -1,4 +1,6 @@
 'use client';
+import { BG3D } from '@/lib/bg3d';
+import { OWNER_BGS } from '@/lib/progress';
 import { createPortal } from 'react-dom';
 // 成长相关的界面:带头像框的头像、等级条、每日打卡卡片、头像框选择
 import { useEffect, useState } from 'react';
@@ -267,7 +269,7 @@ export function BgPicker({ prog, en }: { prog: any; en: boolean }) {
     <div className="mt-7">
       <div className="text-[11px] tracking-[.3em] text-[#c9a96e]/80 mb-2.5">{L('动态背景', 'BACKGROUNDS')}</div>
       <div className="grid grid-cols-3 gap-2.5">
-        {prog.bgs.map((b: any) => (
+        {prog.bgs.filter((b: any) => !OWNER_BGS.includes(b.id) || BG3D[b.id]).map((b: any) => (
           <button key={b.id} disabled={!b.unlocked} onClick={() => pick(b.id)} title={en ? b.den : b.dzh}
             className={`rounded-xl border p-1.5 flex flex-col items-center gap-1 ${cur === b.id ? 'border-[#e6c76e]/70 bg-[#e6c76e]/[0.06]' : 'border-white/10 bg-white/[0.02]'} ${b.unlocked ? '' : 'opacity-45'}`}>
             <span className="relative w-full h-14 rounded-lg overflow-hidden border border-white/10" style={{ background: b.swatch }}>

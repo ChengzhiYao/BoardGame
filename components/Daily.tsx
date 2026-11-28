@@ -109,7 +109,7 @@ export function DailyResult({ en, grid }: { en: boolean; grid?: string }) {
       if (!done && nav.share) { try { await nav.share({ text: t }); done = true; } catch (e: any) { if (e?.name === 'AbortError') return; } }
       if (!done) { await navigator.clipboard.writeText(t); toast(en ? 'Copied — paste it anywhere' : '已复制，去群里贴一下', 'info'); done = true; }
     } catch {}
-    if (done && d.loggedIn && !d.shareRewarded) {
+    if (done && d.loggedIn) {
       try { const g = await fetch('/api/daily/share', { method: 'POST' }).then((x) => x.json()); if (g?.granted) { toast(en ? 'Thanks for sharing — 1 free game added (once a day)' : '分享成功,送你 1 局免费海龟汤(每天一次)', 'info'); setBump((b) => b + 1); } } catch {}
     }
   }

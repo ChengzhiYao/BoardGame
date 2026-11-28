@@ -1,4 +1,5 @@
 'use client';
+import { FrameAvatar, LevelBar, CheckinCard, FramePicker } from '@/components/Progress';
 // 我的收藏：称号墙 + 汤谱 + 结局 + 调查员档案
 import { useEffect, useState } from 'react';
 import { getClientLang } from '@/lib/i18n';
@@ -18,6 +19,8 @@ export default function MeClient() {
   const [tab, setTab] = useState<'soup' | 'end' | 'inv'>('soup');
   const [open, setOpen] = useState<string | null>(null);
   const [badge, setBadge] = useState<any>(null);
+  const [frameSet, setFrameSet] = useState<string | null | undefined>(undefined);
+  const setFrame = (f: string | null) => setFrameSet(f);
   const [rk, setRk] = useState<any>(null);
   useEffect(() => {
     let e = false; try { e = getClientLang() === 'en'; } catch {} setEn(e);
@@ -35,6 +38,7 @@ export default function MeClient() {
     </main>
   );
   const s = d.stats || {};
+  const frame = frameSet === undefined ? d.prog?.frame : frameSet;
   const earned = (d.badges || []).filter((b: any) => b.earned && !b.dark).length;
   const totalB = (d.badges || []).filter((b: any) => !b.dark).length;
 
@@ -45,12 +49,11 @@ export default function MeClient() {
       <div className="w-full max-w-xl mx-auto px-5" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 64px)' }}>
         {/* 头部 */}
         <div className="flex flex-col items-center text-center">
-          <span className="w-20 h-20 rounded-full overflow-hidden border-2 border-[#c9a96e]/45 bg-[#c9a96e]/10 flex items-center justify-center font-serif text-[28px] text-[#efe6d2] shadow-[0_0_40px_-8px_rgba(201,169,110,.5)]">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            {d.avatar ? <img src={d.avatar} alt="" className="w-full h-full object-cover" /> : String(d.name || '?').slice(0, 1)}
-          </span>
+          <FrameAvatar url={d.avatar} name={d.name || '?'} frame={frame} size={84} />
           <div className="mt-3 font-serif text-[22px] text-[#efe6d2]">{d.name || L('无名调查员', 'Nameless')}</div>
           <div className="mt-0.5 text-[12px] tracking-[.2em] text-[#c9a96e]/80">{L(`${earned} / ${totalB} 个称号`, `${earned} / ${totalB} titles`)}</div>
+          <LevelBar prog={d.prog} en={en} />
+          <div className="mt-4 w-full text-left"><CheckinCard en={en} /></div>
           <div className="mt-5 w-full grid grid-cols-4 rounded-2xl border border-[#d8c7a8]/[0.12] bg-[#0b0c0f]/70 divide-x divide-white/[0.06]">
             {[[s.played, L('局', 'games')], [s.soupSolved, L('碗猜中', 'soups')], [s.cocEndings + s.jbsDone, L('个结局', 'endings')], [s.streak, L('天连续', 'day streak')]].map(([n, t], i) => (
               <div key={i} className="py-3"><div className="font-serif text-[22px] text-[#efe6d2] leading-none">{n ?? 0}</div><div className="mt-1 text-[11px] text-parchment/45">{t}</div></div>
@@ -69,6 +72,8 @@ export default function MeClient() {
             ); })}
           </a>
         )}
+
+        <FramePicker prog={d.prog} en={en} onChange={setFrame} />
 
         {/* 称号墙 */}
         {([[false, L('称号', 'TITLES'), ''], [true, L('黑历史', 'BLACK MARKS'), L('没通关也算一种经历', 'Not every story ends well')]] as [boolean, string, string][]).map(([dark, head, sub]) => (

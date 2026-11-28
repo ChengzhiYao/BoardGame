@@ -8,6 +8,7 @@ export type Stats = {
   cocEndings: number; cocGood: number; cocBad: number; cocMad: number; cocVet: number;
   jbsDone: number; botcDone: number; mccPlayed: number; companion: number; bigHost: number;
   soupPeek: number; soupGrind: number; soupWrong: number; dailyFail: number; cocDead: number; cocInsane: number;
+  checkins: number; bestCheckinStreak: number; shares: number; level: number;
   listens: number; ghostNights: number; lHorror: number; lScifi: number; lRomance: number; lHealing: number; lMystery: number; lFantasy: number; lReal: number; lTogether: number;
 };
 
@@ -55,6 +56,15 @@ export const BADGES: Badge[] = [
   { id: 'daily_fail', icon: 'wilt', zh: '今日败北', en: 'Not Today', dzh: '每日一汤没猜出来', den: 'Miss a Daily Soup', dark: true, test: (s) => s.dailyFail >= 1 },
   { id: 'coc_dead', icon: 'grave', zh: '安息', en: 'Rest in Peace', dzh: '调查员死在了故事里', den: 'Lose an investigator to death', dark: true, test: (s) => s.cocDead >= 1 },
   { id: 'coc_insane', icon: 'ghost', zh: '再也回不来', en: 'Gone Mad', dzh: '调查员彻底疯了', den: 'Lose an investigator to madness', dark: true, test: (s) => s.cocInsane >= 1 },
+  // —— 打卡 / 分享 / 等级
+  { id: 'checkin1', icon: 'calendar', zh: '初来乍到', en: 'First Check-in', dzh: '第一次打卡', den: 'Check in for the first time', test: (s) => s.checkins >= 1 },
+  { id: 'checkin7', icon: 'calendar', zh: '一周常客', en: 'Week Regular', dzh: '累计打卡 7 天', den: 'Check in on 7 days', test: (s) => s.checkins >= 7 },
+  { id: 'checkin30', icon: 'moon', zh: '谜夜住民', en: 'Resident of the Night', dzh: '累计打卡 30 天', den: 'Check in on 30 days', test: (s) => s.checkins >= 30 },
+  { id: 'cstreak7', icon: 'flame', zh: '风雨无阻', en: 'Rain or Shine', dzh: '连续打卡 7 天', den: 'Check in 7 days in a row', test: (s) => s.bestCheckinStreak >= 7 },
+  { id: 'share1', icon: 'sparkle', zh: '第一次分享', en: 'First Share', dzh: '第一次分享成绩', den: 'Share your result for the first time', test: (s) => s.shares >= 1 },
+  { id: 'share10', icon: 'sparkle', zh: '传声筒', en: 'Megaphone', dzh: '分享 10 次成绩', den: 'Share your results 10 times', test: (s) => s.shares >= 10 },
+  { id: 'lv5', icon: 'medal', zh: '渐入佳境', en: 'Getting Into It', dzh: '升到 5 级', den: 'Reach level 5', test: (s) => s.level >= 5 },
+  { id: 'lv10', icon: 'crown', zh: '夜色老手', en: 'Night Veteran', dzh: '升到 10 级', den: 'Reach level 10', test: (s) => s.level >= 10 },
   { id: 'host', icon: 'lantern', zh: '局长', en: 'The Organizer', dzh: '开过一局 3 个真人以上的局', den: 'Host a game with 3+ people', test: (s) => s.bigHost >= 1 },
 ];
 
@@ -144,6 +154,7 @@ export async function collect(admin: any, userId: string, lang: 'zh' | 'en' = 'z
     dailyFail: dailyMine.filter((r: any) => !r.solved).length,
     cocDead: chars.filter((c: any) => !!c.status_flags?.dead || (c.hp_current ?? 1) <= 0).length,
     cocInsane: chars.filter((c: any) => !(c.status_flags?.dead || (c.hp_current ?? 1) <= 0) && (c.status_flags?.retired || (c.san_current ?? 1) <= 0)).length,
+    checkins: 0, bestCheckinStreak: 0, shares: 0, level: 1,
     listens: 0, ghostNights: 0, lHorror: 0, lScifi: 0, lRomance: 0, lHealing: 0, lMystery: 0, lFantasy: 0, lReal: 0, lTogether: 0,
   };
   // —— 听故事
@@ -162,8 +173,25 @@ export async function collect(admin: any, userId: string, lang: 'zh' | 'en' = 'z
     const cnt: Record<string, number> = {}; for (const p of pc || []) cnt[p.room_id] = (cnt[p.room_id] || 0) + 1;
     stats.bigHost = Object.values(cnt).filter((n) => n >= 3).length;
   }
+  // —— 打卡 / 分享 → 经验和等级
+  let prog: any = null;
+  try {
+    const P = await import('@/lib/progress');
+    const { data: ck } = await admin.from('checkins').select('day').eq('user_id', userId).limit(2000);
+    const cdays = (ck || []).map((r: any) => String(r.day));
+    stats.checkins = cdays.length; stats.bestCheckinStreak = P.streakFrom(cdays, new Date().toISOString().slice(0, 10)).best;
+    const { data: pf } = await admin.from('profiles').select('share_count, avatar_frame').eq('user_id', userId).maybeSingle();
+    stats.shares = pf?.share_count || 0;
+    const lv = P.levelOf(P.xpOf({ ...stats, cocEndings: stats.cocEndings }));
+    stats.level = lv.level;
+    const frames = P.FRAMES.map((f) => ({ id: f.id, zh: f.zh, en: f.en, dzh: f.dzh, den: f.den, css: f.css, unlocked: f.test({ ...stats, level: lv.level }) }));
+    const equipped = frames.find((f) => f.id === pf?.avatar_frame && f.unlocked)?.id || null;
+    prog = { ...lv, title: P.titleOf(lv.level, lang === 'en'), frames, frame: equipped };
+    // 记到 users 上,别处(大厅、资料卡、排行)直接读
+    await admin.from('users').update({ level: lv.level, xp: lv.xp, frame: equipped }).eq('id', userId);
+  } catch {}
   const earned = BADGES.filter((b) => b.test(stats)).map((b) => b.id);
-  if (!full) return { stats, earned };
+  if (!full) return { stats, earned, prog };
 
   // 汤谱（结束的汤，含汤底）
   const { data: bots } = doneP.length ? await admin.from('soup_bottoms').select('puzzle_id, bottom').in('puzzle_id', doneP.slice(0, 200).map((p: any) => p.id)) : { data: [] as any[] };
@@ -172,5 +200,5 @@ export async function collect(admin: any, userId: string, lang: 'zh' | 'en' = 'z
     solved: p.status === 'solved', questions: per[p.room_id]?.q ?? null, hints: per[p.room_id]?.h ?? null, at: p.created_at,
   }));
   const jbs = jbsEnded.slice(0, 50).map((r: any) => ({ room: r.id, name: r.name, at: r.created_at }));
-  return { stats, earned, soups, endings: endings.sort((a: any, b: any) => String(b.at).localeCompare(String(a.at))), investigators, jbs };
+  return { stats, earned, prog, soups, endings: endings.sort((a: any, b: any) => String(b.at).localeCompare(String(a.at))), investigators, jbs };
 }

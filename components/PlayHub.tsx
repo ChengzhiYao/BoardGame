@@ -2,6 +2,7 @@
 // 「我的大厅」：老玩家每次打开谜夜看到的地方——进行中的局、再开一局、玩过的局、我的额度。
 import PartyPass from '@/components/PartyPass';
 import { DailyCard } from '@/components/Daily';
+import { CheckinCard } from '@/components/Progress';
 import OpenRooms from '@/components/OpenRooms';
 import RanksCard from '@/components/RanksCard';
 import TonightCard from '@/components/TonightCard';
@@ -117,7 +118,7 @@ export default function PlayHub() {
 
         <section>
           <SectionLabel>{en ? 'Start a game' : '开一局'}</SectionLabel>
-          <div className="mb-3 space-y-2.5"><DailyCard en={en} /><TonightCard en={en} /><RanksCard en={en} /></div>
+          <div className="mb-3 space-y-2.5"><CheckinCard en={en} /><DailyCard en={en} /><TonightCard en={en} /><RanksCard en={en} /></div>
           {!acct?.whitelisted && <div className="mb-3"><PartyPass en={en} until={acct?.partyUntil} /></div>}
           <GameGrid lang={lang} onPick={(g) => (g === 'market' ? router.push('/market') : setPicked(g))} />
           {err && <p className="mt-2 text-sm text-[#e06060]">{err}</p>}

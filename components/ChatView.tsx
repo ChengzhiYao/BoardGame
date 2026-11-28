@@ -3,8 +3,9 @@
 // 时间分隔、跟着键盘走的输入框;电脑上嵌在侧边面板里。
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { FrameAvatar, LvTag } from '@/components/Progress';
 
-export type ChatMsg = { id?: string; text: string; ts?: number; mine?: boolean; name?: string; avatar?: string | null; userId?: string; pending?: boolean; failed?: boolean };
+export type ChatMsg = { id?: string; text: string; ts?: number; mine?: boolean; name?: string; avatar?: string | null; userId?: string; pending?: boolean; failed?: boolean; level?: number; frame?: string | null };
 
 function Ava({ url, name, size = 32 }: { url?: string | null; name: string; size?: number }) {
   const s = { width: size, height: size };
@@ -81,10 +82,10 @@ export default function ChatView(props: {
     rows.push(
       <div key={key} className={`flex items-end gap-2 ${m.mine ? 'justify-end' : 'justify-start'} ${sameSender ? 'mt-0.5' : 'mt-2.5'}`}>
         {others && props.showSender && (lastOfGroup
-          ? <button onClick={() => props.onAvatar?.(m)} className="shrink-0"><Ava url={m.avatar} name={m.name || '?'} size={30} /></button>
+          ? <button onClick={() => props.onAvatar?.(m)} className="shrink-0"><FrameAvatar url={m.avatar} name={m.name || '?'} frame={m.frame} size={30} /></button>
           : <span className="w-[30px] shrink-0" />)}
         <div className={`max-w-[78%] flex flex-col ${m.mine ? 'items-end' : 'items-start'}`}>
-          {others && props.showSender && !sameSender && <div className="text-[11px] text-parchment/45 mb-0.5 px-1 truncate max-w-full">{m.name}</div>}
+          {others && props.showSender && !sameSender && <div className="text-[11px] text-parchment/45 mb-0.5 px-1 truncate max-w-full">{m.name}<LvTag lv={m.level} /></div>}
           <div
             onContextMenu={props.onMsgMenu ? (e) => { e.preventDefault(); setMenuFor(menuFor === key ? null : key); } : undefined}
             onClick={props.onMsgMenu ? () => setMenuFor(menuFor === key ? null : key) : undefined}

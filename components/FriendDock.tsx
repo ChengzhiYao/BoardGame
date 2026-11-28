@@ -3,6 +3,8 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import ChatView, { type ChatMsg } from '@/components/ChatView';
+import { FrameAvatar, LvTag } from '@/components/Progress';
+import { titleOf } from '@/lib/progress';
 import { getClientLang } from '@/lib/i18n';
 
 // 这个账号不进公共大厅 / 玩家目录 / 好友图（只保留白名单好友功能，男友侧仍可见）。
@@ -354,7 +356,7 @@ export default function FriendDock() {
       const q = !full && lobbyAt.current ? `&after=${encodeURIComponent(lobbyAt.current)}` : '';
       const d = await fetch(`/api/group-chat?channel=public${q}`, { cache: 'no-store' }).then((r) => r.json());
       const lastAt = (d.messages || []).slice(-1)[0]?.at; if (lastAt) lobbyAt.current = lastAt;
-      const got: ChatMsg[] = (d.messages || []).map((m: any) => ({ id: m.id, text: m.text, ts: m.ts, mine: m.mine, name: m.name, avatar: m.avatar, userId: m.userId, at: m.at } as any));
+      const got: ChatMsg[] = (d.messages || []).map((m: any) => ({ id: m.id, text: m.text, ts: m.ts, mine: m.mine, name: m.name, avatar: m.avatar, userId: m.userId, at: m.at, level: m.level, frame: m.frame } as any));
       setLobby((L0) => {
         const base = full ? [] : L0.msgs.filter((m) => !(m.pending && got.some((g) => g.mine && g.text === m.text)));
         const seen = new Set(base.map((m) => m.id));
@@ -747,11 +749,10 @@ export default function FriendDock() {
             : profile.error ? <div className="py-10 px-6 text-center text-parchment/50 text-sm">{profile.why === 'login' ? L('登录后才能看玩家资料、加好友', 'Sign in to see players and add friends') : profile.why === 'guest' ? L('这位是没登录的游客，暂时加不了好友', 'This is a guest without an account — they can’t be added yet') : L('加载失败', 'Failed to load')}</div>
             : (<div className="px-4 py-4">
                 <div className="flex items-center gap-3 mb-3">
-                  {profile.avatar
-                    ? <img src={profile.avatar} alt="" className="w-14 h-14 rounded-full object-cover border border-white/10" />
-                    : <span className="w-14 h-14 rounded-full bg-white/[0.06] flex items-center justify-center text-xl">{String(profile.name).slice(0, 1).toUpperCase()}</span>}
+                  <FrameAvatar url={profile.avatar} name={String(profile.name)} frame={profile.frame} size={56} />
                   <div className="min-w-0">
-                    <div className="text-lg font-serif truncate">{profile.name}</div>
+                    <div className="text-lg font-serif truncate">{profile.name}<LvTag lv={profile.level} /></div>
+                    {profile.level > 1 && <div className="text-[11px] text-[#e6c76e]/80">{titleOf(profile.level, en)}</div>}
                     <div className="text-[11px] text-parchment/40">{profile.lastSeen ? L('最近在线 ', 'Last seen ') + ago(profile.lastSeen, en) : L('从未上线', 'Never online')}{profile.joinedAt ? L(' · 加入于 ', ' · joined ') + new Date(profile.joinedAt).toLocaleDateString() : ''}</div>
                   </div>
                 </div>

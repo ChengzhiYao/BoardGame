@@ -50,9 +50,9 @@ export async function GET(req: Request) {
   const { data } = await q.order('created_at', { ascending: false }).limit(80);
   const rows = (data || []).reverse();
   const ids = Array.from(new Set(rows.map((m: any) => m.from_user).filter(Boolean)));
-  const { data: us } = ids.length ? await admin.from('users').select('id, display_name, avatar_url').in('id', ids) : { data: [] as any[] };
+  const { data: us } = ids.length ? await admin.from('users').select('id, display_name, avatar_url, level, frame').in('id', ids) : { data: [] as any[] };
   const messages = rows.map((m: any) => { const p = (us || []).find((x: any) => x.id === m.from_user);
-    return { id: m.id, userId: m.from_user, name: p?.display_name || m.from_name, avatar: p?.avatar_url || null, text: m.text, at: m.created_at, ts: new Date(m.created_at).getTime(), mine: !!user && m.from_user === user.id }; });
+    return { id: m.id, userId: m.from_user, name: p?.display_name || m.from_name, avatar: p?.avatar_url || null, level: p?.level || 1, frame: p?.frame || null, text: m.text, at: m.created_at, ts: new Date(m.created_at).getTime(), mine: !!user && m.from_user === user.id }; });
   return NextResponse.json({ messages, isAdmin: !!user && String(user.email).toLowerCase() === ADMIN, canPost: !!user });
 }
 

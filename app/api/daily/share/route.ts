@@ -8,7 +8,9 @@ export async function POST() {
   if (!user || user.is_anonymous || !user.email) return NextResponse.json({ ok: false, reason: 'login' }, { status: 401 });
   const admin = createAdminClient();
   const today = new Date().toISOString().slice(0, 10);
-  const { data: p } = await admin.from('profiles').select('light_credits, share_reward_day').eq('user_id', user.id).maybeSingle();
+  const { data: p } = await admin.from('profiles').select('light_credits, share_reward_day, share_count').eq('user_id', user.id).maybeSingle();
+  // 每次分享都记一笔(成就和经验用),奖励每天只给一次
+  if (p) await admin.from('profiles').update({ share_count: (p.share_count || 0) + 1 }).eq('user_id', user.id);
   if (p && String(p.share_reward_day || '') === today) return NextResponse.json({ ok: true, granted: false, credits: p.light_credits || 0 });
   const credits = (p?.light_credits || 0) + 1;
   if (p) {
@@ -18,7 +20,7 @@ export async function POST() {
     const { data: up } = await q.select('light_credits');
     if (!up || !up.length) return NextResponse.json({ ok: true, granted: false, credits: p.light_credits || 0 });
   } else {
-    const { error } = await admin.from('profiles').insert({ user_id: user.id, light_credits: 1, share_reward_day: today });
+    const { error } = await admin.from('profiles').insert({ user_id: user.id, light_credits: 1, share_reward_day: today, share_count: 1 });
     if (error) return NextResponse.json({ ok: false }, { status: 500 });
   }
   return NextResponse.json({ ok: true, granted: true, credits });

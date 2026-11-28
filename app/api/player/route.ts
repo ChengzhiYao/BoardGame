@@ -17,7 +17,7 @@ export async function GET(req: Request) {
   const id = new URL(req.url).searchParams.get('id');
   if (!id) return NextResponse.json({ ok: false }, { status: 400 });
   const admin = createAdminClient();
-  const { data: u } = await admin.from('users').select('id, display_name, email, bio, avatar_url, last_seen, created_at').eq('id', id).maybeSingle();
+  const { data: u } = await admin.from('users').select('id, display_name, email, bio, avatar_url, last_seen, created_at, level, frame').eq('id', id).maybeSingle();
   if (!u || !u.email || u.email === HIDDEN) return NextResponse.json({ ok: false, reason: 'notfound' }, { status: 404 });
 
   const { data: prs } = await admin.from('players').select('room_id, joined_at').eq('user_id', id).order('joined_at', { ascending: false }).limit(50);
@@ -42,6 +42,7 @@ export async function GET(req: Request) {
     bio: u.bio || '',
     lastSeen: u.last_seen ? new Date(u.last_seen).getTime() : null,
     joinedAt: u.created_at ? new Date(u.created_at).getTime() : null,
+    level: u.level || 1, frame: u.frame || null,
     gamesPlayed: roomIds.length,
     games: games.slice(0, 20),
   });

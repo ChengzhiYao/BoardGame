@@ -25,7 +25,8 @@ function hhmm(ts: number, en?: boolean) {
 
 export default function ChatView(props: {
   full?: boolean; en?: boolean;
-  title: string; subtitle?: ReactNode; avatar?: { url?: string | null; name: string } | null; right?: ReactNode; onBack?: () => void;
+  title: string; subtitle?: ReactNode; avatar?: { url?: string | null; name: string; frame?: string | null } | null;
+  me?: { avatar?: string | null; name?: string; frame?: string | null } | null; peer?: { avatar?: string | null; name?: string; frame?: string | null } | null; right?: ReactNode; onBack?: () => void;
   msgs: ChatMsg[]; showSender?: boolean; empty?: ReactNode;
   text: string; setText: (s: string) => void; send: () => void;
   hint?: ReactNode; disabled?: boolean; footer?: ReactNode; placeholder?: string; maxLen?: number;
@@ -81,8 +82,8 @@ export default function ChatView(props: {
     const menu = props.onMsgMenu && menuFor === key ? props.onMsgMenu(m) : null;
     rows.push(
       <div key={key} className={`flex items-end gap-2 ${m.mine ? 'justify-end' : 'justify-start'} ${sameSender ? 'mt-0.5' : 'mt-2.5'}`}>
-        {others && props.showSender && (lastOfGroup
-          ? <button onClick={() => props.onAvatar?.(m)} className="shrink-0"><FrameAvatar url={m.avatar} name={m.name || '?'} frame={m.frame} size={30} /></button>
+        {others && (props.showSender || props.peer) && (lastOfGroup
+          ? <button onClick={() => props.onAvatar?.(m)} className="shrink-0"><FrameAvatar url={m.avatar || props.peer?.avatar} name={m.name || props.peer?.name || '?'} frame={m.frame || props.peer?.frame} size={30} /></button>
           : <span className="w-[30px] shrink-0" />)}
         <div className={`max-w-[78%] flex flex-col ${m.mine ? 'items-end' : 'items-start'}`}>
           {others && props.showSender && !sameSender && <div className="text-[11px] text-parchment/45 mb-0.5 px-1 truncate max-w-full">{m.name}<LvTag lv={m.level} /></div>}
@@ -97,6 +98,9 @@ export default function ChatView(props: {
           {m.failed && <div className="text-[11px] text-red-400/80 mt-0.5 px-1">{L('没发出去', 'Not sent')}</div>}
           {menu && <div className="mt-1 flex gap-1.5">{menu}</div>}
         </div>
+        {m.mine && props.me && (lastOfGroup
+          ? <span className="shrink-0"><FrameAvatar url={m.avatar || props.me.avatar} name={m.name || props.me.name || '?'} frame={m.frame || props.me.frame} size={30} /></span>
+          : <span className="w-[30px] shrink-0" />)}
       </div>,
     );
     prev = m;
@@ -111,7 +115,7 @@ export default function ChatView(props: {
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
           </button>
         )}
-        {props.avatar && <Ava url={props.avatar.url} name={props.avatar.name} size={full ? 36 : 30} />}
+        {props.avatar && (props.avatar.frame ? <FrameAvatar url={props.avatar.url} name={props.avatar.name} frame={props.avatar.frame} size={full ? 36 : 30} /> : <Ava url={props.avatar.url} name={props.avatar.name} size={full ? 36 : 30} />)}
         <div className="flex-1 min-w-0 leading-tight">
           <div className={`${full ? 'text-[16px]' : 'text-[14px]'} font-medium text-parchment truncate`}>{props.title}</div>
           {props.subtitle && <div className="text-[11.5px] text-parchment/45 truncate">{props.subtitle}</div>}

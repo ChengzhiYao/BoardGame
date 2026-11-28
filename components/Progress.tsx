@@ -10,9 +10,9 @@ import { FRAMES } from '@/lib/progress';
 const css = (id?: string | null) => FRAMES.find((f) => f.id === id)?.css || null;
 
 export function FrameAvatar({ url, name, frame, size = 32 }: { url?: string | null; name: string; frame?: string | null; size?: number }) {
-  const ring = css(frame); const pad = ring ? Math.max(2, Math.round(size / 14)) : 0;
+  const ring = css(frame); const pad = ring ? Math.max(2.5, Math.round(size / 10)) : 0;
   return (
-    <span className="relative inline-flex shrink-0 rounded-full" style={{ width: size, height: size, padding: pad, background: ring || undefined }}>
+    <span className="relative inline-flex shrink-0 rounded-full" style={{ width: size, height: size, padding: pad, background: ring || undefined, boxShadow: ring ? '0 0 0 1px rgba(0,0,0,.55), 0 0 10px 1px rgba(230,199,110,.28)' : undefined }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       {url ? <img src={url} alt="" className="w-full h-full rounded-full object-cover bg-[#1c1d23]" />
         : <span className="w-full h-full rounded-full bg-[#2a2530] flex items-center justify-center text-parchment/80" style={{ fontSize: Math.round(size * 0.38) }}>{(name || '?').slice(0, 1).toUpperCase()}</span>}

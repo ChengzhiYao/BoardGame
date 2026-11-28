@@ -32,7 +32,7 @@ export type Frame = { id: string; zh: string; en: string; dzh: string; den: stri
 export const FRAMES: Frame[] = [
   { id: 'frost', zh: '霜花', en: 'Frost', dzh: '签到大奖', den: 'Check-in reward', test: (s) => checkinLoot(s.checkins || 0).frames.includes('frost'), css: 'linear-gradient(135deg,#e8f4ff,#8fb3d9,#e8f4ff)' },
   { id: 'watch', zh: '夜巡', en: 'Night Watch', dzh: '签到大奖', den: 'Check-in reward', test: (s) => checkinLoot(s.checkins || 0).frames.includes('watch'), css: 'conic-gradient(from 90deg,#1b2340,#e6c76e,#1b2340,#6f86c9,#1b2340)' },
-  { id: 'ink', zh: '墨痕', en: 'Ink', dzh: '完成 5 场剧本杀', den: 'Finish 5 murder mysteries', test: (s) => (s.jbsDone || 0) >= 5, css: 'linear-gradient(135deg,#2a2a2a,#9a9a9a,#2a2a2a)' },
+  { id: 'ink', zh: '墨痕', en: 'Ink', dzh: '完成 5 场剧本杀', den: 'Finish 5 murder mysteries', test: (s) => (s.jbsDone || 0) >= 5, css: 'conic-gradient(from 30deg,#f2f2f2,#3a3a3a,#cfcfcf,#1e1e1e,#f2f2f2)' },
   { id: 'bell', zh: '钟声', en: 'Bell', dzh: '完成 3 局血染钟楼', den: 'Finish 3 Clocktower games', test: (s) => (s.botcDone || 0) >= 3, css: 'linear-gradient(135deg,#d9b8ff,#7a4fc4,#d9b8ff)' },
   { id: 'brew', zh: '汤神', en: 'Soup Sage', dzh: '猜中 50 碗海龟汤', den: 'Crack 50 soups', test: (s) => (s.soupSolved || 0) >= 50, css: 'linear-gradient(135deg,#bff0dd,#3f9d8e,#bff0dd)' },
   { id: 'lotus', zh: '幽莲', en: 'Ghost Lotus', dzh: '签到大奖', den: 'Check-in reward', test: (s) => checkinLoot(s.checkins || 0).frames.includes('lotus'), css: 'conic-gradient(from 0deg,#f7d6ff,#9a5fd1,#f7d6ff,#5fd1c4,#f7d6ff)' },

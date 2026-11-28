@@ -1,4 +1,5 @@
 'use client';
+import { FrameAvatar } from '@/components/Progress';
 // 首页第一屏：卖点 + 全部玩法（九宫格）+ 收费方式，手机一屏看全。点玩法弹出底部卡片看详情、开局。
 import React, { useEffect, useState } from 'react';
 import { type Lang } from '@/lib/i18n';
@@ -82,10 +83,9 @@ export function HomeTopBar({ lang, onLang, account, onLogin, onLogout, menu, hom
         ) : (
           <button onClick={onLogin} className="h-8 px-3 rounded-full text-xs bg-parchment text-ink font-medium">{en ? 'Sign in' : '登录'}</button>
         )}
-        <button onClick={() => setOpen((v) => !v)} aria-label="menu" className="h-8 w-8 rounded-full flex items-center justify-center border border-white/10 bg-white/5 overflow-hidden">
+        <button onClick={() => setOpen((v) => !v)} aria-label="menu" className={`h-8 w-8 rounded-full flex items-center justify-center ${account?.loggedIn && account.avatarUrl ? "" : "border border-white/10 bg-white/5 overflow-hidden"}`}>
           {account?.loggedIn && account.avatarUrl
-            // eslint-disable-next-line @next/next/no-img-element
-            ? <img src={account.avatarUrl} alt="" className="w-full h-full object-cover" />
+            ? <FrameAvatar url={account.avatarUrl} name={account.displayName || '?'} frame={account.frame} size={32} />
             : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-parchment/80"><path d="M4 7h16M4 12h16M4 17h16" /></svg>}
         </button>
       </div>
@@ -95,10 +95,7 @@ export function HomeTopBar({ lang, onLang, account, onLogin, onLogout, menu, hom
           <div className="absolute right-3 top-[calc(env(safe-area-inset-top)+54px)] w-[232px] max-h-[calc(100svh-80px)] overflow-y-auto rounded-xl bg-[#0f1013]/[0.97] backdrop-blur-xl border border-[#d8c7a8]/[0.14] shadow-[0_24px_60px_-12px_rgba(0,0,0,.9)] text-left nf-in">
             {account?.loggedIn && (
               <a href="/account" className="flex items-center gap-3 px-4 py-3.5 border-b border-[#d8c7a8]/[0.08] hover:bg-white/[0.03]">
-                <span className="w-9 h-9 rounded-full overflow-hidden border border-[#c9a96e]/30 bg-[#c9a96e]/10 flex items-center justify-center shrink-0 font-serif text-[#efe6d2]">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  {account.avatarUrl ? <img src={account.avatarUrl} alt="" className="w-full h-full object-cover" /> : String(account.displayName || account.email || '?').slice(0, 1).toUpperCase()}
-                </span>
+                <FrameAvatar url={account.avatarUrl} name={String(account.displayName || account.email || '?')} frame={account.frame} size={36} />
                 <span className="min-w-0">
                   <span className="block truncate font-serif text-[15px] text-[#efe6d2]">{account.displayName || String(account.email || '').split('@')[0]}</span>
                   <span className="block text-[11.5px] text-[#c9a96e]/80">{account.whitelisted || account.member ? (en ? '✦ Member' : '✦ 会员') : (en ? `${account.credits ?? 0} premium games` : `豪华局数 ${account.credits ?? 0}`)}</span>

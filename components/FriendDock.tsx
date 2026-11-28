@@ -17,7 +17,7 @@ const MODE_LABEL: Record<string, { zh: string; en: string }> = {
 const MODE_EN: Record<string, string> = { coc: 'Call of Cthulhu', soup: 'Lateral Thinking', td: 'Truth or Dare', jbs: 'Murder Mystery', botc: 'Bloodbound', mcc: 'Midnight Cat Curse', dnd: 'D&D', story: 'Storyteller' };
 
 type Msg = { text: string; ts: number; mine: boolean };
-type Peer = { uid: string; name: string; roomId?: string; userId?: string; avatar?: string | null; loc?: string; mode?: string };
+type Peer = { uid: string; name: string; roomId?: string; userId?: string; avatar?: string | null; loc?: string; mode?: string; frame?: string | null };
 type Node = { id: string; name: string; lastSeen?: number | null; avatar?: string | null; loc?: string };
 type Notif = { id: string; text: string; ts: number };
 
@@ -30,10 +30,10 @@ function guestName() {
   return '访客' + anonId().slice(-4);
 }
 
-function Avatar({ url, name, online }: { url?: string | null; name: string; online?: boolean }) {
+function Avatar({ url, name, online, frame }: { url?: string | null; name: string; online?: boolean; frame?: string | null }) {
   return (
     <div className="relative shrink-0">
-      {url
+      {frame ? <FrameAvatar url={url} name={name} frame={frame} size={28} /> : url
         ? <img src={url} alt="" className="w-7 h-7 rounded-full object-cover border border-white/10" />
         : <span className="w-7 h-7 rounded-full bg-white/[0.06] flex items-center justify-center text-[11px] text-parchment">{(name || '?').slice(0, 1).toUpperCase()}</span>}
       {online && <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400 border-2 border-fog" />}
@@ -87,6 +87,13 @@ export default function FriendDock() {
   const [people, setPeople] = useState<Peer[]>([]);
   const [lobbyById, setLobbyById] = useState<Record<string, { uid: string; name: string; roomId?: string; avatar?: string | null; loc?: string; mode?: string }>>({});
   const [peer, setPeer] = useState<Peer | null>(null);
+  // 私聊对象的头像 / 头像框(在线列表里可能没有),打开时补一下
+  const [peerInfo, setPeerInfo] = useState<{ avatar?: string | null; frame?: string | null } | null>(null);
+  useEffect(() => {
+    setPeerInfo(null); const id = peer?.userId; if (!id) return; let on = true;
+    fetch('/api/player?id=' + encodeURIComponent(id)).then((r) => r.json()).then((d) => { if (on && d?.ok) setPeerInfo({ avatar: d.avatar, frame: d.frame }); }).catch(() => {});
+    return () => { on = false; };
+  }, [peer?.userId]);
   const [dms, setDms] = useState<Record<string, { name: string; msgs: Msg[] }>>({});
   const [dmText, setDmText] = useState('');
   const [thread, setThread] = useState<Record<string, Msg[]>>({});
@@ -149,7 +156,7 @@ export default function FriendDock() {
       if (!on) return;
       if (d && d.loggedIn && d.email) {
         const wl = !!d.whitelisted;
-        setMe({ uid: d.email, userId: d.userId, name: String(d.email).split('@')[0], email: d.email, whitelisted: wl, avatar: d.avatarUrl || null });
+        setMe({ uid: d.email, userId: d.userId, name: String(d.email).split('@')[0], email: d.email, whitelisted: wl, avatar: d.avatarUrl || null, frame: d.frame || null });
         setTab(wl ? 'friends' : 'online');
         if (wl) {
           try { const k = 'mn_announce_at'; const last = Number(localStorage.getItem(k) || 0); if (Date.now() - last > 600000) { localStorage.setItem(k, String(Date.now())); fetch('/api/announce-online', { method: 'POST' }).catch(() => {}); } } catch {}
@@ -186,10 +193,10 @@ export default function FriendDock() {
       const list: Peer[] = []; const byId: Record<string, { uid: string; name: string; roomId?: string; avatar?: string | null; loc?: string; mode?: string }> = {};
       Object.keys(st).forEach((key) => {
         const meta = (st[key] && st[key][0]) || {};
-        if (meta.userId && key !== me.uid) byId[meta.userId] = { uid: key, name: meta.name || '访客', roomId: meta.roomId, avatar: meta.avatar, loc: meta.loc, mode: meta.mode };
+        if (meta.userId && key !== me.uid) byId[meta.userId] = { uid: key, name: meta.name || '访客', roomId: meta.roomId, avatar: meta.avatar, frame: meta.frame, loc: meta.loc, mode: meta.mode };
         if (key === me.uid) return;
         if (meta.email === HIDDEN) return;
-        list.push({ uid: key, name: meta.name || '访客', roomId: meta.roomId, userId: meta.userId, avatar: meta.avatar, loc: meta.loc, mode: meta.mode });
+        list.push({ uid: key, name: meta.name || '访客', roomId: meta.roomId, userId: meta.userId, avatar: meta.avatar, frame: meta.frame, loc: meta.loc, mode: meta.mode });
       });
       setPeople(list); setLobbyById(byId);
     };
@@ -224,14 +231,14 @@ export default function FriendDock() {
       if (m.toUid !== me.uid || !m.token) return;
       setPlayInvite({ fromName: m.fromName || '好友', roomId: m.roomId, token: m.token, mode: m.mode || '' });
     });
-    ch.subscribe((s: string) => { if (s === 'SUBSCRIBED') ch.track({ uid: me.uid, userId: me.userId, name: me.name, email: me.email, avatar: me.avatar, loc: myLoc, mode: myMode, roomId: roomRef.current, ts: Date.now() }); });
+    ch.subscribe((s: string) => { if (s === 'SUBSCRIBED') ch.track({ uid: me.uid, userId: me.userId, name: me.name, email: me.email, avatar: me.avatar, frame: (me as any).frame, loc: myLoc, mode: myMode, roomId: roomRef.current, ts: Date.now() }); });
     return () => { try { supabase.removeChannel(ch); } catch {} lChan.current = null; };
   }, [me]);
 
   useEffect(() => {
     if (!me) return;
     if (fChan.current && me.whitelisted) fChan.current.track({ name: me.name, roomId, ts: Date.now() }).catch(() => {});
-    if (lChan.current && me.email !== HIDDEN) lChan.current.track({ uid: me.uid, userId: me.userId, name: me.name, email: me.email, avatar: me.avatar, loc: myLoc, mode: myMode, roomId, ts: Date.now() }).catch(() => {});
+    if (lChan.current && me.email !== HIDDEN) lChan.current.track({ uid: me.uid, userId: me.userId, name: me.name, email: me.email, avatar: me.avatar, frame: (me as any).frame, loc: myLoc, mode: myMode, roomId, ts: Date.now() }).catch(() => {});
   }, [roomId, me, myLoc, myMode]);
 
   // 好友图轮询
@@ -368,7 +375,7 @@ export default function FriendDock() {
   async function sendLobby() {
     const t = lobbyText.trim(); if (!t) return;
     const tmp = 'tmp' + Date.now(); setLobbyText('');
-    setLobby((L0) => ({ ...L0, msgs: [...L0.msgs, { id: tmp, text: t, ts: Date.now(), mine: true, name: me?.name, avatar: me?.avatar, userId: me?.userId, pending: true }] }));
+    setLobby((L0) => ({ ...L0, msgs: [...L0.msgs, { id: tmp, text: t, ts: Date.now(), mine: true, name: me?.name, avatar: me?.avatar, frame: (me as any)?.frame, userId: me?.userId, pending: true }] }));
     try {
       const r = await fetch('/api/group-chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel: 'public', text: t }) });
       const d = await r.json().catch(() => ({}));
@@ -618,12 +625,12 @@ export default function FriendDock() {
                   </div>); })}
                 {graph.friends.map((f) => { const lob = lobbyById[f.id]; const onl = !!lob || comps.some((c) => c.id === f.id) || !!(f as any).bot;
                   if ((f as any).bot || comps.some((c) => c.id === f.id)) return (<div key={'g' + f.id} className="flex items-center gap-2 text-sm">
-                    <Avatar url={f.avatar} name={f.name} online />
+                    <Avatar url={f.avatar} name={f.name} frame={(f as any).frame} online />
                     <div className="flex-1 min-w-0 leading-tight"><div className="truncate">{f.name}</div><div className="text-[10px] text-green-400/80 truncate">💬 {L('Linger 好友', 'Linger friend')}</div></div>
                     <button onClick={() => openThread(f.id, f.name)} className="text-xs px-2 py-0.5 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] text-parchment shrink-0">{L('私聊', 'Chat')}</button>
                   </div>);
                   return (<div key={'g' + f.id} className="flex items-center gap-2 text-sm">
-                    <Avatar url={f.avatar} name={f.name} online={onl} />
+                    <Avatar url={f.avatar} name={f.name} frame={(f as any).frame} online={onl} />
                     <div className="flex-1 min-w-0 leading-tight"><div className="truncate">{f.name}</div>{(lobbyById[f.id]?.loc || f.loc) && <div className="text-[10px] text-parchment/35 truncate">📍 {lobbyById[f.id]?.loc || f.loc}</div>}</div>
                     {onl && lob!.roomId && lob!.roomId !== roomId && <button onClick={() => requestJoin(lob!.roomId!, f.name)} className="text-[10px] px-2 py-0.5 rounded-xl bg-white/[0.06] text-parchment/70 shrink-0">{L('加入', 'Join')}</button>}
                     {(!onl || !lob!.roomId) && <button onClick={() => invitePlay({ uid: lob?.uid, userId: f.id, name: f.name, online: onl })} className="text-[10px] px-2 py-0.5 rounded-xl bg-white/[0.06] text-parchment/70 hover:bg-white/10 shrink-0">{L('邀请', 'Invite')}</button>}
@@ -645,7 +652,7 @@ export default function FriendDock() {
               {people.length === 0 && comps.length === 0 && <div className="text-xs text-parchment/40 py-8 text-center">{L('现在没有其他人在线', 'No one else online now')}</div>}
               {people.map((p) => (
                 <div key={p.uid} className="flex items-center gap-2 text-sm py-1">
-                  <Avatar url={p.avatar} name={p.name} online />
+                  <Avatar url={p.avatar} name={p.name} frame={(p as any).frame} online />
                   <div className="flex-1 min-w-0 leading-tight"><div className="truncate">{p.name}</div>{(() => { const md = (p.userId && playing[p.userId]?.mode) || p.mode; const rid = (p.userId && playing[p.userId]?.roomId) || p.roomId; return (rid && md) ? <div className="text-[10px] text-green-400/80 truncate">🎮 {L('正在玩 ', 'Playing ')}{MODE_LABEL[md] ? (en ? MODE_LABEL[md].en : MODE_LABEL[md].zh) : md}</div> : p.loc ? <div className="text-[10px] text-parchment/35 truncate">📍 {p.loc}</div> : null; })()}</div>
                   {(() => { const rid = (p.userId && playing[p.userId]?.roomId) || p.roomId; return rid && rid !== roomId ? <button onClick={() => requestJoin(rid, p.name)} className="text-[10px] px-2 py-0.5 rounded-xl bg-white/[0.06] text-parchment/70 shrink-0">{L('加入', 'Join')}</button> : null; })()}
                   {(() => { const rid = (p.userId && playing[p.userId]?.roomId) || p.roomId; return !rid ? <button onClick={() => invitePlay({ uid: p.uid, userId: p.userId, name: p.name, online: true })} className="text-[10px] px-2 py-0.5 rounded-xl bg-white/[0.06] text-parchment/70 hover:bg-white/10 shrink-0">{L('邀请', 'Invite')}</button> : null; })()}
@@ -672,7 +679,8 @@ export default function FriendDock() {
             const sub = pl?.roomId ? L('正在游戏中', 'In a game') : onl ? L('在线', 'Online') : dbMode ? L('离线也能收到消息', 'Gets your message even offline') : '';
             return (
               <ChatView en={en} full={!isDesktop}
-                title={peer.name} subtitle={sub} avatar={{ url: peer.avatar, name: peer.name }}
+                title={peer.name} subtitle={sub} avatar={{ url: peerInfo?.avatar || peer.avatar, name: peer.name, frame: peerInfo?.frame || peer.frame }}
+                me={me ? { avatar: me.avatar, name: me.name, frame: (me as any).frame } : null} peer={{ avatar: peerInfo?.avatar || peer.avatar, name: peer.name, frame: peerInfo?.frame || peer.frame }}
                 right={gated ? addBtn : pid ? <button onClick={() => openProfile(pid)} className="text-[12px] px-2.5 py-1 rounded-full bg-white/[0.06] text-parchment/70">{L('资料', 'Profile')}</button> : undefined}
                 onBack={() => setPeer(null)}
                 msgs={msgs} text={dmText} setText={setDmText} send={() => (dbMode ? sendDbDm(pid!) : sendDm())}
@@ -688,7 +696,7 @@ export default function FriendDock() {
               title={L('谜夜大厅', 'MystNight Lobby')}
               subtitle={L(`公共频道 · 所有人都能看到${people.length ? ` · ${people.length + 1} 人在线` : ''}`, `Public channel · everyone can see this${people.length ? ` · ${people.length + 1} online` : ''}`)}
               onBack={isDesktop ? undefined : () => { setTab('online'); setOpen(false); }}
-              msgs={lobby.msgs} showSender
+              msgs={lobby.msgs} showSender me={me ? { avatar: me.avatar, name: me.name, frame: (me as any).frame } : null}
               empty={lobby.loaded ? L('大厅还很安静,打个招呼吧 —— 约人开局、聊刚才那局、找队友都行', "It's quiet here — say hi, find players, or talk about your last game") : L('加载中…', 'Loading…')}
               text={lobbyText} setText={setLobbyText} send={sendLobby} maxLen={300}
               placeholder={L('在大厅说点什么…', 'Say something to everyone…')}
@@ -713,7 +721,7 @@ export default function FriendDock() {
                 const online = !!lobbyById[pp.id];
                 return (<div key={pp.id} className="flex items-center gap-2 text-sm py-1">
                   <button onClick={() => openProfile(pp.id)} title={L('查看资料', 'View profile')} className="relative shrink-0">
-                    {pp.avatar
+                    {pp.frame ? <FrameAvatar url={pp.avatar} name={pp.name} frame={pp.frame} size={28} /> : pp.avatar
                       ? <img src={pp.avatar} alt="" className="w-7 h-7 rounded-full object-cover border border-white/10" />
                       : <span className="w-7 h-7 rounded-full bg-white/[0.06] flex items-center justify-center text-[11px] text-parchment">{pp.name.slice(0, 1).toUpperCase()}</span>}
                     {online && <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400 border-2 border-fog" />}

@@ -8,6 +8,18 @@ import { LIGHT_PRICE, PASS_PRICE, PARTY_PRICE } from '@/lib/billing/light';
 
 export const runtime = 'nodejs';
 
+// 一次性付款(局数、畅玩卡、会员卡……)同时开放支付宝和微信支付,方便没有外币信用卡的中国玩家。
+// Stripe 只支持这两种做一次性付款,不支持自动续费,所以订阅仍然只能刷卡。
+// 需要在 Stripe 后台「设置 → 付款方式」里打开 Alipay 和 WeChat Pay;没打开时这里会报错,自动退回只用卡,不影响购买。
+async function oneTime(stripe: any, params: any) {
+  try {
+    return await stripe.checkout.sessions.create({ ...params, payment_method_types: ['card', 'alipay', 'wechat_pay'], payment_method_options: { wechat_pay: { client: 'web' } } });
+  } catch (e: any) {
+    console.warn('[checkout] alipay/wechat_pay unavailable, card only:', e?.message);
+    return await stripe.checkout.sessions.create(params);
+  }
+}
+
 export async function POST(req: Request) {
   const supabase = createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -39,10 +51,25 @@ export async function POST(req: Request) {
     }
   }
 
+  // 会员卡:一次性付款买 30 天 / 365 天会员,不自动续费(给用支付宝、微信支付的玩家;到期后可以再买)
+  if (body.plan === 'card30' || body.plan === 'card365') {
+    const yr = body.plan === 'card365';
+    try {
+      const stripe = getStripe();
+      const session = await oneTime(stripe, {
+        mode: 'payment',
+        line_items: [{ quantity: 1, price_data: { currency: CURRENCY, unit_amount: yr ? MEMBERSHIP.yearly.price : MEMBERSHIP.monthly.price, product_data: { name: yr ? 'MystNight Membership · 365 days' : 'MystNight Membership · 30 days', description: 'One-time payment, no auto-renewal' } } }],
+        success_url: `${site}${rt}${sep}member=1`, cancel_url: `${site}/upgrade?canceled=1`,
+        client_reference_id: user.id, customer_email: user.email, metadata: { user_id: user.id, kind: body.plan },
+      });
+      return NextResponse.json({ url: session.url });
+    } catch (e: any) { return NextResponse.json({ error: '创建支付会话失败：' + e.message }, { status: 500 }); }
+  }
+
   if (body.plan === 'custom1') {
     try {
       const stripe = getStripe();
-      const session = await stripe.checkout.sessions.create({
+      const session = await oneTime(stripe, {
         mode: 'payment',
         line_items: [{ quantity: 1, price_data: { currency: CURRENCY, unit_amount: 990, product_data: { name: 'MystNight · Custom murder mystery', description: 'A murder mystery written around your friends — their names, nicknames and inside jokes' } } }],
         success_url: `${site}${rt}${sep}paid=1`, cancel_url: `${site}${rt}`,
@@ -54,7 +81,7 @@ export async function POST(req: Request) {
   if (body.plan === 'party3h') {
     try {
       const stripe = getStripe();
-      const session = await stripe.checkout.sessions.create({
+      const session = await oneTime(stripe, {
         mode: 'payment',
         line_items: [{ quantity: 1, price_data: { currency: CURRENCY, unit_amount: PARTY_PRICE, product_data: { name: 'MystNight · Party Night Pass', description: '3 hours: every game including Murder Mystery and Call of Cthulhu — your friends play free' } } }],
         success_url: `${site}${rt}${sep}paid=1`, cancel_url: `${site}${rt}`,
@@ -67,7 +94,7 @@ export async function POST(req: Request) {
     const one = body.plan === 'light1';
     try {
       const stripe = getStripe();
-      const session = await stripe.checkout.sessions.create({
+      const session = await oneTime(stripe, {
         mode: 'payment',
         line_items: [{ quantity: 1, price_data: { currency: CURRENCY, unit_amount: one ? LIGHT_PRICE : PASS_PRICE, product_data: { name: one ? 'MystNight · One more game' : 'MystNight · 2-hour pass', description: one ? 'One game of Lateral Soup or Cat Curse' : '2 hours of unlimited Lateral Soup and Cat Curse' } } }],
         success_url: `${site}${rt}${sep}paid=1`,
@@ -87,7 +114,7 @@ export async function POST(req: Request) {
 
   try {
     const stripe = getStripe();
-    const session = await stripe.checkout.sessions.create({
+    const session = await oneTime(stripe, {
       mode: 'payment',
       line_items: [{
         quantity: 1,

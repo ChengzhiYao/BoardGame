@@ -68,7 +68,7 @@ export default function Upgrade() {
     } catch (e: any) { setErr(e.message); setBusy(''); }
   }
 
-  async function buySub(plan: 'monthly' | 'yearly' | 'pass2h' | 'light1') {
+  async function buySub(plan: 'monthly' | 'yearly' | 'pass2h' | 'light1' | 'card30' | 'card365') {
     setBusy('sub-' + plan); setErr('');
     try {
       const res = await fetch('/api/billing/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan }) });
@@ -139,6 +139,27 @@ export default function Upgrade() {
             <button onClick={() => (status?.loggedIn ? buySub('yearly') : signInWithGoogle('/upgrade').catch((e) => setErr(e.message)))} disabled={busy === 'sub-yearly' || (status?.loggedIn && status?.member)}
               className="mt-1 w-full px-4 py-2 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] text-parchment border border-[#a83232]/60 disabled:opacity-40 text-sm">
               {status?.member ? (lang === 'en' ? 'Current member' : '已是会员') : busy === 'sub-yearly' ? t('up_redirect') : status?.loggedIn ? (lang === 'en' ? 'Subscribe · best value' : '开通 · 最划算') : t('up_login_then')}
+            </button>
+          </div>
+        </div>
+        {/* 支付宝 / 微信支付:Stripe 不支持用它们自动续费,所以单独卖一次性的会员卡 */}
+        <div className="mt-4 rounded-xl border border-[#1677ff]/30 bg-[#121318] p-4">
+          <div className="flex items-center gap-2 text-parchment text-sm">
+            <span className="px-1.5 py-0.5 rounded bg-[#1677ff] text-white text-[11px] font-semibold">{lang === 'en' ? 'Alipay' : '支付宝'}</span>
+            <span className="px-1.5 py-0.5 rounded bg-[#07c160] text-white text-[11px] font-semibold">{lang === 'en' ? 'WeChat Pay' : '微信支付'}</span>
+            <span>{lang === 'en' ? 'No credit card? Buy a membership card' : '没有信用卡?买会员卡'}</span>
+          </div>
+          <p className="text-parchment/45 text-xs mt-1">{lang === 'en' ? 'One-time payment, no auto-renewal. Adds days on top of any membership you already have. Cards also work.' : '一次性付款,不自动续费;已经是会员的话天数往后加。也可以刷卡。'}</p>
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <button onClick={() => (status?.loggedIn ? buySub('card30') : signInWithGoogle('/upgrade').catch((e) => setErr(e.message)))} disabled={busy === 'sub-card30'}
+              className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-left disabled:opacity-50">
+              <div className="text-parchment text-sm">{lang === 'en' ? '30-day card' : '30 天会员卡'}</div>
+              <div className="font-serif text-xl text-parchment mt-1">{CURRENCY_SYMBOL}{(MEMBERSHIP.monthly.price / 100).toFixed(0)}</div>
+            </button>
+            <button onClick={() => (status?.loggedIn ? buySub('card365') : signInWithGoogle('/upgrade').catch((e) => setErr(e.message)))} disabled={busy === 'sub-card365'}
+              className="rounded-xl border border-amber-500/40 bg-white/[0.03] p-3 text-left disabled:opacity-50">
+              <div className="text-parchment text-sm">{lang === 'en' ? '365-day card' : '365 天会员卡'}</div>
+              <div className="font-serif text-xl text-parchment mt-1">{CURRENCY_SYMBOL}{(MEMBERSHIP.yearly.price / 100).toFixed(0)}</div>
             </button>
           </div>
         </div>

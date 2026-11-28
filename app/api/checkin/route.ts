@@ -14,7 +14,7 @@ function dayOf(req: Request, body?: any): string {
 function label(r: ReturnType<typeof rewardAt>) {
   if (!r) return null;
   if (r.kind === 'frame') { const f = FRAMES.find((x) => x.id === r.id); return { ...r, zh: `头像框「${f?.zh}」`, en: `Frame: ${f?.en}`, css: f?.css }; }
-  if (r.kind === 'bg') { const b = BGS.find((x) => x.id === r.id); return { ...r, zh: `动态背景「${b?.zh}」`, en: `Background: ${b?.en}`, css: b?.swatch }; }
+  if (r.kind === 'bg') { const b = BGS.find((x) => x.id === r.id); return { ...r, zh: `动态背景「${b?.zh}」`, en: `Background: ${b?.en}`, css: b?.swatch, name: b?.zh, nameEn: b?.en }; }
   if (r.kind === 'light') return { ...r, zh: `免费海龟汤 ×${r.count}`, en: `${r.count} free light games` };
   if (r.kind === 'game') return { ...r, zh: `免费跑团 / 剧本杀 ×${r.count}`, en: `${r.count} free premium game` };
   return { ...r, zh: `经验 +${r.xp}`, en: `+${r.xp} XP` };

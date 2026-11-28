@@ -1,6 +1,5 @@
 'use client';
 import { BG3D } from '@/lib/bg3d';
-import { OWNER_BGS } from '@/lib/progress';
 import { createPortal } from 'react-dom';
 // 成长相关的界面:带头像框的头像、等级条、每日打卡卡片、头像框选择
 import { useEffect, useState } from 'react';
@@ -112,7 +111,7 @@ function Reward({ r, big }: { r: any; big?: boolean }) {
   let icon: any, txt: string;
   if (!r) { icon = <CoinIcon size={sz} />; txt = '+5'; }
   else if (r.kind === 'frame') { icon = <span className="rounded-full p-[3px] block" style={{ width: sz, height: sz, background: r.css }}><span className="block w-full h-full rounded-full bg-[#14151a]" /></span>; txt = r.short; }
-  else if (r.kind === 'bg') { icon = <span className="rounded-[5px] block border border-white/30" style={{ width: sz * 1.25, height: sz * 0.85, background: r.css }} />; txt = r.short; }
+  else if (r.kind === 'bg') { icon = <span className="rounded-[5px] block border border-white/30" style={{ width: big ? 40 : sz * 1.4, height: big ? 26 : sz, background: r.css }} />; txt = r.short; }
   else if (r.kind === 'light' || r.kind === 'game') { icon = <TicketIcon size={sz} />; txt = r.short; }
   else { icon = r.big ? <ChestIcon size={sz} /> : <CoinIcon size={sz} />; txt = `+${r.xp}`; }
   return (
@@ -149,7 +148,7 @@ export function CheckinCard({ en, onDone, data, setData }: { en: boolean; onDone
     setBusy(false);
   }
   const map: Record<number, any> = {}; for (const nd of d.nodes || []) map[nd.n] = nd;
-  const short = (r: any) => !r ? null : { ...r, short: r.kind === 'frame' ? L('头像框', 'Frame') : r.kind === 'bg' ? L('背景', 'Backdrop') : r.kind === 'light' ? L(`海龟汤×${r.count}`, `Soup×${r.count}`) : r.kind === 'game' ? L('豪华局', 'Premium') : '' };
+  const short = (r: any) => !r ? null : { ...r, short: r.kind === 'frame' ? L('头像框', 'Frame') : r.kind === 'bg' ? (en ? 'Backdrop' : (r.name || '背景')) : r.kind === 'light' ? L(`海龟汤×${r.count}`, `Soup×${r.count}`) : r.kind === 'game' ? L('豪华局', 'Premium') : '' };
   const todayN = d.checkedToday ? d.inRound : d.inRound + 1;
   const nb = d.nextBig; const now = new Date();
   return (
@@ -269,11 +268,12 @@ export function BgPicker({ prog, en }: { prog: any; en: boolean }) {
     <div className="mt-7">
       <div className="text-[11px] tracking-[.3em] text-[#c9a96e]/80 mb-2.5">{L('动态背景', 'BACKGROUNDS')}</div>
       <div className="grid grid-cols-3 gap-2.5">
-        {prog.bgs.filter((b: any) => !OWNER_BGS.includes(b.id) || BG3D[b.id]).map((b: any) => (
+        {/* 只列首页真的会换的:默认场景 + 已做好 3D 场景的背景 */}
+        {prog.bgs.filter((b: any) => b.id === 'night' || BG3D[b.id]).map((b: any) => (
           <button key={b.id} disabled={!b.unlocked} onClick={() => pick(b.id)} title={en ? b.den : b.dzh}
             className={`rounded-xl border p-1.5 flex flex-col items-center gap-1 ${cur === b.id ? 'border-[#e6c76e]/70 bg-[#e6c76e]/[0.06]' : 'border-white/10 bg-white/[0.02]'} ${b.unlocked ? '' : 'opacity-45'}`}>
             <span className="relative w-full h-14 rounded-lg overflow-hidden border border-white/10" style={{ background: b.swatch }}>
-              <span className="absolute right-2 top-1.5 w-3 h-3 rounded-full bg-white/70" style={{ boxShadow: '0 0 8px rgba(255,255,255,.5)' }} />
+              {!String(b.swatch).includes('url(') && <span className="absolute right-2 top-1.5 w-3 h-3 rounded-full bg-white/70" style={{ boxShadow: '0 0 8px rgba(255,255,255,.5)' }} />}
               {!b.unlocked && <span className="absolute inset-0 flex items-center justify-center text-[15px]">🔒</span>}
               {cur === b.id && <span className="absolute left-1.5 bottom-1 text-[10px] text-[#e6c76e]">✓ {L('使用中', 'On')}</span>}
             </span>

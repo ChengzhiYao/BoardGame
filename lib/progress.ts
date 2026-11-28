@@ -56,7 +56,8 @@ export const frameCss = (id?: string | null) => FRAMES.find((f) => f.id === id)?
 export const ROUND = 30;
 export const CHECKIN_FRAMES = ['frost', 'mist', 'tide', 'watch', 'lotus', 'starlit', 'crimson', 'aurora'];
 // 新背景只要:nightbg.js 的 THEMES 加一项 + BG_META 加一项 + 把 id 排进这里
-export const CHECKIN_BGS = ['snow', 'sakura', 'storm', 'aurora', 'pumpkin', 'meteor', 'harbor', 'ufo', 'graveyard', 'eclipse', 'startrail', 'rift', 'neon'];
+// 3D 场景在前(首页真的会换);签到系统 2026-11-28 才上线,还没人签到第 10 次,所以这次调整顺序不影响任何人已拿到的背景
+export const CHECKIN_BGS = ['pumpkin', 'aurora', 'graveyard', 'ufo', 'rift', 'harbor', 'eclipse', 'neon', 'meteor', 'startrail', 'snow', 'sakura', 'storm'];
 // 站长账号直接拥有这些签到背景(collection.ts 里按邮箱判断)
 export const OWNER_BGS = ['aurora', 'pumpkin', 'meteor', 'harbor', 'ufo', 'graveyard', 'eclipse', 'startrail', 'rift', 'neon'];
 export type NodeKind = 'xp' | 'frame' | 'bg' | 'light' | 'game';
@@ -105,16 +106,16 @@ export const BGS: Bg[] = [
   { id: 'storm', zh: '雷雨', en: 'Thunderstorm', dzh: '签到大奖', den: 'Check-in reward', test: (s) => checkinLoot(s.checkins || 0).bgs.includes('storm'), swatch: 'linear-gradient(180deg,#05070c,#1c2230 70%,#07080b)' },
   { id: 'bloodmoon', zh: '血月', en: 'Blood Moon', dzh: '升到 8 级', den: 'Reach level 8', test: (s) => s.level >= 8, swatch: 'linear-gradient(180deg,#14060a,#3a0f14 70%,#0b0507)' },
   { id: 'abyss', zh: '深渊', en: 'The Abyss', dzh: '升到 15 级', den: 'Reach level 15', test: (s) => s.level >= 15, swatch: 'linear-gradient(180deg,#02100f,#0b2a2c 70%,#020809)' },
-  { id: 'aurora', zh: '幽光', en: 'Eerie Aurora', dzh: '签到大奖', den: 'Check-in reward', test: (s) => checkinLoot(s.checkins || 0).bgs.includes('aurora'), swatch: 'linear-gradient(180deg,#030a12,#1f5a4a 30%,#10262c 70%,#04080b)' },
-  { id: 'pumpkin', zh: '南瓜田', en: 'Pumpkin Patch', dzh: '签到大奖', den: 'Check-in reward', test: (s) => checkinLoot(s.checkins || 0).bgs.includes('pumpkin'), swatch: 'linear-gradient(180deg,#0e0612,#3a1622 70%,#e0762a 100%)' },
-  { id: 'meteor', zh: '流星', en: 'Meteor Shower', dzh: '签到大奖', den: 'Check-in reward', test: (s) => checkinLoot(s.checkins || 0).bgs.includes('meteor'), swatch: 'linear-gradient(200deg,#03040c,#141833 70%,#05060c)' },
-  { id: 'harbor', zh: '雾港', en: 'Fog Harbor', dzh: '签到大奖', den: 'Check-in reward', test: (s) => checkinLoot(s.checkins || 0).bgs.includes('harbor'), swatch: 'linear-gradient(180deg,#070c12,#5a6470 55%,#1c2630 70%,#080b0e)' },
-  { id: 'ufo', zh: '异客', en: 'Visitors', dzh: '签到大奖', den: 'Check-in reward', test: (s) => checkinLoot(s.checkins || 0).bgs.includes('ufo'), swatch: 'linear-gradient(180deg,#030a0a,#0e2426 50%,#3d7a5a 80%,#040808)' },
-  { id: 'graveyard', zh: '墓园', en: 'Graveyard', dzh: '签到大奖', den: 'Check-in reward', test: (s) => checkinLoot(s.checkins || 0).bgs.includes('graveyard'), swatch: 'linear-gradient(180deg,#050a0c,#122224 70%,#2a7a80 92%,#05090a)' },
-  { id: 'eclipse', zh: '日蚀', en: 'Solar Eclipse', dzh: '签到大奖', den: 'Check-in reward', test: (s) => checkinLoot(s.checkins || 0).bgs.includes('eclipse'), swatch: 'radial-gradient(circle at 70% 30%,#07040a 14%,#ff9050 18%,#1c1226 45%,#06050a)' },
-  { id: 'startrail', zh: '星轨', en: 'Star Trails', dzh: '签到大奖', den: 'Check-in reward', test: (s) => checkinLoot(s.checkins || 0).bgs.includes('startrail'), swatch: 'repeating-radial-gradient(circle at 50% 10%,#02040a 0 5px,#2a3a5a 6px,#02040a 7px)' },
-  { id: 'rift', zh: '裂隙', en: 'The Rift', dzh: '签到大奖', den: 'Check-in reward', test: (s) => checkinLoot(s.checkins || 0).bgs.includes('rift'), swatch: 'linear-gradient(100deg,#06040e 45%,#c08aff 50%,#1a1230 55%,#06040a)' },
-  { id: 'neon', zh: '霓虹', en: 'Neon Rain', dzh: '签到大奖', den: 'Check-in reward', test: (s) => checkinLoot(s.checkins || 0).bgs.includes('neon'), swatch: 'linear-gradient(180deg,#06040c,#20102a 60%,#ff3fa4 85%,#3ff0ff 100%)' },
+  { id: 'aurora', zh: '幽光', en: 'Eerie Aurora', dzh: '签到大奖', den: 'Check-in reward', test: (s) => checkinLoot(s.checkins || 0).bgs.includes('aurora'), swatch: 'url(/bg3d/thumbs/aurora.jpg) center/cover, linear-gradient(180deg,#030a12,#1f5a4a 30%,#10262c 70%,#04080b)' },
+  { id: 'pumpkin', zh: '南瓜田', en: 'Pumpkin Patch', dzh: '签到大奖', den: 'Check-in reward', test: (s) => checkinLoot(s.checkins || 0).bgs.includes('pumpkin'), swatch: 'url(/bg3d/thumbs/pumpkin.jpg) center/cover, linear-gradient(180deg,#0e0612,#3a1622 70%,#e0762a 100%)' },
+  { id: 'meteor', zh: '流星', en: 'Meteor Shower', dzh: '签到大奖', den: 'Check-in reward', test: (s) => checkinLoot(s.checkins || 0).bgs.includes('meteor'), swatch: 'url(/bg3d/thumbs/meteor.jpg) center/cover, linear-gradient(200deg,#03040c,#141833 70%,#05060c)' },
+  { id: 'harbor', zh: '雾港', en: 'Fog Harbor', dzh: '签到大奖', den: 'Check-in reward', test: (s) => checkinLoot(s.checkins || 0).bgs.includes('harbor'), swatch: 'url(/bg3d/thumbs/harbor.jpg) center/cover, linear-gradient(180deg,#070c12,#5a6470 55%,#1c2630 70%,#080b0e)' },
+  { id: 'ufo', zh: '异客', en: 'Visitors', dzh: '签到大奖', den: 'Check-in reward', test: (s) => checkinLoot(s.checkins || 0).bgs.includes('ufo'), swatch: 'url(/bg3d/thumbs/ufo.jpg) center/cover, linear-gradient(180deg,#030a0a,#0e2426 50%,#3d7a5a 80%,#040808)' },
+  { id: 'graveyard', zh: '墓园', en: 'Graveyard', dzh: '签到大奖', den: 'Check-in reward', test: (s) => checkinLoot(s.checkins || 0).bgs.includes('graveyard'), swatch: 'url(/bg3d/thumbs/graveyard.jpg) center/cover, linear-gradient(180deg,#050a0c,#122224 70%,#2a7a80 92%,#05090a)' },
+  { id: 'eclipse', zh: '日蚀', en: 'Solar Eclipse', dzh: '签到大奖', den: 'Check-in reward', test: (s) => checkinLoot(s.checkins || 0).bgs.includes('eclipse'), swatch: 'url(/bg3d/thumbs/eclipse.jpg) center/cover, radial-gradient(circle at 70% 30%,#07040a 14%,#ff9050 18%,#1c1226 45%,#06050a)' },
+  { id: 'startrail', zh: '星轨', en: 'Star Trails', dzh: '签到大奖', den: 'Check-in reward', test: (s) => checkinLoot(s.checkins || 0).bgs.includes('startrail'), swatch: 'url(/bg3d/thumbs/startrail.jpg) center/cover, repeating-radial-gradient(circle at 50% 10%,#02040a 0 5px,#2a3a5a 6px,#02040a 7px)' },
+  { id: 'rift', zh: '裂隙', en: 'The Rift', dzh: '签到大奖', den: 'Check-in reward', test: (s) => checkinLoot(s.checkins || 0).bgs.includes('rift'), swatch: 'url(/bg3d/thumbs/rift.jpg) center/cover, linear-gradient(100deg,#06040e 45%,#c08aff 50%,#1a1230 55%,#06040a)' },
+  { id: 'neon', zh: '霓虹', en: 'Neon Rain', dzh: '签到大奖', den: 'Check-in reward', test: (s) => checkinLoot(s.checkins || 0).bgs.includes('neon'), swatch: 'url(/bg3d/thumbs/neon.jpg) center/cover, linear-gradient(180deg,#06040c,#20102a 60%,#ff3fa4 85%,#3ff0ff 100%)' },
 ];
 
 export function streakFrom(days: string[], today: string): { current: number; best: number } {

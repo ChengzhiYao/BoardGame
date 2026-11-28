@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>MystNight · 流星 · 观星台</title>
+<style>
+  * { margin:0; box-sizing:border-box; }
+  html,body { height:100%; overflow:hidden; background:#05060f; }
+  #sky { position:fixed; inset:0; z-index:0; background:radial-gradient(90% 70% at 40% 60%, #2a2a5a 0%, #141638 30%, #090a1e 60%, #04050c 100%); }
+  #cv { position:fixed; inset:0; z-index:1; width:100%; height:100%; display:block; }
+  #vig { position:fixed; inset:0; z-index:4; pointer-events:none; box-shadow:inset 0 0 240px 70px rgba(0,0,6,.72); }
+  #grain { position:fixed; inset:0; z-index:5; pointer-events:none; opacity:.06; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+  #load { position:fixed; inset:0; z-index:9; display:flex; align-items:center; justify-content:center; color:#c9a46a; background:#05060f; transition:opacity .8s; font-family:Georgia,'Noto Serif SC',serif; letter-spacing:.2em; }
+</style>
+</head>
+<body>
+<div id="sky"></div><canvas id="cv"></canvas><div id="vig"></div><div id="grain"></div>
+<div id="load">星河正在升起……</div>
+<script src="../three.min.js"></script>
+<script src="../three-bloom.js"></script>
+<script>
+/* 流星 · 观星台:云海之上的山巅古观星台。石砌平台、石栏、台阶、刻着星图的铜嵌地面;中央三层石台上一座铜浑天仪(多重环各自缓慢转动,中心一颗暖金色的光珠);
+   左侧小石亭挂着铜铃;横跨天空的银河(shader,带尘埃暗带)、密集星点、不断划过的流星雨与偶尔的火流星(留下余迹);脚下多层流动的云海,远处山尖与一座孤塔。
+   与 halloween.html 同一套做法:Three r128 + UnrealBloom + 电影感后期;接收 postMessage {type:'tilt'}。 */
+window.__tilt={x:0,y:0,tx:0,ty:0};
+addEventListener('message',function(e){var d=e&&e.data;if(d&&d.type==='tilt'){__tilt.tx=Math.max(-1,Math.min(1,+d.x||0));__tilt.ty=Math.max(-1,Math.min(1,+d.y||0));}});
+try{
+  if(typeof THREE==='undefined')throw new Error('Three.js 未能加载');
+  const rnd=(a,b)=>a+Math.random()*(b-a);
+  const SMALL=Math.min(innerWidth,innerHeight)<640;
+  const NARROW=innerWidth/innerHeight<1;
+  const REDUCE=matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function cvtex(w,h,draw,rx,ry){const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');draw(g,w,h);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;if(rx)t.repeat.set(rx,ry||rx);return t;}
+  function splat(g,w,h,n,colors,smin,smax,amin,amax){for(let i=0;i<n;i++){g.fillStyle=colors[(Math.random()*colors.length)|0];g.globalAlpha=rnd(amin||0.05,amax||0.4);const s=rnd(smin,smax);g.beginPath();g.ellipse(Math.random()*w,Math.random()*h,s,s*rnd(0.4,1),rnd(0,3),0,7);g.fill();}g.globalAlpha=1;}
+  function glowTex(stops){const c=document.createElement('canvas');c.width=c.height=256;const g=c.getContext('2d');const r=g.createRadialGradient(128,128,0,128,128,128);stops.forEach(s=>r.addColorStop(s[0],s[1]));g.fillStyle=r;g.fillRect(0,0,256,256);return new THREE.CanvasTexture(c);}
+  const tex=glowTex([[0,'rgba(255,250,240,1)'],[.18,'rgba(255,225,180,.85)'],[.5,'rgba(170,110,60,.3)'],[1,'rgba(0,0,0,0)']]);
+  const softTex=glowTex([[0,'rgba(255,255,255,.9)'],[.4,'rgba(255,255,255,.35)'],[1,'rgba(255,255,255,0)']]);
+  // 云团贴图:许多软圆叠成一朵
+  const puffTex=(()=>{const c=document.createElement('canvas');c.width=c.height=256;const g=c.getContext('2d');for(let i=0;i<46;i++){const a=rnd(0,6.28),d=rnd(0,70),x=128+Math.cos(a)*d*1.3,y=140+Math.sin(a)*d*0.55,r=rnd(30,62);const gr=g.createRadialGradient(x,y,0,x,y,r);gr.addColorStop(0,'rgba(255,255,255,.22)');gr.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=gr;g.fillRect(0,0,256,256);}return new THREE.CanvasTexture(c);})();
+
+  // —— 贴图:石板地、砌墙、栏板浮雕、山岩、铜(带铜绿)、亭瓦
+  const slab=(g,w,h,rows,cols,base,seam)=>{g.fillStyle=seam;g.fillRect(0,0,w,h);const rh=h/rows;for(let r=0;r<rows;r++){const off=(r%2)*w/cols*0.5;for(let c=-1;c<cols;c++){const x=c*w/cols+off,cw=w/cols;g.fillStyle=base[(Math.random()*base.length)|0];g.fillRect(x+4,r*rh+4,cw-8,rh-8);}}};
+  const floorTex=cvtex(512,512,(g,w,h)=>{slab(g,w,h,3,3,['#5e5e6e','#4c4c5a','#68667a','#575664','#44444f','#5a5466'],'#101016');g.strokeStyle='rgba(150,150,170,.25)';g.lineWidth=2;for(let r=0;r<3;r++){g.beginPath();g.moveTo(0,r*h/3+5);g.lineTo(w,r*h/3+5);g.stroke();}splat(g,w,h,1400,['#6e6c7a','#3a3a46','#2a2a34','#74727e'],0.6,3,0.1,0.45);splat(g,w,h,60,['#3e4638','#48503e'],4,14,0.08,0.22);
+    for(let i=0;i<30;i++){g.strokeStyle='rgba(20,20,26,.6)';g.lineWidth=1;g.beginPath();let x=Math.random()*w,y=Math.random()*h;g.moveTo(x,y);for(let k=0;k<5;k++){x+=rnd(-14,14);y+=rnd(-14,14);g.lineTo(x,y);}g.stroke();}},3);
+  const floorBump=cvtex(512,512,(g,w,h)=>{slab(g,w,h,3,3,['#9a9a9a','#8c8c8c','#a4a4a4'],'#202020');splat(g,w,h,1600,['#bbb','#666','#777','#ccc'],0.6,3);},3);
+  const wallTex=cvtex(512,256,(g,w,h)=>{slab(g,w,h,4,3,['#3e3e4c','#36363f','#45434f','#3a3946'],'#101016');splat(g,w,h,900,['#55535f','#24242c','#2e3a30'],0.6,3,0.1,0.4);},10,1);
+  const wallBump=cvtex(512,256,(g,w,h)=>{slab(g,w,h,4,3,['#a0a0a0','#909090'],'#202020');splat(g,w,h,900,['#bbb','#555'],0.6,3);},10,1);
+  const rockTex=cvtex(512,512,(g,w,h)=>{g.fillStyle='#1c1d28';g.fillRect(0,0,w,h);for(let i=0;i<90;i++){g.strokeStyle=['#2a2a38','#12121a','#30303e'][(Math.random()*3)|0];g.globalAlpha=rnd(0.3,0.8);g.lineWidth=rnd(1,5);g.beginPath();const y=Math.random()*h;g.moveTo(0,y);g.bezierCurveTo(w/3,y+rnd(-20,20),2*w/3,y+rnd(-20,20),w,y+rnd(-20,20));g.stroke();}g.globalAlpha=1;splat(g,w,h,900,['#3a3a4a','#0c0c12','#262632'],1,6,0.1,0.5);},4,4);
+  const panelTex=cvtex(256,128,(g,w,h)=>{g.fillStyle='#86849a';g.fillRect(0,0,w,h);g.fillStyle='#5a586c';g.fillRect(12,12,w-24,h-24);g.fillStyle='#7c7a90';g.fillRect(18,18,w-36,h-36);
+    g.strokeStyle='#4a485a';g.lineWidth=5;g.lineCap='round';const sc=(x,y,r,dir)=>{g.beginPath();for(let a=0;a<9;a+=0.2){const rr=r*(1-a/10);g.lineTo(x+Math.cos(a*dir)*rr,y+Math.sin(a*dir)*rr);}g.stroke();};
+    sc(78,64,26,1);sc(178,64,26,-1);g.beginPath();g.moveTo(104,64);g.bezierCurveTo(118,40,138,88,152,64);g.stroke();splat(g,w,h,300,['#9a98aa','#4a4858'],0.5,2,0.1,0.4);});
+  const bronzeTex=cvtex(256,256,(g,w,h)=>{g.fillStyle='#b98a4c';g.fillRect(0,0,w,h);splat(g,w,h,500,['#d8ae6a','#8a5e2c','#c69a58','#6e4a22'],1,6,0.1,0.4);splat(g,w,h,70,['#4f8a7a','#3e7466','#5a9a86'],3,18,0.08,0.3);splat(g,w,h,40,['#2a1e12'],2,8,0.1,0.3);},2);
+  const bronzeBump=cvtex(256,256,(g,w,h)=>{g.fillStyle='#808080';g.fillRect(0,0,w,h);splat(g,w,h,900,['#999','#666','#aaa','#555'],1,4);},2);
+  const tileTex=cvtex(512,512,(g,w,h)=>{g.fillStyle='#262838';g.fillRect(0,0,w,h);g.lineWidth=5;for(let k=1;k<16;k++){const d=k*16;g.strokeStyle=k%2?'#14151f':'#323448';g.strokeRect(w/2-d,h/2-d,2*d,2*d);}
+    g.strokeStyle='#16171f';g.lineWidth=3;for(let i=-16;i<=16;i++){const x=w/2+i*15;g.beginPath();g.moveTo(x,0);g.lineTo(x,h/2-Math.abs(i*15)-4);g.moveTo(x,h);g.lineTo(x,h/2+Math.abs(i*15)+4);g.stroke();const y=h/2+i*15;g.beginPath();g.moveTo(0,y);g.lineTo(w/2-Math.abs(i*15)-4,y);g.moveTo(w,y);g.lineTo(w/2+Math.abs(i*15)+4,y);g.stroke();}
+    splat(g,w,h,500,['#3a3c50','#101018'],0.6,3,0.1,0.4);});
+  tileTex.wrapS=tileTex.wrapT=THREE.ClampToEdgeWrapping;
+  // 地面上的铜嵌星图:同心圆、二十八道刻线、随手连起来的星点
+  const chartTex=(()=>{const c=document.createElement('canvas');c.width=c.height=1024;const g=c.getContext('2d');const C=512;g.strokeStyle='#ffcf80';g.fillStyle='#ffd890';g.lineCap='round';
+    [500,486,430,300,292].forEach((r,i)=>{g.lineWidth=i%2?3:6;g.globalAlpha=0.9;g.beginPath();g.arc(C,C,r,0,7);g.stroke();});
+    for(let i=0;i<28;i++){const a=i/28*6.283;g.lineWidth=4;g.beginPath();g.moveTo(C+Math.cos(a)*430,C+Math.sin(a)*430);g.lineTo(C+Math.cos(a)*486,C+Math.sin(a)*486);g.stroke();}
+    for(let i=0;i<120;i++){const a=i/120*6.283;g.lineWidth=2;g.beginPath();g.moveTo(C+Math.cos(a)*486,C+Math.sin(a)*486);g.lineTo(C+Math.cos(a)*(i%5?474:462),C+Math.sin(a)*(i%5?474:462));g.stroke();}
+    for(let k=0;k<14;k++){const a0=k/14*6.283+rnd(-0.1,0.1);let r=rnd(320,410),a=a0;g.lineWidth=2;g.globalAlpha=0.7;g.beginPath();const n=3+(Math.random()*3|0);const ptsA=[];for(let j=0;j<n;j++){const x=C+Math.cos(a)*r,y=C+Math.sin(a)*r;ptsA.push([x,y]);j?g.lineTo(x,y):g.moveTo(x,y);a+=rnd(0.03,0.1);r+=rnd(-22,22);r=Math.max(310,Math.min(420,r));}g.stroke();g.globalAlpha=1;ptsA.forEach(p=>{g.beginPath();g.arc(p[0],p[1],rnd(4,8),0,7);g.fill();});}
+    return new THREE.CanvasTexture(c);})();
+
+  // —— 渲染器 + 后期
+  const renderer=new THREE.WebGLRenderer({canvas:document.getElementById('cv'),antialias:true,alpha:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,SMALL?1.5:2));renderer.setClearColor(0x000000,0);
+  const PR=renderer.getPixelRatio();
+  const scene=new THREE.Scene();
+  const camera=new THREE.PerspectiveCamera(SMALL?64:54,innerWidth/innerHeight,0.1,460);
+  const CAM=NARROW?{x:0,y:5.2,z:19,ly:9.0}:{x:0,y:4.8,z:14.5,ly:6.2};
+  camera.position.set(CAM.x,CAM.y,CAM.z);
+  // 天穹:canvas 竖向渐变(地平线一圈淡紫的气辉)
+  const skyTex=cvtex(8,512,(g,w,h)=>{const gr=g.createLinearGradient(0,0,0,h);gr.addColorStop(0,'#04050f');gr.addColorStop(0.22,'#080a22');gr.addColorStop(0.38,'#10143a');gr.addColorStop(0.46,'#22235a');gr.addColorStop(0.495,'#3c3672');gr.addColorStop(0.51,'#262650');gr.addColorStop(0.6,'#101228');gr.addColorStop(1,'#05060c');g.fillStyle=gr;g.fillRect(0,0,w,h);});skyTex.wrapS=skyTex.wrapT=THREE.ClampToEdgeWrapping;
+  const dome=new THREE.Mesh(new THREE.SphereGeometry(320,32,32),new THREE.MeshBasicMaterial({map:skyTex,side:THREE.BackSide,fog:false,depthWrite:false}));scene.add(dome);
+  let composer=null,bloom=null,cinePass=null;
+  try{composer=new THREE.EffectComposer(renderer);composer.addPass(new THREE.RenderPass(scene,camera));bloom=new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.85,0.5,0.46);composer.addPass(bloom);
+    cinePass=new THREE.ShaderPass({uniforms:{tDiffuse:{value:null},time:{value:0},res:{value:new THREE.Vector2(innerWidth,innerHeight)}},vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+      fragmentShader:`uniform sampler2D tDiffuse;uniform float time;uniform vec2 res;varying vec2 vUv;float rand(vec2 c){return fract(sin(dot(c,vec2(12.9898,78.233)))*43758.5453);}
+      void main(){vec2 uv=vUv;vec2 d=uv-0.5;float r=dot(d,d);float ca=0.0014+r*0.005;vec4 s=texture2D(tDiffuse,uv);vec3 col;col.r=texture2D(tDiffuse,uv+d*ca).r;col.g=s.g;col.b=texture2D(tDiffuse,uv-d*ca).b;
+      float l=dot(col,vec3(0.299,0.587,0.114));vec3 sh=vec3(0.9,0.93,1.1);vec3 hi=vec3(1.08,1.0,0.88);col*=mix(sh,hi,smoothstep(0.0,0.6,l));col=clamp((col-0.5)*1.08+0.5,0.0,1.0);col*=smoothstep(0.98,0.3,r*1.6);col+=(rand(uv*res*0.5+vec2(time))-0.5)*0.04;gl_FragColor=vec4(col,1.0);}`});
+    composer.addPass(cinePass);}catch(e){composer=null;}
+  scene.fog=new THREE.FogExp2(0x181b3c,0.0042);
+
+  // —— 灯光:冷蓝的星光 + 暖金的石灯 / 亭灯 / 浑天仪中心的光珠;火流星划过时整片天地被照亮一下
+  const amb=new THREE.AmbientLight(0x2c2f52,0.45);scene.add(amb);
+  const hemi=new THREE.HemisphereLight(0x5a68a8,0x141226,0.38);scene.add(hemi);
+  const starL=new THREE.DirectionalLight(0xa4b0ff,0.5);starL.position.set(-40,18,-30);scene.add(starL);
+  const fillL=new THREE.DirectionalLight(0x6a6ab0,0.3);fillL.position.set(12,14,30);scene.add(fillL);
+  const flashL=new THREE.DirectionalLight(0xc8ffe8,0);flashL.position.set(-20,60,-60);scene.add(flashL);
+
+  // 金属反射用的环境图:深蓝天、淡紫地平线、星点、云海的灰蓝、一点暖光
+  const envTex=cvtex(512,256,(g,w,h)=>{const gr=g.createLinearGradient(0,0,0,h);gr.addColorStop(0,'#0a0c26');gr.addColorStop(0.42,'#262a64');gr.addColorStop(0.5,'#8a82c0');gr.addColorStop(0.56,'#4a4e86');gr.addColorStop(1,'#14152a');g.fillStyle=gr;g.fillRect(0,0,w,h);
+    g.globalAlpha=0.35;g.fillStyle='#c8c8ff';g.save();g.translate(w/2,h*0.3);g.rotate(-0.4);g.fillRect(-w,-10,2*w,20);g.restore();g.globalAlpha=1;splat(g,w,h*0.48,260,['#ffffff','#c8d0ff'],0.5,1.4,0.4,1);
+    const wr=g.createRadialGradient(w*0.7,h*0.6,0,w*0.7,h*0.6,40);wr.addColorStop(0,'rgba(255,200,120,.9)');wr.addColorStop(1,'rgba(255,160,80,0)');g.fillStyle=wr;g.fillRect(0,0,w,h);});
+  envTex.wrapS=envTex.wrapT=THREE.ClampToEdgeWrapping;
+  let envMap=null;try{const pm=new THREE.PMREMGenerator(renderer);envMap=pm.fromEquirectangular(envTex).texture;pm.dispose();}catch(e){envMap=null;}
+
+  const dummy=new THREE.Object3D();
+  function inst(geo,mat,count,place){const m=new THREE.InstancedMesh(geo,mat,count);for(let i=0;i<count;i++){place(dummy,i);dummy.updateMatrix();m.setMatrixAt(i,dummy.matrix);}m.instanceMatrix.needsUpdate=true;scene.add(m);return m;}
+  const SM=(c,opt)=>new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:1,flatShading:true},opt||{}));
+  const stoneMat=new THREE.MeshStandardMaterial({map:floorTex,bumpMap:floorBump,bumpScale:0.05,roughness:0.95,color:0x5e5c70});
+  const stoneLt=new THREE.MeshStandardMaterial({color:0x5e5c72,roughness:0.9,bumpMap:floorBump,bumpScale:0.03});
+  const panelMat=new THREE.MeshStandardMaterial({map:panelTex,bumpMap:panelTex,bumpScale:0.06,roughness:0.9,color:0x6e6c84});
+  const wallMat=new THREE.MeshStandardMaterial({map:wallTex,bumpMap:wallBump,bumpScale:0.08,roughness:1,color:0x9a98b0});
+  const rockMat=new THREE.MeshStandardMaterial({map:rockTex,bumpMap:rockTex,bumpScale:0.4,roughness:1,flatShading:true,color:0x8a8aa0});
+  const bronze=new THREE.MeshStandardMaterial({map:bronzeTex,bumpMap:bronzeBump,bumpScale:0.015,metalness:0.9,roughness:0.36,envMap,envMapIntensity:1.6,color:0xffffff});
+  const bronzeDk=bronze.clone();bronzeDk.color=new THREE.Color(0x8a7a6c);bronzeDk.roughness=0.5;
+  const gold=new THREE.MeshStandardMaterial({color:0xe8b860,metalness:1,roughness:0.22,envMap,envMapIntensity:2.0});
+
+  // —— 平台:八角形石台(侧面是砌石墙),下面接着山岩一直插进云海
+  const PC=new THREE.Vector3(0,0,-6),RP=8.8,AP=RP*Math.cos(Math.PI/8),FZ=PC.z+AP;
+  const plat=new THREE.Mesh(new THREE.CylinderGeometry(RP,RP+0.5,3.2,8,1),[wallMat,stoneMat,wallMat]);plat.rotation.y=Math.PI/8;plat.position.set(PC.x,-1.6,PC.z);scene.add(plat);
+  // 平台下沿一道出挑的石檐
+  const lip=new THREE.Mesh(new THREE.CylinderGeometry(RP+0.25,RP+0.25,0.22,8,1),stoneLt);lip.rotation.y=Math.PI/8;lip.position.set(PC.x,-0.08,PC.z);scene.add(lip);
+  function rockGeo(rt,rb,h,seg,amp){const g=new THREE.CylinderGeometry(rt,rb,h,seg,14);const p=g.attributes.position;const v=new THREE.Vector3();
+    for(let i=0;i<p.count;i++){v.fromBufferAttribute(p,i);const a=Math.atan2(v.z,v.x),k=(v.y/h+0.5);const n=Math.sin(a*3+v.y*0.3)*0.5+Math.sin(a*7.3-v.y*0.7)*0.3+Math.sin(v.y*1.3+a*2)*0.25+rnd(-0.25,0.25);const s=1+n*amp*(0.4+0.6*(1-k));v.x*=s;v.z*=s;p.setXYZ(i,v.x,v.y,v.z);}g.computeVertexNormals();return g;}
+  const crag=new THREE.Mesh(rockGeo(RP+0.6,24,40,22,0.16),rockMat);crag.position.set(PC.x,-23.2,PC.z);scene.add(crag);
+  // 台阶从平台正面一路向下,没进云里
+  const NSTEP=26,stepRise=0.32,stepRun=0.52,STW=4.2;
+  inst(new THREE.BoxGeometry(STW,1,stepRun+0.02),stoneMat,NSTEP,(d,i)=>{const top=-(i+1)*stepRise,bot=-16;d.position.set(0,(top+bot)/2,FZ+stepRun*(i+0.5));d.scale.set(1,top-bot,1);d.rotation.set(0,0,0);});
+  inst(new THREE.BoxGeometry(STW+0.2,0.06,0.08),stoneLt,NSTEP,(d,i)=>{d.position.set(0,-(i+1)*stepRise+0.0,FZ+stepRun*i+0.03);d.scale.set(1,1,1);});
+  const slope=Math.atan(stepRise/stepRun),SL=NSTEP*stepRun/Math.cos(slope);
+  [-1,1].forEach(sd=>{const cw=new THREE.Mesh(new THREE.BoxGeometry(0.55,1.2,SL),wallMat);cw.rotation.x=slope;cw.position.set(sd*(STW/2+0.28),-NSTEP*stepRise/2+0.55,FZ+NSTEP*stepRun/2);scene.add(cw);
+    const base=new THREE.Mesh(new THREE.BoxGeometry(0.7,14,NSTEP*stepRun),rockMat);base.position.set(sd*(STW/2+0.4),-NSTEP*stepRise/2-7.4,FZ+NSTEP*stepRun/2);base.rotation.x=0;scene.add(base);});
+  inst(new THREE.BoxGeometry(0.42,1.3,0.42),stoneLt,2*7,(d,i)=>{const sd=i%2?1:-1,k=(i>>1)*4;d.position.set(sd*(STW/2+0.28),-k*stepRise+0.75,FZ+k*stepRun+0.2);});
+
+  // —— 石栏:八边形一圈立柱 + 上下横档 + 卷云浮雕栏板,正面留出台阶口
+  const R2=RP-0.38,V=[];for(let k=0;k<8;k++){const a=Math.PI/8+k*Math.PI/4;V.push(new THREE.Vector2(PC.x+Math.sin(a)*R2,PC.z+Math.cos(a)*R2));}
+  const segs=[];for(let k=0;k<8;k++){const A=V[k],B=V[(k+1)%8];if(k===7){const fz=A.y;segs.push([A,new THREE.Vector2(-STW/2-0.3,fz)]);segs.push([new THREE.Vector2(STW/2+0.3,fz),B]);}else segs.push([A,B]);}
+  const postP=[],railS=[];segs.forEach(([A,B])=>{const L=A.distanceTo(B),n=Math.max(1,Math.round(L/1.55));for(let i=0;i<=n;i++){const P=A.clone().lerp(B,i/n);postP.push(P);if(i<n){const Q=A.clone().lerp(B,(i+1)/n);railS.push([P,Q]);}}});
+  inst(new THREE.BoxGeometry(0.26,1.25,0.26),stoneLt,postP.length,(d,i)=>{const p=postP[i];d.position.set(p.x,0.62,p.y);d.rotation.set(0,0,0);d.scale.set(1,1,1);});
+  const capG=new THREE.SphereGeometry(0.17,10,8);capG.scale(1,1.25,1);
+  inst(capG,stoneLt,postP.length,(d,i)=>{const p=postP[i];d.position.set(p.x,1.38,p.y);});
+  const railPlace=(y,sy)=>(d,i)=>{const [P,Q]=railS[i];const dx=Q.x-P.x,dz=Q.y-P.y,L=Math.hypot(dx,dz);d.position.set((P.x+Q.x)/2,y,(P.y+Q.y)/2);d.rotation.set(0,Math.atan2(-dz,dx),0);d.scale.set(L,sy||1,1);};
+  inst(new THREE.BoxGeometry(1,0.12,0.18),stoneLt,railS.length,railPlace(1.12));
+  inst(new THREE.BoxGeometry(1,0.12,0.2),stoneLt,railS.length,railPlace(0.1));
+  inst(new THREE.BoxGeometry(0.94,0.86,0.08),panelMat,railS.length,railPlace(0.6));
+
+  // —— 石灯笼(暖金色的光,石栏转角和台阶口)
+  const lampFlames=[];
+  function stoneLamp(x,z,light,s){const g=new THREE.Group();s=s||1;
+    const b=new THREE.Mesh(new THREE.CylinderGeometry(0.42,0.5,0.25,6),stoneLt);b.position.y=0.12;const p=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.2,1.1,6),stoneLt);p.position.y=0.8;
+    const pl=new THREE.Mesh(new THREE.CylinderGeometry(0.42,0.3,0.18,6),stoneLt);pl.position.y=1.42;
+    const box=new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.3,0.5,6),new THREE.MeshStandardMaterial({color:0x2a1a10,emissive:0xff9440,emissiveIntensity:1.5,roughness:1}));box.position.y=1.76;
+    const posts=[0,1,2].map(k=>{const q=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.52,0.08),stoneLt);const a=k*2.094+0.5;q.position.set(Math.cos(a)*0.32,1.76,Math.sin(a)*0.32);return q;});
+    const roof=new THREE.Mesh(new THREE.ConeGeometry(0.62,0.48,6),stoneLt);roof.position.y=2.24;const knob=new THREE.Mesh(new THREE.SphereGeometry(0.1,8,6),stoneLt);knob.position.y=2.52;
+    g.add(b,p,pl,box,roof,knob,...posts);g.position.set(x,0,z);g.scale.setScalar(s);scene.add(g);
+    const fl=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,color:0xffa040,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,opacity:0.55}));fl.scale.set(2.2*s,2.2*s,1);fl.position.set(x,1.76*s,z);scene.add(fl);
+    let L=null;if(light){L=new THREE.PointLight(0xffa050,1.0,11,2);L.position.set(x,1.9*s,z);scene.add(L);}
+    lampFlames.push({fl,L,box,ph:rnd(0,6.28)});return g;}
+  stoneLamp(-STW/2-0.9,FZ-0.6,true);stoneLamp(STW/2+0.9,FZ-0.6,true);
+  stoneLamp(V[2].x+0.7,V[2].y+0.9,false,0.9);stoneLamp(V[5].x+0.9,V[5].y+0.6,!SMALL,0.9);
+
+  // —— 浑天仪:三层石台上,铜环一层套一层;极轴按纬度倾斜,内部的赤道环/黄道环/子午双环绕极轴转,最里面的窥管环转得更快;中心一颗暖金光珠
+  const AX=NARROW?1.1:3.9,AZ=-6.4;
+  [[3.1,0],[2.6,0.27],[2.12,0.54]].forEach(([r,y])=>{const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r+0.08,0.27,24),stoneLt);m.position.set(AX,y+0.135,AZ);scene.add(m);
+    const e=new THREE.Mesh(new THREE.TorusGeometry(r+0.02,0.035,4,48),stoneMat);e.rotation.x=Math.PI/2;e.position.set(AX,y+0.27,AZ);scene.add(e);});
+  const chart=new THREE.Mesh(new THREE.CircleGeometry(5.4,64),new THREE.MeshStandardMaterial({map:chartTex,emissiveMap:chartTex,emissive:0xffb050,emissiveIntensity:0.35,transparent:true,depthWrite:false,metalness:0.6,roughness:0.4,color:0xd8a860,polygonOffset:true,polygonOffsetFactor:-2}));
+  chart.rotation.x=-Math.PI/2;chart.position.set(AX,0.015,AZ);scene.add(chart);
+  function ringGeo(R,wr,th,seg){const a=R-wr/2,b=R+wr/2,h=th/2;const P=[[a,-h],[b,-h],[b,-h],[b,h],[b,h],[a,h],[a,h],[a,-h],[a,-h]].map(p=>new THREE.Vector2(p[0],p[1]));return new THREE.LatheGeometry(P,seg||96);}
+  function ticks(R,y,n,len,par,mat){const m=new THREE.InstancedMesh(new THREE.BoxGeometry(0.02,0.02,1),mat,n);for(let i=0;i<n;i++){const a=i/n*6.283;const l=i%6?len:len*1.8;dummy.position.set(Math.cos(a)*(R),y,Math.sin(a)*(R));dummy.rotation.set(0,-a+Math.PI/2,0);dummy.scale.set(1,1,l);dummy.updateMatrix();m.setMatrixAt(i,dummy.matrix);}par.add(m);return m;}
+  const armR=2.6,armY=0.81+armR*1.24;
+  const arm=new THREE.Group();arm.position.set(AX,0,AZ);arm.rotation.y=NARROW?-0.75:-0.55;scene.add(arm);
+  // 底座:兽足状的四条弯腿 + 中柱
+  const colPts=[[0.9,0.81],[0.9,0.9],[0.55,0.98],[0.32,1.1],[0.26,1.3],[0.34,1.42],[0.22,1.5],[0.2,armY-armR*1.04-0.1],[0.3,armY-armR*1.04]].map(p=>new THREE.Vector2(p[0],p[1]));
+  arm.add(new THREE.Mesh(new THREE.LatheGeometry(colPts,24),bronzeDk));
+  for(let k=0;k<4;k++){const a=k*Math.PI/2+Math.PI/4,c=Math.cos(a),s=Math.sin(a);const HR=armR*1.14;
+    const cur=new THREE.CatmullRomCurve3([new THREE.Vector3(c*1.15,0.86,s*1.15),new THREE.Vector3(c*1.75,1.1,s*1.75),new THREE.Vector3(c*1.9,1.9,s*1.9),new THREE.Vector3(c*(HR+0.06),armY-0.55,s*(HR+0.06)),new THREE.Vector3(c*(HR),armY-0.04,s*(HR))]);
+    arm.add(new THREE.Mesh(new THREE.TubeGeometry(cur,24,0.075,8,false),bronzeDk));const foot=new THREE.Mesh(new THREE.SphereGeometry(0.16,10,8),bronzeDk);foot.scale.set(1.2,0.7,1.2);foot.position.set(c*1.12,0.88,s*1.12);arm.add(foot);
+    const curl=new THREE.Mesh(new THREE.TorusGeometry(0.16,0.045,6,16,4.5),bronzeDk);curl.position.set(c*1.95,1.55,s*1.95);curl.rotation.y=-a;arm.add(curl);}
+  // 地平环(宽而平,上面刻度)+ 子午环(竖直)
+  const hor=new THREE.Mesh(ringGeo(armR*1.14,0.34,0.07),bronze);hor.position.y=armY;arm.add(hor);ticks(armR*1.14,armY+0.04,72,0.14,arm,gold);
+  const mer=new THREE.Mesh(ringGeo(armR*1.04,0.16,0.09),bronze);mer.rotation.x=Math.PI/2;mer.position.y=armY;arm.add(mer);
+  const merT=new THREE.Group();merT.rotation.x=Math.PI/2;merT.position.y=armY;arm.add(merT);ticks(armR*1.04,0.05,72,0.07,merT,gold);
+  // 极轴组(按纬度 36° 倾斜)
+  const LAT=36*Math.PI/180;const pol=new THREE.Group();pol.position.y=armY;pol.rotation.z=-(Math.PI/2-LAT);arm.add(pol);
+  const axle=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,armR*2.25,8),gold);pol.add(axle);
+  [1,-1].forEach(sg=>{const k=new THREE.Mesh(new THREE.SphereGeometry(0.09,10,8),gold);k.position.y=sg*armR*1.12;pol.add(k);});
+  const cel=new THREE.Group();pol.add(cel);
+  const eq=new THREE.Mesh(ringGeo(armR*0.93,0.15,0.06),bronze);cel.add(eq);ticks(armR*0.93,0.035,96,0.08,cel,gold);
+  const col1=new THREE.Mesh(ringGeo(armR*0.95,0.12,0.07),bronze);col1.rotation.x=Math.PI/2;cel.add(col1);
+  const c2g=new THREE.Group();c2g.rotation.y=Math.PI/2;c2g.add(new THREE.Mesh(ringGeo(armR*0.95,0.12,0.07),bronze));c2g.children[0].rotation.x=Math.PI/2;cel.add(c2g);
+  const eclG=new THREE.Group();eclG.rotation.z=23.4*Math.PI/180;cel.add(eclG);const ecl=new THREE.Mesh(ringGeo(armR*0.9,0.06,0.26),gold);eclG.add(ecl);
+  // 黄道环上一圈小星钉
+  const studs=new THREE.InstancedMesh(new THREE.SphereGeometry(0.03,6,4),new THREE.MeshBasicMaterial({color:0xffe6a8}),24);for(let i=0;i<24;i++){const a=i/24*6.283;dummy.position.set(Math.cos(a)*armR*0.87,(i%2?0.06:-0.06),Math.sin(a)*armR*0.87);dummy.rotation.set(0,0,0);dummy.scale.setScalar(1);dummy.updateMatrix();studs.setMatrixAt(i,dummy.matrix);}eclG.add(studs);
+  // 窥管环 + 窥管
+  const dec=new THREE.Group();pol.add(dec);const decR=new THREE.Mesh(ringGeo(armR*0.74,0.1,0.06),bronze);decR.rotation.x=Math.PI/2;dec.add(decR);
+  const tubeG=new THREE.Group();tubeG.rotation.x=Math.PI/2;dec.add(tubeG);const tube=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.075,armR*1.45,12,1,true),gold);tube.material=gold;const tubeP=new THREE.Group();tubeP.add(tube);tubeG.add(tubeP);
+  // 中心光珠
+  const orb=new THREE.Mesh(new THREE.SphereGeometry(0.22,24,16),new THREE.MeshBasicMaterial({color:0xffe2a0}));pol.add(orb);
+  const orbGlow=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,color:0xffb860,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,opacity:0.75}));orbGlow.scale.set(2.2,2.2,1);pol.add(orbGlow);
+  const orbL=new THREE.PointLight(0xffc070,1.7,8,2);pol.add(orbL);
+
+  // —— 小石亭:四柱、反宇飞檐、宝顶,四角挂铜铃,亭中吊一盏灯
+  const PX=NARROW?-4.6:-5.4,PZ=-9.6;
+  const pav=new THREE.Group();pav.position.set(PX,0,PZ);pav.rotation.y=NARROW?0.5:0.35;scene.add(pav);const bells=[];
+  {const plinth=new THREE.Mesh(new THREE.BoxGeometry(4.0,0.4,4.0),stoneLt);plinth.position.y=0.2;pav.add(plinth);
+    const step=new THREE.Mesh(new THREE.BoxGeometry(1.6,0.2,0.5),stoneLt);step.position.set(0,0.1,2.2);pav.add(step);
+    const lac=new THREE.MeshStandardMaterial({color:0x4a1c1a,roughness:0.75,metalness:0.05});const beamM=new THREE.MeshStandardMaterial({color:0x2a1416,roughness:0.85});
+    [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([x,z])=>{const c=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.15,3.2,10),lac);c.position.set(x*1.5,2.0,z*1.5);pav.add(c);const bs=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.24,0.22,8),stoneLt);bs.position.set(x*1.5,0.5,z*1.5);pav.add(bs);});
+    [[0,1.5,0],[0,-1.5,0],[1.5,0,1],[-1.5,0,1]].forEach(([x,z,r])=>{const b=new THREE.Mesh(new THREE.BoxGeometry(3.4,0.24,0.2),beamM);b.position.set(x,3.5,z);b.rotation.y=r?Math.PI/2:0;pav.add(b);const f=new THREE.Mesh(new THREE.BoxGeometry(2.6,0.12,0.06),gold);f.position.set(x*1.04,3.3,z*1.04);f.rotation.y=r?Math.PI/2:0;pav.add(f);});
+    // 屋面:四坡、凹曲、四角上翘
+    const rg=new THREE.PlaneGeometry(2,2,40,40);rg.rotateX(-Math.PI/2);const p=rg.attributes.position;const S=2.55,H=1.85,U=0.62;
+    for(let i=0;i<p.count;i++){const x=p.getX(i),z=p.getZ(i),r=Math.max(Math.abs(x),Math.abs(z));const c=Math.pow(Math.min(Math.abs(x),Math.abs(z)),5);p.setXYZ(i,x*S*(1+c*0.08),H*Math.pow(1-r,1.7)+U*c*Math.pow(r,6),z*S*(1+c*0.08));}rg.computeVertexNormals();
+    const roofM=new THREE.MeshStandardMaterial({map:tileTex,bumpMap:tileTex,bumpScale:0.05,roughness:0.8,color:0x8a8ca8,side:THREE.DoubleSide});const roof=new THREE.Mesh(rg,roofM);roof.position.y=3.62;pav.add(roof);
+    const ridgeM=new THREE.MeshStandardMaterial({color:0x2a2c3a,roughness:0.7});
+    [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(([sx,sz])=>{const pts=[];for(let i=0;i<=10;i++){const r=i/10;const c=Math.pow(r,5);pts.push(new THREE.Vector3(sx*r*S*(1+c*0.08),3.62+H*Math.pow(1-r,1.7)+U*c*Math.pow(r,6)+0.06,sz*r*S*(1+c*0.08)));}
+      pav.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),20,0.07,6,false),ridgeM));
+      const tip=pts[10];const curl=new THREE.Mesh(new THREE.ConeGeometry(0.08,0.4,6),gold);curl.position.copy(tip);curl.position.y+=0.15;curl.rotation.set(-sz*0.6,0,sx*0.6);pav.add(curl);
+      // 铜铃
+      const bg=new THREE.Group();bg.position.set(tip.x*0.97,tip.y-0.06,tip.z*0.97);pav.add(bg);const chain=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,0.5,4),gold);chain.position.y=-0.25;bg.add(chain);
+      const bp=[[0,0.02],[0.06,0.0],[0.11,-0.06],[0.13,-0.2],[0.17,-0.32],[0.2,-0.36],[0.0,-0.34]].map(q=>new THREE.Vector2(q[0],q[1]));const bell=new THREE.Mesh(new THREE.LatheGeometry(bp,16),bronze);bell.position.y=-0.5;bg.add(bell);
+      const tongue=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.22,0.01),gold);tongue.position.y=-1.0;bg.add(tongue);bells.push({g:bg,ph:rnd(0,6.28),sx,sz});});
+    const fin=new THREE.Mesh(new THREE.LatheGeometry([[0.0,0],[0.25,0.05],[0.18,0.2],[0.24,0.36],[0.08,0.55],[0.12,0.7],[0.02,1.1],[0,1.15]].map(q=>new THREE.Vector2(q[0],q[1])),16),gold);fin.position.y=3.62+H-0.05;pav.add(fin);
+    // 亭中吊灯
+    const lan=new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.28,0.55,8),new THREE.MeshStandardMaterial({color:0x3a1a0c,emissive:0xffa040,emissiveIntensity:1.8}));lan.position.y=2.6;pav.add(lan);
+    const lc=new THREE.Mesh(new THREE.CylinderGeometry(0.01,0.01,0.9,4),beamM);lc.position.y=3.3;pav.add(lc);
+    const lg=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,color:0xffa040,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,opacity:0.6}));lg.scale.set(2.6,2.6,1);lg.position.y=2.6;pav.add(lg);
+    const pl=new THREE.PointLight(0xffa050,1.2,12,2);pl.position.y=2.4;pav.add(pl);lampFlames.push({fl:lg,L:pl,box:lan,ph:1.3,base:1.25});
+    const tbl=new THREE.Mesh(new THREE.CylinderGeometry(0.55,0.4,0.75,12),stoneLt);tbl.position.y=0.78;pav.add(tbl);}
+
+  // —— 银河:穹顶内侧一层 shader 球,带亮核、尘埃暗带、星云的淡红
+  const NOISE3=`float h3(vec3 p){p=fract(p*0.3183099+0.1);p*=17.0;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}
+    float n3(vec3 x){vec3 i=floor(x);vec3 f=fract(x);f=f*f*(3.0-2.0*f);return mix(mix(mix(h3(i),h3(i+vec3(1,0,0)),f.x),mix(h3(i+vec3(0,1,0)),h3(i+vec3(1,1,0)),f.x),f.y),mix(mix(h3(i+vec3(0,0,1)),h3(i+vec3(1,0,1)),f.x),mix(h3(i+vec3(0,1,1)),h3(i+vec3(1,1,1)),f.x),f.y),f.z);}
+    float fbm(vec3 p){float v=0.0,a=0.5;for(int i=0;i<4;i++){v+=a*n3(p);p=p*2.03+vec3(1.7,9.2,3.1);a*=0.5;}return v;}`;
+  const bandA=new THREE.Vector3(Math.sin(-0.95),0.0,-Math.cos(-0.95)).normalize(),bandB=new THREE.Vector3(Math.sin(0.75)*Math.cos(0.6),Math.sin(0.6),-Math.cos(0.75)*Math.cos(0.6)).normalize();
+  const bandN=new THREE.Vector3().crossVectors(bandA,bandB).normalize();const bandT=new THREE.Vector3().crossVectors(bandN,bandA).normalize();const bandGC=new THREE.Vector3(Math.sin(-0.7),0.16,-Math.cos(-0.7)).normalize();
+  const mwMat=new THREE.ShaderMaterial({uniforms:{nrm:{value:bandN},ta:{value:bandA},tb:{value:bandT},gc:{value:bandGC},inten:{value:1.0}},transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.BackSide,
+    vertexShader:'varying vec3 vDir;void main(){vDir=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+    fragmentShader:NOISE3+`uniform vec3 nrm,ta,tb;uniform vec3 gc;uniform float inten;varying vec3 vDir;
+    void main(){vec3 d=normalize(vDir);float b=dot(d,nrm);float th=atan(dot(d,tb),dot(d,ta));
+      float n=fbm(vec3(th*2.2,b*7.0,1.3));float nf=fbm(vec3(th*7.0,b*22.0,4.0));
+      float bb=b+(n-0.5)*0.07;float core=exp(-bb*bb/0.006);float halo=exp(-b*b/0.045);
+      float gcf=pow(max(0.0,dot(d,gc)*0.5+0.5),6.0);
+      float clump=smoothstep(0.32,0.78,nf);
+      float lf=fbm(vec3(th*5.0,b*28.0,9.0));float lane=smoothstep(0.42,0.62,lf)*exp(-pow((b-0.008+(n-0.5)*0.05)/0.032,2.0));
+      float lum=(core*(0.22+1.15*clump)+halo*0.25*n)*(0.45+1.5*gcf);lum*=1.0-0.9*lane;
+      vec3 c=mix(vec3(0.42,0.48,0.95),vec3(1.0,0.86,0.7),clamp(core*gcf*1.6,0.0,1.0));
+      vec3 neb=vec3(0.75,0.28,0.45)*smoothstep(0.55,0.8,fbm(d*3.0+11.0))*halo*0.35+vec3(0.2,0.45,0.6)*smoothstep(0.55,0.8,fbm(d*2.5+21.0))*halo*0.2;
+      float g=n3(d*520.0);float g2=n3(d*260.0+7.0);float sp=(smoothstep(0.8,1.0,g)+smoothstep(0.85,1.0,g2)*0.6)*(core*1.6+halo*0.5+0.06);
+      float hz=smoothstep(-0.04,0.1,d.y);
+      gl_FragColor=vec4(((c*lum+neb)*0.3*inten+vec3(0.85,0.88,1.0)*sp*0.55)*hz,1.0);}`});
+  const mw=new THREE.Mesh(new THREE.SphereGeometry(300,64,48),mwMat);scene.add(mw);
+
+  // —— 星点:带闪烁的点精灵,一半均匀分布,一半挤在银河里
+  function starMat(tw){return new THREE.ShaderMaterial({uniforms:{time:{value:0},pr:{value:PR},tw:{value:tw}},transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,
+    vertexShader:`attribute float size;attribute vec3 col;attribute float ph;uniform float time;uniform float pr;uniform float tw;varying vec3 vC;varying float vA;
+      void main(){vec4 mv=modelViewMatrix*vec4(position,1.0);gl_Position=projectionMatrix*mv;float k=0.72+0.28*sin(time*(1.3+fract(ph*7.13)*3.5)+ph*6.28);k=mix(1.0,k,tw);
+      vA=k*mix(1.0,smoothstep(-0.03,0.12,normalize(position).y),tw);vC=col;gl_PointSize=size*pr*(0.8+0.2*k);}`,
+    fragmentShader:`varying vec3 vC;varying float vA;void main(){vec2 c=gl_PointCoord-0.5;float r=length(c)*2.0;if(r>1.0)discard;float a=exp(-r*r*5.0);float core=smoothstep(0.3,0.0,r);gl_FragColor=vec4(vC*(a*0.55+core)*vA,1.0);}`});}
+  const NST=SMALL?2200:3600;{const P=new Float32Array(NST*3),Sz=new Float32Array(NST),Cl=new Float32Array(NST*3),Ph=new Float32Array(NST);const v=new THREE.Vector3(),tA=new THREE.Vector3(),tB=new THREE.Vector3();
+    tA.copy(bandA);tB.crossVectors(bandN,tA).normalize();
+    const pal=[[0.75,0.82,1],[0.9,0.92,1],[1,0.95,0.85],[1,0.85,0.65],[0.7,0.78,1],[1,0.78,0.6]];
+    for(let i=0;i<NST;i++){if(i%2){const a=rnd(0,6.283);const g=(Math.random()+Math.random()+Math.random()-1.5)*0.16;v.copy(tA).multiplyScalar(Math.cos(a)).addScaledVector(tB,Math.sin(a)).addScaledVector(bandN,g).normalize();}
+      else{do{v.set(rnd(-1,1),rnd(-0.1,1),rnd(-1,1));}while(v.lengthSq()>1||v.lengthSq()<0.05);v.normalize();}
+      if(v.y<-0.04)v.y=-v.y*0.5+0.02;v.normalize().multiplyScalar(285);P.set([v.x,v.y,v.z],i*3);
+      const r=Math.random();Sz[i]=r<0.88?rnd(1.4,3.0):r<0.98?rnd(3.2,5.5):rnd(6,9.5);const c=pal[(Math.random()*pal.length)|0];const br=Sz[i]>5?1:rnd(0.45,0.95);Cl.set([c[0]*br,c[1]*br,c[2]*br],i*3);Ph[i]=Math.random();}
+    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(P,3));g.setAttribute('size',new THREE.BufferAttribute(Sz,1));g.setAttribute('col',new THREE.BufferAttribute(Cl,3));g.setAttribute('ph',new THREE.BufferAttribute(Ph,1));
+    var stars=new THREE.Points(g,starMat(1));stars.frustumCulled=false;scene.add(stars);}
+
+  // —— 远山:从云海里刺出的山尖(带积雪的面),右后方一座孤塔
+  function peakGeo(r,h,blunt){let g=new THREE.ConeGeometry(r,h,16,14);const p=g.attributes.position;const v=new THREE.Vector3();const ph=rnd(0,6.28);
+    for(let i=0;i<p.count;i++){v.fromBufferAttribute(p,i);const k=v.y/h+0.5;const a=Math.atan2(v.z,v.x);const n=1+0.22*Math.sin(a*3+ph+k*4)+0.14*Math.sin(a*7-ph*2+k*9)+0.12*Math.abs(Math.sin(a*11+k*14+ph))+rnd(-0.08,0.08);v.x*=n;v.z*=n;if(blunt&&k>0.9){v.y=h*0.4;}v.x+=Math.sin(k*3+ph)*r*0.08*k;p.setXYZ(i,v.x,v.y,v.z);}
+    g=g.toNonIndexed();g.computeVertexNormals();const pp=g.attributes.position;const col=new Float32Array(pp.count*3);const A=new THREE.Vector3(),B=new THREE.Vector3(),C=new THREE.Vector3(),N=new THREE.Vector3();
+    for(let i=0;i<pp.count;i+=3){A.fromBufferAttribute(pp,i);B.fromBufferAttribute(pp,i+1);C.fromBufferAttribute(pp,i+2);N.crossVectors(B.clone().sub(A),C.clone().sub(A)).normalize();const k=((A.y+B.y+C.y)/3)/h+0.5;
+      const sn=Math.min(1,Math.max(0,(N.y-0.15)*2.2))*Math.min(1,Math.max(0,(k-0.4)*2.5));const c=[0.1+sn*0.34,0.1+sn*0.37,0.17+sn*0.5];for(let j=0;j<3;j++)col.set(c,(i+j)*3);}
+    g.setAttribute('color',new THREE.BufferAttribute(col,3));return g;}
+  const peakMat=new THREE.MeshStandardMaterial({vertexColors:true,flatShading:true,roughness:0.95});
+  const peaks=[[-74,-96,52,22],[82,-104,56,24],[-118,-150,84,36],[130,-170,90,40],[-30,-190,70,26],[40,-215,74,30],[-175,-220,82,40],[185,-230,80,40],[0,-260,60,34],[-82,-105,52,14],[92,-120,56,16],[-36,-96,44,10],[30,-125,48,11],[-14,-140,40,9],[150,-110,60,22],[-150,-95,58,22]];
+  if(SMALL)peaks.length=12;
+  peaks.forEach(([x,z,h,r],i)=>{const m=new THREE.Mesh(peakGeo(r,h,i===10),peakMat);m.position.set(x,-30+h/2,z);m.rotation.y=rnd(0,6.28);scene.add(m);
+    if(r>=20&&i!==10){const sh=new THREE.Mesh(peakGeo(r*0.6,h*0.7,false),peakMat);sh.position.set(x+(x<0?1:-1)*r*0.8,-30+h*0.35,z+r*0.3);sh.rotation.y=rnd(0,6.28);scene.add(sh);}});
+  // 孤塔(在 92,-120 那座平顶山上)
+  const tower=new THREE.Group();{const tm=new THREE.MeshStandardMaterial({color:0x3a3a52,roughness:1,flatShading:true});const rm=new THREE.MeshStandardMaterial({color:0x1a1a26,roughness:1,flatShading:true});
+    let y=0;[[2.6,4.2],[2.1,3.4],[1.7,3.0],[1.3,2.4]].forEach(([r,h],i)=>{const b=new THREE.Mesh(new THREE.CylinderGeometry(r*0.9,r,h,8),tm);b.position.y=y+h/2;tower.add(b);y+=h;const rf=new THREE.Mesh(new THREE.ConeGeometry(r*1.45,0.9,8),rm);rf.position.y=y+0.2;tower.add(rf);y+=0.3;});
+    const sp=new THREE.Mesh(new THREE.ConeGeometry(0.5,3,8),rm);sp.position.y=y+1.4;tower.add(sp);
+    const w=new THREE.Mesh(new THREE.PlaneGeometry(0.7,1.1),new THREE.MeshBasicMaterial({color:0xffb860,fog:false}));w.position.set(0,y-1.6,1.32);tower.add(w);
+    const wg=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,color:0xffa040,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,opacity:0.7,fog:false}));wg.scale.set(7,7,1);wg.position.set(0,y-1.6,1.6);tower.add(wg);tower.userData.wg=wg;}
+  tower.position.set(92,-30+56*0.4+28,-120);tower.scale.setScalar(2.2);tower.rotation.y=-0.6;scene.add(tower);
+
+  // —— 云海:多层 shader 云片,各层速度不同;离平台近的云被灯火染一点暖色
+  const NOISE2=`float h2(vec2 p){vec3 p3=fract(vec3(p.xyx)*0.1031);p3+=dot(p3,p3.yzx+33.33);return fract((p3.x+p3.y)*p3.z);}
+    float n2(vec2 p){vec2 i=floor(p);vec2 f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(h2(i),h2(i+vec2(1,0)),f.x),mix(h2(i+vec2(0,1)),h2(i+vec2(1,1)),f.x),f.y);}
+    float fbm2(vec2 p){float v=0.0,a=0.5;mat2 m=mat2(1.6,1.2,-1.2,1.6);for(int i=0;i<5;i++){v+=a*n2(p);p=m*p+vec2(3.1,1.7);a*=0.5;}return v;}`;
+  const cloudU=[];
+  function cloudLayer(y,scale,speed,op,solid,off,tint){const u={time:{value:0},flash:{value:0},cam:{value:camera.position},sc:{value:scale},sp:{value:speed},op:{value:op},solid:{value:solid},off:{value:off},top:{value:new THREE.Color(tint||0x6a6eac)},low:{value:new THREE.Color(0x141530)},haze:{value:new THREE.Color(0x2a2a5c)},warm:{value:new THREE.Vector3(PC.x,0,PC.z+4)}};cloudU.push(u);
+    const m=new THREE.Mesh(new THREE.PlaneGeometry(900,900,1,1),new THREE.ShaderMaterial({uniforms:u,transparent:true,depthWrite:solid>0.5,
+      vertexShader:'varying vec3 vW;void main(){vec4 w=modelMatrix*vec4(position,1.0);vW=w.xyz;gl_Position=projectionMatrix*viewMatrix*w;}',
+      fragmentShader:NOISE2+`uniform float time,flash,sc,sp,op,solid,off;uniform vec3 cam,top,low,haze,warm;varying vec3 vW;
+      void main(){vec2 p=vW.xz*sc+vec2(time*sp,time*sp*0.45)+off;vec2 q=vec2(fbm2(p*0.6+vec2(time*sp*0.3,0.0)),fbm2(p*0.6+vec2(5.2,1.3)));
+        float n=fbm2(p+q*1.6);float n2=fbm2(p*2.4+q*2.0+vec2(-time*sp*1.6,time*sp*0.7));
+        float d=smoothstep(0.36,0.7,n*0.75+n2*0.35);
+        float nl=fbm2(p+q*1.6+vec2(0.05,0.08));float lit=clamp(0.55+(n-nl)*7.0,0.0,1.0);
+        vec3 col=mix(low,top,clamp(lit*0.6+d*0.5-0.1,0.0,1.0));
+        float wd=length(vW.xz-warm.xz);col+=vec3(1.0,0.62,0.3)*exp(-wd*0.1)*0.16*(0.3+d);
+        col*=1.0+flash*1.4;
+        float dist=length(vW.xz-cam.xz);float fh=1.0-exp(-dist*0.0055);col=mix(col,haze,clamp(fh*1.05,0.0,1.0));
+        float a=mix(d*op,1.0,solid)*smoothstep(440.0,280.0,dist);
+        gl_FragColor=vec4(col,a);}`}));
+    m.rotation.x=-Math.PI/2;m.position.set(0,y,-180);m.renderOrder=-1+(solid>0.5?0:1);scene.add(m);return m;}
+  cloudLayer(-11,0.022,0.05,1,1,0.0,0x464a80);
+  cloudLayer(-8.6,0.028,0.08,0.85,0,7.3);
+  if(!SMALL)cloudLayer(-7.2,0.04,0.13,0.5,0,13.1,0x7478b4);
+  // 贴着山体翻涌的云团
+  const puffs=[];for(let i=0;i<(SMALL?20:34);i++){const a=rnd(0,6.28),r=rnd(12,60);const x=Math.cos(a)*r*1.4,z=PC.z+Math.sin(a)*r-10;if(Math.hypot(x-0,z-14)<8)continue;
+    const s=new THREE.Sprite(new THREE.SpriteMaterial({map:puffTex,color:i%4?0x4e5288:0x64588a,transparent:true,depthWrite:false,opacity:rnd(0.3,0.55)}));const sc=rnd(14,30);s.scale.set(sc*1.6,sc*0.7,1);s.position.set(x,rnd(-8.5,-5.2),z);s.userData={x0:x,ph:rnd(0,6.28),sp:rnd(0.2,0.5),sc};puffs.push(s);scene.add(s);}
+  // 远处山间缓慢横移的云带(压住山脚,拉开前后层次)
+  for(let i=0;i<(SMALL?8:14);i++){const s=new THREE.Sprite(new THREE.SpriteMaterial({map:puffTex,color:i%3?0x575b92:0x6a5e96,transparent:true,depthWrite:false,opacity:rnd(0.35,0.6)}));const sc=rnd(40,80);const x=rnd(-160,160),z=rnd(-150,-55);s.scale.set(sc*1.8,sc*0.38,1);s.position.set(x,rnd(-6,1)+(z<-110?4:0),z);s.userData={x0:x,ph:rnd(0,6.28),sp:rnd(0.6,1.4),sc:sc*0.55};puffs.push(s);scene.add(s);}
+  const horizon=new THREE.Sprite(new THREE.SpriteMaterial({map:softTex,color:0x6a5aa8,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,opacity:0.32,fog:false}));horizon.scale.set(520,70,1);horizon.position.set(-40,-6,-300);scene.add(horizon);
+
+  // —— 流星雨:一条条拉长的加法混合光带(头亮尾暗,从辐射点向外划)+ 头部光点;偶尔一颗火流星,爆闪、碎裂、留下慢慢散开的余迹
+  const MR=270,NM=SMALL?18:30,NT=3,NS=NM+NT;
+  const mPos=new Float32Array(NS*12),mUV=new Float32Array(NS*8),mCol=new Float32Array(NS*16),mIdx=[];
+  for(let i=0;i<NS;i++){const b=i*4;mIdx.push(b,b+1,b+2,b+2,b+1,b+3);mUV.set([0,-1,0,1,1,-1,1,1],i*8);}
+  const mGeo=new THREE.BufferGeometry();mGeo.setAttribute('position',new THREE.BufferAttribute(mPos,3));mGeo.setAttribute('auv',new THREE.BufferAttribute(mUV,2));mGeo.setAttribute('acol',new THREE.BufferAttribute(mCol,4));mGeo.setIndex(mIdx);
+  const mMesh=new THREE.Mesh(mGeo,new THREE.ShaderMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,
+    vertexShader:'attribute vec2 auv;attribute vec4 acol;varying vec2 vUv;varying vec4 vC;void main(){vUv=auv;vC=acol;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+    fragmentShader:'varying vec2 vUv;varying vec4 vC;void main(){float a=pow(clamp(vUv.x,0.0,1.0),vC.a);float w=1.0-abs(vUv.y);float core=pow(w,5.0);gl_FragColor=vec4(vC.rgb*a*(w*w*0.45+core*1.1),1.0);}'}));
+  mMesh.frustumCulled=false;mMesh.renderOrder=2;scene.add(mMesh);
+  const hPos=new Float32Array(NS*3),hSz=new Float32Array(NS),hCl=new Float32Array(NS*3),hPh=new Float32Array(NS);
+  const hGeo=new THREE.BufferGeometry();hGeo.setAttribute('position',new THREE.BufferAttribute(hPos,3));hGeo.setAttribute('size',new THREE.BufferAttribute(hSz,1));hGeo.setAttribute('col',new THREE.BufferAttribute(hCl,3));hGeo.setAttribute('ph',new THREE.BufferAttribute(hPh,1));
+  const heads=new THREE.Points(hGeo,starMat(0));heads.frustumCulled=false;heads.renderOrder=3;scene.add(heads);
+  const RAD=new THREE.Vector3(-0.6,0.78,0.25).normalize();
+  const meteors=[];for(let i=0;i<NM;i++)meteors.push({on:false,s:new THREE.Vector3(),v:new THREE.Vector3()});
+  const trains=[];for(let i=0;i<NT;i++)trains.push({on:false,A:new THREE.Vector3(),B:new THREE.Vector3(),age:0,life:1});
+  const vA=new THREE.Vector3(),vB=new THREE.Vector3(),vS=new THREE.Vector3(),vH=new THREE.Vector3(),vT=new THREE.Vector3(),vX=new THREE.Vector3();
+  function skyDir(out,az,el){return out.set(Math.sin(az)*Math.cos(el),Math.sin(el),-Math.cos(az)*Math.cos(el));}
+  function spawn(opt){const m=meteors.find(q=>!q.on);if(!m)return null;opt=opt||{};
+    if(opt.s)m.s.copy(opt.s);else skyDir(m.s,NARROW?rnd(-0.45,0.45):rnd(-0.95,0.95),NARROW?rnd(0.1,0.66):rnd(0.08,0.52));
+    if(opt.v)m.v.copy(opt.v);else{m.v.copy(m.s).sub(RAD);m.v.addScaledVector(m.s,-m.v.dot(m.s)).normalize();const r=rnd(-0.18,0.18);vX.crossVectors(m.s,m.v);m.v.multiplyScalar(Math.cos(r)).addScaledVector(vX,Math.sin(r)).normalize();}
+    m.on=true;m.age=0;m.fire=!!opt.fire;m.frag=!!opt.frag;m.burst=false;
+    if(m.fire){m.w=0.2;m.L=0.42;m.life=2.6;m.br=1.15;m.wd=2.6;m.hc=[0.8,1,0.88];m.tc=[1,0.5,0.2];}
+    else if(m.frag){m.w=rnd(0.09,0.14);m.L=rnd(0.03,0.06);m.life=rnd(0.5,0.9);m.br=rnd(0.4,0.7);m.wd=0.5;m.hc=[1,0.8,0.5];m.tc=[1,0.4,0.15];}
+    else{const fast=Math.random()<0.6;m.w=fast?rnd(0.32,0.6):rnd(0.14,0.26);m.L=rnd(0.05,0.15);m.life=fast?rnd(0.35,0.8):rnd(0.9,1.5);m.br=Math.random()<0.15?rnd(1.0,1.4):rnd(0.35,0.85);m.wd=rnd(0.5,0.9)*(0.6+m.br*0.4);
+      const c=Math.random();m.hc=c<0.5?[0.85,0.92,1]:c<0.8?[0.75,1,0.85]:[1,0.92,0.75];m.tc=c<0.5?[0.45,0.55,1]:c<0.8?[0.35,0.9,0.6]:[1,0.6,0.35];}
+    return m;}
+  let nextSpawn=0.2,nextFire=4.6,fireN=0,flash=0;
+  function setStrip(k,T,H,wT,wH,ct,ch,pw){vA.subVectors(H,T);vB.subVectors(H,camera.position);vS.crossVectors(vA,vB).normalize();
+    const o=k*12;mPos[o]=T.x-vS.x*wT;mPos[o+1]=T.y-vS.y*wT;mPos[o+2]=T.z-vS.z*wT;mPos[o+3]=T.x+vS.x*wT;mPos[o+4]=T.y+vS.y*wT;mPos[o+5]=T.z+vS.z*wT;
+    mPos[o+6]=H.x-vS.x*wH;mPos[o+7]=H.y-vS.y*wH;mPos[o+8]=H.z-vS.z*wH;mPos[o+9]=H.x+vS.x*wH;mPos[o+10]=H.y+vS.y*wH;mPos[o+11]=H.z+vS.z*wH;
+    const c=k*16;for(let j=0;j<4;j++){const q=j<2?ct:ch;mCol[c+j*4]=q[0];mCol[c+j*4+1]=q[1];mCol[c+j*4+2]=q[2];mCol[c+j*4+3]=pw;}}
+  function clearStrip(k){mCol.fill(0,k*16,k*16+16);hSz[k]=0;}
+  function updateMeteors(dt){
+    nextSpawn-=dt;if(nextSpawn<=0){spawn();if(Math.random()<0.18)spawn();nextSpawn=rnd(0.08,0.55);}
+    if(t>=nextFire){const s=skyDir(new THREE.Vector3(),NARROW?rnd(-0.3,-0.1):rnd(-0.5,-0.2),NARROW?rnd(0.5,0.62):rnd(0.36,0.46));spawn({fire:true,s});fireN++;nextFire=t+(fireN===1?8:rnd(8,13));}
+    flash=0;
+    meteors.forEach((m,k)=>{if(!m.on){clearStrip(k);return;}m.age+=dt;const p=m.age/m.life;
+      if(p>=1){m.on=false;clearStrip(k);if(m.fire){const tr=trains.find(q=>!q.on);if(tr){tr.on=true;tr.age=0;tr.life=6;const a0=m.w*m.life;tr.A.copy(m.s).multiplyScalar(Math.cos(a0-m.L*1.6)).addScaledVector(m.v,Math.sin(a0-m.L*1.6)).multiplyScalar(MR);tr.B.copy(m.s).multiplyScalar(Math.cos(a0)).addScaledVector(m.v,Math.sin(a0)).multiplyScalar(MR);}}return;}
+      const a=m.w*m.age,ta=Math.max(0,a-m.L);
+      vH.copy(m.s).multiplyScalar(Math.cos(a)).addScaledVector(m.v,Math.sin(a)).multiplyScalar(MR);vT.copy(m.s).multiplyScalar(Math.cos(ta)).addScaledVector(m.v,Math.sin(ta)).multiplyScalar(MR);
+      let env;if(m.fire){env=Math.min(1,p/0.08)*(0.75+0.25*Math.sin(m.age*40)*Math.random()+1.8*Math.exp(-Math.pow((p-0.78)/0.05,2)))*(p>0.86?Math.max(0,(1-p)/0.14):1);flash=Math.max(flash,env*0.55);
+        if(p>0.76&&!m.burst){m.burst=true;for(let j=0;j<4;j++){const v=m.v.clone();vX.crossVectors(m.s,m.v);v.addScaledVector(vX,rnd(-0.25,0.25)).normalize();const s=vH.clone().normalize();v.addScaledVector(s,-v.dot(s)).normalize();spawn({frag:true,s,v});}}}
+      else env=Math.pow(Math.sin(Math.PI*p),0.7);
+      const B=m.br*env;setStrip(k,vT,vH,m.wd*(m.fire?0.25:0.05),m.wd,[m.tc[0]*B*(m.fire?1.3:0.9),m.tc[1]*B*(m.fire?1.3:0.9),m.tc[2]*B*(m.fire?1.3:0.9)],[m.hc[0]*B,m.hc[1]*B,m.hc[2]*B],m.fire?1.1:2.2);
+      hPos[k*3]=vH.x;hPos[k*3+1]=vH.y;hPos[k*3+2]=vH.z;hSz[k]=(m.fire?52:m.frag?8:10)*Math.min(1.6,0.5+B*0.8);const hc=m.hc;hCl[k*3]=hc[0]*Math.min(1,B);hCl[k*3+1]=hc[1]*Math.min(1,B);hCl[k*3+2]=hc[2]*Math.min(1,B);});
+    trains.forEach((tr,i)=>{const k=NM+i;if(!tr.on){clearStrip(k);return;}tr.age+=dt;const p=tr.age/tr.life;if(p>=1){tr.on=false;clearStrip(k);return;}
+      const e=Math.pow(1-p,1.6)*0.32;vT.copy(tr.A);vH.copy(tr.B);vT.y+=Math.sin(tr.age*0.7)*2*p;vH.y-=p*3;setStrip(k,vT,vH,0.6+p*3,1.0+p*4,[0.25*e,0.85*e,0.7*e],[0.5*e,1.0*e,0.8*e],0.5);hSz[k]=0;});
+    hGeo.attributes.position.needsUpdate=true;hGeo.attributes.size.needsUpdate=true;hGeo.attributes.col.needsUpdate=true;mGeo.attributes.position.needsUpdate=true;mGeo.attributes.acol.needsUpdate=true;}
+
+  // —— 近处浮动的冰晶微光 + 远处的细尘
+  function pts(n,size,col,box,op){const a=new Float32Array(n*3);for(let i=0;i<n;i++){a[i*3]=rnd(box[0],box[1]);a[i*3+1]=rnd(box[2],box[3]);a[i*3+2]=rnd(box[4],box[5]);}const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(a,3));const p=new THREE.Points(g,new THREE.PointsMaterial({color:col,size:size,transparent:true,opacity:op,depthWrite:false,blending:THREE.AdditiveBlending,map:tex}));scene.add(p);return {p,g,a};}
+  const motes=pts(SMALL?260:480,0.09,0xbcc8ff,[-22,22,-2,12,-26,14],0.6);
+  const embers=pts(SMALL?60:110,0.1,0xffc070,[-8,8,0,6,-14,4],0.8);
+
+  function resize(){renderer.setSize(innerWidth,innerHeight,false);if(composer)composer.setSize(innerWidth,innerHeight);if(cinePass)cinePass.uniforms.res.value.set(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();}addEventListener('resize',resize);resize();
+  const loadEl=document.getElementById('load');loadEl.style.opacity='0';setTimeout(()=>loadEl.style.display='none',800);
+
+  var t=0;let running=true,raf=0;
+  document.addEventListener('visibilitychange',()=>{running=!document.hidden;if(running)tick();else cancelAnimationFrame(raf);});
+  const starU=stars.material.uniforms;
+  function step(dt){t+=dt;
+    // 浑天仪
+    cel.rotation.y=t*0.07;dec.rotation.y=-t*0.13+1.2;tubeP.rotation.z=Math.sin(t*0.2)*0.6;arm.rotation.y=(NARROW?-0.75:-0.55)+Math.sin(t*0.03)*0.08;
+    const op=0.9+0.1*Math.sin(t*1.7);orbGlow.material.opacity=0.7*op;orbL.intensity=1.7*op;
+    lampFlames.forEach(L=>{const f=0.82+0.1*Math.sin(t*7+L.ph)+0.06*Math.sin(t*17+L.ph*2)+0.04*(Math.random()-0.5);L.fl.material.opacity=0.5*f;if(L.L)L.L.intensity=(L.base||1.05)*f;L.box.material.emissiveIntensity=1.6*f;});
+    bells.forEach(b=>{const w=Math.sin(t*1.4+b.ph)*0.12+Math.sin(t*3.1+b.ph*2)*0.04;b.g.rotation.x=w*b.sz;b.g.rotation.z=-w*b.sx*0.7;});
+    updateMeteors(dt);
+    flashL.intensity=flash*0.9;hemi.intensity=0.38+flash*0.35;mwMat.uniforms.inten.value=1-flash*0.25;
+    cloudU.forEach(u=>{u.time.value=t;u.flash.value=flash*0.35;});
+    starU.time.value=t;
+    puffs.forEach(s=>{const u=s.userData;s.position.x=u.x0+Math.sin(t*0.05*u.sp+u.ph)*6+t*0.15*u.sp;s.scale.y=u.sc*0.7*(1+0.08*Math.sin(t*0.3+u.ph));});
+    const ma=motes.a;for(let i=0;i<ma.length;i+=3){ma[i]+=Math.sin(t*0.3+i)*0.004+0.004;ma[i+1]+=Math.cos(t*0.25+i*0.7)*0.003;if(ma[i]>22)ma[i]=-22;}motes.g.attributes.position.needsUpdate=true;motes.p.material.opacity=0.45+0.15*Math.sin(t*0.8);
+    const ea=embers.a;for(let i=0;i<ea.length;i+=3){ea[i+1]+=0.008+(i%5)*0.001;ea[i]+=Math.sin(t*1.5+i)*0.006;if(ea[i+1]>7){const L=(i%2)?{x:AX,y:armY,z:AZ}:{x:(i%4<2?-1:1)*(STW/2+0.9),y:1.8,z:FZ-0.6};ea[i]=L.x+rnd(-0.4,0.4);ea[i+1]=L.y;ea[i+2]=L.z+rnd(-0.4,0.4);}}embers.g.attributes.position.needsUpdate=true;
+    tower.userData.wg.material.opacity=0.6+0.15*Math.sin(t*0.9);
+    camera.position.set(CAM.x+Math.sin(t*0.05)*1.6,CAM.y+Math.sin(t*0.04)*0.35,CAM.z+Math.sin(t*0.035)*0.8);
+    const TL=__tilt;TL.x+=(TL.tx-TL.x)*0.08;TL.y+=(TL.ty-TL.y)*0.08;camera.position.x+=TL.x*2.6;camera.position.y+=TL.y*1.2;
+    camera.lookAt(TL.x*1.2+(NARROW?0.3:0.6),CAM.ly+TL.y*0.6,-30);
+    if(cinePass)cinePass.uniforms.time.value=t;
+  }
+  function draw(){if(composer)composer.render();else renderer.render(scene,camera);}
+  function tick(){if(!running)return;raf=requestAnimationFrame(tick);step(0.016);draw();}
+
+  const snap=+(new URLSearchParams(location.search).get('t')||0);
+  if(snap){for(let i=0;i<snap*60;i++)step(1/60);draw();window.__ready=true;}
+  else if(REDUCE){for(let i=0;i<330;i++)step(1/60);draw();}
+  else tick();
+}catch(e){const l=document.getElementById('load');if(l)l.textContent='3D 层未启动:'+e.message;}
+</script>
+</body>
+</html>

@@ -18,7 +18,7 @@ export default function NightBackground() {
     const run = () => { if (!dead && ref.current && (window as any).startNightBg) stop = (window as any).startNightBg(ref.current, { theme }); };
     if ((window as any).startNightBg) run();
     else {
-      const s = document.createElement('script'); s.src = '/nightbg.js?v=2'; s.async = true; s.onload = run;
+      const s = document.createElement('script'); s.src = '/nightbg.js?v=3'; s.async = true; s.onload = run;
       document.head.appendChild(s);
     }
     return () => { dead = true; stop?.(); };

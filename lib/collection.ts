@@ -185,7 +185,9 @@ export async function collect(admin: any, userId: string, lang: 'zh' | 'en' = 'z
     const lv = P.levelOf(P.xpOf({ ...stats, cocEndings: stats.cocEndings }));
     stats.level = lv.level;
     const frames = P.FRAMES.map((f) => ({ id: f.id, zh: f.zh, en: f.en, dzh: f.dzh, den: f.den, css: f.css, unlocked: f.test({ ...stats, level: lv.level }) }));
-    const bgs = P.BGS.map((b) => ({ id: b.id, zh: b.zh, en: b.en, dzh: b.dzh, den: b.den, swatch: b.swatch, unlocked: b.test({ ...stats, level: lv.level }) }));
+    const { data: me } = await admin.from('users').select('email').eq('id', userId).maybeSingle();
+    const owner = String(me?.email || '').toLowerCase() === (process.env.ADMIN_EMAIL || 'yxhzdm@gmail.com').toLowerCase();
+    const bgs = P.BGS.map((b) => ({ id: b.id, zh: b.zh, en: b.en, dzh: b.dzh, den: b.den, swatch: b.swatch, unlocked: (owner && P.OWNER_BGS.includes(b.id)) || b.test({ ...stats, level: lv.level }) }));
     const equipped = frames.find((f) => f.id === pf?.avatar_frame && f.unlocked)?.id || null;
     prog = { ...lv, title: P.titleOf(lv.level, lang === 'en'), frames, frame: equipped, bgs, bg: pf?.home_bg || 'night' };
     // 记到 users 上,别处(大厅、资料卡、排行)直接读

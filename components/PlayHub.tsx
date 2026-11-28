@@ -89,6 +89,7 @@ export default function PlayHub() {
           { label: en ? 'Leaderboard' : '排行榜', href: '/ranks', icon: 'trophy' as const, group: 1 },
           { label: en ? 'Tonight’s Ghost Story' : '今夜怪谈', href: '/tonight', icon: 'music' as const, group: 1 },
           { label: en ? 'Prices & my games' : '价格与局数', href: '/upgrade', icon: 'price' as const, group: 1 },
+          { label: en ? 'Partner program (earn 40%)' : '推广赚分成', href: '/partner', icon: 'invite' as const, group: 2 },
           { label: en ? 'About MystNight' : '关于谜夜', href: en ? '/en?landing=1' : '/zh?landing=1', icon: 'about' as const, group: 2 },
           { label: en ? 'Music' : '音乐', href: '/music', icon: 'music' as const, group: 3 },
           { label: en ? 'Blog' : '博客', href: en ? '/en/blog' : '/zh/blog', icon: 'blog' as const, group: 3 },

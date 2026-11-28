@@ -35,6 +35,10 @@ export async function POST(req: Request) {
     const s = event.data.object;
     const userId = s.metadata?.user_id || s.client_reference_id;
     const customer = typeof s.customer === 'string' ? s.customer : null;
+    // 推广分成:这笔付款(含订阅的第一期)
+    if (userId && s.payment_status !== 'unpaid' && Number(s.amount_total) > 0) {
+      try { const { recordCommission } = await import('@/lib/referral'); await recordCommission(admin, { key: s.id, userId, amount: Number(s.amount_total), currency: s.currency, paymentIntent: typeof s.payment_intent === 'string' ? s.payment_intent : null, invoice: typeof s.invoice === 'string' ? s.invoice : null, what: s.mode === 'subscription' ? `member_${s.metadata?.interval || 'month'}` : (s.metadata?.kind || (s.metadata?.games ? `games${s.metadata.games}` : 'payment')) }); } catch {}
+    }
     if (s.mode === 'subscription' && userId) {
       const interval = s.metadata?.interval || 'month';
       const until = addInterval(new Date(), interval);
@@ -81,11 +85,17 @@ export async function POST(req: Request) {
       if (customer) {
         const { data: p } = await admin.from('profiles').select('user_id, member_until, member_interval').eq('stripe_customer_id', customer).maybeSingle();
         if (p) {
+          // 推广分成:会员续费
+          try { const { recordCommission } = await import('@/lib/referral'); await recordCommission(admin, { key: inv.id, userId: p.user_id, amount: Number(inv.amount_paid), currency: inv.currency, paymentIntent: typeof inv.payment_intent === 'string' ? inv.payment_intent : null, invoice: inv.id, what: `renew_${p.member_interval || 'month'}` }); } catch {}
           const base = p.member_until && new Date(p.member_until) > new Date() ? new Date(p.member_until) : new Date();
           await admin.from('profiles').update({ member_until: addInterval(base, p.member_interval || 'month').toISOString() }).eq('user_id', p.user_id);
         }
       }
     }
+  } else if (event.type === 'charge.refunded') {
+    // 退款:对应的推广分成作废
+    const ch = event.data.object;
+    try { const { reverseCommission } = await import('@/lib/referral'); await reverseCommission(admin, typeof ch.payment_intent === 'string' ? ch.payment_intent : null, typeof ch.invoice === 'string' ? ch.invoice : null); } catch {}
   } else if (event.type === 'customer.subscription.deleted') {
     const sub = event.data.object;
     const customer = typeof sub.customer === 'string' ? sub.customer : null;

@@ -24,6 +24,8 @@ export async function GET(req: Request) {
     if (country) patch.country = country;
     admin.from('users').update(patch).eq('id', user.id).then(() => {}, () => {});
   } catch { admin.from('users').update({ last_seen: new Date().toISOString() }).eq('id', user.id).then(() => {}, () => {}); }
+  // 推广链接:新用户登录后记到推广人名下(cookie 由 /api/ref/hit 写)
+  try { const { cookies } = await import('next/headers'); const rc = cookies().get('mn_ref')?.value; if (rc) { const { claimReferral } = await import('@/lib/referral'); await claimReferral(admin, user, rc); } } catch {}
   const { data: prof } = await admin.from('users').select('display_name, bio, avatar_url, frame').eq('id', user.id).maybeSingle();
   // 首次用 Google 登录：没有头像/昵称时，用 Google 账号的头像与名字作默认（之后自己上传/改名会覆盖，这里只在为空时填）
   let displayName = prof?.display_name || null;

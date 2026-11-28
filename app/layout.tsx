@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next';
 import InstallPWA from './InstallPWA';
 import FriendDock from '@/components/FriendDock';
 import Track from '@/components/Track';
+import RefTracker from '@/components/RefTracker';
 import Toaster from '@/components/Toast';
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.mystnight.com';
@@ -42,6 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <InstallPWA />
         <FriendDock />
         <Track />
+        <RefTracker />
         {children}
       </body>
     </html>

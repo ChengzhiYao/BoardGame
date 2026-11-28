@@ -12,12 +12,21 @@ export const runtime = 'nodejs';
 // Stripe 只支持这两种做一次性付款,不支持自动续费,所以订阅仍然只能刷卡。
 // 需要在 Stripe 后台「设置 → 付款方式」里打开 Alipay 和 WeChat Pay;没打开时这里会报错,自动退回只用卡,不影响购买。
 async function oneTime(stripe: any, params: any) {
-  try {
-    return await stripe.checkout.sessions.create({ ...params, payment_method_types: ['card', 'alipay', 'wechat_pay'], payment_method_options: { wechat_pay: { client: 'web' } } });
-  } catch (e: any) {
-    console.warn('[checkout] alipay/wechat_pay unavailable, card only:', e?.message);
-    return await stripe.checkout.sessions.create(params);
+  // 哪个还没开通(比如还在审核)就只去掉哪个,另一个照样能用
+  let types = ['card', 'alipay', 'wechat_pay'];
+  for (let i = 0; i < 3; i++) {
+    try {
+      return await stripe.checkout.sessions.create({ ...params, payment_method_types: types, ...(types.includes('wechat_pay') ? { payment_method_options: { wechat_pay: { client: 'web' } } } : {}) });
+    } catch (e: any) {
+      const msg = String(e?.message || '');
+      const bad = types.find((t) => t !== 'card' && msg.includes(`type provided: ${t} `));
+      console.warn('[checkout] payment method unavailable:', bad || 'unknown', '-', msg.slice(0, 160));
+      if (!bad) break;
+      types = types.filter((t) => t !== bad);
+      if (types.length === 1) break;
+    }
   }
+  return await stripe.checkout.sessions.create(params);
 }
 
 export async function POST(req: Request) {

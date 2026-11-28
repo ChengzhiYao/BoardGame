@@ -194,3 +194,19 @@ export function FramePicker({ prog, en, onChange }: { prog: any; en: boolean; on
     </div>
   );
 }
+
+// 首页问候下面的等级条:Lv + 称号 + 经验进度,点进「我的」看全部
+export function LevelChip({ en }: { en: boolean }) {
+  const [d, setD] = useState<any>(null);
+  useEffect(() => { fetch(`/api/me/level?lang=${en ? 'en' : 'zh'}`, { cache: 'no-store' }).then((r) => r.json()).then(setD).catch(() => {}); }, [en]);
+  if (!d?.ok) return null;
+  const pct = Math.round((d.cur / Math.max(1, d.span)) * 100);
+  return (
+    <a href="/me" className="mt-3 inline-flex items-center gap-2.5 pl-1.5 pr-3 py-1.5 rounded-full border border-[#c9a96e]/30 bg-[#c9a96e]/[0.07] hover:bg-[#c9a96e]/[0.12]">
+      <span className="h-6 min-w-[42px] px-2 rounded-full bg-gradient-to-b from-[#ecd08f] to-[#c9a96e] text-[#1a140a] text-[12px] font-bold flex items-center justify-center">Lv.{d.level}</span>
+      <span className="text-[13px] text-[#f3e8cf]">{d.title}</span>
+      <span className="w-16 h-1.5 rounded-full bg-white/[0.08] overflow-hidden"><span className="block h-full rounded-full bg-[#e6c76e]" style={{ width: pct + '%' }} /></span>
+      <span className="text-[11px] text-parchment/45">{en ? 'Me ›' : '我的 ›'}</span>
+    </a>
+  );
+}

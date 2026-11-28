@@ -1,5 +1,4 @@
 'use client';
-import { CheckinButton } from '@/components/Progress';
 // 首页第一屏：卖点 + 全部玩法（九宫格）+ 收费方式，手机一屏看全。点玩法弹出底部卡片看详情、开局。
 import React, { useEffect, useState } from 'react';
 import { type Lang } from '@/lib/i18n';
@@ -75,7 +74,6 @@ export function HomeTopBar({ lang, onLang, account, onLogin, onLogout, menu, hom
       <div className="mx-auto max-w-5xl h-12 px-3 flex items-center gap-2 bg-ink/55 backdrop-blur-md border-b border-white/5 sm:border-none sm:bg-transparent sm:backdrop-blur-0">
         <a href={home || (en ? '/en' : '/zh')} className="font-serif font-bold text-[17px] text-[#f2ead9] tracking-wide">{en ? 'MystNight' : '谜夜'}</a>
         <div className="flex-1" />
-        {account?.loggedIn && <CheckinButton en={en} />}
         <button onClick={() => onLang(en ? 'zh' : 'en')} className="h-8 px-2.5 rounded-full text-xs text-parchment/75 border border-white/10 bg-white/5">{en ? '中文' : 'EN'}</button>
         {account?.loggedIn ? (
           <a href="/upgrade" className="h-8 px-2.5 rounded-full text-xs flex items-center border border-eldritch/40 bg-eldritch/15 text-parchment/85">

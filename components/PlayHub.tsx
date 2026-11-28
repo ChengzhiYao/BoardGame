@@ -2,7 +2,7 @@
 // 「我的大厅」：老玩家每次打开谜夜看到的地方——进行中的局、再开一局、玩过的局、我的额度。
 import PartyPass from '@/components/PartyPass';
 import { DailyCard } from '@/components/Daily';
-import { LevelChip } from '@/components/Progress';
+import { LevelChip, CheckinButton } from '@/components/Progress';
 import OpenRooms from '@/components/OpenRooms';
 import RanksCard from '@/components/RanksCard';
 import TonightCard from '@/components/TonightCard';
@@ -94,9 +94,10 @@ export default function PlayHub() {
 
       <div className="w-full max-w-3xl px-4 sm:px-6 flex flex-col gap-6 sm:gap-8 pb-20" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 72px)' }}>
         {/* 问候 + 我的额度 */}
-        <section>
+        <section className="relative">
+          {acct?.loggedIn && <div className="absolute right-0 top-0"><CheckinButton en={en} /></div>}
           <div className="text-[11px] tracking-[.25em] text-[#c9a96e]/70">{dateLine}</div>
-          <h1 className="mt-1.5 font-serif font-semibold text-[28px] sm:text-4xl tracking-wide text-[#efe6d2] truncate">{hello}{name ? (en ? `, ${name}` : `，${name}`) : ''}</h1>
+          <h1 className={`mt-1.5 ${acct?.loggedIn ? 'pr-20' : ''} font-serif font-semibold text-[28px] sm:text-4xl tracking-wide text-[#efe6d2] truncate`}>{hello}{name ? (en ? `, ${name}` : `，${name}`) : ''}</h1>
           {acct?.loggedIn && <div><LevelChip en={en} /></div>}
           {acct?.loggedIn && (
             <a href="/upgrade" className="mt-3 flex items-center gap-x-4 gap-y-1 flex-wrap text-[12.5px] text-parchment/60">

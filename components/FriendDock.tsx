@@ -501,9 +501,24 @@ export default function FriendDock() {
                   </div>
                 ) : <button onClick={() => { setApplyFor(post.id); setApplyMsg(''); }} className="text-xs px-2.5 py-0.5 rounded-xl bg-[#7d1d1d] hover:bg-[#8e2323] text-parchment">{L('申请', 'Apply')}</button>}
             </div>
-            {post.mine && lfgExpand === post.id && (post.applicants || []).map((ap: any) => (
-              <div key={ap.id} className="text-[11px] mt-1 pl-2 border-l-2 border-white/10 text-parchment/70"><b className="text-parchment">{ap.name}</b>{ap.message ? '：' + ap.message : ''}</div>
-            ))}
+            {post.mine && lfgExpand === post.id && (post.applicants || []).map((ap: any) => {
+              const rel = friendIds.has(ap.id) ? 'friend' : outIds.has(ap.id) ? 'out' : inIds.has(ap.id) ? 'in' : 'none';
+              return (
+                <div key={ap.id} className="mt-2 rounded-xl bg-white/[0.03] border border-white/[0.07] px-2.5 py-2">
+                  <button onClick={() => openProfile(ap.id)} className="flex items-center gap-2 w-full text-left">
+                    <Avatar url={ap.avatar} name={ap.name} />
+                    <div className="flex-1 min-w-0 leading-tight"><div className="text-[13px] text-parchment truncate">{ap.name}</div>{ap.message && <div className="text-[11px] text-parchment/55 truncate">{ap.message}</div>}</div>
+                  </button>
+                  <div className="mt-1.5 flex gap-1.5">
+                    <button onClick={() => invitePlay({ userId: ap.id, name: ap.name, online: !!lobbyById[ap.id], uid: lobbyById[ap.id]?.uid })} className="flex-1 text-[11.5px] py-1 rounded-lg bg-[#7d1d1d] hover:bg-[#8e2323] text-parchment">{L('邀请一起玩', 'Invite to play')}</button>
+                    <button onClick={() => openThread(ap.id, ap.name)} className="flex-1 text-[11.5px] py-1 rounded-lg bg-white/[0.07] hover:bg-white/10 text-parchment">{L('私聊', 'Message')}</button>
+                    {rel === 'friend' ? <span className="flex-1 text-center text-[11.5px] py-1 text-green-400">{L('已是好友', 'Friends')}</span>
+                      : rel === 'out' ? <span className="flex-1 text-center text-[11.5px] py-1 text-parchment/45">{L('已申请好友', 'Requested')}</span>
+                      : rel === 'in' ? <button onClick={() => respondReq(ap.id, true)} className="flex-1 text-[11.5px] py-1 rounded-lg bg-green-700/70 hover:bg-green-700 text-parchment">{L('同意好友', 'Accept')}</button>
+                      : <button onClick={() => addFriend(ap.id)} className="flex-1 text-[11.5px] py-1 rounded-lg bg-white/[0.07] hover:bg-white/10 text-parchment">{addState[ap.id] || L('加好友', 'Add friend')}</button>}
+                  </div>
+                </div>
+              ); })}
             {post.mine && lfgExpand === post.id && post.applicantCount === 0 && <div className="text-[11px] mt-1 text-parchment/35">{L('还没有人申请', 'No applicants yet')}</div>}
           </div>
         ))}

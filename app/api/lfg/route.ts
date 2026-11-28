@@ -20,10 +20,10 @@ export async function GET() {
   const postIds = (posts || []).map((p: any) => p.id);
   const { data: apps } = postIds.length ? await admin.from('lfg_applications').select('id, post_id, applicant_user, message, created_at').in('post_id', postIds) : { data: [] } as any;
   const appUserIds = Array.from(new Set((apps || []).map((a: any) => a.applicant_user)));
-  const appNames: Record<string, string> = {};
+  const appNames: Record<string, string> = {}; const appAv: Record<string, string | null> = {};
   if (appUserIds.length) {
-    const { data: au } = await admin.from('users').select('id, display_name').in('id', appUserIds);
-    (au || []).forEach((u: any) => { appNames[u.id] = u.display_name || ('玩家·' + String(u.id).slice(0, 4)); });
+    const { data: au } = await admin.from('users').select('id, display_name, avatar_url').in('id', appUserIds);
+    (au || []).forEach((u: any) => { appNames[u.id] = u.display_name || ('玩家·' + String(u.id).slice(0, 4)); appAv[u.id] = u.avatar_url || null; });
   }
   const out = (posts || []).filter((p: any) => (nameMap[p.author_user]?.email) !== HIDDEN).map((p: any) => {
     const a = nameMap[p.author_user] || {};
@@ -33,7 +33,7 @@ export async function GET() {
       id: p.id, game: p.game || '', times: p.times || '', note: p.note || '', ts: new Date(p.created_at).getTime(),
       author: { id: p.author_user, name: a.display_name || ('玩家·' + String(p.author_user).slice(0, 4)), avatar: a.avatar_url || null },
       mine, applied: postApps.some((x: any) => x.applicant_user === user.id), applicantCount: postApps.length,
-      applicants: mine ? postApps.map((x: any) => ({ id: x.applicant_user, name: appNames[x.applicant_user] || '玩家', message: x.message || '', ts: new Date(x.created_at).getTime() })) : undefined,
+      applicants: mine ? postApps.map((x: any) => ({ id: x.applicant_user, name: appNames[x.applicant_user] || '玩家', avatar: appAv[x.applicant_user] || null, message: x.message || '', ts: new Date(x.created_at).getTime() })) : undefined,
     };
   });
   return NextResponse.json({ loggedIn: true, posts: out });

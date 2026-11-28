@@ -26,6 +26,11 @@ export async function POST(req: Request) {
 
   const p = inv.payload || {};
   const lang = p.language === 'en' ? 'en' : 'zh';
+  // 房主必须在 users 表里有一行(换数据库后,有的老账号只在 auth 里、没有 users 那行 → 建房会撞外键)
+  try {
+    const { data: me } = await admin.from('users').select('id').eq('id', user.id).maybeSingle();
+    if (!me) await admin.from('users').upsert({ id: user.id, email: user.email, display_name: String((user.user_metadata as any)?.name || (user.email || '').split('@')[0] || 'player').slice(0, 40) }, { onConflict: 'id' });
+  } catch {}
   const inviteToken = Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
   const { data: room, error } = await admin.from('rooms').insert({
     name: lang === 'en' ? `${MODE_EN[inv.mode]} with ${p.name}` : inv.mode === 'story' ? `和 ${p.name} 一起听故事` : `和 ${p.name} 的${MODE_ZH[inv.mode]}`,

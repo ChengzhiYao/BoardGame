@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import ChatView, { type ChatMsg } from '@/components/ChatView';
 import { getClientLang } from '@/lib/i18n';
 
 // 这个账号不进公共大厅 / 玩家目录 / 好友图（只保留白名单好友功能，男友侧仍可见）。
@@ -48,26 +49,6 @@ function ago(ts?: number | null, en?: boolean) {
   return Math.floor(mo / 12) + (en ? 'y ago' : ' 年前');
 }
 
-function ChatBox({ msgs, text, setText, send, empty, hint, disabled, footer, en }: { msgs: Msg[]; text: string; setText: (s: string) => void; send: () => void; empty: string; hint?: string; disabled?: boolean; footer?: ReactNode; en?: boolean }) {
-  return (
-    <>
-      <div className="h-40 overflow-y-auto px-3 py-2 space-y-1.5 flex flex-col">
-        {msgs.length === 0 && <div className="text-xs text-parchment/35 m-auto">{empty}</div>}
-        {msgs.map((m, i) => (<div key={i} className={`max-w-[80%] px-2.5 py-1.5 rounded-xl text-xs leading-snug ${m.mine ? 'self-end bg-[#7d1d1d]/30 border border-[#a83232]/40' : 'self-start bg-[#0e0f13]/70 border border-white/10'}`}>{m.text}</div>))}
-      </div>
-      {hint && !disabled && <div className="px-3 pt-1 text-[11px] text-parchment/45 leading-snug">{hint}</div>}
-      {disabled ? (
-        <div className="p-2 border-t border-white/10">{footer}</div>
-      ) : (
-        <div className="flex gap-1.5 p-2 border-t border-white/10">
-          <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()} placeholder={en ? 'Say something…' : '说点什么…'} className="flex-1 min-w-0 px-2.5 py-1.5 rounded-xl bg-[#0e0f13] border border-white/10 text-parchment placeholder:text-parchment/30 text-xs outline-none focus:border-[#c9a96e]/50" />
-          <button onClick={send} className="px-3 py-1.5 rounded-xl bg-[#c9a96e]/20 hover:bg-white/10 text-parchment text-xs shrink-0">{en ? 'Send' : '发送'}</button>
-        </div>
-      )}
-    </>
-  );
-}
-
 export default function FriendDock() {
   const router = useRouter();
   const pathname = usePathname();
@@ -75,7 +56,7 @@ export default function FriendDock() {
   useEffect(() => { let l: 'zh' | 'en' = 'zh'; if (pathname && pathname.startsWith('/en')) l = 'en'; else if (pathname && pathname.startsWith('/zh')) l = 'zh'; else { try { l = getClientLang(); } catch {} } setEn(l === 'en'); }, [pathname]);
   const L = (zh: string, e: string) => (en ? e : zh);
   const [me, setMe] = useState<{ uid: string; userId?: string; name: string; email: string | null; whitelisted: boolean; avatar?: string | null } | null>(null);
-  const [tab, setTab] = useState<'friends' | 'online' | 'players' | 'messages'>('online');
+  const [tab, setTab] = useState<'friends' | 'online' | 'players' | 'messages' | 'lobby'>('online');
   const [open, setOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
   const inRoom = !!pathname && pathname.startsWith('/room/');
@@ -96,6 +77,9 @@ export default function FriendDock() {
   const [roster, setRoster] = useState<string[]>([]);
   const [fOnline, setFOnline] = useState<Record<string, { roomId?: string }>>({});
   const [gMsgs, setGMsgs] = useState<Msg[]>([]);
+  const [lobby, setLobby] = useState<{ msgs: ChatMsg[]; canPost: boolean; isAdmin: boolean; loaded: boolean }>({ msgs: [], canPost: false, isAdmin: false, loaded: false });
+  const [lobbyText, setLobbyText] = useState('');
+  const lobbyAt = useRef<string>('');
   const [gText, setGText] = useState('');
 
   const [people, setPeople] = useState<Peer[]>([]);
@@ -363,6 +347,42 @@ export default function FriendDock() {
   async function applyLfg(id: string) { await fetch('/api/lfg/apply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ postId: id, message: applyMsg }) }).catch(() => {}); setApplyFor(null); setApplyMsg(''); loadLfg(); }
   // 别的页面（排行榜、每日一汤榜、大厅）点玩家名字 → 打开这张资料卡（加好友 / 私聊）
   useEffect(() => { const f = (e: any) => { const id = e?.detail?.id; if (id) openProfile(id); }; window.addEventListener('mn-profile', f); return () => window.removeEventListener('mn-profile', f); });
+  // 大厅(公共频道):打开时每 4 秒拉一次新消息
+  const lobbyOn = tab === 'lobby' && (open || isDesktop) && !(isDesktop && dockMin);
+  async function loadLobby(full = false) {
+    try {
+      const q = !full && lobbyAt.current ? `&after=${encodeURIComponent(lobbyAt.current)}` : '';
+      const d = await fetch(`/api/group-chat?channel=public${q}`, { cache: 'no-store' }).then((r) => r.json());
+      const lastAt = (d.messages || []).slice(-1)[0]?.at; if (lastAt) lobbyAt.current = lastAt;
+      const got: ChatMsg[] = (d.messages || []).map((m: any) => ({ id: m.id, text: m.text, ts: m.ts, mine: m.mine, name: m.name, avatar: m.avatar, userId: m.userId, at: m.at } as any));
+      setLobby((L0) => {
+        const base = full ? [] : L0.msgs.filter((m) => !(m.pending && got.some((g) => g.mine && g.text === m.text)));
+        const seen = new Set(base.map((m) => m.id));
+        return { msgs: [...base, ...got.filter((g) => !seen.has(g.id))].slice(-200), canPost: !!d.canPost, isAdmin: !!d.isAdmin, loaded: true };
+      });
+    } catch {}
+  }
+  useEffect(() => { if (!lobbyOn) return; if (!lobby.loaded) lobbyAt.current = ''; loadLobby(!lobby.loaded); const t = setInterval(() => loadLobby(false), 4000); return () => clearInterval(t); }, [lobbyOn]); // eslint-disable-line react-hooks/exhaustive-deps
+  async function sendLobby() {
+    const t = lobbyText.trim(); if (!t) return;
+    const tmp = 'tmp' + Date.now(); setLobbyText('');
+    setLobby((L0) => ({ ...L0, msgs: [...L0.msgs, { id: tmp, text: t, ts: Date.now(), mine: true, name: me?.name, avatar: me?.avatar, userId: me?.userId, pending: true }] }));
+    try {
+      const r = await fetch('/api/group-chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel: 'public', text: t }) });
+      const d = await r.json().catch(() => ({}));
+      if (!d.ok) {
+        setLobby((L0) => ({ ...L0, msgs: L0.msgs.map((m) => (m.id === tmp ? { ...m, pending: false, failed: true } : m)) }));
+        const why: Record<string, string> = { login: L('登录后才能在大厅说话', 'Log in to chat in the lobby'), slow: L('说得太快了,歇几秒', 'Slow down a little'), rate: L('10 分钟内说得太多了,一会儿再来', 'Too many messages — try again in a bit'), link: L('大厅里不能发外部链接', 'No outside links in the lobby'), blocked: L('这条消息没通过审核', "That message wasn't allowed"), muted: L('你暂时被禁言了', 'You are muted for now') };
+        setTip(why[d.reason] || L('没发出去,再试一次', 'Not sent — try again')); setTimeout(() => setTip(''), 3000);
+      } else loadLobby(false);
+    } catch { setLobby((L0) => ({ ...L0, msgs: L0.msgs.map((m) => (m.id === tmp ? { ...m, pending: false, failed: true } : m)) })); }
+  }
+  async function lobbyAdmin(action: 'delete' | 'mute', m: ChatMsg) {
+    await fetch('/api/group-chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel: 'public', action, id: m.id, userId: m.userId, hours: 24 }) }).catch(() => {});
+    if (action === 'delete') setLobby((L0) => ({ ...L0, msgs: L0.msgs.filter((x) => x.id !== m.id) }));
+    setTip(action === 'delete' ? L('已删除', 'Deleted') : L('已禁言 24 小时', 'Muted for 24h')); setTimeout(() => setTip(''), 2000);
+  }
+
   function openProfile(id: string) {
     setProfile({ loading: true });
     fetch('/api/player?id=' + encodeURIComponent(id)).then(async (r) => { const d = await r.json().catch(() => ({})); setProfile(d && d.ok ? d : { error: true, why: r.status === 401 ? 'login' : d?.reason === 'notfound' ? 'guest' : '' }); }).catch(() => setProfile({ error: true }));
@@ -546,6 +566,7 @@ export default function FriendDock() {
             {isDesktop && <svg width="11" height="11" viewBox="0 0 10 16" fill="currentColor" className="text-parchment/40 shrink-0"><circle cx="2" cy="3" r="1.3" /><circle cx="8" cy="3" r="1.3" /><circle cx="2" cy="8" r="1.3" /><circle cx="8" cy="8" r="1.3" /><circle cx="2" cy="13" r="1.3" /><circle cx="8" cy="13" r="1.3" /></svg>}
             <div className="flex gap-3 text-sm flex-1 min-w-0">
               {isDesktop && showFriends && <button onClick={() => setTab('messages')} className={tab === 'messages' ? 'text-parchment font-medium' : 'text-parchment/40 hover:text-parchment'}>{L('消息', 'Messages')}{unseen > 0 && <span className="text-[#e06060]"> · {unseen}</span>}</button>}
+              <button onClick={() => { setTab('lobby'); setPeer(null); }} className={tab === 'lobby' ? 'text-parchment font-medium' : 'text-parchment/40 hover:text-parchment'}>{L('大厅', 'Lobby')}</button>
               {showFriends && <button onClick={() => { setTab('friends'); setPeer(null); }} className={tab === 'friends' ? 'text-parchment font-medium' : 'text-parchment/40 hover:text-parchment'}>{L('好友', 'Friends')}{anyFriendOnline && <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 ml-1 align-middle animate-pulse" />}{graph.incoming.length > 0 && <span className="text-[#e06060]"> · {graph.incoming.length}</span>}</button>}
               {showOnline && <button onClick={() => setTab('online')} className={tab === 'online' ? 'text-parchment font-medium' : 'text-parchment/40 hover:text-parchment'}>{L('在线', 'Online')}{people.length > 0 && <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 ml-1 align-middle animate-pulse" />}{people.length > 0 && <span className="text-green-400"> {people.length}</span>}</button>}
               {showPlayers && <button onClick={() => { setTab('players'); setPeer(null); if (dir === null) loadDir(); }} className={tab === 'players' ? 'text-parchment font-medium' : 'text-parchment/40 hover:text-parchment'}>{L('玩家', 'Players')}{Object.keys(lobbyById).length > 0 && <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 ml-1 align-middle animate-pulse" />}</button>}
@@ -630,22 +651,40 @@ export default function FriendDock() {
               : rel === 'out' ? <span className="text-[10px] text-parchment/40 shrink-0">{L('待通过', 'Pending')}</span>
               : rel === 'in' ? <button onClick={() => pid && respondReq(pid, true)} className="text-xs px-2 py-0.5 rounded-xl bg-green-700/70 hover:bg-green-700 text-parchment shrink-0">{L('同意', 'Accept')}</button>
               : <span className="text-[10px] text-green-400 shrink-0">{L('好友', 'Friend')}</span>;
+            const pl = (pid && playing[pid]) || null; const onl = !!(pid && lobbyById[pid]) || comps.some((c) => c.id === pid);
+            const sub = pl?.roomId ? L('正在游戏中', 'In a game') : onl ? L('在线', 'Online') : dbMode ? L('离线也能收到消息', 'Gets your message even offline') : '';
             return (
-            <>
-              <div className="flex items-center gap-2 px-3 py-2 border-b border-white/10 text-sm">
-                <button onClick={() => setPeer(null)} className="text-parchment/50 hover:text-parchment">←</button>
-                <span className="truncate flex-1">{peer.name}</span>
-                {gated && addBtn}
-              </div>
-              <ChatBox en={en}
+              <ChatView en={en} full={!isDesktop}
+                title={peer.name} subtitle={sub} avatar={{ url: peer.avatar, name: peer.name }}
+                right={gated ? addBtn : pid ? <button onClick={() => openProfile(pid)} className="text-[12px] px-2.5 py-1 rounded-full bg-white/[0.06] text-parchment/70">{L('资料', 'Profile')}</button> : undefined}
+                onBack={() => setPeer(null)}
                 msgs={msgs} text={dmText} setText={setDmText} send={() => (dbMode ? sendDbDm(pid!) : sendDm())}
-                empty={dbMode ? (en ? `Message ${peer.name} · delivered even if offline` : `给 ${peer.name} 发消息 · 对方离线也能收到`) : (en ? `Chat with ${peer.name}` : `和 ${peer.name} 私聊`)}
-                hint={gated ? L('⚠️ 你们还不是好友，只能发 1 条消息 · 互相加好友后才能继续聊天', '⚠️ Not friends yet — you can send 1 message. Add each other to keep chatting') : undefined}
+                empty={dbMode ? L(`给 ${peer.name} 发消息,对方离线也能收到`, `Message ${peer.name} — delivered even if they're offline`) : L(`和 ${peer.name} 私聊`, `Chat with ${peer.name}`)}
+                hint={gated ? L('你们还不是好友,只能先发 1 条 · 互相加好友后就能继续聊', 'Not friends yet — you can send 1 message. Add each other to keep chatting') : undefined}
                 disabled={blocked}
-                footer={<div className="text-[11px] text-parchment/55 flex items-center gap-2"><span className="flex-1">{L('已发 1 条 · 互相加好友后才能继续聊天', 'Sent 1 · add each other to continue')}</span>{addBtn}</div>}
+                footer={<div className="flex items-center gap-2"><span className="flex-1">{L('已发 1 条 · 互相加好友后才能继续聊天', 'Sent 1 · add each other to continue')}</span>{addBtn}</div>}
               />
-            </>
             ); })()}
+
+          {tab === 'lobby' && (
+            <ChatView en={en} full={!isDesktop}
+              title={L('谜夜大厅', 'MystNight Lobby')}
+              subtitle={L(`公共频道 · 所有人都能看到${people.length ? ` · ${people.length + 1} 人在线` : ''}`, `Public channel · everyone can see this${people.length ? ` · ${people.length + 1} online` : ''}`)}
+              onBack={isDesktop ? undefined : () => { setTab('online'); setOpen(false); }}
+              msgs={lobby.msgs} showSender
+              empty={lobby.loaded ? L('大厅还很安静,打个招呼吧 —— 约人开局、聊刚才那局、找队友都行', "It's quiet here — say hi, find players, or talk about your last game") : L('加载中…', 'Loading…')}
+              text={lobbyText} setText={setLobbyText} send={sendLobby} maxLen={300}
+              placeholder={L('在大厅说点什么…', 'Say something to everyone…')}
+              hint={L('大厅所有人都能看到 · 友善一点 · 不能发外链', 'Everyone can see this · be kind · no outside links')}
+              disabled={lobby.loaded && !lobby.canPost}
+              footer={<div className="flex items-center gap-2"><span className="flex-1">{L('登录后就能在大厅说话', 'Log in to chat in the lobby')}</span><a href="/account" className="text-[12px] px-3 py-1 rounded-full bg-[#a83232] text-white">{L('登录', 'Log in')}</a></div>}
+              onAvatar={(m) => m.userId && openProfile(m.userId)}
+              onMsgMenu={lobby.isAdmin ? (m) => (m.mine ? null : <>
+                <button onClick={() => lobbyAdmin('delete', m)} className="text-[11.5px] px-2.5 py-1 rounded-full bg-white/[0.07] text-parchment/80">{L('删除', 'Delete')}</button>
+                <button onClick={() => lobbyAdmin('mute', m)} className="text-[11.5px] px-2.5 py-1 rounded-full bg-[#7d1d1d]/70 text-parchment">{L('禁言 24h', 'Mute 24h')}</button>
+              </>) : undefined}
+            />
+          )}
 
           {tab === 'players' && showPlayers && (
             <div className="px-3 py-2 min-h-[11rem] max-h-72 overflow-y-auto">

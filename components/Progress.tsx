@@ -36,6 +36,42 @@ export function LevelBar({ prog, en }: { prog: any; en: boolean }) {
   );
 }
 
+
+// 自绘图标(跟页面的暗金风格一致,不用系统 emoji)
+function ChestIcon({ open, size = 30 }: { open?: boolean; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
+      <defs>
+        <linearGradient id="mnChestG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#f6dc98" /><stop offset="1" stopColor="#b88a3e" /></linearGradient>
+        <linearGradient id="mnChestW" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#5a3b22" /><stop offset="1" stopColor="#3a2414" /></linearGradient>
+      </defs>
+      {open ? (
+        <>
+          <path d="M6 13 L9 6 H23 L26 13 Z" fill="url(#mnChestW)" stroke="url(#mnChestG)" strokeWidth="1.4" strokeLinejoin="round" />
+          <path d="M16 4v3M10.5 3.5l1.2 2.4M21.5 3.5l-1.2 2.4" stroke="#f6dc98" strokeWidth="1.3" strokeLinecap="round" />
+        </>
+      ) : (
+        <path d="M5 14 C5 8.5 9 6 16 6 C23 6 27 8.5 27 14 Z" fill="url(#mnChestW)" stroke="url(#mnChestG)" strokeWidth="1.4" />
+      )}
+      <rect x="5" y="14" width="22" height="13" rx="2.5" fill="url(#mnChestW)" stroke="url(#mnChestG)" strokeWidth="1.4" />
+      <path d="M10 6.8V27M22 6.8V27" stroke="url(#mnChestG)" strokeWidth="1.4" opacity={open ? 0 : 1} />
+      <path d="M10 14V27M22 14V27" stroke="url(#mnChestG)" strokeWidth="1.4" />
+      <rect x="13.2" y="12" width="5.6" height="6.4" rx="1.4" fill="url(#mnChestG)" />
+      <circle cx="16" cy="15.2" r="1" fill="#3a2414" />
+    </svg>
+  );
+}
+
+function TicketIcon({ size = 22 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#e6c76e" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round">
+      <path d="M3 8a2 2 0 0 0 2-2h14a2 2 0 0 0 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 0-2 2H5a2 2 0 0 0-2-2v-2a2 2 0 0 0 0-4z" />
+      <path d="M9 7v10" strokeDasharray="1.5 2" />
+      <path d="m14.5 9.8.8 1.6 1.8.3-1.3 1.2.3 1.8-1.6-.8-1.6.8.3-1.8-1.3-1.2 1.8-.3z" fill="#e6c76e" stroke="none" />
+    </svg>
+  );
+}
+
 const localDay = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
 export function CheckinCard({ en, onDone }: { en: boolean; onDone?: () => void }) {
@@ -73,7 +109,7 @@ export function CheckinCard({ en, onDone }: { en: boolean; onDone?: () => void }
             <span className="font-serif text-[17px] text-[#f3e8cf]">{L('每日打卡', 'Daily check-in')}</span>
             {d.streak > 0 && <span className="px-2 h-[20px] rounded-full bg-[#f0a35a]/15 text-[#f0a35a] text-[11.5px] flex items-center">🔥 {L(`连续 ${d.streak} 天`, `${d.streak}-day streak`)}</span>}
           </div>
-          <div className="text-[12px] text-parchment/55 mt-0.5">{L(`累计 ${d.total} 天 · 每打满 ${every} 天开一个经验宝箱`, `${d.total} days total · every ${every} days opens an XP chest`)}</div>
+          <div className="text-[12px] text-parchment/55 mt-0.5">{L(`累计 ${d.total} 天 · 满 ${every} 天开宝箱`, `${d.total} days · chest every ${every}`)}</div>
         </div>
         <button onClick={go} disabled={busy || d.checkedToday} className="shrink-0 h-10 px-5 rounded-full text-[14px] font-semibold bg-gradient-to-b from-[#ecd08f] to-[#c9a96e] text-[#1a140a] shadow-[0_4px_16px_-4px_rgba(201,169,110,.6)] disabled:from-white/[0.06] disabled:to-white/[0.06] disabled:text-parchment/45 disabled:shadow-none active:scale-95 transition">
           {d.checkedToday ? L('✓ 已打卡', '✓ Done') : busy ? '…' : L('打卡', 'Check in')}
@@ -88,8 +124,8 @@ export function CheckinCard({ en, onDone }: { en: boolean; onDone?: () => void }
             <div key={n} className={`flex items-center ${last ? '' : 'flex-1'}`}>
               {last ? (
                 <div className="flex flex-col items-center">
-                  <span className={`w-12 h-12 rounded-2xl flex items-center justify-center text-[22px] border ${done ? 'bg-gradient-to-b from-[#f3d995] to-[#c9a96e] border-[#f3d995]' : 'bg-[#2a2216] border-[#e6c76e]/60'}`}
-                    style={{ animation: pop ? 'mnPop .6s ease-out' : done ? undefined : 'mnGlow 2.2s ease-in-out infinite' }}>{done ? '✨' : '🧰'}</span>
+                  <span className={`w-12 h-12 rounded-2xl flex items-center justify-center border ${done ? 'bg-[#3a2a12] border-[#f3d995]' : 'bg-[#1f1a12] border-[#e6c76e]/55'}`}
+                    style={{ animation: pop ? 'mnPop .6s ease-out' : done ? undefined : 'mnGlow 2.2s ease-in-out infinite' }}><ChestIcon open={done} size={30} /></span>
                   <span className="mt-1 text-[10px] text-[#e6c76e] whitespace-nowrap">+{d.chestXp || 50} XP</span>
                 </div>
               ) : (
@@ -108,7 +144,7 @@ export function CheckinCard({ en, onDone }: { en: boolean; onDone?: () => void }
       {/* 头像框里程碑 */}
       <div className="mt-4 pt-3 border-t border-white/[0.07] grid grid-cols-1 sm:grid-cols-3 gap-2.5">
         <div className="flex items-center gap-3 rounded-xl bg-black/20 px-3 py-2.5">
-          <span className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center text-[19px] bg-[#3a1414] border border-[#a83232]/50">🎟️</span>
+          <span className="w-10 h-10 rounded-full shrink-0 flex items-center justify-center bg-[#2a1414] border border-[#e6c76e]/35"><TicketIcon /></span>
           <div className="flex-1 min-w-0">
             <div className="text-[12.5px] text-[#f3e8cf]">{L('免费跑团 / 剧本杀 1 次', '1 free premium game')}</div>
             <div className="mt-1 h-1.5 rounded-full bg-white/[0.07] overflow-hidden"><div className="h-full rounded-full bg-[#c9a96e]" style={{ width: Math.round((freeHave / freeEvery) * 100) + '%' }} /></div>

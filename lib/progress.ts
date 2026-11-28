@@ -9,7 +9,7 @@ export type ProgStats = {
 export function xpOf(s: Partial<ProgStats>): number {
   return Math.round(
     (s.played || 0) * 20 + (s.soupSolved || 0) * 10 + (s.dailyPlayed || 0) * 15 + (s.cocEndings || 0) * 40 +
-    (s.jbsDone || 0) * 30 + (s.botcDone || 0) * 30 + (s.listens || 0) * 6 + (s.checkins || 0) * 5 + (s.shares || 0) * 10,
+    (s.jbsDone || 0) * 30 + (s.botcDone || 0) * 30 + (s.listens || 0) * 6 + (s.checkins || 0) * 5 + Math.floor((s.checkins || 0) / CHECKIN_EVERY) * CHEST_XP + (s.shares || 0) * 10,
   );
 }
 
@@ -39,8 +39,11 @@ export const FRAMES: Frame[] = [
 ];
 export const frameCss = (id?: string | null) => FRAMES.find((f) => f.id === id)?.css || null;
 
-// 每日打卡:每累计 5 次送 1 次免费的豪华玩法(跑团/剧本杀/血染钟楼都能用)
-export const CHECKIN_EVERY = 5;
+// 每日打卡:每打满 7 次开一个经验宝箱(+50 经验);累计打满 30 天才送 1 次免费豪华局(跑团/剧本杀/血染钟楼),
+// 以后每再满 30 天送一次。免费局送得很少,主要奖励是经验、等级、头像框这些。
+export const CHECKIN_EVERY = 7;
+export const CHEST_XP = 50;
+export const FREE_GAME_EVERY = 30;
 
 export function streakFrom(days: string[], today: string): { current: number; best: number } {
   const set = new Set(days); const asc = Array.from(set).sort();

@@ -163,3 +163,6 @@ body:has(.mn-exit) .mn-stepbar { padding-left: 88px; }
 @keyframes mccTurn { 0%,100% { transform: scale(1) } 50% { transform: scale(1.06) } }
 .mcc-timer { animation: mccTimer 6s linear forwards; transform-origin: left; }
 @keyframes mccTimer { from { width: 100% } to { width: 0% } }
+
+.no-scrollbar{scrollbar-width:none;-ms-overflow-style:none}
+.no-scrollbar::-webkit-scrollbar{display:none}

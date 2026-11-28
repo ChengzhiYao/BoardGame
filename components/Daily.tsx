@@ -110,7 +110,7 @@ export function DailyResult({ en, grid }: { en: boolean; grid?: string }) {
       if (!done) { await navigator.clipboard.writeText(t); toast(en ? 'Copied — paste it anywhere' : '已复制，去群里贴一下', 'info'); done = true; }
     } catch {}
     if (done && d.loggedIn) {
-      try { const g = await fetch('/api/daily/share', { method: 'POST' }).then((x) => x.json()); if (g?.granted) { toast(en ? 'Thanks for sharing — 1 free game added (once a day)' : '分享成功,送你 1 局免费海龟汤(每天一次)', 'info'); setBump((b) => b + 1); } } catch {}
+      try { const g = await fetch('/api/daily/share', { method: 'POST' }).then((x) => x.json()); if (g?.ok) toast(en ? `Shared · +10 XP${g.shares === 1 ? ' · achievement: First Share' : g.shares === 5 ? ' · Herald frame unlocked' : ''}` : `分享成功 · +10 经验${g.shares === 1 ? ' · 解锁成就「第一次分享」' : g.shares === 5 ? ' · 解锁头像框「信使」' : ''}`, 'info'); } catch {}
     }
   }
   const cells = Array.from(String(r.grid || grid || ''));
@@ -127,7 +127,7 @@ export function DailyResult({ en, grid }: { en: boolean; grid?: string }) {
       </div>
       {cells.length > 0 && <div className="mt-3 flex flex-wrap gap-[5px]">{cells.map((c, i) => <span key={i} className="w-[18px] h-[18px] rounded-[4px]" style={{ background: ({ '🟩': '#4f9d6b', '🟥': '#b8463f', '⬜': '#3a3d44', '🟨': '#c9a54a', '✅': '#8fd3b8', '❌': '#7d1d1d' } as any)[c] || '#3a3d44' }} />)}</div>}
       <div className="mt-3.5 flex gap-2">
-        <button onClick={share} className="flex-1 h-10 rounded-xl bg-[#8fd3b8]/20 border border-[#8fd3b8]/40 text-[#e6f5ef] text-[14px]">{en ? 'Share card (no spoilers)' : '晒成绩卡（不剧透）'}{d.loggedIn && !d.shareRewarded ? (en ? ' · +1 free game' : ' · 送 1 局') : ''}</button>
+        <button onClick={share} className="flex-1 h-10 rounded-xl bg-[#8fd3b8]/20 border border-[#8fd3b8]/40 text-[#e6f5ef] text-[14px]">{en ? 'Share card (no spoilers)' : '晒成绩卡（不剧透）'}{d.loggedIn ? (en ? ' · +10 XP' : ' · +10 经验') : ''}</button>
         <a href="/daily" className="h-10 px-4 rounded-xl border border-white/10 text-parchment/70 text-[13px] flex items-center">{en ? 'Leaderboard' : '排行榜'}</a>
       </div>
       <div className="mt-2.5 text-[11.5px] text-parchment/40 text-center">{en ? `New puzzle in ${untilTomorrow(en)}` : `${untilTomorrow(en)}后出下一碗`}{d.protected ? (en ? ' · your streak is protected' : ' · 你有断签保护') : ''}</div>

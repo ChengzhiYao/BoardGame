@@ -71,7 +71,7 @@ export async function GET() {
     admin.from('rooms').select('id', { count: 'exact', head: true }),
     admin.from('messages').select('id', { count: 'exact', head: true }),
     admin.from('rooms').select('id', { count: 'exact', head: true }).gte('created_at', todayISO),
-    admin.from('players').select('id', { count: 'exact', head: true }).gte('created_at', todayISO),
+    admin.from('players').select('id', { count: 'exact', head: true }).gte('joined_at', todayISO),
     admin.from('rooms').select('id', { count: 'exact', head: true }).eq('mode', 'coc'),
     admin.from('rooms').select('id', { count: 'exact', head: true }).eq('mode', 'soup'),
     admin.from('rooms').select('id', { count: 'exact', head: true }).eq('mode', 'td'),

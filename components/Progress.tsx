@@ -75,11 +75,33 @@ function TicketIcon({ size = 22 }: { size?: number }) {
 
 const localDay = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
+// 谜夜风的小台历:黑底金边,一弯月 + 衬线日期
+function MoonDate({ size = 56 }: { size?: number }) {
+  const now = new Date(); const en = typeof document !== 'undefined' && document.documentElement.lang?.startsWith('en');
+  return (
+    <span className="relative flex flex-col items-center justify-center rounded-[10px] border border-[#c9a96e]/55 bg-[#121318]" style={{ width: size, height: size * 1.08, boxShadow: 'inset 0 0 0 3px #121318, inset 0 0 0 4px rgba(201,169,110,.25)' }}>
+      <svg width={size * 0.3} height={size * 0.22} viewBox="0 0 20 14" className="mt-0.5"><path d="M13 1.2a6 6 0 1 0 4.6 9.9A6.6 6.6 0 0 1 13 1.2z" fill="#e6c76e" /></svg>
+      <span className="font-serif font-semibold leading-none text-[#efe6d2]" style={{ fontSize: size * 0.38 }}>{now.getDate()}</span>
+      <span className="font-serif leading-none text-[#c9a96e]/75 mt-0.5" style={{ fontSize: Math.max(8, size * 0.16), letterSpacing: '.12em' }}>{en ? now.toLocaleString('en', { month: 'short' }).toUpperCase() : `${now.getMonth() + 1}月`}</span>
+    </span>
+  );
+}
+// 已签:暗红火漆印,中间一弯金月
+function WaxSeal({ size = 34 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 40 40">
+      <defs><radialGradient id="mnwax" cx="38%" cy="32%" r="70%"><stop offset="0" stopColor="#b3343a" /><stop offset=".6" stopColor="#7a1a20" /><stop offset="1" stopColor="#4a0d12" /></radialGradient></defs>
+      <path d="M20 2.5c3 0 3.6 2 6.2 2.6s4.6-.6 6.2 1.6.2 4.2 1.4 6.6 3.4 3 3.4 6.7-2.2 4.3-3.4 6.7.2 4.4-1.4 6.6-3.6 1-6.2 1.6S23 37.5 20 37.5s-3.6-2-6.2-2.6-4.6.6-6.2-1.6-.2-4.2-1.4-6.6S2.8 23.7 2.8 20s2.2-4.3 3.4-6.7-.2-4.4 1.4-6.6 3.6-1 6.2-1.6S17 2.5 20 2.5z" fill="url(#mnwax)" />
+      <circle cx="20" cy="20" r="11" fill="none" stroke="#2e080b" strokeOpacity=".55" strokeWidth="1.2" />
+      <path d="M22.5 13.5a7 7 0 1 0 4.8 11.6 7.6 7.6 0 0 1-4.8-11.6z" fill="#e6c76e" opacity=".9" />
+    </svg>
+  );
+}
 // 经验:金币
 function CoinIcon({ size = 18 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#c99a3e" /><circle cx="12" cy="12" r="7.6" fill="#e9c46a" stroke="#a8792a" strokeWidth="1" />
-      <text x="12" y="15.2" textAnchor="middle" fontSize="7.5" fontWeight="800" fill="#6b4a14" fontFamily="system-ui">XP</text></svg>
+    <svg width={size} height={size} viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5" fill="none" stroke="#c9a96e" strokeWidth="1.3" /><circle cx="12" cy="12" r="7" fill="#c9a96e" fillOpacity=".14" />
+      <text x="12" y="15.2" textAnchor="middle" fontSize="7.5" fontWeight="700" fill="#e6c76e" fontFamily="Georgia,serif">XP</text></svg>
   );
 }
 // 一格的奖励:图标 + 一行字
@@ -129,27 +151,24 @@ export function CheckinCard({ en, onDone, data, setData }: { en: boolean; onDone
   const todayN = d.checkedToday ? d.inRound : d.inRound + 1;
   const nb = d.nextBig; const now = new Date();
   return (
-    <div className="relative w-full overflow-hidden rounded-2xl border border-[#c9a96e]/30 bg-[#121318]">
-      <style>{`@keyframes mnStamp{0%{transform:scale(2.2) rotate(-18deg);opacity:0}60%{transform:scale(.92) rotate(-14deg);opacity:1}100%{transform:scale(1) rotate(-14deg);opacity:1}}@keyframes mnGlow{0%,100%{box-shadow:0 0 0 1px rgba(230,199,110,.5),0 0 8px 1px rgba(230,199,110,.25)}50%{box-shadow:0 0 0 1px rgba(230,199,110,.9),0 0 16px 4px rgba(230,199,110,.5)}}`}</style>
+    <div className="relative w-full overflow-hidden rounded-2xl border border-[#c9a96e]/25 bg-[#0e0f13] shadow-[0_30px_80px_-20px_rgba(0,0,0,.9)]" style={{ backgroundImage: 'radial-gradient(120% 60% at 50% 0%, rgba(201,169,110,.10), transparent 60%)' }}>
+      <style>{`@keyframes mnStamp{0%{transform:scale(2.2) rotate(-20deg);opacity:0}60%{transform:scale(.9) rotate(-14deg);opacity:1}100%{transform:scale(1) rotate(-14deg);opacity:1}}@keyframes mnGlow{0%,100%{box-shadow:0 0 0 1px rgba(230,199,110,.5),0 0 8px 1px rgba(230,199,110,.25)}50%{box-shadow:0 0 0 1px rgba(230,199,110,.9),0 0 16px 4px rgba(230,199,110,.5)}}`}</style>
       {/* 抬头:像台历的红头 */}
-      <div className="px-4 pt-3.5 pb-3 flex items-center gap-3" style={{ background: 'linear-gradient(180deg,#5a1a1a,#3a1012)' }}>
-        <div className="w-12 h-12 rounded-lg bg-[#f4ecd8] flex flex-col items-center justify-center shadow-inner">
-          <span className="text-[9px] leading-none text-[#8a1c1c] font-semibold">{en ? now.toLocaleString('en', { month: 'short' }).toUpperCase() : `${now.getMonth() + 1}月`}</span>
-          <span className="text-[21px] leading-none font-bold text-[#1a140a] mt-0.5">{now.getDate()}</span>
-        </div>
+      <div className="px-4 pt-4 pb-3.5 flex items-center gap-3 border-b border-[#c9a96e]/15">
+        <MoonDate size={48} />
         <div className="flex-1 min-w-0">
-          <div className="font-serif text-[18px] text-[#f8eedb]">{L('每日签到', 'Daily check-in')}</div>
-          <div className="text-[11.5px] text-[#f8eedb]/65">{L(`本轮已签 ${d.inRound} / ${d.roundLen} 天`, `${d.inRound} / ${d.roundLen} this round`)}{d.streak > 1 ? L(` · 连续 ${d.streak} 天`, ` · ${d.streak}-day streak`) : ''}</div>
+          <div className="font-serif text-[18px] tracking-wide text-[#efe6d2]">{L('夜签', 'Nightly sign-in')}</div>
+          <div className="text-[11.5px] text-parchment/50">{L(`本轮已签 ${d.inRound} / ${d.roundLen} 夜`, `${d.inRound} / ${d.roundLen} nights this round`)}{d.streak > 1 ? L(` · 连续 ${d.streak} 夜`, ` · ${d.streak}-day streak`) : ''}</div>
         </div>
-        <button onClick={go} disabled={busy || d.checkedToday} className="shrink-0 h-10 px-5 rounded-full text-[14px] font-semibold bg-gradient-to-b from-[#ecd08f] to-[#c9a96e] text-[#1a140a] shadow-[0_4px_16px_-4px_rgba(201,169,110,.6)] disabled:from-white/[0.1] disabled:to-white/[0.1] disabled:text-[#f8eedb]/60 disabled:shadow-none active:scale-95 transition">
-          {d.checkedToday ? L('今日已签', 'Done today') : busy ? '…' : L('签到', 'Check in')}
+        <button onClick={go} disabled={busy || d.checkedToday} className="shrink-0 h-10 px-5 rounded-full text-[14px] font-semibold bg-gradient-to-b from-[#ecd08f] to-[#c9a96e] text-[#1a140a] shadow-[0_4px_16px_-4px_rgba(201,169,110,.6)] disabled:from-transparent disabled:to-transparent disabled:border disabled:border-[#c9a96e]/30 disabled:text-[#c9a96e]/70 disabled:shadow-none active:scale-95 transition">
+          {d.checkedToday ? L('今夜已签', 'Signed') : busy ? '…' : L('落印', 'Sign')}
         </button>
       </div>
 
       <div className="px-3 pt-3 pb-3.5">
         {pop && (
-          <div className="mb-2.5 rounded-xl border border-[#e6c76e]/50 bg-[#2a2010] px-3 py-2 text-[13px] text-[#f3e8cf] text-center">
-            {L('签到成功,获得 ', 'Checked in! Got ')}<b className="text-[#e6c76e]">{en ? pop.en : pop.zh}</b>{pop.kind === 'frame' || pop.kind === 'bg' ? L(' · 去「我的」换上', ' · equip it in Me') : ''}
+          <div className="mb-2.5 rounded-lg border border-[#c9a96e]/40 bg-[#1a1610] px-3 py-2 text-[13px] text-[#f3e8cf] text-center">
+            {L('已落印 · 获得 ', 'Signed · got ')}<b className="text-[#e6c76e]">{en ? pop.en : pop.zh}</b>{pop.kind === 'frame' || pop.kind === 'bg' ? L(' · 去「我的」换上', ' · equip it in Me') : ''}
           </div>
         )}
         <div className="grid grid-cols-5 gap-1.5">
@@ -157,14 +176,13 @@ export function CheckinCard({ en, onDone, data, setData }: { en: boolean; onDone
             const n = i + 1; const nd = map[n]; const big = !!nd?.big; const done = n <= d.inRound; const isToday = n === todayN;
             return (
               <div key={n} title={nd?.reward ? (en ? nd.reward.en : nd.reward.zh) : L('经验 +5', '+5 XP')}
-                className={`relative rounded-lg border pt-1 pb-1.5 flex flex-col items-center gap-0.5 overflow-hidden ${big ? 'bg-gradient-to-b from-[#3a2c12] to-[#221a0c] border-[#e6c76e]/55' : 'bg-white/[0.035] border-white/[0.08]'} ${isToday && !done ? 'border-[#e6c76e]' : ''}`}
+                className={`relative rounded-[6px] border pt-1 pb-1.5 flex flex-col items-center gap-0.5 overflow-hidden ${big ? 'bg-[#1a1610] border-[#c9a96e]/50 shadow-[inset_0_0_0_3px_#1a1610,inset_0_0_0_4px_rgba(201,169,110,.22)]' : 'bg-[#15161b] border-white/[0.06]'} ${isToday && !done ? 'border-[#e6c76e]' : ''}`}
                 style={isToday && !done ? { animation: 'mnGlow 1.8s ease-in-out infinite' } : undefined}>
-                <span className={`text-[9.5px] leading-none ${isToday ? 'text-[#e6c76e] font-semibold' : 'text-parchment/45'}`}>{isToday ? L('今天', 'Today') : L(`第${n}天`, `Day ${n}`)}</span>
-                <span className={done ? 'opacity-35' : ''}><Reward r={short(nd?.reward)} big={big} /></span>
+                <span className={`font-serif text-[9.5px] leading-none ${isToday ? 'text-[#e6c76e]' : big ? 'text-[#c9a96e]/80' : 'text-parchment/35'}`}>{isToday ? L('今夜', 'Tonight') : L(`第${n}夜`, `Night ${n}`)}</span>
+                <span className={done ? 'opacity-25' : ''}><Reward r={short(nd?.reward)} big={big} /></span>
                 {done && (
                   <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <span className="w-[38px] h-[38px] rounded-full border-2 border-[#d0383a] text-[#d0383a] text-[11px] font-bold flex items-center justify-center bg-[#d0383a]/10"
-                      style={{ transform: 'rotate(-14deg)', animation: n === d.inRound && pop ? 'mnStamp .5s ease-out' : undefined }}>{L('已签', 'DONE')}</span>
+                    <span style={{ animation: n === d.inRound && pop ? 'mnStamp .5s ease-out' : undefined, transform: 'rotate(-14deg)', display: 'inline-flex' }}><WaxSeal size={34} /></span>
                   </span>
                 )}
               </div>
@@ -172,9 +190,9 @@ export function CheckinCard({ en, onDone, data, setData }: { en: boolean; onDone
           })}
         </div>
         <div className="mt-2.5 text-[11.5px] text-parchment/55 text-center">
-          {nb ? <>{L(`再签 ${nb.n - d.inRound} 天领大奖:`, `${nb.n - d.inRound} more days to the big reward: `)}<b className="text-[#e6c76e]">{en ? nb.reward?.en : nb.reward?.zh}</b></> : L('本轮大奖已全部领取', 'All big rewards claimed this round')}
+          {nb ? <>{L(`再签 ${nb.n - d.inRound} 夜可得:`, `${nb.n - d.inRound} more nights: `)}<b className="text-[#e6c76e]">{en ? nb.reward?.en : nb.reward?.zh}</b></> : L('本轮大奖已全部领取', 'All big rewards claimed this round')}
         </div>
-        <div className="mt-1 text-[10.5px] text-parchment/35 text-center">{L('金色格子是大奖 · 漏签不清零,签满 30 天开下一轮', 'Gold = big reward · missed days don’t reset · new round after 30')}</div>
+        <div className="mt-1 text-[10.5px] text-parchment/35 text-center">{L('金框是大奖 · 漏签不清零 · 签满 30 夜开下一轮', 'Gold frame = big reward · missed nights don’t reset · new round after 30')}</div>
       </div>
     </div>
   );
@@ -189,15 +207,12 @@ export function CheckinButton({ en }: { en: boolean }) {
     <>
       <style>{`@keyframes mnPulse{0%{box-shadow:0 0 0 0 rgba(230,199,110,.65)}70%{box-shadow:0 0 0 12px rgba(230,199,110,0)}100%{box-shadow:0 0 0 0 rgba(230,199,110,0)}}@keyframes mnBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}`}</style>
       <button onClick={() => setOpen(true)} aria-label={en ? 'Daily check-in' : '每日签到'} className="relative flex flex-col items-center gap-1" style={todo ? { animation: 'mnBob 1.6s ease-in-out infinite' } : undefined}>
-        <span className="relative w-[58px] h-[62px] rounded-xl overflow-hidden flex flex-col bg-[#f4ecd8] border border-[#e6c76e]/60" style={todo ? { animation: 'mnPulse 1.8s ease-out infinite' } : { opacity: 0.85 }}>
-          <span className="h-[18px] bg-[#9a2326] text-[#fbefd9] text-[10.5px] font-semibold flex items-center justify-center">{en ? now.toLocaleString('en', { month: 'short' }).toUpperCase() : `${now.getMonth() + 1}月`}</span>
-          <span className="flex-1 flex items-center justify-center text-[24px] font-bold text-[#1a140a] leading-none">{now.getDate()}</span>
-          {!todo && <span className="absolute right-1 bottom-1 w-[22px] h-[22px] rounded-full border-2 border-[#d0383a] text-[#d0383a] text-[8.5px] font-bold flex items-center justify-center" style={{ transform: 'rotate(-14deg)' }}>{en ? 'OK' : '已签'}</span>}
-          {/* 台历顶上的两个环 */}
-          <span className="absolute top-[3px] left-[14px] w-[5px] h-[5px] rounded-full bg-[#3a0d0e]" /><span className="absolute top-[3px] right-[14px] w-[5px] h-[5px] rounded-full bg-[#3a0d0e]" />
+        <span className="relative" style={todo ? { animation: 'mnPulse 2s ease-out infinite', borderRadius: 12 } : { opacity: 0.8 }}>
+          <MoonDate size={56} />
+          {!todo && <span className="absolute -right-2 -bottom-2" style={{ transform: 'rotate(-14deg)' }}><WaxSeal size={26} /></span>}
         </span>
-        <span className={`text-[11.5px] ${todo ? 'text-[#e6c76e] font-semibold' : 'text-parchment/55'}`}>{todo ? (en ? 'Check in' : '签到') : `${d.inRound}/${d.roundLen}`}</span>
-        {todo && <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-[#e04848] border-2 border-ink" />}
+        <span className={`text-[11.5px] ${todo ? 'text-[#e6c76e] font-semibold' : 'text-parchment/55'}`}>{todo ? (en ? 'Sign in' : '夜签') : `${d.inRound}/${d.roundLen}`}</span>
+        {todo && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-[#c9a96e] shadow-[0_0_8px_2px_rgba(230,199,110,.7)]" />}
       </button>
       {open && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center" onClick={() => setOpen(false)}>

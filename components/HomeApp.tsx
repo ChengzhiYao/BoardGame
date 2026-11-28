@@ -10,7 +10,6 @@ import GameFeedback from '@/components/GameFeedback';
 import EmailLogin from '@/components/EmailLogin';
 import { HomeTopBar, GameSheet } from '@/components/HomeHub';
 import { DailyCard } from '@/components/Daily';
-import { CheckinCard } from '@/components/Progress';
 import SiteFooter from '@/components/SiteFooter';
 import { LandingHero, LandingDemo, LandingWhy, LandingGames, LandingProof, LandingFaq, LandingFinal } from '@/components/Landing';
 
@@ -222,7 +221,7 @@ export default function HomeApp({ forcedLang }: { forcedLang?: Lang }) {
         onPlay={() => { quickRef.current = true; createRoom('soup'); }}
         onMore={() => document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth' })} />
       {err && <p className="-mt-16 mb-10 text-[#e06060] text-sm">{err}</p>}
-      <div className="w-full max-w-md px-5 -mt-6 mb-12 space-y-2.5"><DailyCard en={lang === 'en'} /><CheckinCard en={lang === 'en'} /></div>
+      <div className="w-full max-w-md px-5 -mt-6 mb-12 space-y-2.5"><DailyCard en={lang === 'en'} /></div>
       <LandingDemo lang={lang} busy={busy && gameMode === 'soup'} onPlay={() => { quickRef.current = true; createRoom('soup'); }} />
       <LandingWhy lang={lang} />
       <LandingGames lang={lang} onPick={(g) => (g === 'market' ? router.push('/market') : setPicked(g))} />

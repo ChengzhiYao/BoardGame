@@ -1,5 +1,5 @@
 'use client';
-import { FrameAvatar, LevelBar, CheckinCard, FramePicker } from '@/components/Progress';
+import { FrameAvatar, LevelBar, CheckinCard, FramePicker, BgPicker } from '@/components/Progress';
 // 我的收藏：称号墙 + 汤谱 + 结局 + 调查员档案
 import { useEffect, useState } from 'react';
 import { getClientLang } from '@/lib/i18n';
@@ -74,6 +74,7 @@ export default function MeClient() {
         )}
 
         <FramePicker prog={d.prog} en={en} onChange={setFrame} />
+        <BgPicker prog={d.prog} en={en} />
 
         {/* 称号墙 */}
         {([[false, L('称号', 'TITLES'), ''], [true, L('黑历史', 'BLACK MARKS'), L('没通关也算一种经历', 'Not every story ends well')]] as [boolean, string, string][]).map(([dark, head, sub]) => (

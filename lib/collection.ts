@@ -8,7 +8,7 @@ export type Stats = {
   cocEndings: number; cocGood: number; cocBad: number; cocMad: number; cocVet: number;
   jbsDone: number; botcDone: number; mccPlayed: number; companion: number; bigHost: number;
   soupPeek: number; soupGrind: number; soupWrong: number; dailyFail: number; cocDead: number; cocInsane: number;
-  checkins: number; bestCheckinStreak: number; shares: number; level: number;
+  checkins: number; bestCheckinStreak: number; shares: number; level: number; bestMonth?: number; monthXp?: number;
   listens: number; ghostNights: number; lHorror: number; lScifi: number; lRomance: number; lHealing: number; lMystery: number; lFantasy: number; lReal: number; lTogether: number;
 };
 
@@ -180,13 +180,14 @@ export async function collect(admin: any, userId: string, lang: 'zh' | 'en' = 'z
     const { data: ck } = await admin.from('checkins').select('day').eq('user_id', userId).limit(2000);
     const cdays = (ck || []).map((r: any) => String(r.day));
     stats.checkins = cdays.length; stats.bestCheckinStreak = P.streakFrom(cdays, new Date().toISOString().slice(0, 10)).best;
-    const { data: pf } = await admin.from('profiles').select('share_count, avatar_frame').eq('user_id', userId).maybeSingle();
+    const { data: pf } = await admin.from('profiles').select('share_count, avatar_frame, home_bg').eq('user_id', userId).maybeSingle();
     stats.shares = pf?.share_count || 0;
     const lv = P.levelOf(P.xpOf({ ...stats, cocEndings: stats.cocEndings }));
     stats.level = lv.level;
     const frames = P.FRAMES.map((f) => ({ id: f.id, zh: f.zh, en: f.en, dzh: f.dzh, den: f.den, css: f.css, unlocked: f.test({ ...stats, level: lv.level }) }));
+    const bgs = P.BGS.map((b) => ({ id: b.id, zh: b.zh, en: b.en, dzh: b.dzh, den: b.den, swatch: b.swatch, unlocked: b.test({ ...stats, level: lv.level }) }));
     const equipped = frames.find((f) => f.id === pf?.avatar_frame && f.unlocked)?.id || null;
-    prog = { ...lv, title: P.titleOf(lv.level, lang === 'en'), frames, frame: equipped };
+    prog = { ...lv, title: P.titleOf(lv.level, lang === 'en'), frames, frame: equipped, bgs, bg: pf?.home_bg || 'night' };
     // 记到 users 上,别处(大厅、资料卡、排行)直接读
     await admin.from('users').update({ level: lv.level, xp: lv.xp, frame: equipped }).eq('id', userId);
   } catch {}

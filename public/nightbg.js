@@ -13,8 +13,22 @@
     { c: '#8f7bd6', p: ['M4 20V9l3-5.5 3.5 4h3L17 3.5 20 9v11z', 'M9 13.5h.01M15 13.5h.01M10.5 17h3'] }, // 猫诅咒
   ];
 
+
+  // 主题:同一套夜景,换天空、月亮、雾、飘落物、闪电、暗处的眼睛。新主题只要往这里加一项。
+  // p = 飘的东西:fly 萤火 / snow 雪 / petal 花瓣 / ember 火星 / rain 雨 / bubble 气泡
+  var THEMES = {
+    night:     { sky: ['#080a16', '#10131e', '#1a1c26', '#0a0b0f'], moon: ['#f6eed6', '#d9cba4'], halo: '230,220,190', fog: '120,150,145', ground: '#040508', star: '#e8e2d0', p: 'fly', pc: '#e7c27a', flash: [18, 22], eyes: '#e04848', cards: 1 },
+    snow:      { sky: ['#0b1526', '#1a2840', '#2a3a52', '#0d1420'], moon: ['#f4f8ff', '#c9d6ea'], halo: '200,220,255', fog: '170,190,215', ground: '#060a12', star: '#e6eeff', p: 'snow', pc: '#eef4ff', flash: 0, eyes: 0, cards: 1 },
+    sakura:    { sky: ['#1a0f22', '#2e1a34', '#4a2a48', '#140b16'], moon: ['#fff0f4', '#f0c9d6'], halo: '255,200,220', fog: '200,150,180', ground: '#0c060c', star: '#ffe6ef', p: 'petal', pc: '#f5b8cc', flash: 0, eyes: 0, cards: 1 },
+    storm:     { sky: ['#05070c', '#0e121c', '#1c2230', '#07080b'], moon: 0, halo: '160,180,220', fog: '110,125,150', ground: '#020305', star: '#9aa6c0', p: 'rain', pc: '#9fb3d6', flash: [5, 8], eyes: '#e04848', cards: 1 },
+    bloodmoon: { sky: ['#14060a', '#240a10', '#3a0f14', '#0b0507'], moon: ['#ff9b8a', '#b3271f'], halo: '220,60,50', fog: '150,60,60', ground: '#070203', star: '#f0c8c0', p: 'ember', pc: '#ff7a45', flash: [25, 25], eyes: '#ff3030', cards: 1 },
+    abyss:     { sky: ['#02100f', '#06201f', '#0b2a2c', '#020809'], moon: 0, halo: '60,200,190', fog: '40,140,130', ground: '#010405', star: '#7fe0d4', p: 'bubble', pc: '#6fe3d6', flash: 0, eyes: '#5fffe0', cards: 1 },
+  };
+  window.MN_BG_THEMES = THEMES;
+
   window.startNightBg = function (cv, opts) {
     opts = opts || {};
+    var th = THEMES[opts.theme] || THEMES.night;
     var ctx = cv.getContext('2d');
     if (!ctx) return function () {};
     var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -44,7 +58,7 @@
     }
     for (i = 0; i < NC; i++) cards.push(newCard(true));
     cards.sort(function (a, b) { return a.z - b.z; });
-    for (i = 0; i < (small ? 26 : 50); i++) flies.push({ x: Math.random(), y: 0.45 + Math.random() * 0.55, a: Math.random() * 6.28, s: 0.3 + Math.random() * 0.7, ph: Math.random() * 6.28 });
+    for (i = 0; i < (th.p === 'rain' ? (small ? 90 : 180) : th.p === 'snow' || th.p === 'petal' ? (small ? 60 : 110) : (small ? 26 : 50)); i++) flies.push({ x: Math.random(), y: 0.45 + Math.random() * 0.55, a: Math.random() * 6.28, s: 0.3 + Math.random() * 0.7, ph: Math.random() * 6.28 });
     for (i = 0; i < 5; i++) fog.push({ x: Math.random(), y: 0.62 + i * 0.09, w: 0.9 + Math.random() * 0.6, v: (0.004 + Math.random() * 0.006) * (i % 2 ? 1 : -1), a: 0.05 + Math.random() * 0.05 });
 
     var eyes = { t: -1, x: 0, y: 0, next: 6 + Math.random() * 8 };
@@ -100,30 +114,32 @@
 
       // 夜空
       var sky = ctx.createLinearGradient(0, 0, 0, H);
-      sky.addColorStop(0, '#080a16'); sky.addColorStop(0.6, '#10131e'); sky.addColorStop(0.84, '#1a1c26'); sky.addColorStop(1, '#0a0b0f');
+      sky.addColorStop(0, th.sky[0]); sky.addColorStop(0.6, th.sky[1]); sky.addColorStop(0.84, th.sky[2]); sky.addColorStop(1, th.sky[3]);
       ctx.globalAlpha = 1; ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
 
       // 闪电（远处，整屏轻闪两下）
       flash.next -= dt;
-      if (flash.next <= 0 && flash.t < 0) { flash.t = 0; flash.next = 18 + Math.random() * 22; }
+      if (th.flash && flash.next <= 0 && flash.t < 0) { flash.t = 0; flash.next = th.flash[0] + Math.random() * th.flash[1]; }
       var fl = 0;
       if (flash.t >= 0) { flash.t += dt; var q = flash.t; fl = q < 0.08 ? 1 : q < 0.16 ? 0.2 : q < 0.24 ? 0.7 : Math.max(0, 0.7 - (q - 0.24) * 2.5); if (q > 0.6) flash.t = -1; }
 
       // 星星
-      for (var i = 0; i < stars.length; i++) { var s = stars[i]; var a = 0.35 + 0.35 * Math.sin(T * s.s + s.tw); ctx.globalAlpha = a; ctx.fillStyle = '#e8e2d0'; ctx.fillRect(s.x * W - mx * 8, s.y * H - my * 6, s.r, s.r); }
+      for (var i = 0; i < stars.length; i++) { var s = stars[i]; var a = 0.35 + 0.35 * Math.sin(T * s.s + s.tw); ctx.globalAlpha = a; ctx.fillStyle = th.star; ctx.fillRect(s.x * W - mx * 8, s.y * H - my * 6, s.r, s.r); }
 
       // 月亮 + 光晕
       var mxp = W * (small ? 0.87 : 0.82) - mx * 14, myp = H * (small ? 0.09 : 0.16) - my * 10, mr = small ? 20 : 38;
       var halo = ctx.createRadialGradient(mxp, myp, mr * 0.6, mxp, myp, mr * 6);
-      halo.addColorStop(0, 'rgba(230,220,190,.20)'); halo.addColorStop(1, 'rgba(230,220,190,0)');
+      halo.addColorStop(0, 'rgba(' + th.halo + ',' + (th.moon ? '.20' : '.08') + ')'); halo.addColorStop(1, 'rgba(' + th.halo + ',0)');
       ctx.globalAlpha = 1; ctx.fillStyle = halo; ctx.fillRect(0, 0, W, H);
-      var mg = ctx.createRadialGradient(mxp - mr * 0.3, myp - mr * 0.3, mr * 0.1, mxp, myp, mr);
-      mg.addColorStop(0, '#f6eed6'); mg.addColorStop(1, '#d9cba4');
-      ctx.beginPath(); ctx.arc(mxp, myp, mr, 0, 6.283); ctx.fillStyle = mg; ctx.fill();
-      ctx.fillStyle = 'rgba(150,135,100,.28)';
-      ctx.beginPath(); ctx.arc(mxp + mr * 0.25, myp + mr * 0.15, mr * 0.22, 0, 6.283); ctx.fill();
-      ctx.beginPath(); ctx.arc(mxp - mr * 0.3, myp - mr * 0.25, mr * 0.13, 0, 6.283); ctx.fill();
-      ctx.beginPath(); ctx.arc(mxp - mr * 0.1, myp + mr * 0.45, mr * 0.09, 0, 6.283); ctx.fill();
+      if (th.moon) {
+        var mg = ctx.createRadialGradient(mxp - mr * 0.3, myp - mr * 0.3, mr * 0.1, mxp, myp, mr);
+        mg.addColorStop(0, th.moon[0]); mg.addColorStop(1, th.moon[1]);
+        ctx.beginPath(); ctx.arc(mxp, myp, mr, 0, 6.283); ctx.fillStyle = mg; ctx.fill();
+        ctx.fillStyle = 'rgba(0,0,0,.14)';
+        ctx.beginPath(); ctx.arc(mxp + mr * 0.25, myp + mr * 0.15, mr * 0.22, 0, 6.283); ctx.fill();
+        ctx.beginPath(); ctx.arc(mxp - mr * 0.3, myp - mr * 0.25, mr * 0.13, 0, 6.283); ctx.fill();
+        ctx.beginPath(); ctx.arc(mxp - mr * 0.1, myp + mr * 0.45, mr * 0.09, 0, 6.283); ctx.fill();
+      }
       // 一缕云从月前飘过
       var cx2 = ((T * 6) % (W + 300)) - 150;
       ctx.save(); ctx.translate(cx2, myp + mr * 0.2); ctx.scale(1, 0.18);
@@ -131,7 +147,7 @@
       ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(0, 0, 160, 0, 6.283); ctx.fill(); ctx.restore();
 
       // 远山/屋脊剪影（钟楼）
-      ctx.globalAlpha = 1; ctx.fillStyle = '#040508';
+      ctx.globalAlpha = 1; ctx.fillStyle = th.ground;
       ctx.beginPath(); var base = H * 0.86 - my * 12; ctx.moveTo(0, H);
       for (var x = 0; x <= W; x += 24) { var hh = base - (Math.sin(x * 0.011 + 1.3) * 16 + Math.sin(x * 0.027) * 9); ctx.lineTo(x - mx * 20, hh); }
       ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
@@ -141,7 +157,7 @@
       var cand = 0.55 + 0.25 * Math.sin(T * 2.1) + 0.12 * Math.sin(T * 7.3); ctx.fillStyle = 'rgba(231,178,90,' + cand + ')'; ctx.shadowColor = '#e7b25a'; ctx.shadowBlur = 10; ctx.fillRect(tx + 7, ty - 55, 6, 9); ctx.fillRect(tx + 52, ty - 6, 8, 9); ctx.shadowBlur = 0;
 
       // 卡牌
-      for (i = 0; i < cards.length; i++) {
+      for (i = 0; th.cards && i < cards.length; i++) {
         var c = cards[i];
         if (!reduce) { c.y -= c.vy * dt * 2.2; c.flip += c.vf * dt; c.rot += c.vr * dt * 0.2; }
         if (c.y < -0.25) { cards[i] = newCard(false); cards[i].z = c.z; }
@@ -154,28 +170,45 @@
         var fx = f.x * W - mx * 30, fy = f.y * H, fw = f.w * W;
         ctx.save(); ctx.translate(fx, fy); ctx.scale(1, 0.22);
         var fg = ctx.createRadialGradient(0, 0, 0, 0, 0, fw * 0.5);
-        fg.addColorStop(0, 'rgba(120,150,145,' + f.a + ')'); fg.addColorStop(1, 'rgba(120,150,145,0)');
+        fg.addColorStop(0, 'rgba(' + th.fog + ',' + f.a + ')'); fg.addColorStop(1, 'rgba(' + th.fog + ',0)');
         ctx.globalAlpha = 1; ctx.fillStyle = fg; ctx.beginPath(); ctx.arc(0, 0, fw * 0.5, 0, 6.283); ctx.fill(); ctx.restore();
       }
 
-      // 萤火
+      // 飘的东西(按主题:萤火 / 雪 / 花瓣 / 火星 / 雨 / 气泡)
+      var pt = th.p;
       for (i = 0; i < flies.length; i++) {
-        var p = flies[i]; p.a += (Math.random() - 0.5) * 0.3; p.x += Math.cos(p.a) * p.s * dt * 0.02; p.y += Math.sin(p.a) * p.s * dt * 0.015;
-        if (p.x < 0) p.x = 1; if (p.x > 1) p.x = 0; if (p.y < 0.4) p.y = 1; if (p.y > 1) p.y = 0.4;
-        var gl = 0.5 + 0.5 * Math.sin(T * 2 + p.ph);
-        ctx.globalAlpha = gl * 0.8; ctx.fillStyle = '#e7c27a'; ctx.shadowColor = '#e7c27a'; ctx.shadowBlur = 8;
-        ctx.beginPath(); ctx.arc(p.x * W - mx * 25, p.y * H - my * 15, 1.4, 0, 6.283); ctx.fill();
+        var p = flies[i];
+        if (pt === 'fly') {
+          p.a += (Math.random() - 0.5) * 0.3; p.x += Math.cos(p.a) * p.s * dt * 0.02; p.y += Math.sin(p.a) * p.s * dt * 0.015;
+          if (p.x < 0) p.x = 1; if (p.x > 1) p.x = 0; if (p.y < 0.4) p.y = 1; if (p.y > 1) p.y = 0.4;
+          var gl = 0.5 + 0.5 * Math.sin(T * 2 + p.ph);
+          ctx.globalAlpha = gl * 0.8; ctx.fillStyle = th.pc; ctx.shadowColor = th.pc; ctx.shadowBlur = 8;
+          ctx.beginPath(); ctx.arc(p.x * W - mx * 25, p.y * H - my * 15, 1.4, 0, 6.283); ctx.fill();
+          continue;
+        }
+        if (p.init !== pt) { p.init = pt; p.y = Math.random(); p.x = Math.random(); }
+        var fall = pt === 'rain' ? 1.6 : pt === 'snow' ? 0.06 : pt === 'petal' ? 0.07 : pt === 'ember' ? -0.07 : -0.05;
+        if (!reduce) { p.y += fall * p.s * dt * (pt === 'rain' ? 1 : 1.4); p.x += (pt === 'rain' ? 0.12 : Math.sin(T * 0.8 + p.ph) * 0.015) * dt; }
+        if (p.y > 1.05) { p.y = -0.05; p.x = Math.random(); } if (p.y < -0.05) { p.y = 1.05; p.x = Math.random(); }
+        if (p.x > 1.05) p.x = -0.05; if (p.x < -0.05) p.x = 1.05;
+        var X = p.x * W - mx * 25 * p.s, Y = p.y * H - my * 15 * p.s;
+        ctx.shadowBlur = 0; ctx.fillStyle = th.pc; ctx.strokeStyle = th.pc;
+        if (pt === 'snow') { ctx.globalAlpha = 0.5 + 0.4 * p.s; ctx.beginPath(); ctx.arc(X, Y, 0.8 + p.s * 1.8, 0, 6.283); ctx.fill(); }
+        else if (pt === 'rain') { ctx.globalAlpha = 0.25 + 0.3 * p.s; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(X, Y); ctx.lineTo(X - 3, Y + 14 * p.s + 6); ctx.stroke(); }
+        else if (pt === 'petal') { ctx.save(); ctx.translate(X, Y); ctx.rotate(T * 1.2 + p.ph); ctx.globalAlpha = 0.55 + 0.35 * p.s; ctx.beginPath(); ctx.ellipse(0, 0, 3.5 * (0.6 + p.s), 1.8 * (0.6 + p.s), 0, 0, 6.283); ctx.fill(); ctx.restore(); }
+        else if (pt === 'ember') { var fl2 = 0.5 + 0.5 * Math.sin(T * 6 + p.ph); ctx.globalAlpha = 0.4 + 0.5 * fl2; ctx.shadowColor = th.pc; ctx.shadowBlur = 6; ctx.beginPath(); ctx.arc(X, Y, 0.8 + p.s * 1.2, 0, 6.283); ctx.fill(); }
+        else if (pt === 'bubble') { ctx.globalAlpha = 0.25 + 0.35 * p.s; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(X, Y, 1.5 + p.s * 3, 0, 6.283); ctx.stroke(); }
       }
       ctx.shadowBlur = 0;
 
       // 暗处一双眼睛：慢慢睁开、眨一下、闭上
       eyes.next -= dt;
-      if (eyes.next <= 0 && eyes.t < 0) { eyes.t = 0; eyes.x = (Math.random() < 0.5 ? 0.06 + Math.random() * 0.22 : 0.72 + Math.random() * 0.22); eyes.y = 0.74 + Math.random() * 0.16; eyes.next = 10 + Math.random() * 14; }
+      if (th.eyes && eyes.next <= 0 && eyes.t < 0) { eyes.t = 0; eyes.x = (Math.random() < 0.5 ? 0.06 + Math.random() * 0.22 : 0.72 + Math.random() * 0.22); eyes.y = 0.74 + Math.random() * 0.16; eyes.next = 10 + Math.random() * 14; }
       if (eyes.t >= 0) {
         eyes.t += dt; var e = eyes.t, open = e < 0.8 ? e / 0.8 : e < 2.2 ? 1 : e < 2.35 ? 0.1 : e < 3.4 ? 1 : Math.max(0, 1 - (e - 3.4) / 0.6);
         if (e > 4) eyes.t = -1;
         var ex = eyes.x * W, ey = eyes.y * H, sp = small ? 9 : 12;
-        ctx.globalAlpha = 0.9; ctx.fillStyle = '#e04848'; ctx.shadowColor = '#e04848'; ctx.shadowBlur = 14;
+        ctx.globalAlpha = 0.9; ctx.fillStyle = th.eyes || '#e04848'; ctx.shadowColor = th.eyes || '#e04848'; ctx.shadowBlur = 14;
         for (var j = -1; j <= 1; j += 2) { ctx.beginPath(); ctx.ellipse(ex + j * sp, ey, 3.2, Math.max(0.3, 2.4 * open), 0, 0, 6.283); ctx.fill(); }
         ctx.shadowBlur = 0;
       }
